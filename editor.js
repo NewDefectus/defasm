@@ -1,12 +1,10 @@
 var asmTextInput = document.getElementById("inputArea");
 var asmTextOutput = document.getElementById("outputArea");
 
-var textEncoder = new TextEncoder();
-
 // Set the output
 function writeToOutput(bytes)
 {
-    asmTextOutput.textContent = [...bytes].reduce((a,x) =>
+    asmTextOutput.textContent = bytes.slice(0, machineCodeIndex).reduce((a,x) =>
         a + x.toString(16)
         .toUpperCase()
         .padStart(2, '0') + ' '
@@ -37,5 +35,6 @@ asmTextInput.onkeydown = function(event)
 // Input receiving
 asmTextInput.oninput = function(event)
 {
-    writeToOutput(textEncoder.encode(this.value))
+    compileAsm(this.value);
+    writeToOutput(machineCode);
 }
