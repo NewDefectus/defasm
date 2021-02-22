@@ -1,5 +1,5 @@
 #asmDataTable {
-    width: 100%;
+    width: 50%;
     height: 100%;
     border-spacing: 0
 }
@@ -22,5 +22,5 @@ td {
     resize: none;
 
     font-family: monospace;
-    font-size: 1.2em;
+    font-size: 2em;
 }

@@ -1,6 +1,14 @@
+var srcTokens, token, match;
+var labels = {};
+var macros = {};
+
+
+var next = () => token = (match = srcTokens.next()).done ? '\n' : macros[match.value[0]] || match.value[0];
+
+
 function Register(text)
 {
-    
+    this.high = false;
 }
 
 function Immediate(text, size = null)
@@ -56,65 +64,56 @@ function Address()
 
 
 
-/*
-// Update the next significant token from the source code
-function parseToken()
+var srcTokens, rawToken, token;
+var labels = {};
+
+// Compile Assembly from source code into machine code
+function compileAsm(source)
 {
-    rawToken = srcTokens.shift();
-    switch(rawToken)
-    {
-        case undefined:
-            // EOF
-            return;
-        
-        case '#':
-            // Comment
-            if(!expect.end) throw "Unexpected comment";
-            let nextNewline = srcTokens.indexOf("\n");
-            if(nextNewline < 0)
-            {
-                // EOF
-                return;
-            }
-            srcTokens = srcTokens.slice(nextNewline + 1);
-            return parseToken();
-        
-        case '\n':
-        case ';':
-            // End of instruction
-            if(!expect.end) throw "Incomplete instruction";
-            return;
-        
-        case '%':
-            // Register
-            if(!expect.register) throw "Unexpected register";
-            return;
-        
-        case '$':
-            // Immediate
-            if(!expect.number) throw "Unexpected immediate";
-            let parsedValue = parseInt(parseToken());
-            if(parsedValue == NaN)
-            {
-                throw "Couldn't parse number";
-            }
-            return parsedValue;
-        
-        case ',':
-            // Operand separator
-            if(!expect.register) throw "Unexpected comma";
-            return;
-    }
-    // (default)
+    resetMachineCode();
+    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.]+|[\S\n]/g);
 
-    // Whitespace check (spaces, tabs, etc)
-    if(/\s/.test(rawToken))
+    let opcode;
+    while(next(), !match.done)
     {
-        // Treat as a token separator
-        return;
+        try
+        {
+            if(token == '#') // "horrible gas comment" - tcc
+            {
+                while(next() != '\n');
+            }
+            else if(token[0] == '.') // Assembly directive
+            {
+                parseDirective();
+            }
+            else // Instruction, label or macro
+            {
+                opcode = token;
+                switch(next())
+                {
+                    case ':': // Label definition
+                        // new label with opcode
+                        break;
+                    
+                    case '=': // Macro definition
+                        macros[opcode] = "";
+                        while(next() != '\n') macros[opcode] += token;
+                        break;
+                    
+                    default: // Instruction
+                        parseInstruction(opcode);
+                }
+            }
+        }
+        catch(e)
+        {
+            /* In case of an error, just skip the current instruction and go on.
+            Remove this try/catch block if you want the entire code to compile */
+            while(token != '\n' && token != ';')
+                next();
+
+        }
     }
 
-    if()
-
-
-}*/
+    return machineCode;
+}

@@ -1,6 +1,4 @@
 var machineCode, machineCodeIndex;
-var srcTokens, rawToken, token;
-var labels = {};
 
 const MC_BUFFER_SIZE = 32;
 
@@ -33,31 +31,4 @@ function genInteger(c, byteSize)
         genByte(c);
         c >>= 8n;
     }
-}
-
-
-
-
-
-// Compile Assembly from source code into machine code
-function compileAsm(source)
-{
-    resetMachineCode();
-    srcTokens = source.split(/([:;\s.$%,()#*])/).filter(x=>x); // Filter removes empty strings
-
-    // First, we'll find all the labels in the code
-    let tok;
-    while(tok = srcTokens.shift())
-    {
-        try {
-            if(tok == '$')
-            {
-                let imm = new Immediate(srcTokens.shift());
-                genInteger(imm.value, imm.size / 8);
-            }
-        }
-        catch(e) {};
-    }
-
-    return machineCode;
 }
