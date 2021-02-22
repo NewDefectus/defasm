@@ -69,10 +69,6 @@ function Address()
     this.factor = null; // Immediate
 }
 
-
-
-var srcTokens, rawToken, token;
-
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
@@ -92,7 +88,7 @@ function compileAsm(source)
             {
                 continue;
             }
-            
+
             if(token == '#') // "horrible gas comment" - tcc
             {
                 while(next() != '\n');
