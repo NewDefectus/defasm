@@ -2,8 +2,15 @@ var srcTokens, token, match;
 var labels = {};
 var macros = {};
 
+var macroBuffer = [];
 
-var next = () => token = (match = srcTokens.next()).done ? '\n' : macros[match.value[0]] || match.value[0];
+var next = defaultNext = () => 
+    token = (match = srcTokens.next()).done ? '\n' :
+    macros[match.value[0]] ?
+        (macroBuffer = [...macros[match.value[0]]], next = () =>
+            token = macroBuffer.shift() || (next = defaultNext)()
+        )()
+    :  match.value[0];
 
 
 function Register(text)
@@ -65,12 +72,15 @@ function Address()
 
 
 var srcTokens, rawToken, token;
-var labels = {};
 
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
     resetMachineCode();
+    next = defaultNext;
+    labels = {};
+    macros = {};
+
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.]+|[\S\n]/g);
 
     let opcode;
@@ -78,6 +88,11 @@ function compileAsm(source)
     {
         try
         {
+            if(token == '\n')
+            {
+                continue;
+            }
+            
             if(token == '#') // "horrible gas comment" - tcc
             {
                 while(next() != '\n');
@@ -96,12 +111,13 @@ function compileAsm(source)
                         break;
                     
                     case '=': // Macro definition
-                        macros[opcode] = "";
-                        while(next() != '\n') macros[opcode] += token;
+                        macros[opcode] = [];
+                        while(next() != '\n') macros[opcode].push(token);
                         break;
                     
                     default: // Instruction
                         parseInstruction(opcode);
+                        break;
                 }
             }
         }
@@ -109,6 +125,7 @@ function compileAsm(source)
         {
             /* In case of an error, just skip the current instruction and go on.
             Remove this try/catch block if you want the entire code to compile */
+            console.warn(e);
             while(token != '\n' && token != ';')
                 next();
 
