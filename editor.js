@@ -35,6 +35,5 @@ asmTextInput.onkeydown = function(event)
 // Input receiving
 asmTextInput.oninput = function(event)
 {
-    compileAsm(this.value);
-    writeToOutput(machineCode);
+    writeToOutput(compileAsm(this.value));
 }

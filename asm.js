@@ -1,4 +1,6 @@
 var machineCode, machineCodeIndex;
+var srcTokens, rawToken, token;
+var labels = {};
 
 const MC_BUFFER_SIZE = 32;
 
@@ -11,7 +13,7 @@ function resetMachineCode()
 // Generate a single byte of machine code
 function genByte(c)
 {
-    machineCode[machineCodeIndex] = c;
+    machineCode[machineCodeIndex] = parseInt(c & 0xffn);
     machineCodeIndex++;
 
     // Resize the buffer if necessary
@@ -29,9 +31,10 @@ function genInteger(c, byteSize)
     while(byteSize--)
     {
         genByte(c);
-        c >>= 8;
+        c >>= 8n;
     }
 }
+
 
 
 
@@ -40,10 +43,21 @@ function genInteger(c, byteSize)
 function compileAsm(source)
 {
     resetMachineCode();
+    srcTokens = source.split(/([:;\s.$%,()#*])/).filter(x=>x); // Filter removes empty strings
 
-    // First, we'll split the source code into instructions
-    for(let c of source)
+    // First, we'll find all the labels in the code
+    let tok;
+    while(tok = srcTokens.shift())
     {
-        genInteger(c.charCodeAt(), 2);
+        try {
+            if(tok == '$')
+            {
+                let imm = new Immediate(srcTokens.shift());
+                genInteger(imm.value, imm.size / 8);
+            }
+        }
+        catch(e) {};
     }
+
+    return machineCode;
 }
