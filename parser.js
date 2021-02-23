@@ -12,52 +12,15 @@ var next = defaultNext = () =>
         )()
     :  match.value[0];
 
+function ungetToken(t)
+{
+    next = () => token = (next = defaultNext, t);
+}
+
 
 function Register(text)
 {
     this.high = false;
-}
-
-function Immediate(text, size = null)
-{
-    try
-    {
-        if((text.startsWith("'") || text.startsWith('"')) && text.endsWith(text[0]))
-        {
-            // Parse as character constant
-            this.value = 0n;
-            for(let i = 1; i < text.length - 1; i++)
-            {
-                this.value <<= 8n;
-                this.value += BigInt(text.charCodeAt(i));
-            }
-        }
-        else
-        {
-            this.value = BigInt(text);
-        }
-    
-
-        if(size != null)
-        {
-            this.size = size;
-        }
-        else
-        {
-            // Figure out the size through the value
-            this.size = 8;
-            this.size *= (this.value >= 0x100n) + 1;
-            this.size *= (this.value >= 0x10000n) + 1;
-            this.size *= (this.value >= 0x100000000n) + 1;
-        }
-
-        this.value &= (1n << BigInt(this.size)) - 1n;
-
-    }
-    catch(e)
-    {
-        throw "Couldn't parse immediate";
-    }
 }
 
 function Address()
@@ -77,7 +40,7 @@ function compileAsm(source)
     labels = {};
     macros = {};
 
-    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.]+|[\S\n]/g);
+    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
 
     let opcode;
     while(next(), !match.done)

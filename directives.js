@@ -4,14 +4,12 @@ function parseDirective()
     switch(token)
     {
         case '.byte':
-            while(next() != ';' && token != '\n')
+            do
             {
-                if(token != ',')
-                {
-                    imm = new Immediate(token, 8);
-                    genByte(imm.value);
-                }
+                imm = parseImmediate(opTypes.IM8)[0];
+                genByte(imm);
             }
+            while(token == ',')
             break;
         
         case '.string':
