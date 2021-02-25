@@ -6,7 +6,7 @@ function parseDirective()
         case '.byte':
             do
             {
-                imm = parseImmediate(opTypes.IM8)[0];
+                imm = parseImmediate(OPT.IM8)[0];
                 genByte(imm);
             }
             while(token == ',')

@@ -4,17 +4,25 @@ var macros = {};
 
 var macroBuffer = [];
 
+function lowerCase(str)
+{
+    if(str[0] == '"' || str[0] == "'")
+        return str;
+    return str.toLowerCase();
+}
+
 var next = defaultNext = () => 
     token = (match = srcTokens.next()).done ? '\n' :
     macros[match.value[0]] ?
         (macroBuffer = [...macros[match.value[0]]], next = () =>
-            token = macroBuffer.shift() || (next = defaultNext)()
+            (console.log(macroBuffer), token = macroBuffer.shift() || (next = defaultNext)())
         )()
-    :  match.value[0];
+    :  lowerCase(match.value[0]);
 
 function ungetToken(t)
 {
-    next = () => token = (next = defaultNext, t);
+    let oldNext = next;
+    next = () => token = (next = oldNext, t);
 }
 
 
@@ -47,7 +55,7 @@ function compileAsm(source)
     {
         try
         {
-            if(token == '\n')
+            if(token == '\n' || token == ';')
             {
                 continue;
             }
@@ -72,6 +80,7 @@ function compileAsm(source)
                     case '=': // Macro definition
                         macros[opcode] = [];
                         while(next() != '\n') macros[opcode].push(token);
+                        console.log(macros[opcode])
                         break;
                     
                     default: // Instruction
@@ -79,6 +88,9 @@ function compileAsm(source)
                         break;
                 }
             }
+
+            if(token != ';' && token != '\n')
+                throw "Expected end of line";
         }
         catch(e)
         {

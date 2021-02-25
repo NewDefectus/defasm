@@ -1,4 +1,4 @@
-const opTypes = Object.assign({}, ...[
+const OPT = Object.assign({}, ...[
 "REG8",
 "REG16",
 "REG32",
@@ -33,7 +33,7 @@ const opTypes = Object.assign({}, ...[
 "EA" // = 0x80?
 ].map((x, i) => ({[x]: 1 << i})));
 
-opTypes.REG = opTypes.REG8 | opTypes.REG16 | opTypes.REG32 | opTypes.REG64;
+OPT.REG = OPT.REG8 | OPT.REG16 | OPT.REG32 | OPT.REG64;
 
 
 
@@ -52,23 +52,24 @@ const registers = Object.assign({}, ...[
 "spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
 
-const suffixes = {"b": opTypes.REG8, "w": opTypes.REG16, "l": opTypes.REG32, "d": opTypes.REG32, "q": opTypes.REG64};
+const suffixes = {"b": OPT.REG8, "w": OPT.REG16, "l": OPT.REG32, "d": OPT.REG32, "q": OPT.REG64};
 
 function getImmType(value)
 {
-    let type = opTypes.IM32;
+    let type = OPT.IM32;
     if(value < 0n)
     {
         if(value >= -0x80n)
-            type |= opTypes.IM8S;
+            type |= OPT.IM8S;
         else if(value < -0x80000000)
-            type = opTypes.IM64;
+            type = OPT.IM64;
     }
     else
     {
-        type |= (value < 0x100n) && opTypes.IM8;
-        type |= (value < 0x10000n) && opTypes.IM16;
-        if(value >= 0x100000000n) type = opTypes.IM64;
+        type |= (value < 0x80n) && OPT.IM8S;
+        type |= (value < 0x100n) && OPT.IM8;
+        type |= (value < 0x10000n) && OPT.IM16;
+        if(value >= 0x100000000n) type = OPT.IM64;
     }
 
     return type;
@@ -76,9 +77,9 @@ function getImmType(value)
 
 function maxOfType(type)
 {
-    return type & (opTypes.IM8 | opTypes.IM8S) ? 8n :
-        type & opTypes.IM16 ? 16n :
-        type & opTypes.IM32 ? 32n : 64n;
+    return type & (OPT.IM8 | OPT.IM8S) ? 8n :
+        type & OPT.IM16 ? 16n :
+        type & OPT.IM32 ? 32n : 64n;
 }
 
 
@@ -90,26 +91,26 @@ function parseRegister()
     {
         type |= 1 << (reg >> 3);
         reg &= 7;
-        if((type & opTypes.REG) && reg == 0)
-            type |= opTypes.EAX;
-        else if(type == opTypes.REG8 && reg == 1)
-            type |= opTypes.CL;
-        else if(type == opTypes.REG16 && reg == 2)
-            type |= opTypes.DX;
+        if((type & OPT.REG) && reg == 0)
+            type |= OPT.EAX;
+        else if(type == OPT.REG8 && reg == 1)
+            type |= OPT.CL;
+        else if(type == OPT.REG16 && reg == 2)
+            type |= OPT.DX;
     }
     else if(reg >= registers.dr0 && reg <= registers.dr7)
     {
-        type = opTypes.DB;
+        type = OPT.DB;
         reg -= registers.dr0;
     }
     else if(reg >= registers.es && reg <= registers.gs)
     {
-        type = opTypes.SEG;
+        type = OPT.SEG;
         reg -= registers.es;
     }
     else if(reg == registers.st)
     {
-        type = opTypes.ST;
+        type = OPT.ST;
         reg = 0;
         if(next() == '(')
         {
@@ -118,11 +119,11 @@ function parseRegister()
                 throw "Unknown register";
         }
         if(reg == 0)
-            type |= opTypes.ST0;
+            type |= OPT.ST0;
     }
     else if(reg >= registers.spl && reg <= registers.dil)
     {
-        type = opTypes.REG8 | opTypes.REG8_LOW;
+        type = OPT.REG8 | OPT.REG8_LOW;
         reg -= registers.spl - 4;
     }
     else if(token[0] == 'r')// Attempt to parse the register name as a numeric (e.g. r10)
@@ -131,7 +132,7 @@ function parseRegister()
         if(isNaN(reg) || reg <= 0 || reg >= 16)
             throw "Unknown register";
 
-        type = suffixes[token[token.length - 1]] || opTypes.REG64;
+        type = suffixes[token[token.length - 1]] || OPT.REG64;
     }
     else
         throw "Unknown register";
@@ -148,13 +149,15 @@ function parseImmediate(type = null)
     
     try
     {
-        if((token.startsWith("'") || token.startsWith('"')) && token.endsWith(text[0]))
+        if(token == '\n')
+            throw "";
+        if((token.startsWith("'") || token.startsWith('"')) && token.endsWith(token[0]))
         {
             // Parse as character constant
             for(let i = 1; i < token.length - 1; i++)
             {
                 value <<= 8n;
-                value += BigInt(text.charCodeAt(i));
+                value += BigInt(token.charCodeAt(i));
             }
         }
         else
@@ -168,7 +171,7 @@ function parseImmediate(type = null)
     }
     catch(e)
     {
-        throw e;//"Couldn't parse immediate";
+        throw "Couldn't parse immediate: " + e;
     }
 }
 
@@ -179,7 +182,7 @@ function parseOperand()
 
     if(token == '*')
     {
-        indir = opTypes.INDIR;
+        indir = OPT.INDIR;
         next();
     }
 
@@ -195,7 +198,7 @@ function parseOperand()
     {
         let tempType = 0;
         reg2 = reg = -1;
-        type = opTypes.EA;
+        type = OPT.EA;
         if(token != '(')
         {
             ungetToken(token);
@@ -223,11 +226,11 @@ function parseOperand()
                     type |= tempType;
                 }
             }
-            if(type & opTypes.REG32) type |= opTypes.EA32;
+            if(type & OPT.REG32) type |= OPT.EA32;
             if(token != ')') next();
         }
 
-        if(reg == -1 && reg2 == -1) type |= opTypes.ADDR;
+        if(reg == -1 && reg2 == -1) type |= OPT.ADDR;
     }
 
     type |= indir;
