@@ -86,7 +86,8 @@ Object.assign(OPF, {
 var OPFF = {
     "rm": f => f({type: OPT.REG}) && f({type: OPT.MEM}),
     "r": f => f({type: OPT.REG}) && !f({type: OPT.MEM}),
-    "imm": f => f({type: OPT.IMM})
+    "imm": f => f({type: OPT.IMM}),
+    "moff": f => f({type: OPT.MEM, reg: -1})
 }
 
 var mnemonics = {
