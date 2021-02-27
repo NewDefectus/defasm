@@ -118,5 +118,8 @@ dec: [],
 not: [],
 neg: [],
 mul: [],
-div: []
+div: [],
+nop: [
+    new M(0x90, REG_NON)
+]
 }

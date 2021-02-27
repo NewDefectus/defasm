@@ -67,8 +67,8 @@ function parseInstruction(opcode)
         next();
     }
 
-    console.log(operands);
-    if(size < 0) throw "Cannot infer operand size";
+    //console.log(operands);
+    if(size < 0 && operands.length > 0) throw "Cannot infer operand size";
     for(let o of operands) o.size = size;
 
     let i;
