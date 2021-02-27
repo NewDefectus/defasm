@@ -24,11 +24,11 @@ function genByte(c)
 }
 
 // Generate an integer constant into machine code
-function genInteger(c, byteSize)
+function genInteger(c, size)
 {
-    while(byteSize--)
+    do
     {
         genByte(c);
         c >>= 8n;
-    }
+    } while(size -= 8);
 }

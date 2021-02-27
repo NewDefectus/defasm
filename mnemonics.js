@@ -48,10 +48,10 @@ const AND = (f1, f2) => (o) => f1(o) && f2(o);
 const OR = (f1, f2) => (o) => f1(o) || f2(o);
 
 const OPF = {
-"s8": o => o.size == 8,
-"s16": o => o.size == 16,
-"s32": o => o.size == 32,
-"s64": o => o.size == 64,
+"s8": o => o.size == 8 || o.size == undefined,
+"s16": o => o.size == 16 || o.size == undefined,
+"s32": o => o.size == 32 || o.size == undefined,
+"s64": o => o.size == 64 || o.size == undefined,
 "r": o => o.type == OPT.REG,
 "m": o => o.type == OPT.MEM,
 "rm": o => o.type == OPT.REG || o.type == OPT.MEM,
@@ -83,6 +83,12 @@ Object.assign(OPF, {
 "imm64": AND(OPF.imm, OPF.s64),
 });
 
+var OPFF = {
+    "rm": f => f({type: OPT.REG}) && f({type: OPT.MEM}),
+    "r": f => f({type: OPT.REG}) && !f({type: OPT.MEM}),
+    "imm": f => f({type: OPT.IMM})
+}
+
 var mnemonics = {
 mov: [
     ...MB(0xA0, REG_NON, OPF.moffs, OPF.eax),
@@ -104,7 +110,7 @@ or: [],
 and: [],
 cmp: [],
 push: [
-    new M64(0x50, REG_OP, OR(OPF.rm64, OPF.rm16)),
+    new M64(0x50, REG_OP, OR(OPF.r64, OPF.r16)),
     new M(0x6A, REG_NON, OPF.imm8),
     new M(0x68, REG_NON, OR(OPF.imm16, OPF.imm32)),
     new M(0x06, REG_NON, o => OPF.seg(o) && o.reg == 0),

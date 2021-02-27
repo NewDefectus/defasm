@@ -130,6 +130,7 @@ function Operand()
 {
     this.reg = this.reg2 = -1;
     this.shift = -1;
+    this.value = -1;
     this.indir = false;
     this.type = null;
     this.prefixRequests = new Set();

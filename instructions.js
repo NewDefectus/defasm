@@ -2,6 +2,7 @@ function parseInstruction(opcode)
 {
     let operand = null, size = -1, hasRex = null, rexVal = 0x40;
     let prefsToGen = new Set();
+    let reg = null, rm = null, imm = null, disp = null;
 
     if(prefixes.hasOwnProperty(opcode))
     {
@@ -71,9 +72,9 @@ function parseInstruction(opcode)
     if(size < 0 && operands.length > 0) throw "Cannot infer operand size";
     for(let o of operands) o.size = size;
 
-    let i;
+    let i, mnemonic, found = false;
     mnemonicLoop:
-    for(let mnemonic of variations)
+    for(mnemonic of variations)
     {
         if(mnemonic.operandFilters.length != operands.length) continue;
         for(i = 0; i < operands.length; i++)
@@ -81,12 +82,33 @@ function parseInstruction(opcode)
             if(!mnemonic.operandFilters[i](operands[i])) continue mnemonicLoop;
         }
 
-        prefsToGen.forEach(genByte);
-        if(size == 16) genByte(0x66);
-        if(size == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
-        if(hasRex) genByte(rexVal);
-        genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? operands[0].reg : 0));
-        return;
+        found = true;
+        break;
     }
-    throw "Invalid operands";
+    if(!found) throw "Invalid operands";
+
+
+
+    // Finding the reg/rm/immediate operands
+    if(mnemonic.operandFilters.length > 0)
+    {
+        i = 0;
+        for(let op of mnemonic.operandFilters)
+        {
+            if(OPFF.rm(op)) rm = operands[i];
+            else if(OPFF.imm(op)) imm = operands[i];
+            else if(OPFF.r(op)) reg = operands[i];
+            i++;
+        }
+    }
+    
+    prefsToGen.forEach(genByte);
+    if(size == 16) genByte(0x66);
+
+    if(size == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
+    if(hasRex) genByte(rexVal);
+    genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg : 0));
+
+    // Generating the immediate
+    genInteger(imm.value, imm.size)
 }
