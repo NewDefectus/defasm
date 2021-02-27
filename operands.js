@@ -1,39 +1,14 @@
+// Operand types
 const OPT = Object.assign({}, ...[
-"REG8",
-"REG16",
-"REG32",
-"REG64",
+"REG",
 "MMX",
 "SSE",
-"CR",
-"TR",
-"DB",
-"SEG",
 "ST",
-"REG8_LOW",
-"IM8",
-"IM8S",
-"IM16",
-"IM32",
-"IM64",
-"EAX",
-"ST0",
-"CL",
-"DX",
-"ADDR",
-"INDIR",
-"COMPOSITE_FIRST",
-"IM",
-"REG",
-"REGW",
-"IMW",
-"MMXSSE",
-"DISP",
-"DISP8",
-"EA" // = 0x80?
-].map((x, i) => ({[x]: 1 << i})));
-
-OPT.REG = OPT.REG8 | OPT.REG16 | OPT.REG32 | OPT.REG64;
+"SEG",
+"IP",
+"IMM",
+"MEM",
+].map((x, i) => ({[x]: i})));
 
 
 
@@ -44,68 +19,39 @@ const registers = Object.assign({}, ...[
 "rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi",
 "mm0","mm1","mm2","mm3","mm4","mm5","mm6","mm7",
 "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",
-"cr0","cr1","cr2","cr3","cr4","cr5","cr6","cr7",
-"tr0","tr1","tr2","tr3","tr4","tr5","tr6","tr7",
-"db0","db1","db2","db3","db4","db5","db6","db7",
-"dr0","dr1","dr2","dr3","dr4","dr5","dr6","dr7",
 "es","cs","ss","ds","fs","gs","st","rip",
 "spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
 
-const suffixes = {"b": OPT.REG8, "w": OPT.REG16, "l": OPT.REG32, "d": OPT.REG32, "q": OPT.REG64};
+const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
 
-function getImmType(value)
-{
-    let type = OPT.IM32;
-    if(value < 0n)
-    {
-        if(value >= -0x80n)
-            type |= OPT.IM8S;
-        else if(value < -0x80000000)
-            type = OPT.IM64;
-    }
-    else
-    {
-        type |= (value < 0x80n) && OPT.IM8S;
-        type |= (value < 0x100n) && OPT.IM8;
-        type |= (value < 0x10000n) && OPT.IM16;
-        if(value >= 0x100000000n) type = OPT.IM64;
-    }
-
-    return type;
-}
-
-function maxOfType(type)
-{
-    return type & (OPT.IM8 | OPT.IM8S) ? 8n :
-        type & OPT.IM16 ? 16n :
-        type & OPT.IM32 ? 32n : 64n;
-}
-
-
-function parseRegister()
+function parseRegister(expectedType = null)
 {
     let reg = registers[next()];
-    let type = 0;
-    if(reg >= registers.al && reg <= registers.db7)
+    let size = 0, type = -1, prefixRequests = new Set();
+    if(reg >= registers.al && reg <= registers.rdi)
     {
-        type |= 1 << (reg >> 3);
+        type = OPT.REG;
+        size = 8 << (reg >> 3);
         reg &= 7;
-        if((type & OPT.REG) && reg == 0)
-            type |= OPT.EAX;
-        else if(type == OPT.REG8 && reg == 1)
-            type |= OPT.CL;
-        else if(type == OPT.REG16 && reg == 2)
-            type |= OPT.DX;
+        if(size == 8 && reg >= registers.ah && reg <= registers.bh) prefixRequests.add("NO REX");
     }
-    else if(reg >= registers.dr0 && reg <= registers.dr7)
+    else if(reg >= registers.mm0 && reg <= registers.mm7)
     {
-        type = OPT.DB;
-        reg -= registers.dr0;
+        type = OPT.MMX;
+        size = 64;
+        reg -= registers.mm0;
+    }
+    else if(reg >= registers.xmm0 && reg <= registers.xmm7)
+    {
+        type = OPT.SSE;
+        size = 128;
+        reg -= registers.xmm0;
     }
     else if(reg >= registers.es && reg <= registers.gs)
     {
         type = OPT.SEG;
+        size = 16;
         reg -= registers.es;
     }
     else if(reg == registers.st)
@@ -118,12 +64,17 @@ function parseRegister()
             if(isNaN(reg) || reg >= 8 || reg < 0 || next() != ')')
                 throw "Unknown register";
         }
-        if(reg == 0)
-            type |= OPT.ST0;
+    }
+    else if(reg == registers.rip && expectedType == OPT.IP)
+    {
+        type = OPT.IP;
+        reg = 0;
     }
     else if(reg >= registers.spl && reg <= registers.dil)
     {
-        type = OPT.REG8 | OPT.REG8_LOW;
+        type = OPT.REG;
+        size = 8;
+        prefixRequests.add("REX");
         reg -= registers.spl - 4;
     }
     else if(token[0] == 'r')// Attempt to parse the register name as a numeric (e.g. r10)
@@ -132,17 +83,18 @@ function parseRegister()
         if(isNaN(reg) || reg <= 0 || reg >= 16)
             throw "Unknown register";
 
-        type = suffixes[token[token.length - 1]] || OPT.REG64;
+        size = suffixes[token[token.length - 1]] || 64;
     }
     else
         throw "Unknown register";
     
+    if(expectedType != null && expectedType.indexOf(type) < 0) throw "Invalid register";
+    
     next();
-    return [reg, type];
+    return [reg, type, size, prefixRequests];
 }
 
-
-function parseImmediate(type = null)
+function parseImmediate()
 {
     let value = 0n;
     next();
@@ -163,11 +115,8 @@ function parseImmediate(type = null)
         else
             value = BigInt(token);
     
-        type ||= getImmType(value);
-        value &= (1n << maxOfType(type)) - 1n; // Reduce value to fit in type
         next();
-
-        return [value, type];
+        return value;
     }
     catch(e)
     {
@@ -176,34 +125,36 @@ function parseImmediate(type = null)
 }
 
 
-function parseOperand()
+function Operand()
 {
-    let reg = 0, type = 0, value = 0, indir = 0, reg2 = 0, shift = 0;
+    this.reg = this.reg2 = -1;
+    this.shift = -1;
+    this.indir = false;
+    this.type = null;
+    this.prefixRequests = new Set();
 
     if(token == '*')
     {
-        indir = OPT.INDIR;
+        this.indir = true;
         next();
     }
 
     if(token == '%') // Register
     {
-        [reg, type] = parseRegister();
+        [this.reg, this.type, this.size, this.prefixRequests] = parseRegister();
     }
     else if(token == '$') // Immediate
     {
-        [value, type] = parseImmediate();
+        this.value = parseImmediate();
+        this.type = OPT.IMM;
     }
     else // Address
     {
-        let tempType = 0;
-        reg2 = reg = -1;
-        type = OPT.EA;
+        this.type = OPT.MEM;
         if(token != '(')
         {
             ungetToken(token);
-            [value, tempType] = parseImmediate();
-            type |= tempType;
+            this.value = parseImmediate();
         }
 
         if(token != '(')
@@ -212,28 +163,24 @@ function parseOperand()
         }
         else
         {
-            [reg, tempType] = parseRegister();
-            type |= tempType;
+            let tempSize;
+            [this.reg, _, tempSize] = parseRegister([OPT.REG, OPT.IP]);
+            if(tempSize == 32) this.prefixRequests.add(0x67);
+            else if(tempSize != 64) throw "Invalid register size";
 
             if(token != ')')
             {
-                [reg2, tempType] = parseRegister();
-                type |= tempType;
+                [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
+                if(tempSize == 32) this.prefixRequests.add(0x67);
+                else if(tempSize != 64) throw "Invalid register size";
 
                 if(token != ')')
                 {
-                    [shift, tempType] = parseImmediate();
-                    type |= tempType;
+                    this.shift = parseImmediate();
+                    if([1, 2, 4, 8].indexOf(this.shift) < 0) throw "Scale must be 1, 2, 4, or 8";
                 }
             }
-            if(type & OPT.REG32) type |= OPT.EA32;
             if(token != ')') next();
         }
-
-        if(reg == -1 && reg2 == -1) type |= OPT.ADDR;
     }
-
-    type |= indir;
-
-    return { type: type, reg: reg, reg2: reg2, shift: shift, value: value };
 }

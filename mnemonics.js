@@ -1,12 +1,32 @@
-function M(opcode, group, type)
+const REG_MOD = -1;
+const REG_OP = -2;
+const REG_NON = -3
+
+function M(opcode, extension)
 {
     this.opcode = opcode;
-    this.group = group;
-    this.type = type;
-    this.operandTypes = Array.from(arguments).slice(3);
+
+    // 0-7 goes to modrm.reg,
+    // REG_MOD means reg goes in modrm.reg,
+    // REG_OP means no modrm (register is encoded in op),
+    // REG_NON means no modrm (register is not encoded at all) 
+    this.extension = extension;
+
+    this.operandFilters = Array.from(arguments).slice(2);
 }
 
-const OPC = { B: 1, WL: 2, BWL: 3, REG: 4, MODRM: 8, WLQ: 16, BWLQ: 17 };
+// Mnemonics for byte / non-byte operands
+function MB(opcode, extension, op1, op2)
+{
+    let nonByteOp = opcode + (extension == REG_OP ? 8 : 1);
+    return [
+        new M(opcode, extension, AND(op1, OPF.s8), AND(op2, OPF.s8)),
+        new M(nonByteOp, extension, AND(op1, OPF.s16), AND(op2, OPF.s16)),
+        new M(nonByteOp, extension, AND(op1, OPF.s32), AND(op2, OPF.s32)),
+        new M(nonByteOp, extension, AND(op1, OPF.s64), AND(op2, OPF.s64))
+    ];
+
+}
 
 var prefixes = {
 "lock": 0xF0n,
@@ -17,9 +37,58 @@ var prefixes = {
 "repz": 0xF3n
 }
 
+// Operand filters
+const AND = (f1, f2) => (o) => f1(o) && f2(o);
+const OR = (f1, f2) => (o) => f1(o) || f2(o);
+
+const OPF = {
+"s8": o => o.size == 8,
+"s16": o => o.size == 16,
+"s32": o => o.size == 32,
+"s64": o => o.size == 64,
+"r": o => o.type == OPT.REG,
+"m": o => o.type == OPT.MEM,
+"rm": o => o.type == OPT.REG || o.type == OPT.MEM,
+"imm": o => o.type == OPT.IMM,
+"seg": o => o.type == OPT.SEG,
+"eax": o => o.type == OPT.REG && o.reg == 0,
+"moffs": o => o.type == OPT.MEM && o.reg == -1
+}
+
+Object.assign(OPF, {
+"r8": AND(OPF.r, OPF.s8),
+"r16": AND(OPF.r, OPF.s16),
+"r32": AND(OPF.r, OPF.s32),
+"r64": AND(OPF.r, OPF.s64),
+
+"m8": AND(OPF.m, OPF.s8),
+"m16": AND(OPF.m, OPF.s16),
+"m32": AND(OPF.m, OPF.s32),
+"m64": AND(OPF.m, OPF.s64),
+"rm8": AND(OPF.rm, OPF.s8),
+"rm16": AND(OPF.rm, OPF.s16),
+"rm32": AND(OPF.rm, OPF.s32),
+"rm64": AND(OPF.rm, OPF.s64),
+
+
+"imm8": AND(OPF.imm, OPF.s8),
+"imm16": AND(OPF.imm, OPF.s16),
+"imm32": AND(OPF.imm, OPF.s32),
+"imm64": AND(OPF.imm, OPF.s64),
+});
+
 var mnemonics = {
 mov: [
-    new M(0xa2, 0, OPC.BWLQ, OPT.ADDR | OPT.EAX)
+    ...MB(0x88, REG_MOD, OPF.r, OPF.rm),
+    ...MB(0x8A, REG_MOD, OPF.rm, OPF.r),
+
+    new M(0x8C, REG_MOD, OPF.seg, OR(OR(OPF.rm16, OPF.r32), OPF.r64)),
+    new M(0x8E, REG_MOD, OR(OPF.rm16, OPF.rm64), OPF.seg),
+
+    ...MB(0xA0, REG_NON, OPF.moffs, OPF.eax),
+    ...MB(0xA2, REG_NON, OPF.eax, OPF.moffs),
+    ...MB(0xB0, REG_OP, OPF.imm, OPF.r),
+    ...MB(0xC6, 0, OPF.imm, OPF.rm)
 ],
 add: [],
 sub: [],
