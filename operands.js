@@ -51,7 +51,7 @@ function parseRegister(expectedType = null)
     else if(reg >= registers.es && reg <= registers.gs)
     {
         type = OPT.SEG;
-        size = 16;
+        size = 32; // Dunno what the actual size of the seg registers is, but this'll prevent the word prefix
         reg -= registers.es;
     }
     else if(reg == registers.st)
@@ -82,6 +82,7 @@ function parseRegister(expectedType = null)
         reg = parseInt(token.slice(1));
         if(isNaN(reg) || reg <= 0 || reg >= 16)
             throw "Unknown register";
+        type = OPT.REG;
 
         size = suffixes[token[token.length - 1]] || 64;
     }
@@ -157,13 +158,18 @@ function Operand()
             this.value = parseImmediate();
         }
 
-        if(token != '(')
+        if(token != '(') throw "Invalid operand";
+
+
+        let tempSize;
+        if(!isNaN(next())) // For addresses that look like (<number>)
         {
-            throw "Invalid operand";
+            ungetToken(token);
+            this.value = parseImmediate();
         }
         else
         {
-            let tempSize;
+            ungetToken(token);
             [this.reg, _, tempSize] = parseRegister([OPT.REG, OPT.IP]);
             if(tempSize == 32) this.prefixRequests.add(0x67);
             else if(tempSize != 64) throw "Invalid register size";
@@ -180,7 +186,8 @@ function Operand()
                     if([1, 2, 4, 8].indexOf(this.shift) < 0) throw "Scale must be 1, 2, 4, or 8";
                 }
             }
-            if(token != ')') next();
         }
+        if(token != ')') throw "Expected ')'";
+        next();
     }
 }

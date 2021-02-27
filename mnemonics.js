@@ -10,7 +10,7 @@ function M(opcode, extension)
     // REG_MOD means reg goes in modrm.reg,
     // REG_OP means no modrm (register is encoded in op),
     // REG_NON means no modrm (register is not encoded at all) 
-    this.extension = extension;
+    this.e = extension;
 
     this.operandFilters = Array.from(arguments).slice(2);
 }
@@ -25,7 +25,13 @@ function MB(opcode, extension, op1, op2)
         new M(nonByteOp, extension, AND(op1, OPF.s32), AND(op2, OPF.s32)),
         new M(nonByteOp, extension, AND(op1, OPF.s64), AND(op2, OPF.s64))
     ];
+}
 
+// Mnemonics whose operand size defaults to 64 bits
+function M64()
+{
+    M.call(this, ...arguments);
+    this.defsTo64 = true;
 }
 
 var prefixes = {
@@ -79,14 +85,15 @@ Object.assign(OPF, {
 
 var mnemonics = {
 mov: [
-    ...MB(0x88, REG_MOD, OPF.r, OPF.rm),
-    ...MB(0x8A, REG_MOD, OPF.rm, OPF.r),
+    ...MB(0xA0, REG_NON, OPF.moffs, OPF.eax),
+    ...MB(0xA2, REG_NON, OPF.eax, OPF.moffs),
 
     new M(0x8C, REG_MOD, OPF.seg, OR(OR(OPF.rm16, OPF.r32), OPF.r64)),
     new M(0x8E, REG_MOD, OR(OPF.rm16, OPF.rm64), OPF.seg),
 
-    ...MB(0xA0, REG_NON, OPF.moffs, OPF.eax),
-    ...MB(0xA2, REG_NON, OPF.eax, OPF.moffs),
+    ...MB(0x88, REG_MOD, OPF.r, OPF.rm),
+    ...MB(0x8A, REG_MOD, OPF.rm, OPF.r),
+
     ...MB(0xB0, REG_OP, OPF.imm, OPF.r),
     ...MB(0xC6, 0, OPF.imm, OPF.rm)
 ],
@@ -96,7 +103,15 @@ xor: [],
 or: [],
 and: [],
 cmp: [],
-push: [],
+push: [
+    new M64(0x50, REG_OP, OR(OPF.rm64, OPF.rm16)),
+    new M(0x6A, REG_NON, OPF.imm8),
+    new M(0x68, REG_NON, OR(OPF.imm16, OPF.imm32)),
+    new M(0x06, REG_NON, o => OPF.seg(o) && o.reg == 0),
+    new M(0x0E, REG_NON, o => OPF.seg(o) && o.reg == 1),
+    new M(0x16, REG_NON, o => OPF.seg(o) && o.reg == 2),
+    new M(0x1E, REG_NON, o => OPF.seg(o) && o.reg == 3)
+],
 pop: [],
 inc: [],
 dec: [],

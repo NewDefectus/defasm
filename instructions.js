@@ -67,11 +67,9 @@ function parseInstruction(opcode)
         next();
     }
 
-    if(size == 64) rexVal |= 8, hasRex = true;
-
+    console.log(operands);
     if(size < 0) throw "Cannot infer operand size";
     for(let o of operands) o.size = size;
-    console.log(operands);
 
     let i;
     mnemonicLoop:
@@ -85,8 +83,9 @@ function parseInstruction(opcode)
 
         prefsToGen.forEach(genByte);
         if(size == 16) genByte(0x66);
+        if(size == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
         if(hasRex) genByte(rexVal);
-        genByte(mnemonic.opcode);
+        genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? operands[0].reg : 0));
         return;
     }
     throw "Invalid operands";
