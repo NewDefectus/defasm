@@ -51,6 +51,7 @@ function compileAsm(source)
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
 
     let opcode;
+    ASMLoop:
     while(next(), !match.done)
     {
         try
@@ -75,7 +76,7 @@ function compileAsm(source)
                 {
                     case ':': // Label definition
                         // new label with opcode
-                        break;
+                        continue ASMLoop;
                     
                     case '=': // Macro definition
                         macros[opcode] = [];

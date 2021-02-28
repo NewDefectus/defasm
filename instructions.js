@@ -127,6 +127,7 @@ function parseInstruction(opcode)
     prefsToGen.forEach(genByte);
     if(size == 16) genByte(0x66);
     if(hasRex) genByte(rexVal);
+    if(mnemonic.opcode > 0xff) genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
     if(modRM != null) genByte(modRM);
     if(sib != null) genByte(sib);

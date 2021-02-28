@@ -128,5 +128,8 @@ mul: [],
 div: [],
 nop: [
     new M(0x90, REG_NON)
+],
+syscall: [
+    new M(0x0F05, REG_NON)
 ]
 }
