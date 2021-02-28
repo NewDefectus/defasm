@@ -129,7 +129,7 @@ function parseImmediate()
 function Operand()
 {
     this.reg = this.reg2 = -1;
-    this.shift = -1;
+    this.shift = 0;
     this.value = null;
     this.indir = false;
     this.type = null;
@@ -163,32 +163,45 @@ function Operand()
 
 
         let tempSize;
-        if(!isNaN(next())) // For addresses that look like (<number>)
+        if(next() != '%') // For addresses that look like (<number>)
         {
             ungetToken(token);
             this.value = parseImmediate();
         }
         else
         {
-            ungetToken(token);
             [this.reg, _, tempSize] = parseRegister([OPT.REG, OPT.IP]);
             if(tempSize == 32) this.prefixRequests.add(0x67);
             else if(tempSize != 64) throw "Invalid register size";
 
             if(token != ')')
             {
+                if(next() != '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
                 if(tempSize == 32) this.prefixRequests.add(0x67);
                 else if(tempSize != 64) throw "Invalid register size";
 
                 if(token != ')')
                 {
-                    this.shift = parseImmediate();
-                    if([1, 2, 4, 8].indexOf(this.shift) < 0) throw "Scale must be 1, 2, 4, or 8";
+                    this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
+                    if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
                 }
             }
         }
         if(token != ')') throw "Expected ')'";
         next();
     }
+}
+
+// Infer the size of an immediate from its value
+function inferImmSize(value)
+{
+    if(value < 0n) // Correct for negative values
+    {
+        value = -value - 1n
+    }
+
+    return value < 0x80n ? 8 :
+            value < 0x8000n ? 16 :
+            value < 0x80000000n ? 32 : 64;
 }

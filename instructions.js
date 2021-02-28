@@ -65,7 +65,15 @@ function parseInstruction(opcode)
     }
 
     //console.log(operands);
-    if(size < 0 && operands.length > 0) throw "Cannot infer operand size";
+    if(size < 0 && operands.length > 0)
+    {
+        // If there's just 1 operand and it's an immediate, infer the size from the immediate
+        if(operands.length == 1 && operands[0].type == OPT.IMM)
+        {
+            size = inferImmSize(operands[0].value);
+        }
+        else throw "Cannot infer operand size";
+    }
     for(let o of operands) o.size = size;
 
     let i, mnemonic, found = false;
@@ -101,14 +109,15 @@ function parseInstruction(opcode)
 
     if(size == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
     
-    let extraRex, modRM = -1;
+    let extraRex, modRM = null, sib = null;
     if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
     {
         if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, hasRex = true;
     }
     else
     {
-        [extraRex, modRM] = makeModRM(rm, reg);
+        if(mnemonic.e >= 0) reg = {reg: mnemonic.e}; // Sometimes the "reg" field is an opcode extension
+        [extraRex, modRM, sib] = makeModRM(rm, reg);
         if(extraRex != 0) rexVal |= extraRex, hasRex = true;
     }
 
@@ -119,10 +128,10 @@ function parseInstruction(opcode)
     if(size == 16) genByte(0x66);
     if(hasRex) genByte(rexVal);
     genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
-    if(modRM >= 0) genByte(modRM);
+    if(modRM != null) genByte(modRM);
+    if(sib != null) genByte(sib);
 
     // Generating the displacement and immediate
-    console.log(mnemonic.operandFilters)
     if(rm != null && rm.value != null || moff != null)
     {
         if(rm == null)
@@ -140,20 +149,55 @@ function parseInstruction(opcode)
 // Generate the ModRM byte
 function makeModRM(rm, r)
 {
-    let modrm = 0, rex = 0;
+    let modrm = 0, rex = 0, sib = null;
 
     // Encoding the "mod" (modifier) field
     if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
     else if((rm.value >= 0x80n || rm.value < -0x80n) && rm.reg >= 0) modrm |= 0x80; // mod=10
-    else if(rm.reg >= 0) modrm |= 0x40; // mod=01
+    else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
     // else mod=00
 
     // Encoding the "reg" field
+    if(r.reg >= 8)
+    {
+        rex |= 4; // rex.R extension
+        r.reg &= 7;
+    }
     modrm |= r.reg << 3;
     
     // Encoding the "rm" field
-    modrm |= rm.reg;
+    if(rm.reg >= 8)
+    {
+        rex |= 1; // rex.B extension
+        rm.reg &= 7;
+    }
+
+    if(rm.reg2 >= 0) // If there's also an index register, we must encode with an SIB byte
+    {
+        if(rm.reg2 >= 8)
+        {
+            rex |= 2; // rex.X extension
+            rm.reg2 &= 7;
+        }
+        sib |= rm.shift << 6;
+        sib |= rm.reg2 << 3;
+        sib |= rm.reg;
+        modrm |= 4; // reg=100 signifies an SIB byte
+    }
+    else
+    {
+        if(rm.reg == 4) // Special case for ESP register (so as not to confuse with SIB)
+        {
+            sib = 0x24; // This encodes to base=ESP, index=none, scale=0
+        }
+        else if(rm.reg == 5 && (modrm & 0xC0) == 0) // Special case for EBP register (so as not to confuse with disp32)
+        {
+            modrm |= 0x40; // Set to mod=01, so the modrm will be interpreted as EBP+disp8
+            sib = 0; // Bit of a hack - 0 doesn't actually go into SIB, it's a displacement value of 0
+        }
+        modrm |= rm.reg;
+    }
 
 
-    return [rex, modrm]
+    return [rex, modrm, sib]
 }
