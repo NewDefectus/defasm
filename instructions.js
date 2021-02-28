@@ -77,13 +77,21 @@ function parseInstruction(opcode)
     for(let o of operands) o.size = size;
 
     let i, mnemonic, found = false;
+
+    for(let op of operands) op.defSize = op.size;
+
     mnemonicLoop:
     for(mnemonic of variations)
     {
         if(mnemonic.operandFilters.length != operands.length) continue;
         for(i = 0; i < operands.length; i++)
         {
-            if(!mnemonic.operandFilters[i](operands[i])) continue mnemonicLoop;
+            if(mnemonic.opSizes && mnemonic.opSizes[i]) operands[i].size = mnemonic.opSizes[i];
+            if(!mnemonic.operandFilters[i](operands[i]))
+            {
+                for(let op of operands) op.size = op.defSize;
+                continue mnemonicLoop;
+            }
         }
 
         found = true;

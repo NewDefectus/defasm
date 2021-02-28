@@ -96,6 +96,8 @@ mov: [
     ...MB(0x88, REG_MOD, OPF.r, OPF.rm),
     ...MB(0x8A, REG_MOD, OPF.rm, OPF.r),
 
+    // Special MOV case (this is the only instruction with different operand sizes)
+    Object.assign(new M(0xC7, 0, OPF.imm32, OPF.rm64), { opSizes: [32, undefined] }),
     ...MB(0xB0, REG_OP, OPF.imm, OPF.r),
     ...MB(0xC6, 0, OPF.imm, OPF.rm)
 ],
