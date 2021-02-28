@@ -2,7 +2,7 @@ function parseInstruction(opcode)
 {
     let operand = null, size = -1, hasRex = null, rexVal = 0x40;
     let prefsToGen = new Set();
-    let reg = null, rm = null, imm = null, moff = null;
+    let reg = null, rm = null, imm = null;
 
     if(prefixes.hasOwnProperty(opcode))
     {
@@ -102,7 +102,6 @@ function parseInstruction(opcode)
             if(OPFF.rm(op)) rm = operands[i];
             else if(OPFF.imm(op)) imm = operands[i];
             else if(OPFF.r(op)) reg = operands[i];
-            else if(OPFF.moff(op)) moff = operands[i];
             i++;
         }
     }
@@ -133,16 +132,9 @@ function parseInstruction(opcode)
     if(sib != null) genByte(sib);
 
     // Generating the displacement and immediate
-    if(rm != null && rm.value != null || moff != null)
+    if(rm != null && rm.value != null)
     {
-        if(rm == null)
-        {
-            genInteger(moff.value, 64);
-        }
-        else
-        {
-            genInteger(rm.value, (rm.value >= 0x80n || rm.value < -0x80n) ? 32 : 8);
-        }
+        genInteger(rm.value, rm.dispSize || 32);
     }
     if(imm) genInteger(imm.value, imm.size)
 }
@@ -152,9 +144,11 @@ function makeModRM(rm, r)
 {
     let modrm = 0, rex = 0, sib = null;
 
+    if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
+
     // Encoding the "mod" (modifier) field
     if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
-    else if(inferImmSize(rm.value) != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
+    else if(rm.dispSize != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
     else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
     // else mod=00
 
@@ -173,8 +167,24 @@ function makeModRM(rm, r)
         rm.reg &= 7;
     }
 
-    if(rm.reg2 >= 0) // If there's also an index register, we must encode with an SIB byte
+    // Encoding an SIB byte if necessary
+    if(rm.reg2 >= 0 // If there's also an index register
+        || rm.reg < 0 // If both registers are missing (it's just a displacement)
+        )
     {
+        if(rm.reg < 0)
+        {
+            // These are the respective "none" type registers
+            rm.reg = 5;
+            rm.reg2 = 4;
+        }
+        else if(rm.reg == 5) // Special case when the base is EBP
+        {
+            if(rm.value == null) modrm |= 0x40, rm.value = 0n;
+            else if(rm.dispSize == 8) modrm |= 0x40, rm.dispSize = 8;
+            else modrm |= 0x80;
+        }
+
         if(rm.reg2 >= 8)
         {
             rex |= 2; // rex.X extension
@@ -184,13 +194,6 @@ function makeModRM(rm, r)
         sib |= rm.reg2 << 3;
         sib |= rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
-
-        if(rm.reg == 5) // Special case when the base is EBP
-        {
-            if(rm.value == null) modrm |= 0x40, rm.value = 0n;
-            else if(inferImmSize(rm.value) == 8) modrm |= 0x40;
-            else modrm |= 0x80;
-        }
     }
     else
     {

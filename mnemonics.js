@@ -57,8 +57,7 @@ const OPF = {
 "rm": o => o.type == OPT.REG || o.type == OPT.MEM,
 "imm": o => o.type == OPT.IMM,
 "seg": o => o.type == OPT.SEG,
-"eax": o => o.type == OPT.REG && o.reg == 0,
-"moffs": o => o.type == OPT.MEM && o.reg == -1
+"eax": o => o.type == OPT.REG && o.reg == 0
 }
 
 Object.assign(OPF, {
@@ -86,15 +85,11 @@ Object.assign(OPF, {
 var OPFF = {
     "rm": f => f({type: OPT.REG}) && f({type: OPT.MEM}),
     "r": f => f({type: OPT.REG}) && !f({type: OPT.MEM}),
-    "imm": f => f({type: OPT.IMM}),
-    "moff": f => f({type: OPT.MEM, reg: -1})
+    "imm": f => f({type: OPT.IMM})
 }
 
 var mnemonics = {
 mov: [
-    ...MB(0xA0, REG_NON, OPF.moffs, OPF.eax),
-    ...MB(0xA2, REG_NON, OPF.eax, OPF.moffs),
-
     new M(0x8C, REG_MOD, OPF.seg, OR(OR(OPF.rm16, OPF.r32), OPF.r64)),
     new M(0x8E, REG_MOD, OR(OPF.rm16, OPF.rm64), OPF.seg),
 
