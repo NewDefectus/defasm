@@ -154,7 +154,7 @@ function makeModRM(rm, r)
 
     // Encoding the "mod" (modifier) field
     if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
-    else if((rm.value >= 0x80n || rm.value < -0x80n) && rm.reg >= 0) modrm |= 0x80; // mod=10
+    else if(inferImmSize(rm.value) != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
     else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
     // else mod=00
 
@@ -184,6 +184,13 @@ function makeModRM(rm, r)
         sib |= rm.reg2 << 3;
         sib |= rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
+
+        if(rm.reg == 5) // Special case when the base is EBP
+        {
+            if(rm.value == null) modrm |= 0x40, rm.value = 0n;
+            else if(inferImmSize(rm.value) == 8) modrm |= 0x40;
+            else modrm |= 0x80;
+        }
     }
     else
     {
