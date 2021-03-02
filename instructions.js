@@ -56,13 +56,13 @@ function parseInstruction(opcode)
         }
 
         // Infer default size from register operands
-        if(globalSize < 0 && operand.size > 0 && operand.type == OPT.REG) globalSize = operand.size;
+        if(globalSize < 0 && operand.size > 0 && (operand.type == OPT.REG || operand.type == OPT.SEG)) globalSize = operand.size;
 
         if(token != ',') break;
         next();
     }
 
-    //console.log(operands);
+    console.log(operands);
     if(globalSize < 0)
     {
         // If there's just one operand and it's an immediate, the overall size is the inferred size
@@ -100,7 +100,7 @@ function parseInstruction(opcode)
         for(let op of mnemonic.operandTemplates)
         {
             op.fit(operands[i]);
-            if(op.types == OPT.RM) rm = operands[i];
+            if(op.types == OPT.RM || op.types == OPT.MEM) rm = operands[i];
             else if(op.types == OPT.IMM) imm = operands[i];
             else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
             i++;
@@ -121,6 +121,7 @@ function parseInstruction(opcode)
         if(extraRex != 0) rexVal |= extraRex, hasRex = true;
     }
 
+    // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
     if(hasRex && hateRex) throw "Can't encode high 8-bit register";
 
     // Time to generate!
@@ -178,6 +179,7 @@ function makeModRM(rm, r)
             // These are the respective "none" type registers
             rm.reg = 5;
             rm.reg2 = 4;
+            rm.dispSize = 32; // Displacements on their own have to be of size 32
         }
         else if(rm.reg == 5) // Special case when the base is EBP
         {
@@ -196,7 +198,7 @@ function makeModRM(rm, r)
         sib |= rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
     }
-    else
+    else // Simple memory access with one register, e.g. (%rax)
     {
         if(rm.reg == 4) // Special case for ESP register (so as not to confuse with SIB)
         {

@@ -133,14 +133,17 @@ cmp: [],
 push: [
     new M64(0x50, REG_OP, OPF.r16),
     new M64(0x50, REG_OP, OPF.r64),
+
     new M(0x6A, REG_NON, OPF.imm8),
     new M(0x68, REG_NON, OPF.imm16),
     new M(0x68, REG_NON, OPF.imm32),
+
+    new M(0xFF, 6, OPF.m16),
+    new M64(0xFF, 6, OPF.m64),
     
-    new M(0x06, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 0)),
-    new M(0x0E, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 1)),
-    new M(0x16, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 2)),
-    new M(0x1E, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 3))
+    // x64 supports pushing only these two segment registers
+    new M(0x0FA0, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 4)),
+    new M(0x0FA8, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 5))
 ],
 pop: [],
 inc: [],
