@@ -12,19 +12,17 @@ function M(opcode, extension)
     // REG_NON means no modrm (register is not encoded at all) 
     this.e = extension;
 
-    this.operandFilters = Array.from(arguments).slice(2);
+    this.operandTemplates = Array.from(arguments).slice(2);
 }
 
-// Mnemonics for byte / non-byte operands
-function MB(opcode, extension, op1, op2)
+// Mnemonic set from template
+function MT(sizes, opcode, extension, op1, op2)
 {
-    let nonByteOp = opcode + (extension == REG_OP ? 8 : 1);
-    return [
-        new M(opcode, extension, AND(op1, OPF.s8), AND(op2, OPF.s8)),
-        new M(nonByteOp, extension, AND(op1, OPF.s16), AND(op2, OPF.s16)),
-        new M(nonByteOp, extension, AND(op1, OPF.s32), AND(op2, OPF.s32)),
-        new M(nonByteOp, extension, AND(op1, OPF.s64), AND(op2, OPF.s64))
-    ];
+    let nonByteOp = opcode;
+    if(sizes.includes(8)) nonByteOp += extension == REG_OP ? 8 : 1;
+    return sizes.map(s => 
+        new M(s == 8 ? opcode : nonByteOp, extension, OPF[op1 + s], OPF[op2 + s])
+    );
 }
 
 // Mnemonics whose operand size defaults to 64 bits
@@ -32,6 +30,41 @@ function M64()
 {
     M.call(this, ...arguments);
     this.defsTo64 = true;
+}
+
+// Operand template
+function opTemp(type, size)
+{
+    // Matching function (does a given operator match this template?)
+    if(type[0] !== undefined) // Multi-type templates (e.g. "rm")
+    {
+        this.types = type;
+        this.match = o => (o.type == type[0] || o.type == type[1]) && o.size == size;
+    }
+    else
+    {
+        this.types = [type];
+        if(size === undefined) // No size specified
+            this.match = o => o.type == type;
+        else if(type == OPT.IMM) // Allow immediates to be "upcast"
+            this.match = o => o.type == OPT.IMM && o.size <= size;
+        else
+            this.match = o => o.type == type && o.size == size;
+    }
+
+    // Fitting function (fit a given operator into this template)
+    if(size === undefined)
+        this.fit = o => o;
+    else
+        this.fit = o => o.size = size;
+}
+
+// Special operand template
+function specOpTemp(type, matcher)
+{
+    this.types = [type];
+    this.match = o => o.type == type && matcher(o);
+    this.fit = o => o;
 }
 
 var prefixes = {
@@ -48,58 +81,48 @@ const AND = (f1, f2) => (o) => f1(o) && f2(o);
 const OR = (f1, f2) => (o) => f1(o) || f2(o);
 
 const OPF = {
-"s8": o => o.size == 8 || o.size == undefined,
-"s16": o => o.size == 16 || o.size == undefined,
-"s32": o => o.size == 32 || o.size == undefined,
-"s64": o => o.size == 64 || o.size == undefined,
-"r": o => o.type == OPT.REG,
-"m": o => o.type == OPT.MEM,
-"rm": o => o.type == OPT.REG || o.type == OPT.MEM,
-"imm": o => o.type == OPT.IMM,
-"seg": o => o.type == OPT.SEG,
-"eax": o => o.type == OPT.REG && o.reg == 0
+"r8": new opTemp(OPT.REG, 8),
+"r16": new opTemp(OPT.REG, 16),
+"r32": new opTemp(OPT.REG, 32),
+"r64": new opTemp(OPT.REG, 64),
+
+"m8": new opTemp(OPT.MEM, 8),
+"m16": new opTemp(OPT.MEM, 16),
+"m32": new opTemp(OPT.MEM, 32),
+"m64": new opTemp(OPT.MEM, 64),
+
+"rm8": new opTemp([OPT.REG, OPT.MEM], 8),
+"rm16": new opTemp([OPT.REG, OPT.MEM], 16),
+"rm32": new opTemp([OPT.REG, OPT.MEM], 32),
+"rm64": new opTemp([OPT.REG, OPT.MEM], 64),
+
+"imm8": new opTemp(OPT.IMM, 8),
+"imm16": new opTemp(OPT.IMM, 16),
+"imm32": new opTemp(OPT.IMM, 32),
+"imm64": new opTemp(OPT.IMM, 64),
+
+"seg": new opTemp(OPT.SEG),
+"eax": new specOpTemp(OPT.REG, o => o.reg == 0)
 }
 
-Object.assign(OPF, {
-"r8": AND(OPF.r, OPF.s8),
-"r16": AND(OPF.r, OPF.s16),
-"r32": AND(OPF.r, OPF.s32),
-"r64": AND(OPF.r, OPF.s64),
-
-"m8": AND(OPF.m, OPF.s8),
-"m16": AND(OPF.m, OPF.s16),
-"m32": AND(OPF.m, OPF.s32),
-"m64": AND(OPF.m, OPF.s64),
-"rm8": AND(OPF.rm, OPF.s8),
-"rm16": AND(OPF.rm, OPF.s16),
-"rm32": AND(OPF.rm, OPF.s32),
-"rm64": AND(OPF.rm, OPF.s64),
-
-
-"imm8": AND(OPF.imm, OPF.s8),
-"imm16": AND(OPF.imm, OPF.s16),
-"imm32": AND(OPF.imm, OPF.s32),
-"imm64": AND(OPF.imm, OPF.s64),
-});
-
-var OPFF = {
-    "rm": f => f({type: OPT.REG}) && f({type: OPT.MEM}),
-    "r": f => f({type: OPT.REG}) && !f({type: OPT.MEM}),
-    "imm": f => f({type: OPT.IMM})
+const MNT = {
+    "BWL": [8, 16, 32],
+    "BWLQ": [8, 16, 32, 64],
+    "WLQ": [16, 32, 64],
+    "WL": [16, 32]
 }
 
 var mnemonics = {
 mov: [
-    new M(0x8C, REG_MOD, OPF.seg, OR(OR(OPF.rm16, OPF.r32), OPF.r64)),
-    new M(0x8E, REG_MOD, OR(OPF.rm16, OPF.rm64), OPF.seg),
+    new M(0x8C, REG_MOD, OPF.seg, OPF.rm16),
+    new M(0x8E, REG_MOD, OPF.rm16, OPF.seg),
 
-    ...MB(0x88, REG_MOD, OPF.r, OPF.rm),
-    ...MB(0x8A, REG_MOD, OPF.rm, OPF.r),
+    ...MT(MNT.BWLQ, 0x88, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ, 0x8A, REG_MOD, 'rm', 'r'),
 
-    // Special MOV case (this is the only instruction with different operand sizes)
-    Object.assign(new M(0xC7, 0, OPF.imm32, OPF.rm64), { opSizes: [32, undefined] }),
-    ...MB(0xB0, REG_OP, OPF.imm, OPF.r),
-    ...MB(0xC6, 0, OPF.imm, OPF.rm)
+    new M(0xC7, 0, OPF.imm32, OPF.rm64),
+    ...MT(MNT.BWLQ, 0xB0, REG_OP, 'imm', 'r'),
+    ...MT(MNT.WLQ, 0xC6, 0, 'imm', 'rm')
 ],
 add: [],
 sub: [],
@@ -108,13 +131,16 @@ or: [],
 and: [],
 cmp: [],
 push: [
-    new M64(0x50, REG_OP, OR(OPF.r64, OPF.r16)),
+    new M64(0x50, REG_OP, OPF.r16),
+    new M64(0x50, REG_OP, OPF.r64),
     new M(0x6A, REG_NON, OPF.imm8),
-    new M(0x68, REG_NON, OR(OPF.imm16, OPF.imm32)),
-    new M(0x06, REG_NON, o => OPF.seg(o) && o.reg == 0),
-    new M(0x0E, REG_NON, o => OPF.seg(o) && o.reg == 1),
-    new M(0x16, REG_NON, o => OPF.seg(o) && o.reg == 2),
-    new M(0x1E, REG_NON, o => OPF.seg(o) && o.reg == 3)
+    new M(0x68, REG_NON, OPF.imm16),
+    new M(0x68, REG_NON, OPF.imm32),
+    
+    new M(0x06, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 0)),
+    new M(0x0E, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 1)),
+    new M(0x16, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 2)),
+    new M(0x1E, REG_NON, new specOpTemp(OPT.SEG, o => o.reg == 3))
 ],
 pop: [],
 inc: [],

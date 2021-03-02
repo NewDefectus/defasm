@@ -9,6 +9,7 @@ const OPT = Object.assign({}, ...[
 "IMM",
 "MEM",
 ].map((x, i) => ({[x]: i})));
+OPT.RM = [OPT.REG, OPT.MEM].toString(); // JavaScript is dumb at comparisons so we need to do this
 
 
 
@@ -149,6 +150,7 @@ function Operand()
     {
         this.value = parseImmediate();
         this.type = OPT.IMM;
+        this.size = inferImmSize(this.value);
     }
     else // Address
     {

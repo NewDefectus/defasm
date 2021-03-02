@@ -1,6 +1,6 @@
 function parseInstruction(opcode)
 {
-    let operand = null, size = -1, hasRex = null, rexVal = 0x40;
+    let operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
     let prefsToGen = new Set();
     let reg = null, rm = null, imm = null;
 
@@ -14,18 +14,19 @@ function parseInstruction(opcode)
 
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        size = suffixes[opcode[opcode.length - 1]];
+        globalSize = suffixes[opcode[opcode.length - 1]];
         opcode = opcode.slice(0, -1);
         if(!mnemonics.hasOwnProperty(opcode))
             throw "Unknown opcode";
-        if(size === undefined)
+        if(globalSize === undefined)
             throw "Invalid opcode suffix";
+        enforceSize = true;
     }
     let variations = mnemonics[opcode], operands = [], hateRex = false;
 
     while(token != ';' && token != '\n')
     {
-        operand = new Operand();
+        operand = new Operand(globalSize);
         if(token == ':') // Segment specification for addressing
         {
             if(operand.type != OPT.SEG)
@@ -54,45 +55,30 @@ function parseInstruction(opcode)
             }
         }
 
-        if(operand.size > 0)
-        {
-            if(size < 0) size = operand.size;
-            else if(operand.size < size) size = operand.size; // Always take the minimum size
-        }
+        // Infer default size from register operands
+        if(globalSize < 0 && operand.size > 0 && operand.type == OPT.REG) globalSize = operand.size;
 
         if(token != ',') break;
         next();
     }
 
     //console.log(operands);
-    if(size < 0 && operands.length > 0)
+    if(globalSize < 0)
     {
-        // If there's just 1 operand and it's an immediate, infer the size from the immediate
-        if(operands.length == 1 && operands[0].type == OPT.IMM)
-        {
-            size = inferImmSize(operands[0].value);
-        }
+        // If there's just one operand and it's an immediate, the overall size is the inferred size
+        if(operands.length == 1 && operands[0].type == OPT.IMM) globalSize = operands[0].size;
         else throw "Cannot infer operand size";
     }
-    for(let o of operands) o.size = size;
+    for(let o of operands) if(o.size < 0 || enforceSize) o.size = globalSize;
 
     let i, mnemonic, found = false;
-
-    for(let op of operands) op.defSize = op.size;
 
     mnemonicLoop:
     for(mnemonic of variations)
     {
-        if(mnemonic.operandFilters.length != operands.length) continue;
+        if(mnemonic.operandTemplates.length != operands.length) continue;
         for(i = 0; i < operands.length; i++)
-        {
-            if(mnemonic.opSizes && mnemonic.opSizes[i]) operands[i].size = mnemonic.opSizes[i];
-            if(!mnemonic.operandFilters[i](operands[i]))
-            {
-                for(let op of operands) op.size = op.defSize;
-                continue mnemonicLoop;
-            }
-        }
+            if(!mnemonic.operandTemplates[i].match(operands[i])) continue mnemonicLoop;
 
         found = true;
         break;
@@ -102,19 +88,20 @@ function parseInstruction(opcode)
 
 
     // Finding the reg/rm/immediate operands
-    if(mnemonic.operandFilters.length > 0)
+    if(mnemonic.operandTemplates.length > 0)
     {
         i = 0;
-        for(let op of mnemonic.operandFilters)
+        for(let op of mnemonic.operandTemplates)
         {
-            if(OPFF.rm(op)) rm = operands[i];
-            else if(OPFF.imm(op)) imm = operands[i];
-            else if(OPFF.r(op)) reg = operands[i];
+            op.fit(operands[i]);
+            if(op.types == OPT.RM) rm = operands[i];
+            else if(op.types == OPT.IMM) imm = operands[i];
+            else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
             i++;
         }
     }
 
-    if(size == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
+    if(globalSize == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
     
     let extraRex, modRM = null, sib = null;
     if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
@@ -132,7 +119,7 @@ function parseInstruction(opcode)
 
     // Time to generate!
     prefsToGen.forEach(genByte);
-    if(size == 16) genByte(0x66);
+    if(globalSize == 16) genByte(0x66);
     if(hasRex) genByte(rexVal);
     if(mnemonic.opcode > 0xff) genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
