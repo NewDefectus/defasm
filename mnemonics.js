@@ -122,7 +122,7 @@ mov: [
 
     new M(0xC7, 0, OPF.imm32, OPF.rm64),
     ...MT(MNT.BWLQ, 0xB0, REG_OP, 'imm', 'r'),
-    ...MT(MNT.WLQ, 0xC6, 0, 'imm', 'rm')
+    ...MT(MNT.BWL, 0xC6, 0, 'imm', 'rm')
 ],
 add: [],
 sub: [],
