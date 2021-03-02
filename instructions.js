@@ -69,7 +69,13 @@ function parseInstruction(opcode)
         if(operands.length == 1 && operands[0].type == OPT.IMM) globalSize = operands[0].size;
         else throw "Cannot infer operand size";
     }
-    for(let o of operands) if(o.size < 0 || enforceSize) o.size = globalSize;
+    for(let o of operands)
+    {
+        if(o.size < 0 // Unknown sizes (e.g. memory) default to the global size
+        || (o.type == OPT.IMM && o.size > globalSize) // Reduce immediates to global size (downcast only)
+        || enforceSize) // If a suffix has been entered, it applies on all operands
+            o.size = globalSize;
+    }
 
     let i, mnemonic, found = false;
 
