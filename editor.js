@@ -1,16 +1,6 @@
 var asmTextInput = document.getElementById("inputArea");
 var asmTextOutput = document.getElementById("outputArea");
 
-// Set the output
-function writeToOutput(bytes)
-{
-    asmTextOutput.textContent = bytes.slice(0, machineCodeIndex).reduce((a,x) =>
-        a + x.toString(16)
-        .toUpperCase()
-        .padStart(2, '0') + ' '
-    , "");
-}
-
 // Tabbing and newline editing help
 asmTextInput.onkeydown = function(event)
 {
@@ -35,5 +25,5 @@ asmTextInput.onkeydown = function(event)
 // Input receiving
 asmTextInput.oninput = function(event)
 {
-    writeToOutput(compileAsm(this.value));
+    asmTextOutput.textContent = compileAsm(this.value);
 }

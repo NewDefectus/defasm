@@ -1,15 +1,48 @@
+const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
+
+function Instruction()
+{
+    this.bytes = new Uint8Array(MAX_INSTR_SIZE);
+    this.length = 0;
+}
+
+// Generate a single byte
+Instruction.prototype.genByte = function(byte)
+{
+    this.bytes[this.length++] = Number(byte);
+}
+
+// Generate an integer with a given size
+Instruction.prototype.genInteger = function(byte, size)
+{
+    do
+    {
+        this.genByte(byte & 0xffn);
+        byte >>= 8n;
+    } while(size -= 8);
+}
+
+/* Indicate that the instruction requires a label to generate
+(resolveFunc is what should be done when this dependency is resolved) */
+Instruction.prototype.addLabelDependency = function(labelName, resolveFunc)
+{
+    this.requiredLabel = labelName;
+    this.labelResolve = resolveFunc;
+}
+
 function parseInstruction(opcode)
 {
     let operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
     let prefsToGen = new Set();
     let reg = null, rm = null, imm = null;
+    let result = new Instruction();
 
     if(prefixes.hasOwnProperty(opcode))
     {
-        genByte(prefixes[opcode]);
+        result.genByte(prefixes[opcode]);
         ungetToken(token);
         token = ';';
-        return;
+        return result;
     }
 
     if(!mnemonics.hasOwnProperty(opcode))
@@ -125,20 +158,22 @@ function parseInstruction(opcode)
     if(hasRex && hateRex) throw "Can't encode high 8-bit register";
 
     // Time to generate!
-    prefsToGen.forEach(genByte);
-    if(globalSize == 16) genByte(0x66);
-    if(hasRex) genByte(rexVal);
-    if(mnemonic.opcode > 0xff) genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
-    genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
-    if(modRM != null) genByte(modRM);
-    if(sib != null) genByte(sib);
+    for(let pref of prefsToGen) result.genByte(pref);
+    if(globalSize == 16) result.genByte(0x66);
+    if(hasRex) result.genByte(rexVal);
+    if(mnemonic.opcode > 0xff) result.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
+    result.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
+    if(modRM != null) result.genByte(modRM);
+    if(sib != null) result.genByte(sib);
 
     // Generating the displacement and immediate
     if(rm != null && rm.value != null)
     {
-        genInteger(rm.value, rm.dispSize || 32);
+        result.genInteger(rm.value, rm.dispSize || 32);
     }
-    if(imm) genInteger(imm.value, imm.size)
+    if(imm) result.genInteger(imm.value, imm.size);
+
+    return result;
 }
 
 // Generate the ModRM byte

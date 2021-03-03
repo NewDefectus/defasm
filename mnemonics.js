@@ -67,7 +67,7 @@ function specOpTemp(type, matcher)
     this.fit = o => o;
 }
 
-var prefixes = {
+const prefixes = {
 "lock": 0xF0n,
 "repne": 0xF2n,
 "repnz": 0xF2n,

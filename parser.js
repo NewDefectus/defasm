@@ -43,7 +43,6 @@ function Address()
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
-    resetMachineCode();
     next = defaultNext;
     labels = {};
     macros = {};
@@ -51,6 +50,7 @@ function compileAsm(source)
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
 
     let opcode;
+    let instructions = [];
     ASMLoop:
     while(next(), !match.done)
     {
@@ -67,7 +67,7 @@ function compileAsm(source)
             }
             else if(token[0] == '.') // Assembly directive
             {
-                parseDirective();
+                instructions.push(parseDirective());
             }
             else // Instruction, label or macro
             {
@@ -85,7 +85,7 @@ function compileAsm(source)
                         break;
                     
                     default: // Instruction
-                        parseInstruction(opcode);
+                        instructions.push(parseInstruction(opcode));
                         break;
                 }
             }
@@ -100,9 +100,15 @@ function compileAsm(source)
             console.warn(e);
             while(token != '\n' && token != ';')
                 next();
-
         }
     }
 
-    return machineCode;
+    let hexBytes = "", i;
+    for(let instr of instructions)
+    {
+        for(i = 0; i < instr.length; i++)
+            hexBytes += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
+    }
+
+    return hexBytes;
 }
