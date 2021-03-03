@@ -46,6 +46,7 @@ function compileAsm(source)
     labels = new Map();
     macros = new Map();
 
+    source = source.replace(/#.*/g, ''); // Remove comments
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
 
     let opcode, currIndex = 0;
@@ -58,11 +59,6 @@ function compileAsm(source)
             if(token == '\n' || token == ';')
             {
                 continue;
-            }
-
-            if(token == '#') // "horrible gas comment" - tcc
-            {
-                while(next() != '\n');
             }
             else if(token[0] == '.') // Assembly directive
             {
