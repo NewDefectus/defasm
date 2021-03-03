@@ -11,7 +11,7 @@ function resetMachineCode()
 // Generate a single byte of machine code
 function genByte(c)
 {
-    machineCode[machineCodeIndex] = Number(c) & 0xff;
+    machineCode[machineCodeIndex] = Number(BigInt(c) & 0xffn);
     machineCodeIndex++;
 
     // Resize the buffer if necessary
