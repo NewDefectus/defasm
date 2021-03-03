@@ -1,6 +1,5 @@
 var srcTokens, token, match;
-var labels = {};
-var macros = {};
+var labels, macros;
 
 var macroBuffer = [];
 
@@ -13,8 +12,8 @@ function lowerCase(str)
 
 var next = defaultNext = () => 
     token = (match = srcTokens.next()).done ? '\n' :
-    macros[match.value[0]] ?
-        (macroBuffer = [...macros[match.value[0]]], next = () =>
+    macros.has(match.value[0]) ?
+        (macroBuffer = [...macros.get(match.value[0])], next = () =>
             (console.log(macroBuffer), token = macroBuffer.shift() || (next = defaultNext)())
         )()
     :  lowerCase(match.value[0]);
@@ -44,13 +43,13 @@ function Address()
 function compileAsm(source)
 {
     next = defaultNext;
-    labels = {};
-    macros = {};
+    labels = new Map();
+    macros = new Map();
 
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
 
-    let opcode;
-    let instructions = [];
+    let opcode, currIndex = 0;
+    let instructions = [], instruction;
     ASMLoop:
     while(next(), !match.done)
     {
@@ -67,7 +66,9 @@ function compileAsm(source)
             }
             else if(token[0] == '.') // Assembly directive
             {
-                instructions.push(parseDirective());
+                instruction = parseDirective();
+                currIndex += instruction.length;
+                instructions.push(instruction);
             }
             else // Instruction, label or macro
             {
@@ -75,17 +76,19 @@ function compileAsm(source)
                 switch(next())
                 {
                     case ':': // Label definition
-                        // new label with opcode
+                        labels.set(opcode, currIndex);
                         continue ASMLoop;
                     
                     case '=': // Macro definition
-                        macros[opcode] = [];
-                        while(next() != '\n') macros[opcode].push(token);
-                        console.log(macros[opcode])
+                        let macroTokens = [];
+                        while(next() != '\n') macroTokens.push(token);
+                        macros.set(opcode, macroTokens);
                         break;
                     
                     default: // Instruction
-                        instructions.push(parseInstruction(opcode));
+                        instruction = parseInstruction(opcode);
+                        currIndex += instruction.length;
+                        instructions.push(instruction);
                         break;
                 }
             }
@@ -101,6 +104,44 @@ function compileAsm(source)
             while(token != '\n' && token != ';')
                 next();
         }
+    }
+
+    /* I guess this would be the "second pass", although we don't actually go
+    through the source code again; we're just resolving all the label references. */
+
+    // First, we'll filter out instructions that reference unknown labels
+    instructions = instructions.filter(instr => 
+        instr.requiredLabel === undefined || labels.has(instr.requiredLabel)
+    );
+
+    let labelIndex, resizeChange;
+    labelResolveLoop:
+    while(1)
+    {
+        currIndex = 0;
+        for(let instr of instructions)
+        {
+            currIndex += instr.length;
+            if(instr.requiredLabel !== undefined)
+            {
+                labelIndex = labels.get(instr.requiredLabel);
+                resizeChange = instr.length;
+                instr.labelResolve(labelIndex - currIndex);
+                resizeChange -= instr.length;
+
+                if(resizeChange != 0) // If the label resolve caused the instruction to resize
+                {
+                    // Correct all labels following this index
+                    labels.forEach((index, label) => {
+                        if(index >= currIndex)
+                            labels[label] -= resizeChange;
+                    })
+                    // Redo the adjustments from the start
+                    continue labelResolveLoop;
+                }
+            }
+        }
+        break;
     }
 
     let hexBytes = "", i;
