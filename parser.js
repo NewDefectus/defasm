@@ -1,8 +1,6 @@
 var srcTokens, token, match;
 var labels, macros;
 
-var macroBuffer = [];
-
 function lowerCase(str)
 {
     if(str[0] == '"' || str[0] == "'")
@@ -13,10 +11,14 @@ function lowerCase(str)
 var next = defaultNext = () => 
     token = (match = srcTokens.next()).done ? '\n' :
     macros.has(match.value[0]) ?
-        (macroBuffer = [...macros.get(match.value[0])], next = () =>
-            (console.log(macroBuffer), token = macroBuffer.shift() || (next = defaultNext)())
-        )()
-    :  lowerCase(match.value[0]);
+        (insertTokens(macros.get(match.value[0])), next())
+    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]);
+
+function insertTokens(tokens)
+{
+    let tokensCopy = [...tokens];
+    next = () => token = tokensCopy.shift() || (next = defaultNext)();
+}
 
 function ungetToken(t)
 {
@@ -46,8 +48,7 @@ function compileAsm(source)
     labels = new Map();
     macros = new Map();
 
-    source = source.replace(/#.*/g, ''); // Remove comments
-    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|[\S\n]/g);
+    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|#.*|[\S\n]/g);
 
     let opcode, currIndex = 0;
     let instructions = [], instruction;
