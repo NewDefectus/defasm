@@ -11,7 +11,7 @@ const OPT = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 OPT.RM = [OPT.REG, OPT.MEM].toString(); // JavaScript is dumb at comparisons so we need to do this
 
-
+var allowLabels = false; // Only allow labels on the "second pass"; otherwise, throw LABEL_EXCEPTION
 
 const registers = Object.assign({}, ...[
 "al","cl","dl","bl","ah","ch","dh","bh",
@@ -116,14 +116,19 @@ function parseImmediate()
                 value += BigInt(token.charCodeAt(i));
             }
         }
-        else
-            value = BigInt(token);
+        else if(isNaN(token)) // Maybe it's a label?
+        {
+            if(!allowLabels) throw LABEL_EXCEPTION;
+            value = BigInt(labels.get(token) - currIndex);
+        }
+        else value = BigInt(token);
     
         next();
         return value;
     }
     catch(e)
     {
+        if(e === LABEL_EXCEPTION) throw e;
         throw "Couldn't parse immediate: " + e;
     }
 }

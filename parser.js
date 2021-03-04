@@ -1,5 +1,6 @@
 var srcTokens, token, match;
-var labels, macros;
+var currIndex = 0;
+var labels = new Map(), macros = new Map();
 var tokenRecording = [], isRecording = false;
 
 function lowerCase(str)
@@ -28,15 +29,14 @@ var next = defaultNext = () =>
 function startTokenRecording()
 {
     isRecording = true;
+    tokenRecording = [token];
 }
 
 // Stop a token recording and return the tokens in the recording
 function stopTokenRecording()
 {
     isRecording = false;
-    let tokensCopy = [...tokenRecording];
-    tokenRecording = [];
-    return tokensCopy;
+    return tokenRecording;
 }
 
 // Add the tokens in a recording to the token stack
@@ -44,6 +44,7 @@ function replayTokenRecording(recording)
 {
     let tokensCopy = [...recording];
     next = () => putInToken(tokensCopy.shift() || (next = defaultNext)());
+    next(); // First token in the recording should already be in the token variable
 }
 
 function ungetToken(t)
@@ -70,14 +71,14 @@ function Address()
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
+    let opcode, resizeChange, instructions = [], instr, i, hexBytes = "";
+
     next = defaultNext;
-    labels = new Map();
-    macros = new Map();
+    labels.clear(); macros.clear();
+    currIndex = 0, allowLabels = false;
 
     srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|#.*|[\S\n]/g);
 
-    let opcode, currIndex = 0;
-    let instructions = [], instruction;
     ASMLoop:
     while(next(), !match.done)
     {
@@ -89,9 +90,9 @@ function compileAsm(source)
             }
             else if(token[0] == '.') // Assembly directive
             {
-                instruction = parseDirective();
-                currIndex += instruction.length;
-                instructions.push(instruction);
+                instr = parseDirective();
+                currIndex += instr.length;
+                instructions.push(instr);
             }
             else // Instruction, label or macro
             {
@@ -109,9 +110,9 @@ function compileAsm(source)
                         break;
                     
                     default: // Instruction
-                        instruction = parseInstruction(opcode);
-                        currIndex += instruction.length;
-                        instructions.push(instruction);
+                        instr = parseInstruction(opcode);
+                        currIndex += instr.length;
+                        instructions.push(instr);
                         break;
                 }
             }
@@ -129,46 +130,46 @@ function compileAsm(source)
         }
     }
 
-    /* I guess this would be the "second pass", although we don't actually go
-    through the source code again; we're just resolving all the label references. */
-
-    // First, we'll filter out instructions that reference unknown labels
-    instructions = instructions.filter(instr => 
-        instr.requiredLabel === undefined || labels.has(instr.requiredLabel)
-    );
-
-    let labelIndex, resizeChange;
+    /* I guess this would be the "second pass", although we don't actually go through
+    the entire source code again; we're just resolving all the label references. */
+    allowLabels = true;
     labelResolveLoop:
     while(1)
     {
         currIndex = 0;
-        for(let instr of instructions)
+        for(i = 0; instr = instructions[i]; i++)
         {
-            currIndex += instr.length;
-            if(instr.requiredLabel !== undefined)
+            try
             {
-                labelIndex = labels.get(instr.requiredLabel);
-                resizeChange = instr.length;
-                instr.labelResolve(labelIndex - currIndex);
-                resizeChange -= instr.length;
-
-                if(resizeChange != 0) // If the label resolve caused the instruction to resize
+                currIndex += instr.length;
+                if(instr.tokens)
                 {
-                    // Correct all labels following this index
-                    labels.forEach((index, label) => {
-                        if(index >= currIndex)
-                            labels[label] -= resizeChange;
-                    })
-                    // Redo the adjustments from the start
-                    continue labelResolveLoop;
+                    resizeChange = instr.length;
+                    instr.parse();
+                    resizeChange -= instr.length;
+
+                    if(resizeChange != 0) // If the label resolve caused the instruction to resize
+                    {
+                        // Correct all labels following this index
+                        labels.forEach((index, label) => {
+                            if(index >= currIndex)
+                                labels.set(label, labels.get(label) - resizeChange);
+                        })
+                        // Redo the adjustments from the start
+                        continue labelResolveLoop;
+                    }
                 }
+            }
+            catch(e) // Remove instructions that create exceptions
+            {
+                instructions.splice(i, 1);
+                i = 0; currIndex = 0;
             }
         }
         break;
     }
 
-    let hexBytes = "", i;
-    for(let instr of instructions)
+    for(instr of instructions)
     {
         for(i = 0; i < instr.length; i++)
             hexBytes += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';

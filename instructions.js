@@ -1,7 +1,34 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
+const LABEL_EXCEPTION = "Unknown label";
 
-function Instruction()
+function parseInstruction(opcode)
 {
+    let result = new Instruction(opcode);
+    try
+    {
+        startTokenRecording();
+        result.parse();
+        stopTokenRecording();
+    }
+    catch(e)
+    {
+        if(e !== LABEL_EXCEPTION)
+        {
+            stopTokenRecording();
+            throw e;
+        }
+
+        // Save the token recording for future recompilation
+        while(token != ';' && token != '\n') next();
+        result.tokens = stopTokenRecording().slice(0, -1);
+        result.length = 1; // A length of at least 1 byte is needed to differentiate labels that come right before/after the instruction
+    }
+    return result;
+}
+
+function Instruction(opcode)
+{
+    this.opcode = opcode;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
 }
@@ -22,27 +49,21 @@ Instruction.prototype.genInteger = function(byte, size)
     } while(size -= 8);
 }
 
-/* Indicate that the instruction requires a label to generate
-(resolveFunc is what should be done when this dependency is resolved) */
-Instruction.prototype.addLabelDependency = function(labelName, resolveFunc)
+Instruction.prototype.parse = function()
 {
-    this.requiredLabel = labelName;
-    this.labelResolve = resolveFunc;
-}
-
-function parseInstruction(opcode)
-{
-    let operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
+    let opcode = this.opcode, operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
     let prefsToGen = new Set();
     let reg = null, rm = null, imm = null;
-    let result = new Instruction();
+    if(this.tokens) replayTokenRecording(this.tokens);
+    this.length = 0;
+    
 
     if(prefixes.hasOwnProperty(opcode))
     {
-        result.genByte(prefixes[opcode]);
+        this.genByte(prefixes[opcode]);
         ungetToken(token);
         token = ';';
-        return result;
+        return;
     }
 
     if(!mnemonics.hasOwnProperty(opcode))
@@ -96,7 +117,7 @@ function parseInstruction(opcode)
     }
 
     //console.log(operands);
-    if(globalSize < 0)
+    if(globalSize < 0 && operands.length > 0)
     {
         // If there's just one operand and it's an immediate, the overall size is the inferred size
         if(operands.length == 1 && operands[0].type == OPT.IMM) globalSize = operands[0].size;
@@ -158,22 +179,20 @@ function parseInstruction(opcode)
     if(hasRex && hateRex) throw "Can't encode high 8-bit register";
 
     // Time to generate!
-    for(let pref of prefsToGen) result.genByte(pref);
-    if(globalSize == 16) result.genByte(0x66);
-    if(hasRex) result.genByte(rexVal);
-    if(mnemonic.opcode > 0xff) result.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
-    result.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
-    if(modRM != null) result.genByte(modRM);
-    if(sib != null) result.genByte(sib);
+    for(let pref of prefsToGen) this.genByte(pref);
+    if(globalSize == 16) this.genByte(0x66);
+    if(hasRex) this.genByte(rexVal);
+    if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
+    this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
+    if(modRM != null) this.genByte(modRM);
+    if(sib != null) this.genByte(sib);
 
     // Generating the displacement and immediate
     if(rm != null && rm.value != null)
     {
-        result.genInteger(rm.value, rm.dispSize || 32);
+        this.genInteger(rm.value, rm.dispSize || 32);
     }
-    if(imm) result.genInteger(imm.value, imm.size);
-
-    return result;
+    if(imm) this.genInteger(imm.value, imm.size);
 }
 
 // Generate the ModRM byte
