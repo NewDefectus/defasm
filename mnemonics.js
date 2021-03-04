@@ -160,6 +160,8 @@ syscall: [
 ],
 jmp: [
     new M(0xEB, REG_NON, OPF.imm8),
-    new M(0xE9, REG_NON, OPF.imm32)
-]
+    new M(0xE9, REG_NON, OPF.imm32),
+    new M(0xFF, 4, OPF.rm64)
+],
+lea: MT(MNT.WLQ, 0x8D, REG_MOD, 'm', 'r')
 }
