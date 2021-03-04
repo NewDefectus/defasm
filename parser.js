@@ -179,7 +179,7 @@ function compileAsm(source)
     for(instr of instructions)
     {
         for(i = 0; i < instr.length; i++)
-            hexBytes += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
+            hexBytes += '\\x' + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
     }
 
     return hexBytes;
