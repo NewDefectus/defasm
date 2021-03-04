@@ -157,5 +157,9 @@ nop: [
 ],
 syscall: [
     new M(0x0F05, REG_NON)
+],
+jmp: [
+    new M(0xEB, REG_NON, OPF.imm8),
+    new M(0xE9, REG_NON, OPF.imm32)
 ]
 }

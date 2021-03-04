@@ -145,40 +145,35 @@ function compileAsm(source)
     /* I guess this would be the "second pass", although we don't actually go through
     the entire source code again; we're just resolving all the label references. */
     allowLabels = true;
-    labelResolveLoop:
-    while(1)
+    currIndex = 0;
+    for(i = 0; instr = instructions[i]; i++)
     {
-        currIndex = 0;
-        for(i = 0; instr = instructions[i]; i++)
+        try
         {
-            try
+            currIndex += instr.length;
+            if(instr.tokens)
             {
-                currIndex += instr.length;
-                if(instr.tokens)
-                {
-                    resizeChange = instr.length;
-                    instr.parse();
-                    resizeChange -= instr.length;
+                resizeChange = instr.length;
+                instr.parse();
+                resizeChange -= instr.length;
 
-                    if(resizeChange != 0) // If the label resolve caused the instruction to resize
-                    {
-                        // Correct all labels following this index
-                        labels.forEach((index, label) => {
-                            if(index >= currIndex)
-                                labels.set(label, labels.get(label) - resizeChange);
-                        })
-                        // Redo the adjustments from the start
-                        continue labelResolveLoop;
-                    }
+                if(resizeChange != 0) // If the label resolve caused the instruction to resize
+                {
+                    // Correct all labels following this index
+                    labels.forEach((index, label) => {
+                        if(index >= currIndex)
+                            labels.set(label, labels.get(label) - resizeChange);
+                    })
+                    // Redo the adjustments from the start
+                    i = 0, currIndex = 0;
                 }
             }
-            catch(e) // Remove instructions that create exceptions
-            {
-                instructions.splice(i, 1);
-                i = 0; currIndex = 0;
-            }
         }
-        break;
+        catch(e) // Remove instructions that create exceptions
+        {
+            instructions.splice(i, 1);
+            i = 0; currIndex = 0;
+        }
     }
 
     for(instr of instructions)

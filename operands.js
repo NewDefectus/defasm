@@ -133,11 +133,6 @@ function parseImmediate()
     }
 }
 
-function parseMemory()
-{
-    
-}
-
 
 function Operand()
 {

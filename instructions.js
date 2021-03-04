@@ -116,11 +116,13 @@ Instruction.prototype.parse = function()
         next();
     }
 
+    let singleImm = operands.length == 1 && operands[0].type == OPT.IMM;
+
     //console.log(operands);
     if(globalSize < 0 && operands.length > 0)
     {
         // If there's just one operand and it's an immediate, the overall size is the inferred size
-        if(operands.length == 1 && operands[0].type == OPT.IMM) globalSize = operands[0].size;
+        if(singleImm) globalSize = operands[0].size;
         else throw "Cannot infer operand size";
     }
     for(let o of operands)
@@ -177,6 +179,9 @@ Instruction.prototype.parse = function()
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
     if(hasRex && hateRex) throw "Can't encode high 8-bit register";
+
+    // Update the global size in case the immediate was fit into an operand template
+    if(singleImm) globalSize = operands[0].size;
 
     // Time to generate!
     for(let pref of prefsToGen) this.genByte(pref);
