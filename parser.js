@@ -1,5 +1,6 @@
 var srcTokens, token, match;
 var labels, macros;
+var tokenRecording = [], isRecording = false;
 
 function lowerCase(str)
 {
@@ -8,22 +9,47 @@ function lowerCase(str)
     return str.toLowerCase();
 }
 
-var next = defaultNext = () => 
-    token = (match = srcTokens.next()).done ? '\n' :
-    macros.has(match.value[0]) ?
-        (insertTokens(macros.get(match.value[0])), next())
-    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]);
-
-function insertTokens(tokens)
+function putInToken(tok)
 {
-    let tokensCopy = [...tokens];
-    next = () => token = tokensCopy.shift() || (next = defaultNext)();
+    token = tok;
+    if(isRecording) tokenRecording.push(tok);
+    return tok;
+}
+
+var next = defaultNext = () => 
+    putInToken((match = srcTokens.next()).done ? '\n' :
+    macros.has(match.value[0]) ?
+        (replayTokenRecording(macros.get(match.value[0])), next())
+    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]));
+
+/* "Token recordings" are strings of tokens that can be repeated after they are parsed */
+
+// Start a token recording
+function startTokenRecording()
+{
+    isRecording = true;
+}
+
+// Stop a token recording and return the tokens in the recording
+function stopTokenRecording()
+{
+    isRecording = false;
+    let tokensCopy = [...tokenRecording];
+    tokenRecording = [];
+    return tokensCopy;
+}
+
+// Add the tokens in a recording to the token stack
+function replayTokenRecording(recording)
+{
+    let tokensCopy = [...recording];
+    next = () => putInToken(tokensCopy.shift() || (next = defaultNext)());
 }
 
 function ungetToken(t)
 {
     let oldNext = next;
-    next = () => token = (next = oldNext, t);
+    next = () => putInToken((next = oldNext, t));
 }
 
 
@@ -77,9 +103,9 @@ function compileAsm(source)
                         continue ASMLoop;
                     
                     case '=': // Macro definition
-                        let macroTokens = [];
-                        while(next() != '\n') macroTokens.push(token);
-                        macros.set(opcode, macroTokens);
+                        startTokenRecording();
+                        while(next() != '\n');
+                        macros.set(opcode, stopTokenRecording().slice(0, -1));
                         break;
                     
                     default: // Instruction
