@@ -47,10 +47,22 @@ function replayTokenRecording(recording)
     next(); // First token in the recording should already be in the token variable
 }
 
+// Highly unhygienic. You shouldn't put the token back on the stack after you touched it.
+// I recommend washing your hands after you use this thing.
 function ungetToken(t)
 {
     let oldNext = next;
+    if(isRecording) tokenRecording.pop();
     next = () => putInToken((next = oldNext, t));
+}
+
+// Just a wee peek at the next token
+function peekNext()
+{
+    let oldToken = token, nextToken = next();
+    ungetToken(nextToken);
+    token = oldToken;
+    return nextToken;
 }
 
 

@@ -133,6 +133,11 @@ function parseImmediate()
     }
 }
 
+function parseMemory()
+{
+    
+}
+
 
 function Operand()
 {
@@ -154,8 +159,9 @@ function Operand()
     {
         [this.reg, this.type, this.size, this.prefixRequests] = parseRegister();
     }
-    else if(token == '$') // Immediate
+    else if(token == '$' || (labels.has(token) && peekNext() != '('))// Immediate
     {
+        if(labels.has(token)) ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
         this.size = inferImmSize(this.value);
