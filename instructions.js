@@ -181,14 +181,6 @@ function makeModRM(rm, r)
 {
     let modrm = 0, rex = 0, sib = null;
 
-    if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
-
-    // Encoding the "mod" (modifier) field
-    if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
-    else if(rm.dispSize != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
-    else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
-    // else mod=00
-
     // Encoding the "reg" field
     if(r.reg >= 8)
     {
@@ -196,6 +188,22 @@ function makeModRM(rm, r)
         r.reg &= 7;
     }
     modrm |= r.reg << 3;
+
+    // Special case for RIP-relative addressing
+    if(rm.ripRelative)
+    {
+        modrm |= 5; // mod = 00, reg = (reg), rm = 101
+        rm.value ||= 0n;
+        return [rex, modrm, sib];
+    }
+
+    if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
+
+    // Encoding the "mod" (modifier) field
+    if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
+    else if(rm.dispSize != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
+    else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
+    // else mod=00
     
     // Encoding the "rm" field
     if(rm.reg >= 8)
@@ -249,5 +257,5 @@ function makeModRM(rm, r)
     }
 
 
-    return [rex, modrm, sib]
+    return [rex, modrm, sib];
 }

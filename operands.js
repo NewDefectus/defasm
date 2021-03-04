@@ -20,8 +20,8 @@ const registers = Object.assign({}, ...[
 "rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi",
 "mm0","mm1","mm2","mm3","mm4","mm5","mm6","mm7",
 "xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",
-"es","cs","ss","ds","fs","gs","st","rip",
-"spl","bpl","sil","dil"
+"es","cs","ss","ds","fs","gs",
+"st","rip","eip","spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
 
 const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
@@ -66,9 +66,11 @@ function parseRegister(expectedType = null)
                 throw "Unknown register";
         }
     }
-    else if(reg == registers.rip && expectedType == OPT.IP)
+    else if(reg == registers.rip || reg == registers.eip)
     {
+        if(expectedType == null || !expectedType.includes(OPT.IP)) throw "Can't use RIP here";
         type = OPT.IP;
+        size = reg == registers.eip ? 32 : 64;
         reg = 0;
     }
     else if(reg >= registers.spl && reg <= registers.dil)
@@ -78,7 +80,7 @@ function parseRegister(expectedType = null)
         prefixRequests.add("REX");
         reg -= registers.spl - 4;
     }
-    else if(token[0] == 'r')// Attempt to parse the register name as a numeric (e.g. r10)
+    else if(token[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
     {
         reg = parseInt(token.slice(1));
         if(isNaN(reg) || reg <= 0 || reg >= 16)
@@ -165,7 +167,7 @@ function Operand()
         if(token != '(') throw "Invalid operand";
 
 
-        let tempSize;
+        let tempSize, tempType;
         if(next() != '%') // For addresses that look like (<number>)
         {
             ungetToken(token);
@@ -173,18 +175,21 @@ function Operand()
         }
         else
         {
-            [this.reg, _, tempSize] = parseRegister([OPT.REG, OPT.IP]);
+            [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP]);
             if(tempSize == 32) this.prefixRequests.add(0x67);
             else if(tempSize != 64) throw "Invalid register size";
-
-            if(token != ')')
+            if(tempType == OPT.IP)
+            {
+                this.ripRelative = true;
+            }
+            else if(token == ',')
             {
                 if(next() != '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
                 if(tempSize == 32) this.prefixRequests.add(0x67);
                 else if(tempSize != 64) throw "Invalid register size";
 
-                if(token != ')')
+                if(token == ',')
                 {
                     this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
                     if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
