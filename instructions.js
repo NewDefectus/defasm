@@ -1,5 +1,5 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
-const LABEL_EXCEPTION = "Unknown label";
+var labelException = false; // True if the currently parsed instruction needs to be recompiled later for labels
 
 function parseInstruction(opcode)
 {
@@ -12,12 +12,12 @@ function parseInstruction(opcode)
     }
     catch(e)
     {
-        if(e !== LABEL_EXCEPTION)
-        {
-            stopTokenRecording();
-            throw e;
-        }
+        stopTokenRecording();
+        throw e;
+    }
 
+    if(labelException)
+    {
         // Save the token recording for future recompilation
         while(token != ';' && token != '\n') next();
         result.tokens = stopTokenRecording().slice(0, -1);
@@ -56,7 +56,8 @@ Instruction.prototype.parse = function()
     let reg = null, rm = null, imm = null;
     if(this.tokens) replayTokenRecording(this.tokens);
     this.length = 0;
-    
+
+    labelException = false;
 
     if(prefixes.hasOwnProperty(opcode))
     {

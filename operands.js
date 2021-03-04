@@ -11,7 +11,7 @@ const OPT = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 OPT.RM = [OPT.REG, OPT.MEM].toString(); // JavaScript is dumb at comparisons so we need to do this
 
-var allowLabels = false; // Only allow labels on the "second pass"; otherwise, throw LABEL_EXCEPTION
+var allowLabels = false; // Only allow labels on the "second pass"
 
 const registers = Object.assign({}, ...[
 "al","cl","dl","bl","ah","ch","dh","bh",
@@ -118,8 +118,9 @@ function parseImmediate()
         }
         else if(isNaN(token)) // Maybe it's a label?
         {
-            if(!allowLabels) throw LABEL_EXCEPTION;
-            value = BigInt(labels.get(token) - currIndex);
+            // Label references get initialized to 1 on the first pass
+            if(!allowLabels) labelException = true, value = 1n;
+            else value = BigInt(labels.get(token) - currIndex);
         }
         else value = BigInt(token);
     
@@ -128,7 +129,6 @@ function parseImmediate()
     }
     catch(e)
     {
-        if(e === LABEL_EXCEPTION) throw e;
         throw "Couldn't parse immediate: " + e;
     }
 }
@@ -154,9 +154,9 @@ function Operand()
     {
         [this.reg, this.type, this.size, this.prefixRequests] = parseRegister();
     }
-    else if(token == '$' || (labels.has(token) && peekNext() != '('))// Immediate
+    else if(token == '$' || (isNaN(token) && peekNext() != '('))// Immediate
     {
-        if(labels.has(token)) ungetToken(token);
+        if(token != '$') ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
         this.size = inferImmSize(this.value);
