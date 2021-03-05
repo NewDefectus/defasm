@@ -134,18 +134,19 @@ function compileAsm(source)
     the entire source code again; we're just resolving all the label references. */
     allowLabels = true;
     currIndex = 0;
-    for(i = 0; instr = instructions[i]; i++)
+    for(i = 0; i < instructions.length; i++)
     {
-        try
+        instr = instructions[i];
+        currIndex += instr.length;
+        if(instr.tokens)
         {
-            currIndex += instr.length;
-            if(instr.tokens)
+            try
             {
                 resizeChange = instr.length;
                 instr.parse();
                 resizeChange -= instr.length;
 
-                if(resizeChange != 0) // If the label resolve caused the instruction to resize
+                if(resizeChange) // If the label resolve caused the instruction to resize
                 {
                     // Correct all labels following this index
                     labels.forEach((index, label) => {
@@ -156,11 +157,11 @@ function compileAsm(source)
                     i = -1, currIndex = 0;
                 }
             }
-        }
-        catch(e) // Remove instructions that create exceptions
-        {
-            instructions.splice(i, 1, emptyInstr);
-            i = -1; currIndex = 0;
+            catch(e) // Remove instructions that create exceptions
+            {
+                instructions.splice(i, 1);
+                i = -1; currIndex = 0;
+            }
         }
     }
 
