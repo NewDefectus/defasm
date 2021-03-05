@@ -27,31 +27,27 @@ function MT(template, opcode, extension)
     );
 }
 
-// Mnemonics whose operand size defaults to 64 bits
-function M64()
-{
-    M.call(this, ...arguments);
-    this.defsTo64 = true;
-}
-
 // Operand template
 function opTemp(type, size)
 {
     // Matching function (does a given operator match this template?)
+    if(size === undefined) // No size specified
+        this.matchSize = o => true;
+    else if(type == OPT.IMM) // Allow immediates to be "upcast"
+        this.matchSize = o => o.size <= size;
+    else
+        this.matchSize = o => o.size == size;
+    
+    
     if(type[0] !== undefined) // Multi-type templates (e.g. "rm")
     {
         this.types = type;
-        this.match = o => (o.type == type[0] || o.type == type[1]) && o.size == size;
+        this.matchType = o => type.includes(o.type)
     }
     else
     {
         this.types = [type];
-        if(size === undefined) // No size specified
-            this.match = o => o.type == type;
-        else if(type == OPT.IMM) // Allow immediates to be "upcast"
-            this.match = o => o.type == OPT.IMM && o.size <= size;
-        else
-            this.match = o => o.type == type && o.size == size;
+        this.matchType = o => o.type == type;
     }
 
     // Fitting function (fit a given operator into this template)
@@ -65,7 +61,8 @@ function opTemp(type, size)
 function specOpTemp(type, matcher)
 {
     this.types = [type];
-    this.match = o => o.type == type && matcher(o);
+    this.matchType = o => o.type == type;
+    this.matchSize = matcher;
     this.fit = o => o;
 }
 
@@ -139,9 +136,9 @@ or: [],
 and: [],
 cmp: [],
 push: [
-    ...MT(MNT.WQ(8, true), 0x50, REG_OP, 'r'),
+    ...MT(MNT.WQ(1, true), 0x50, REG_OP, 'r'),
     ...MT(MNT.BWL(-2), 0x6A, REG_NON, 'imm'),
-    ...MT(MNT.WQ(), 0xFF, 6, 'm'),
+    ...MT(MNT.WQ(1, true), 0xFF, 6, 'm'),
     
     // x64 supports pushing only these two segment registers
     new M(0x0FA0, REG_NON, OPF.fs),

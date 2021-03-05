@@ -141,7 +141,7 @@ function Operand()
     this.value = null;
     this.indir = false;
     this.type = null;
-    this.size = -1;
+    this.size = NaN;
     this.prefixRequests = new Set();
 
     if(token == '*')

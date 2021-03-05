@@ -124,29 +124,39 @@ Instruction.prototype.parse = function()
     {
         // If there's just one operand and it's an immediate, the overall size is the inferred size
         if(singleImm) globalSize = operands[0].size;
-        else throw "Cannot infer operand size";
     }
-    for(let o of operands)
+    else for(let o of operands)
     {
-        if(o.size < 0 // Unknown sizes (e.g. memory) default to the global size
+        if(isNaN(o.size) // Unknown sizes (e.g. memory) default to the global size
         || (o.type == OPT.IMM && o.size > globalSize) // Reduce immediates to global size (downcast only)
         || enforceSize) // If a suffix has been entered, it applies on all operands
             o.size = globalSize;
     }
 
-    let i, mnemonic, found = false;
+
+    // Now, we'll find the matching mnemonic for this operand list
+    let i, mnemonic, found = false, mnemTemp;
 
     mnemonicLoop:
     for(mnemonic of variations)
     {
         if(mnemonic.operandTemplates.length != operands.length) continue;
-        for(i = 0; i < operands.length; i++)
-            if(!mnemonic.operandTemplates[i].match(operands[i])) continue mnemonicLoop;
+        for(i = 0; mnemTemp = mnemonic.operandTemplates[i], operand = operands[i]; i++)
+            if(!mnemTemp.matchType(operand)
+            || !(mnemTemp.matchSize(operand) || 
+                // If possible, default unknown sizes to 64
+                mnemonic.defsTo64 && isNaN(operand.size))
+                )
+                continue mnemonicLoop;
 
         found = true;
         break;
     }
-    if(!found) throw "Invalid operands";
+    if(!found)
+    {
+        if(globalSize < 0) throw "Cannot infer opcode suffix";
+        throw "Invalid operands";
+    }
 
 
 
@@ -157,14 +167,14 @@ Instruction.prototype.parse = function()
         for(let op of mnemonic.operandTemplates)
         {
             op.fit(operands[i]);
-            if(op.types == OPT.RM || op.types == OPT.MEM) rm = operands[i];
+            if(op.types.includes(OPT.MEM)) rm = operands[i];
             else if(op.types == OPT.IMM) imm = operands[i];
             else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
             i++;
         }
     }
 
-    if(globalSize == 64 && mnemonic.defsTo64 !== true) rexVal |= 8, hasRex = true;
+    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, hasRex = true;
     
     let extraRex, modRM = null, sib = null;
     if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
