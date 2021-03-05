@@ -154,7 +154,7 @@ function Operand()
     {
         [this.reg, this.type, this.size, this.prefixRequests] = parseRegister();
     }
-    else if(token == '$' || (isNaN(token) && peekNext() != '('))// Immediate
+    else if(token == '$' || (isNaN(token) && token != '(' && peekNext() != '('))// Immediate
     {
         if(token != '$') ungetToken(token);
         this.value = parseImmediate();
