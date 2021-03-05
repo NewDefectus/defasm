@@ -83,9 +83,11 @@ function compileAsm(source)
         {
             if(token == '\n' || token == ';')
             {
+                if(token == '\n') instructions.push("");
                 continue;
             }
-            else if(token[0] == '.') // Assembly directive
+
+            if(token[0] == '.') // Assembly directive
             {
                 instr = parseDirective();
                 currIndex += instr.length;
@@ -114,8 +116,8 @@ function compileAsm(source)
                 }
             }
 
-            if(token != ';' && token != '\n')
-                throw "Expected end of line";
+            if(token != ';' && token != '\n') throw "Expected end of line";
+            if(token == '\n') instructions.push("");
         }
         catch(e)
         {
@@ -124,6 +126,7 @@ function compileAsm(source)
             console.warn(e);
             while(token != '\n' && token != ';')
                 next();
+            if(token == '\n') instructions.push("");
         }
     }
 
@@ -156,16 +159,17 @@ function compileAsm(source)
         }
         catch(e) // Remove instructions that create exceptions
         {
-            instructions.splice(i, 1);
+            instructions.splice(i, 1, emptyInstr);
             i = -1; currIndex = 0;
         }
     }
 
     for(instr of instructions)
     {
-        for(i = 0; i < instr.length; i++)
+        if(instr === "")
+            hexBytes += '\n';
+        else for(i = 0; i < instr.length; i++)
             hexBytes += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
-        hexBytes += '\n';
     }
 
     return hexBytes;
