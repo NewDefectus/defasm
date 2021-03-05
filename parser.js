@@ -65,21 +65,6 @@ function peekNext()
     return nextToken;
 }
 
-
-function Register(text)
-{
-    this.high = false;
-}
-
-function Address()
-{
-    this.segment = null; // Segment register
-    this.disp = 0; // Immediate
-    this.base = null; // Register
-    this.index = null; // Register
-    this.factor = null; // Immediate
-}
-
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
