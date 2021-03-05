@@ -103,7 +103,10 @@ const OPF = {
 "imm64": new opTemp(OPT.IMM, 64),
 
 "seg": new opTemp(OPT.SEG),
-"eax": new specOpTemp(OPT.REG, o => o.reg == 0),
+"ax8": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 8),
+"ax16": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
+"ax32": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 32),
+"ax64": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 64),
 "fs": new specOpTemp(OPT.SEG, o => o.reg == 4),
 "gs": new specOpTemp(OPT.SEG, o => o.reg == 5)
 }
@@ -116,7 +119,8 @@ const MNT = {
     "WLQ": MNTT([16, 32, 64]),
     "WL": MNTT([16, 32]),
     "WQ": MNTT([16, 64]),
-    "BL": MNTT([8, 32])
+    "BL": MNTT([8, 32]),
+    "BW": MNTT([8, 16])
 }
 
 var mnemonics = {
@@ -132,7 +136,13 @@ mov: [
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
 add: [
-
+    ...MT(MNT.BW(), 0x04, REG_NON, 'imm', 'ax'), // The L form exists but would have a longer encoding, so it's omitted
+    ...MT(MNT.WLQ(), 0x83, 0, OPF.imm8, 'rm'),
+    ...MT(MNT.BWL(), 0x80, 0, 'imm', 'rm'),
+    new M(0x05, REG_NON, OPF.imm32, OPF.ax64),
+    new M(0x81, 0, OPF.imm32, OPF.rm64),
+    ...MT(MNT.BWLQ(), 0x00, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ(), 0x02, REG_MOD, 'rm', 'r')
 ],
 sub: [],
 xor: [],
