@@ -8,6 +8,7 @@ td {
     width: 50%;
     height: 100%;
     padding: 0;
+    max-width:0;
 
     border:3px solid black;
 }
@@ -18,7 +19,8 @@ td {
     height: 100%;
     outline:none;
     border:none;
-    white-space: pre-line;
+    overflow-y:hidden;
+    white-space: pre;
     resize: none;
 
     font-family: monospace;
