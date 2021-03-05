@@ -23,7 +23,9 @@ function MT(template, opcode, extension)
     let sizes = template.sizes, defsTo64 = template.def64;
     if(sizes.includes(8)) nonByteOp += template.diff;
     return sizes.map(s => 
-        Object.assign(new M(s == 8 ? opcode : nonByteOp, extension, ...ops.map(op => OPF[op + s])), {defsTo64: defsTo64})
+        Object.assign(new M(s == 8 ? opcode : nonByteOp, extension, ...ops.map(op => 
+            typeof(op) === "string" ? OPF[op + s] : op
+            )), {defsTo64: defsTo64})
     );
 }
 
@@ -129,7 +131,9 @@ mov: [
     ...MT(MNT.BWLQ(8), 0xB0, REG_OP, 'imm', 'r'),
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
-add: [],
+add: [
+
+],
 sub: [],
 xor: [],
 or: [],

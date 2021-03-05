@@ -277,16 +277,19 @@ function makeModRM(rm, r)
         sib |= rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
     }
-    else // Simple memory access with one register, e.g. (%rax)
+    else
     {
-        if(rm.reg == 4) // Special case for ESP register (so as not to confuse with SIB)
+        if(rm.type == OPT.MEM) // Simple memory access with one register, e.g. (%rax)
         {
-            sib = 0x24; // This encodes to base=ESP, index=none, scale=0
-        }
-        else if(rm.reg == 5 && (modrm & 0xC0) == 0) // Special case for EBP register (so as not to confuse with disp32)
-        {
-            modrm |= 0x40; // Set to mod=01, so the modrm will be interpreted as EBP+disp8
-            sib = 0; // Bit of a hack - 0 doesn't actually go into SIB, it's a displacement value of 0
+            if(rm.reg == 4) // Special case for ESP register (so as not to confuse with SIB)
+            {
+                sib = 0x24; // This encodes to base=ESP, index=none, scale=0
+            }
+            else if(rm.reg == 5 && (modrm & 0xC0) == 0) // Special case for EBP register (so as not to confuse with disp32)
+            {
+                modrm |= 0x40; // Set to mod=01, so the modrm will be interpreted as EBP+disp8
+                sib = 0; // Bit of a hack - 0 doesn't actually go into SIB, it's a displacement value of 0
+            }
         }
         modrm |= rm.reg;
     }

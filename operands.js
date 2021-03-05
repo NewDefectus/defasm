@@ -34,8 +34,9 @@ function parseRegister(expectedType = null)
     {
         type = OPT.REG;
         size = 8 << (reg >> 3);
+        if(size == 8 && reg >= registers.ah && reg <= registers.bh)
+            prefixRequests.add("NO REX");
         reg &= 7;
-        if(size == 8 && reg >= registers.ah && reg <= registers.bh) prefixRequests.add("NO REX");
     }
     else if(reg >= registers.mm0 && reg <= registers.mm7)
     {
@@ -139,16 +140,9 @@ function Operand()
     this.reg = this.reg2 = -1;
     this.shift = 0;
     this.value = null;
-    this.indir = false;
     this.type = null;
     this.size = NaN;
     this.prefixRequests = new Set();
-
-    if(token == '*')
-    {
-        this.indir = true;
-        next();
-    }
 
     if(token == '%') // Register
     {
