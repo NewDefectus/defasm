@@ -165,14 +165,14 @@ function compileAsm(source)
                             labels.set(label, labels.get(label) - resizeChange);
                     })
                     // Redo the adjustments from the start
-                    i = 0, currIndex = 0;
+                    i = -1, currIndex = 0;
                 }
             }
         }
         catch(e) // Remove instructions that create exceptions
         {
             instructions.splice(i, 1);
-            i = 0; currIndex = 0;
+            i = -1; currIndex = 0;
         }
     }
 
