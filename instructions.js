@@ -21,7 +21,6 @@ function parseInstruction(opcode)
         // Save the token recording for future recompilation
         while(token != ';' && token != '\n') next();
         result.tokens = stopTokenRecording().slice(0, -1);
-        result.length = 1; // A length of at least 1 byte is needed to differentiate labels that come right before/after the instruction
     }
     return result;
 }
