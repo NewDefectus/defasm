@@ -18,7 +18,7 @@ td {
     height: 100%;
     outline:none;
     border:none;
-    word-break: break-word;
+    white-space: pre-line;
     resize: none;
 
     font-family: monospace;
