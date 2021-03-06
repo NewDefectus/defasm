@@ -230,9 +230,15 @@ nop: [
     new M(0x90, REG_NON),
     ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
 ],
-syscall: [
-    new M(0x0F05, REG_NON)
+syscall: [new M(0x0F05, REG_NON)],
+int: [
+    new M(0xCC, REG_NON, new specOpTemp(OPT.IMM, o => o.value === 3n)),
+    new M(0xF1, REG_NON, OPF.one),
+    new M(0xCD, REG_NON, OPF.imm8)
 ],
+int3: [new M(0xCC, REG_NON)],
+int1: [new M(0xF1, REG_NON)],
+
 lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
 
 
