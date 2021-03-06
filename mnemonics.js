@@ -29,6 +29,17 @@ function MT(template, opcode, extension)
     );
 }
 
+// Mnemonic set with 0 operands but differing sizes (e.g. string operations)
+function MTS(template, opcode)
+{
+    let nonByteOp = opcode;
+    let sizes = template.sizes;
+    if(sizes.includes(8)) nonByteOp += template.diff;
+    return sizes.map(s => 
+        Object.assign(new M(s == 8 ? opcode : nonByteOp, REG_NON), { globalSize: s})
+    );
+}
+
 // Operand template
 function opTemp(type, size)
 {
@@ -234,7 +245,14 @@ xchg: [
     ...MT(MNT.WLQ(), 0x90, REG_OP, 'r', 'ax'),
     ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'r', 'rm'),
     ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'rm', 'r')
-]
+],
+
+
+movs: MTS(MNT.BWLQ(), 0xA4),
+cmps: MTS(MNT.BWLQ(), 0xA6),
+stos: MTS(MNT.BWLQ(), 0xAA),
+lods: MTS(MNT.BWLQ(), 0xAC),
+scas: MTS(MNT.BWLQ(), 0xAE),
 }
 
 

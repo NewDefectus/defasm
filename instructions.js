@@ -141,6 +141,7 @@ Instruction.prototype.parse = function()
     for(mnemonic of variations)
     {
         if(mnemonic.operandTemplates.length != operands.length) continue;
+        if(operands.length == 0 && mnemonic.globalSize && mnemonic.globalSize != globalSize) continue;
         for(i = 0; mnemTemp = mnemonic.operandTemplates[i], operand = operands[i]; i++)
         {
             if(!mnemTemp.matchType(operand)
