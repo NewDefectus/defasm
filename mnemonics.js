@@ -270,7 +270,8 @@ stos: MTS(MNT.BWLQ(), 0xAA),
 lods: MTS(MNT.BWLQ(), 0xAC),
 scas: MTS(MNT.BWLQ(), 0xAE),
 
-pushf: MTS(MNT.WQ(), 0x9C).map(t => (t.defsTo16 = true, t)),
+pushf: [Object.assign(new M(0x9C, REG_NON), {defsTo64: true})],
+popf: [Object.assign(new M(0x9D, REG_NON), {defsTo64: true})],
 
 
 hlt: [new M(0xF4, REG_NON)],
