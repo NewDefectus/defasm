@@ -110,7 +110,8 @@ Instruction.prototype.parse = function()
         }
 
         // Infer default size from register operands
-        if(globalSize < 0 && operand.size > 0 && (operand.type == OPT.REG || operand.type == OPT.SEG)) globalSize = operand.size;
+        if(globalSize < operand.size && (operand.type == OPT.REG || operand.type == OPT.SEG))
+            globalSize = operand.size;
 
         if(token != ',') break;
         next();
