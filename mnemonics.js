@@ -264,6 +264,8 @@ lods: MTS(MNT.BWLQ(), 0xAC),
 scas: MTS(MNT.BWLQ(), 0xAE),
 
 
+hlt: [new M(0xF4, REG_NON)],
+cmc: [new M(0xF5, REG_NON)],
 clc: [new M(0xF8, REG_NON)],
 stc: [new M(0xF9, REG_NON)],
 cli: [new M(0xFA, REG_NON)],
