@@ -172,8 +172,8 @@ pop: [
 ],
 inc: MT(MNT.BWLQ(), 0xFE, 0, 'rm'),
 dec: MT(MNT.BWLQ(), 0xFE, 1, 'rm'),
-not: [],
-neg: [],
+not: MT(MNT.BWLQ(), 0xF6, 2, 'rm'),
+neg: MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
 mul: [],
 div: [],
 nop: [
