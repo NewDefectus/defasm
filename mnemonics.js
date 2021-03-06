@@ -123,6 +123,9 @@ const MNT = {
     "BW": MNTT([8, 16])
 }
 
+/* Mnemonic variations should be ordered in a way that yields
+the shortest, most compact encoding of any given instruction. */
+
 var mnemonics = {
 mov: [
     new M(0x8C, REG_MOD, OPF.seg, OPF.rm16),
@@ -136,8 +139,9 @@ mov: [
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
 add: [
-    ...MT(MNT.BW(), 0x04, REG_NON, 'imm', 'ax'), // The L form exists but would have a longer encoding, so it's omitted
+    ...MT(MNT.BW(), 0x04, REG_NON, 'imm', 'ax'),
     ...MT(MNT.WLQ(), 0x83, 0, OPF.imm8, 'rm'),
+    new M(0x05, REG_NON, OPF.imm32, OPF.ax32),
     ...MT(MNT.BWL(), 0x80, 0, 'imm', 'rm'),
     new M(0x05, REG_NON, OPF.imm32, OPF.ax64),
     new M(0x81, 0, OPF.imm32, OPF.rm64),
