@@ -244,7 +244,11 @@ shr: ShiftMnemonic(5),
 
 jmp: [
     ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
-    new M(0xFF, 4, OPF.rm64)
+    Object.assign(new M(0xFF, 4, OPF.rm64), {defsTo64: true})
+],
+call: [
+    new M(0xE8, REG_NON, OPF.imm32),
+    Object.assign(new M(0xFF, 2, OPF.rm64), {defsTo64: true})
 ],
 jecxz: [new M(0x67E3, REG_NON, OPF.imm8)],
 jrcxz: [new M(0xE3, REG_NON, OPF.imm8)],
