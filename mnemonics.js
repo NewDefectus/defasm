@@ -270,6 +270,8 @@ stos: MTS(MNT.BWLQ(), 0xAA),
 lods: MTS(MNT.BWLQ(), 0xAC),
 scas: MTS(MNT.BWLQ(), 0xAE),
 
+pushf: MTS(MNT.WQ(), 0x9C).map(t => (t.defsTo16 = true, t)),
+
 
 hlt: [new M(0xF4, REG_NON)],
 cmc: [new M(0xF5, REG_NON)],
