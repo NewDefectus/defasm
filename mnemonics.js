@@ -229,7 +229,12 @@ jmp: [
 jecxz: [new M(0x67E3, REG_NON, OPF.imm8)],
 jrcxz: [new M(0xE3, REG_NON, OPF.imm8)],
 
-
+xchg: [
+    ...MT(MNT.WLQ(), 0x90, REG_OP, 'ax', 'r'),
+    ...MT(MNT.WLQ(), 0x90, REG_OP, 'r', 'ax'),
+    ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'rm', 'r')
+]
 }
 
 
