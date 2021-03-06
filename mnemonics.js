@@ -271,7 +271,9 @@ sti: [new M(0xFB, REG_NON)],
 cld: [new M(0xFC, REG_NON)],
 std: [new M(0xFD, REG_NON)],
 
-xlat: [new M(0xD7, REG_NON)]
+xlat: [new M(0xD7, REG_NON)],
+wait: dummy = [new M(0x9B, REG_NON)],
+fwait: dummy
 }
 
 
