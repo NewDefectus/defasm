@@ -123,6 +123,20 @@ const MNT = {
     "BW": MNTT([8, 16])
 }
 
+function ArithMnemonic(opBase, extension)
+{
+    return [
+        ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
+        ...MT(MNT.WLQ(), 0x83, extension, OPF.imm8, 'rm'),
+        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax32),
+        ...MT(MNT.BWL(), 0x80, extension, 'imm', 'rm'),
+        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax64),
+        new M(0x81, extension, OPF.imm32, OPF.rm64),
+        ...MT(MNT.BWLQ(), opBase, REG_MOD, 'r', 'rm'),
+        ...MT(MNT.BWLQ(), opBase + 2, REG_MOD, 'rm', 'r')
+    ];
+}
+
 /* Mnemonic variations should be ordered in a way that yields
 the shortest, most compact encoding of any given instruction. */
 
@@ -138,30 +152,14 @@ mov: [
     ...MT(MNT.BWLQ(8), 0xB0, REG_OP, 'imm', 'r'),
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
-add: [
-    ...MT(MNT.BW(), 0x04, REG_NON, 'imm', 'ax'),
-    ...MT(MNT.WLQ(), 0x83, 0, OPF.imm8, 'rm'),
-    new M(0x05, REG_NON, OPF.imm32, OPF.ax32),
-    ...MT(MNT.BWL(), 0x80, 0, 'imm', 'rm'),
-    new M(0x05, REG_NON, OPF.imm32, OPF.ax64),
-    new M(0x81, 0, OPF.imm32, OPF.rm64),
-    ...MT(MNT.BWLQ(), 0x00, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ(), 0x02, REG_MOD, 'rm', 'r')
-],
-sub: [ // This is awfully similar to "add", there might be a way to pack this
-    ...MT(MNT.BW(), 0x2C, REG_NON, 'imm', 'ax'),
-    ...MT(MNT.WLQ(), 0x83, 5, OPF.imm8, 'rm'),
-    new M(0x2D, REG_NON, OPF.imm32, OPF.ax32),
-    ...MT(MNT.BWL(), 0x80, 5, 'imm', 'rm'),
-    new M(0x2D, REG_NON, OPF.imm32, OPF.ax64),
-    new M(0x81, 5, OPF.imm32, OPF.rm64),
-    ...MT(MNT.BWLQ(), 0x28, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ(), 0x2A, REG_MOD, 'rm', 'r')
-],
-xor: [],
-or: [],
-and: [],
-cmp: [],
+add:    ArithMnemonic(0x00, 0),
+or:     ArithMnemonic(0x08, 1),
+adc:    ArithMnemonic(0x10, 2),
+sbb:    ArithMnemonic(0x18, 3),
+and:    ArithMnemonic(0x20, 4),
+sub:    ArithMnemonic(0x28, 5),
+xor:    ArithMnemonic(0x30, 6),
+cmp:    ArithMnemonic(0x38, 7),
 push: [
     ...MT(MNT.WQ(1, true), 0x50, REG_OP, 'r'),
     ...MT(MNT.BWL(-2), 0x6A, REG_NON, 'imm'),
