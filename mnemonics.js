@@ -120,7 +120,8 @@ const MNT = {
     "WL": MNTT([16, 32]),
     "WQ": MNTT([16, 64]),
     "BL": MNTT([8, 32]),
-    "BW": MNTT([8, 16])
+    "BW": MNTT([8, 16]),
+    "LQ": MNTT([32, 64])
 }
 
 function ArithMnemonic(opBase, extension)
@@ -177,12 +178,21 @@ pop: [
     new M(0x0FA1, REG_NON, OPF.fs),
     new M(0x0FA9, REG_NON, OPF.gs)
 ],
-inc: MT(MNT.BWLQ(), 0xFE, 0, 'rm'),
-dec: MT(MNT.BWLQ(), 0xFE, 1, 'rm'),
-not: MT(MNT.BWLQ(), 0xF6, 2, 'rm'),
-neg: MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
-mul: MT(MNT.BWLQ(), 0xF6, 4, 'rm'),
-div: MT(MNT.BWLQ(), 0xF6, 6, 'rm'),
+inc:    MT(MNT.BWLQ(), 0xFE, 0, 'rm'),
+dec:    MT(MNT.BWLQ(), 0xFE, 1, 'rm'),
+not:    MT(MNT.BWLQ(), 0xF6, 2, 'rm'),
+neg:    MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
+mul:    MT(MNT.BWLQ(), 0xF6, 4, 'rm'),
+div:    MT(MNT.BWLQ(), 0xF6, 6, 'rm'),
+idiv:   MT(MNT.BWLQ(), 0xF6, 7, 'rm'),
+
+imul: [
+    ...MT(MNT.BWLQ(), 0xF6, 5, 'rm'),
+    ...MT(MNT.WLQ(), 0x0FAF, REG_MOD, 'rm', 'r'),
+    ...MT(MNT.WLQ(), 0x6B, REG_MOD, OPF.imm8, 'rm', 'r'),
+    new M(0x69, REG_MOD, OPF.imm16, OPF.rm16, OPF.r16),
+    ...MT(MNT.LQ(), 0x69, REG_MOD, OPF.imm32, 'rm', 'r')
+],
 nop: [
     new M(0x90, REG_NON),
     ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
