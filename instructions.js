@@ -141,12 +141,15 @@ Instruction.prototype.parse = function()
     {
         if(mnemonic.operandTemplates.length != operands.length) continue;
         for(i = 0; mnemTemp = mnemonic.operandTemplates[i], operand = operands[i]; i++)
+        {
             if(!mnemTemp.matchType(operand)
             || !(mnemTemp.matchSize(operand) || 
                 // If possible, default unknown sizes to 64
                 mnemonic.defsTo64 && isNaN(operand.size))
                 )
                 continue mnemonicLoop;
+            operand.implicit = mnemTemp.implicit;
+        }
 
         found = true;
         break;
@@ -207,7 +210,7 @@ Instruction.prototype.parse = function()
     {
         this.genInteger(rm.value, rm.dispSize || 32);
     }
-    if(imm) this.genInteger(imm.value, imm.size);
+    if(imm && !imm.implicit) this.genInteger(imm.value, imm.size);
 }
 
 // Generate the ModRM byte

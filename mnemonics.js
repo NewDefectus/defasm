@@ -66,6 +66,7 @@ function specOpTemp(type, matcher)
     this.matchType = o => o.type == type;
     this.matchSize = matcher;
     this.fit = o => o;
+    this.implicit = true;
 }
 
 const prefixes = {
@@ -107,6 +108,8 @@ const OPF = {
 "ax16": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
 "ax32": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 32),
 "ax64": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 64),
+"cx8": new specOpTemp(OPT.REG, o => o.reg == 1 && o.size == 8),
+"one": new specOpTemp(OPT.IMM, o => o.value === 1n),
 "fs": new specOpTemp(OPT.SEG, o => o.reg == 4),
 "gs": new specOpTemp(OPT.SEG, o => o.reg == 5)
 }
@@ -137,6 +140,16 @@ function ArithMnemonic(opBase, extension)
         ...MT(MNT.BWLQ(), opBase + 2, REG_MOD, 'rm', 'r')
     ];
 }
+
+function ShiftMnemonic(extension)
+{
+    return [
+        ...MT(MNT.BWLQ(), 0xD0, extension, OPF.one, 'rm'),
+        ...MT(MNT.BWLQ(), 0xD2, extension, OPF.cx8, 'rm'),
+        ...MT(MNT.BWLQ(), 0xC0, extension, OPF.imm8, 'rm')
+    ];
+}
+let dummy;
 
 /* Mnemonic variations should be ordered in a way that yields
 the shortest, most compact encoding of any given instruction. */
@@ -204,5 +217,9 @@ jmp: [
     ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
     new M(0xFF, 4, OPF.rm64)
 ],
-lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r')
+lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
+sal: dummy = ShiftMnemonic(4),
+sar: ShiftMnemonic(7),
+shl: dummy, // sal and shl are the same
+shr: ShiftMnemonic(5),
 }
