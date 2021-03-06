@@ -170,7 +170,7 @@ pop: [
     new M(0x0FA1, REG_NON, OPF.fs),
     new M(0x0FA9, REG_NON, OPF.gs)
 ],
-inc: [],
+inc: MT(MNT.BWLQ(), 0xFE, 0, 'rm'),
 dec: [],
 not: [],
 neg: [],
