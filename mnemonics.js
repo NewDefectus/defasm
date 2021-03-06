@@ -269,7 +269,9 @@ stc: [new M(0xF9, REG_NON)],
 cli: [new M(0xFA, REG_NON)],
 sti: [new M(0xFB, REG_NON)],
 cld: [new M(0xFC, REG_NON)],
-std: [new M(0xFD, REG_NON)]
+std: [new M(0xFD, REG_NON)],
+
+xlat: [new M(0xD7, REG_NON)]
 }
 
 
