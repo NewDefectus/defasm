@@ -148,7 +148,7 @@ add: [
     ...MT(MNT.BWLQ(), 0x00, REG_MOD, 'r', 'rm'),
     ...MT(MNT.BWLQ(), 0x02, REG_MOD, 'rm', 'r')
 ],
-sub: [
+sub: [ // This is awfully similar to "add", there might be a way to pack this
     ...MT(MNT.BW(), 0x2C, REG_NON, 'imm', 'ax'),
     ...MT(MNT.WLQ(), 0x83, 5, OPF.imm8, 'rm'),
     new M(0x2D, REG_NON, OPF.imm32, OPF.ax32),
