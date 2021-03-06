@@ -170,9 +170,12 @@ Instruction.prototype.parse = function()
         for(let op of mnemonic.operandTemplates)
         {
             op.fit(operands[i]);
-            if(op.types.includes(OPT.MEM)) rm = operands[i];
-            else if(op.types == OPT.IMM) imm = operands[i];
-            else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
+            if(!op.implicit)
+            {
+                if(op.types.includes(OPT.MEM)) rm = operands[i];
+                else if(op.types == OPT.IMM) imm = operands[i];
+                else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
+            }
             i++;
         }
     }
@@ -211,7 +214,7 @@ Instruction.prototype.parse = function()
     {
         this.genInteger(rm.value, rm.dispSize || 32);
     }
-    if(imm && !imm.implicit) this.genInteger(imm.value, imm.size);
+    if(imm) this.genInteger(imm.value, imm.size);
 }
 
 // Generate the ModRM byte
