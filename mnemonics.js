@@ -286,7 +286,8 @@ ret: [
     new M(0xC3, REG_NON)
 ],
 
-enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)]
+enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
+leave: [new M(0xC9, REG_NON)]
 }
 
 
