@@ -309,6 +309,7 @@ ret: [
     Object.assign(new M(0xC2, REG_NON, OPF.imm16), {defsTo16: true}),
     new M(0xC3, REG_NON)
 ],
+iret: [new M(0xCF, REG_NON)],
 
 enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
 leave: [new M(0xC9, REG_NON)]
