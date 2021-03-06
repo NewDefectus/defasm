@@ -236,10 +236,14 @@ syscall: [
 lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
 
 
+rol: ShiftMnemonic(0),
+ror: ShiftMnemonic(1),
+rcl: ShiftMnemonic(2),
+rcr: ShiftMnemonic(3),
 sal: dummy = ShiftMnemonic(4),
+shr: ShiftMnemonic(5),
 sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
-shr: ShiftMnemonic(5),
 
 
 loopne: [new M(0xE0, REG_NON, OPF.imm8)],
