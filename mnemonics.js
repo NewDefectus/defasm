@@ -213,13 +213,47 @@ nop: [
 syscall: [
     new M(0x0F05, REG_NON)
 ],
-jmp: [
-    ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
-    new M(0xFF, 4, OPF.rm64)
-],
 lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
+
+
 sal: dummy = ShiftMnemonic(4),
 sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
 shr: ShiftMnemonic(5),
+
+
+jmp: [
+    ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
+    new M(0xFF, 4, OPF.rm64)
+],
+jecxz: [new M(0x67E3, REG_NON, OPF.imm8)],
+jrcxz: [new M(0xE3, REG_NON, OPF.imm8)],
+
+
 }
+
+
+// Adding conditional jmp instructions (these are very repetitive so we treat them specially)
+let conditionalJmps = `jo
+jno
+jb jc jnae
+jae jnb jnc
+je jz
+jne jnz
+jbe jna
+ja jnbe
+js
+jns
+jp jpe
+jnp jpo
+jl jnge
+jge jnl
+jle jng
+jg jnle`.split('\n');
+conditionalJmps.forEach((names, i) => {
+    dummy = [
+        new M(0x70 + i, REG_NON, OPF.imm8),
+        new M(0x0F80 + i, REG_NON, OPF.imm32)
+    ];
+    names.split(' ').forEach(name => mnemonics[name] = dummy);
+})
