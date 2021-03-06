@@ -245,6 +245,10 @@ shr: ShiftMnemonic(5),
 sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
 
+
+cbw: [Object.assign(new M(0x98, REG_NON), {autoSize: 16})],
+cwde: [new M(0x98, REG_NON)],
+cdqe: [Object.assign(new M(0x98, REG_NON), {autoSize: 64})],
 cwd: [Object.assign(new M(0x99, REG_NON), {autoSize: 16})],
 cdq: [new M(0x99, REG_NON)],
 cqo: [Object.assign(new M(0x99, REG_NON), {autoSize: 64})],
