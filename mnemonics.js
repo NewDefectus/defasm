@@ -245,6 +245,10 @@ shr: ShiftMnemonic(5),
 sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
 
+cwd: [Object.assign(new M(0x99, REG_NON), {autoSize: 16})],
+cdq: [new M(0x99, REG_NON)],
+cqo: [Object.assign(new M(0x99, REG_NON), {autoSize: 64})],
+
 
 loopne: [new M(0xE0, REG_NON, OPF.imm8)],
 loope: [new M(0xE1, REG_NON, OPF.imm8)],

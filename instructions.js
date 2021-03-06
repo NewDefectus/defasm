@@ -162,6 +162,7 @@ Instruction.prototype.parse = function()
         throw "Invalid operands";
     }
 
+    if(mnemonic.autoSize) globalSize = mnemonic.autoSize;
 
 
     // Finding the reg/rm/immediate operands
