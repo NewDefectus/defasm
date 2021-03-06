@@ -177,7 +177,8 @@ neg: MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
 mul: [],
 div: [],
 nop: [
-    new M(0x90, REG_NON)
+    new M(0x90, REG_NON),
+    ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
 ],
 syscall: [
     new M(0x0F05, REG_NON)
