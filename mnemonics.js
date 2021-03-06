@@ -175,7 +175,7 @@ dec: MT(MNT.BWLQ(), 0xFE, 1, 'rm'),
 not: MT(MNT.BWLQ(), 0xF6, 2, 'rm'),
 neg: MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
 mul: MT(MNT.BWLQ(), 0xF6, 4, 'rm'),
-div: [],
+div: MT(MNT.BWLQ(), 0xF6, 6, 'rm'),
 nop: [
     new M(0x90, REG_NON),
     ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
