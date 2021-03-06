@@ -273,7 +273,12 @@ std: [new M(0xFD, REG_NON)],
 
 xlat: [new M(0xD7, REG_NON)],
 wait: dummy = [new M(0x9B, REG_NON)],
-fwait: dummy
+fwait: dummy,
+
+ret: [
+    Object.assign(new M(0xC2, REG_NON, OPF.imm16), {defsTo16: true}),
+    new M(0xC3, REG_NON)
+]
 }
 
 

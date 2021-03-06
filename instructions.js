@@ -203,7 +203,7 @@ Instruction.prototype.parse = function()
 
     // Time to generate!
     for(let pref of prefsToGen) this.genByte(pref);
-    if(globalSize == 16) this.genByte(0x66);
+    if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
     if(hasRex) this.genByte(rexVal);
     if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
