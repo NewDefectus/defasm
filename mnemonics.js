@@ -284,7 +284,9 @@ fwait: dummy,
 ret: [
     Object.assign(new M(0xC2, REG_NON, OPF.imm16), {defsTo16: true}),
     new M(0xC3, REG_NON)
-]
+],
+
+enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)]
 }
 
 

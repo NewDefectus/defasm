@@ -52,7 +52,7 @@ Instruction.prototype.parse = function()
 {
     let opcode = this.opcode, operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
     let prefsToGen = new Set();
-    let reg = null, rm = null, imm = null;
+    let reg = null, rm = null, imms = [];
     if(this.tokens) replayTokenRecording(this.tokens);
     this.length = 0;
 
@@ -174,7 +174,7 @@ Instruction.prototype.parse = function()
             if(!op.implicit)
             {
                 if(op.types.includes(OPT.MEM)) rm = operands[i];
-                else if(op.types == OPT.IMM) imm = operands[i];
+                else if(op.types == OPT.IMM) imms.push(operands[i]);
                 else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
             }
             i++;
@@ -215,7 +215,7 @@ Instruction.prototype.parse = function()
     {
         this.genInteger(rm.value, rm.dispSize || 32);
     }
-    if(imm) this.genInteger(imm.value, imm.size);
+    for(let imm of imms) this.genInteger(imm.value, imm.size);
 }
 
 // Generate the ModRM byte
