@@ -138,7 +138,7 @@ const MNT = {
     "LQ": MNTT([32, 64])
 }
 
-function ArithMnemonic(opBase, extension)
+function ArithMnemonic(opBase, extension, )
 {
     return [
         ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
@@ -177,6 +177,8 @@ mov: [
     ...MT(MNT.BWLQ(8), 0xB0, REG_OP, 'imm', 'r'),
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
+
+
 add:    ArithMnemonic(0x00, 0),
 or:     ArithMnemonic(0x08, 1),
 adc:    ArithMnemonic(0x10, 2),
@@ -185,6 +187,13 @@ and:    ArithMnemonic(0x20, 4),
 sub:    ArithMnemonic(0x28, 5),
 xor:    ArithMnemonic(0x30, 6),
 cmp:    ArithMnemonic(0x38, 7),
+test: [ // Similar to the other ariths, but too distinct to reuse the function
+    ...MT(MNT.BWLQ(), 0xA8, REG_NON, 'imm', 'ax'),
+    ...MT(MNT.BWLQ(), 0xF6, 0, 'imm', 'rm'),
+    ...MT(MNT.BWLQ(), 0x84, REG_MOD, 'r', 'rm')
+],
+
+
 push: [
     ...MT(MNT.WQ(1, true), 0x50, REG_OP, 'r'),
     ...MT(MNT.BWL(-2), 0x6A, REG_NON, 'imm'),
