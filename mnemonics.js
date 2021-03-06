@@ -148,7 +148,16 @@ add: [
     ...MT(MNT.BWLQ(), 0x00, REG_MOD, 'r', 'rm'),
     ...MT(MNT.BWLQ(), 0x02, REG_MOD, 'rm', 'r')
 ],
-sub: [],
+sub: [
+    ...MT(MNT.BW(), 0x2C, REG_NON, 'imm', 'ax'),
+    ...MT(MNT.WLQ(), 0x83, 5, OPF.imm8, 'rm'),
+    new M(0x2D, REG_NON, OPF.imm32, OPF.ax32),
+    ...MT(MNT.BWL(), 0x80, 5, 'imm', 'rm'),
+    new M(0x2D, REG_NON, OPF.imm32, OPF.ax64),
+    new M(0x81, 5, OPF.imm32, OPF.rm64),
+    ...MT(MNT.BWLQ(), 0x28, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ(), 0x2A, REG_MOD, 'rm', 'r')
+],
 xor: [],
 or: [],
 and: [],
