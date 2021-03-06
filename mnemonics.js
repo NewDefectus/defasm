@@ -242,6 +242,9 @@ shl: dummy, // sal and shl are the same
 shr: ShiftMnemonic(5),
 
 
+loopne: [new M(0xE0, REG_NON, OPF.imm8)],
+loope: [new M(0xE1, REG_NON, OPF.imm8)],
+loop: [new M(0xE2, REG_NON, OPF.imm8)],
 jmp: [
     ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
     Object.assign(new M(0xFF, 4, OPF.rm64), {defsTo64: true})
