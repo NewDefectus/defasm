@@ -20,49 +20,43 @@ Directive.prototype.genByte = function(byte)
     }
 }
 
+const directives = {
+byte: result => {
+    do { result.genByte(parseImmediate()) } while(token === ',');
+},
+string: result => {
+    while(next() != ';' && token != '\n')
+    {
+        if(token[0] != '"' && token[0] != "'" && token != ',')
+        {
+            throw "Expected string";
+        }
+
+        for(let c of token.slice(1, token.length - 1))
+        {
+            result.genByte(BigInt(c.charCodeAt(0)));
+        }
+    }
+}
+}
+
 
 function parseDirective()
 {
-    let imm;
     let result = new Directive();
-    try
+    token = token.slice(1); // Drop the .
+    if(directives.hasOwnProperty(token))
     {
-        switch(token)
+        try
         {
-            case '.byte':
-                do
-                {
-                    imm = parseImmediate();
-                    result.genByte(imm);
-                }
-                while(token == ',')
-                break;
-            
-            case '.string':
-                while(next() != ';' && token != '\n')
-                {
-                    if(token[0] != '"' && token[0] != "'" && token != ',')
-                    {
-                        throw "Expected string";
-                    }
-
-                    for(let c of token.slice(1, token.length - 1))
-                    {
-                        result.genByte(BigInt(c.charCodeAt(0)));
-                    }
-                }
-                break;
-
-            default:
-                throw "Unknown directive";
+            directives[token](result);
         }
-    }
-    catch(e)
-    {
-        // Only throw the exception up if no directive should be generated
-        if(result.length == 0)
-            throw e;
-        console.warn(e);
+        catch(e)
+        {
+            if(result.length == 0)
+                throw e;
+            console.warn(e);
+        }
     }
     return result;
 }

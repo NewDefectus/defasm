@@ -15,8 +15,8 @@
 .cm-s-editor span.cm-keyword { color: #ffee80; }
 .cm-s-editor span.cm-string { color: #3ad900; }
 .cm-s-editor span.cm-meta { color: #ff9d00; }
-.cm-s-editor span.cm-variable-2, .cm-s-editor span.cm-tag { color: #9effff; }
-.cm-s-editor span.cm-variable-3, .cm-s-editor span.cm-def, .cm-s-editor .cm-type { color: white; }
+.cm-s-editor span.cm-variable, .cm-s-editor span.cm-tag { color: #9effff; }
+.cm-s-editor span.cm-def, .cm-s-editor .cm-type { color: white}
 .cm-s-editor span.cm-bracket { color: #d8d8d8; }
 .cm-s-editor span.cm-builtin, .cm-s-editor span.cm-special { color: #ff9e59; }
 .cm-s-editor span.cm-link { color: #845dc4; }

@@ -1,6 +1,6 @@
 var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "theme": "editor",
-    "mode": {name: "gas", architecture: "x86"},
+    "mode": "gas",
     "lineNumbers": true
 });
 var asmTextOutput = document.getElementById("outputArea");
