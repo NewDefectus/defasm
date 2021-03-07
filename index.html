@@ -1,5 +1,6 @@
 <head>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="editor.css">
     <title>DefAssembler</title>
     <link rel="shortcut icon" type="image/x-icon" href="favicon.ico?">
 </head>
@@ -7,17 +8,19 @@
 <body>
 <h1>DefAssembler</h1>
     <table id="asmDataTable">
-        <td style="border-right: 5px solid black">
-            <textarea id="inputArea" class="asmTextData" data-gramm_editor="false" spellcheck="false">
-            </textarea>
+        <td id="inputAreaContainer">
         </td>
 
-        <td style="border-left: 5px solid black">
+        <td>
             <div id="outputArea" class="asmTextData">
             </div>
         </td>
     </table>
 </body>
+
+<script src="lib/codemirror.js"></script>
+<link rel="stylesheet" href="lib/codemirror.css">
+<script src="mode/gas/gas.js"></script>
 
 <script src="parser.js"></script>
 <script src="instructions.js"></script>
