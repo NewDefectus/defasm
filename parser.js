@@ -165,13 +165,5 @@ function compileAsm(source)
         }
     }
 
-    for(instr of instructions)
-    {
-        if(instr === "")
-            hexBytes += '\n';
-        else for(i = 0; i < instr.length; i++)
-            hexBytes += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
-    }
-
-    return hexBytes;
+    return instructions;
 }
