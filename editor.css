@@ -6,7 +6,7 @@
 .cm-s-editor .CodeMirror-gutters { background: inherit; border-right: 3px solid black; }
 .cm-s-editor .CodeMirror-guttermarker { color: #ffee80; }
 .cm-s-editor .CodeMirror-guttermarker-subtle { color: #d0d0d0; }
-.cm-s-editor .CodeMirror-linenumber { color: #d0d0d0; }
+.cm-s-editor .CodeMirror-linenumber { color: #d0d0d0; background-color: rgb(0, 33, 33) }
 .cm-s-editor .CodeMirror-cursor { border-left: 1px solid white; }
 
 .cm-s-editor span.cm-comment { color: #08f; }
