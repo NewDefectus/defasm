@@ -1,0 +1,18 @@
+#printableCode {
+    height: 10%;
+    background-color: rgb(0, 30, 30);
+    font-size:1.5em;
+    padding:1%;
+}
+
+#printableCodeOutput, #outputArea {
+    color: rgb(247, 133, 104);
+}
+
+.codeBad {
+    color:rgb(231, 56, 56)
+}
+
+.codeChar {
+    color:rgb(106, 95, 255)
+}

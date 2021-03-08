@@ -1,0 +1,34 @@
+<head>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="editor.css">
+    <link rel="stylesheet" href="printable/style.css">
+    <title>DefAssembler</title>
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico?">
+</head>
+
+<body>
+    <h1>DefAssembler</h1>
+    <table id="asmDataTable">
+        <tr><td colspan=2 id="printableCode">
+            main=<span id="printableCodeOutput">""</span>;
+        </td></tr>
+        <td id="inputAreaContainer">
+        </td>
+
+        <td>
+            <div id="outputArea" class="asmTextData">
+            </div>
+        </td>
+    </table>
+</body>
+
+<script src="lib/codemirror.js"></script>
+<link rel="stylesheet" href="lib/codemirror.css">
+<script src="mode/gas/gas.js"></script>
+
+<script src="parser.js"></script>
+<script src="instructions.js"></script>
+<script src="operands.js"></script>
+<script src="mnemonics.js"></script>
+<script src="directives.js"></script>
+<script src="printable/printableEditor.js"></script>

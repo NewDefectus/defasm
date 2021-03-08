@@ -42,6 +42,7 @@ td {
     height: 100%;
     padding: 0;
     max-width:0;
+    font-family: monospace;
 }
 
 .asmTextData {
@@ -54,6 +55,5 @@ td {
     white-space: pre;
     resize: none;
 
-    font-family: monospace;
     font-size: 1.5em;
 }
