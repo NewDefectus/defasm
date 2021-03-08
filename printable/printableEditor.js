@@ -49,7 +49,7 @@ editor.on("change", function()
                 {
                     if(thisDepth == 1)
                     {
-                        uniSeq[0] = byte;
+                        uniSeq[uniDepth++] = byte;
                         tempHexOutput += hex;
                         dumpBadSeq();
                     }
