@@ -14,7 +14,7 @@ var hexOutput = "", printableOutput = "", tempHexOutput = "";
 // Input receiving
 editor.on("change", function()
 {
-    let instructions = compileAsm(editor.getValue()), thisDepth = 0, printGoodLater = false, printBadLater = false;
+    let instructions = compileAsm(editor.getValue()), thisDepth = 0, hex;
     printableOutput = tempHexOutput = hexOutput = ""; uniDepth = expectedDepth = 0;
     
     for(let instr of instructions)
@@ -23,12 +23,13 @@ editor.on("change", function()
             tempHexOutput += '\n';
         else for(i = 0; i < instr.length; i++)
         {
-            printGoodLater = printBadLater = false;
             byte = instr.bytes[i]; thisDepth = getByteDepth(byte);
+            hex = byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
             if(thisDepth == 0)
             {
-                if(expectedDepth > 0) dumpBadSeq();
-                printGoodLater = true;
+                if(expectedDepth) dumpBadSeq();
+                tempHexOutput += hex;
+                dumpUniSeq(byte);
             }
             else
             {
@@ -37,24 +38,18 @@ editor.on("change", function()
                     if(thisDepth == 1)
                     {
                         uniSeq[0] = byte;
-                        printBadLater = true;
+                        tempHexOutput += hex;
+                        dumpBadSeq();
                     }
-                    else expectedDepth = thisDepth, uniDepth = 1, uniSeq[0] = byte;
+                    else expectedDepth = thisDepth, uniSeq[uniDepth++] = byte, tempHexOutput += hex;
                 }
                 else
                 {
                     uniSeq[uniDepth++] = byte;
-                    if(thisDepth != 1) printBadLater = true;
-                    else
-                    {
-                        if(expectedDepth === uniDepth) printGoodLater = true;
-                    }
+                    if(thisDepth != 1) tempHexOutput += hex, dumpBadSeq();
+                    else if(expectedDepth === uniDepth) tempHexOutput += hex, dumpUniSeq(byte);
                 }
             }
-
-            tempHexOutput += byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
-            if(printGoodLater) dumpUniSeq(byte);
-            else if(printBadLater) dumpBadSeq(byte);
         }
     }
     if(expectedDepth) dumpBadSeq();
@@ -89,10 +84,10 @@ function dumpUniSeq(byte)
     expectedDepth = uniDepth = 0;
 }
 
-function dumpBadSeq(byte)
+function dumpBadSeq()
 {
     hexOutput += '<span class="codeBad">' + tempHexOutput + '</span>';
-    printableOutput += '<span class="codeBad">' + escapeUniSeq(uniSeq.slice(0, uniDepth || 1)) + '</span>';
+    printableOutput += '<span class="codeBad">' + escapeUniSeq(uniSeq.slice(0, uniDepth)) + '</span>';
     tempHexOutput = "";
     expectedDepth = uniDepth = 0;
 }
@@ -103,7 +98,7 @@ function escapeUniSeq(seq)
     let result = "";
     for(let i = 0; i < seq.length; i++)
     {
-        result += '\\' + seq[i].toString(8).padStart(3, '0');
+        result += '\\' + seq[i].toString(8);
     }
     return result;
 }
