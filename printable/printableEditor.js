@@ -28,8 +28,10 @@ editor.on("change", function()
             if(thisDepth == 0)
             {
                 if(expectedDepth) dumpBadSeq();
-                tempHexOutput += hex;
-                dumpUniSeq(byte);
+                hexOutput += hex + tempHexOutput;
+                printableOutput += String.fromCharCode(byte);
+                tempHexOutput = "";
+                expectedDepth = uniDepth = 0;
             }
             else
             {
@@ -47,7 +49,7 @@ editor.on("change", function()
                 {
                     uniSeq[uniDepth++] = byte;
                     if(thisDepth != 1) tempHexOutput += hex, dumpBadSeq();
-                    else if(expectedDepth === uniDepth) tempHexOutput += hex, dumpUniSeq(byte);
+                    else if(expectedDepth === uniDepth) tempHexOutput += hex, dumpUniSeq();
                 }
             }
         }
@@ -68,18 +70,10 @@ function getByteDepth(x)
     return 8;
 }
 
-function dumpUniSeq(byte)
+function dumpUniSeq()
 {
-    if(uniDepth == 0)
-    {
-        hexOutput += tempHexOutput;
-        printableOutput += String.fromCharCode(byte);
-    }
-    else
-    {
-        hexOutput += '<span class="codeChar">' + tempHexOutput + '</span>';
-        printableOutput += '<span class="codeChar">' + decoder.decode(uniSeq.slice(0, uniDepth)) + '</span>';
-    }
+    hexOutput += '<span class="codeChar">' + tempHexOutput + '</span>';
+    printableOutput += '<span class="codeChar">' + decoder.decode(uniSeq.slice(0, uniDepth)) + '</span>';
     tempHexOutput = "";
     expectedDepth = uniDepth = 0;
 }
