@@ -10,6 +10,7 @@ var printableOutputArea = document.getElementById("printableCodeOutput");
 
 var uniSeq = new Uint8Array(8), uniDepth = 0, expectedDepth = 0;
 var hexOutput = "", printableOutput = "", tempHexOutput = "";
+var justEscaped = false;
 
 // Input receiving
 editor.on("change", function()
@@ -25,13 +26,22 @@ editor.on("change", function()
         {
             byte = instr.bytes[i]; thisDepth = getByteDepth(byte);
             hex = byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
-            if(thisDepth == 0)
+            if(byte === 0)
+            {
+                tempHexOutput += hex;
+                uniSeq[uniDepth++] = 0;
+                dumpBadSeq();
+            }
+            else if(thisDepth == 0)
             {
                 if(expectedDepth) dumpBadSeq();
-                hexOutput += hex + tempHexOutput;
-                printableOutput += String.fromCharCode(byte);
+                hexOutput += tempHexOutput + hex;
+                if(justEscaped && byte >= 48 && byte < 56) printableOutput += '""'; // Make sure escape codes don't merge into digits
+                if(byte == 13) printableOutput += "\\r";
+                else printableOutput += String.fromCharCode(byte);
                 tempHexOutput = "";
                 expectedDepth = uniDepth = 0;
+                justEscaped = false;
             }
             else
             {
@@ -48,8 +58,9 @@ editor.on("change", function()
                 else
                 {
                     uniSeq[uniDepth++] = byte;
-                    if(thisDepth != 1) tempHexOutput += hex, dumpBadSeq();
-                    else if(expectedDepth === uniDepth) tempHexOutput += hex, dumpUniSeq();
+                    tempHexOutput += hex
+                    if(thisDepth != 1) dumpBadSeq();
+                    else if(expectedDepth === uniDepth) dumpUniSeq();
                 }
             }
         }
@@ -72,10 +83,17 @@ function getByteDepth(x)
 
 function dumpUniSeq()
 {
-    hexOutput += '<span class="codeChar">' + tempHexOutput + '</span>';
-    printableOutput += '<span class="codeChar">' + decoder.decode(uniSeq.slice(0, uniDepth)) + '</span>';
-    tempHexOutput = "";
-    expectedDepth = uniDepth = 0;
+    try
+    {
+        printableOutput += '<span class="codeChar">' + decodeURIComponent((' ' + tempHexOutput).slice(0, -1).replace(/\s+/g, '%')) + '</span>';
+        hexOutput += '<span class="codeChar">' + tempHexOutput + '</span>';
+        tempHexOutput = "";
+        expectedDepth = uniDepth = 0;
+    }
+    catch(e)
+    {
+        dumpBadSeq();
+    }
 }
 
 function dumpBadSeq()
@@ -84,6 +102,7 @@ function dumpBadSeq()
     printableOutput += '<span class="codeBad">' + escapeUniSeq(uniSeq.slice(0, uniDepth)) + '</span>';
     tempHexOutput = "";
     expectedDepth = uniDepth = 0;
+    justEscaped = true;
 }
 
 
