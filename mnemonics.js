@@ -139,29 +139,6 @@ const MNT = {
     "LQ": MNTT([32, 64])
 }
 
-function ArithMnemonic(extension)
-{
-    let opBase = extension * 8;
-    return [
-        ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
-        ...MT(MNT.WLQ(), 0x83, extension, OPF.imm8, 'rm'),
-        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax32),
-        ...MT(MNT.BWL(), 0x80, extension, 'imm', 'rm'),
-        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax64),
-        new M(0x81, extension, OPF.imm32, OPF.rm64),
-        ...MT(MNT.BWLQ(), opBase, REG_MOD, 'r', 'rm'),
-        ...MT(MNT.BWLQ(), opBase + 2, REG_MOD, 'rm', 'r')
-    ];
-}
-
-function ShiftMnemonic(extension)
-{
-    return [
-        ...MT(MNT.BWLQ(), 0xD0, extension, OPF.one, 'rm'),
-        ...MT(MNT.BWLQ(), 0xD2, extension, OPF.cx8, 'rm'),
-        ...MT(MNT.BWLQ(), 0xC0, extension, OPF.imm8, 'rm')
-    ];
-}
 let dummy;
 
 /* Mnemonic variations should be ordered in a way that yields
@@ -180,16 +157,7 @@ mov: [
     ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
 ],
 
-
-add:    ArithMnemonic(0),
-or:     ArithMnemonic(1),
-adc:    ArithMnemonic(2),
-sbb:    ArithMnemonic(3),
-and:    ArithMnemonic(4),
-sub:    ArithMnemonic(5),
-xor:    ArithMnemonic(6),
-cmp:    ArithMnemonic(7),
-test: [ // Similar to the other ariths, but too distinct to reuse the function
+test: [
     ...MT(MNT.BWLQ(), 0xA8, REG_NON, 'imm', 'ax'),
     ...MT(MNT.BWLQ(), 0xF6, 0, 'imm', 'rm'),
     ...MT(MNT.BWLQ(), 0x84, REG_MOD, 'r', 'rm')
@@ -242,16 +210,6 @@ int3: [new M(0xCC)],
 int1: [new M(0xF1)],
 
 lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
-
-
-rol: ShiftMnemonic(0),
-ror: ShiftMnemonic(1),
-rcl: ShiftMnemonic(2),
-rcr: ShiftMnemonic(3),
-sal: dummy = ShiftMnemonic(4),
-shr: ShiftMnemonic(5),
-sar: ShiftMnemonic(7),
-shl: dummy, // sal and shl are the same
 
 
 cbw: [new M(0x6698)],
@@ -318,7 +276,43 @@ leave: [new M(0xC9)]
 }
 
 
-// Adding conditional jmp instructions (these are very repetitive so we treat them specially)
+// Some extra instructions (these are easier to encode programatically as they're quite repetitive)
+let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
+arithmeticMnemonics.forEach((name, i) => {
+    let opBase = i * 8;
+    mnemonics[name] = [
+        ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
+        ...MT(MNT.WLQ(), 0x83, i, OPF.imm8, 'rm'),
+        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax32),
+        ...MT(MNT.BWL(), 0x80, i, 'imm', 'rm'),
+        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax64),
+        new M(0x81, i, OPF.imm32, OPF.rm64),
+        ...MT(MNT.BWLQ(), opBase, REG_MOD, 'r', 'rm'),
+        ...MT(MNT.BWLQ(), opBase + 2, REG_MOD, 'rm', 'r')
+    ];
+});
+
+// Shift mnemonics
+let shiftMnemonics = `rol
+ror
+rcl
+rcr
+sal shl
+shr
+
+sar`.split('\n');
+shiftMnemonics.forEach((names, i) => {
+    dummy = [
+        ...MT(MNT.BWLQ(), 0xD0, i, OPF.one, 'rm'),
+        ...MT(MNT.BWLQ(), 0xD2, i, OPF.cx8, 'rm'),
+        ...MT(MNT.BWLQ(), 0xC0, i, OPF.imm8, 'rm')
+    ];
+    names.split(' ').forEach(name => {
+        mnemonics[name] = dummy;
+    })
+});
+
+// Adding conditional jmp instructions
 let conditionalJmps = `jo
 jno
 jb jc jnae
