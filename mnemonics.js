@@ -95,35 +95,36 @@ const AND = (f1, f2) => (o) => f1(o) && f2(o);
 const OR = (f1, f2) => (o) => f1(o) || f2(o);
 
 const OPF = {
-"r8": new opTemp(OPT.REG, 8),
-"r16": new opTemp(OPT.REG, 16),
-"r32": new opTemp(OPT.REG, 32),
-"r64": new opTemp(OPT.REG, 64),
+r8: new opTemp(OPT.REG, 8),
+r16: new opTemp(OPT.REG, 16),
+r32: new opTemp(OPT.REG, 32),
+r64: new opTemp(OPT.REG, 64),
 
-"m8": new opTemp(OPT.MEM, 8),
-"m16": new opTemp(OPT.MEM, 16),
-"m32": new opTemp(OPT.MEM, 32),
-"m64": new opTemp(OPT.MEM, 64),
+m8: new opTemp(OPT.MEM, 8),
+m16: new opTemp(OPT.MEM, 16),
+m32: new opTemp(OPT.MEM, 32),
+m64: new opTemp(OPT.MEM, 64),
 
-"rm8": new opTemp([OPT.REG, OPT.MEM], 8),
-"rm16": new opTemp([OPT.REG, OPT.MEM], 16),
-"rm32": new opTemp([OPT.REG, OPT.MEM], 32),
-"rm64": new opTemp([OPT.REG, OPT.MEM], 64),
+rm8: new opTemp([OPT.REG, OPT.MEM], 8),
+rm16: new opTemp([OPT.REG, OPT.MEM], 16),
+rm32: new opTemp([OPT.REG, OPT.MEM], 32),
+rm64: new opTemp([OPT.REG, OPT.MEM], 64),
 
-"imm8": new opTemp(OPT.IMM, 8),
-"imm16": new opTemp(OPT.IMM, 16),
-"imm32": new opTemp(OPT.IMM, 32),
-"imm64": new opTemp(OPT.IMM, 64),
+imm8: new opTemp(OPT.IMM, 8),
+imm16: new opTemp(OPT.IMM, 16),
+imm32: new opTemp(OPT.IMM, 32),
+imm64: new opTemp(OPT.IMM, 64),
 
-"seg": new opTemp(OPT.SEG),
-"ax8": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 8),
-"ax16": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
-"ax32": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 32),
-"ax64": new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 64),
-"cx8": new specOpTemp(OPT.REG, o => o.reg == 1 && o.size == 8),
-"one": new specOpTemp(OPT.IMM, o => o.value === 1n),
-"fs": new specOpTemp(OPT.SEG, o => o.reg == 4),
-"gs": new specOpTemp(OPT.SEG, o => o.reg == 5)
+seg: new opTemp(OPT.SEG),
+ax8: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 8),
+ax16: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
+ax32: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 32),
+ax64: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 64),
+cx8: new specOpTemp(OPT.REG, o => o.reg == 1 && o.size == 8),
+one: new specOpTemp(OPT.IMM, o => o.value === 1n),
+three: new specOpTemp(OPT.IMM, o => o.value === 3n),
+fs: new specOpTemp(OPT.SEG, o => o.reg == 4),
+gs: new specOpTemp(OPT.SEG, o => o.reg == 5)
 }
 
 const MNTT = sizes => (diff=1, def64=false) => ({sizes: sizes, diff: diff, def64: def64})
@@ -202,7 +203,7 @@ nop: [
 ],
 syscall: [new M(0x0F05)],
 int: [
-    new M(0xCC, REG_NON, new specOpTemp(OPT.IMM, o => o.value === 3n)),
+    new M(0xCC, REG_NON, OPF.three),
     new M(0xF1, REG_NON, OPF.one),
     new M(0xCD, REG_NON, OPF.imm8)
 ],
