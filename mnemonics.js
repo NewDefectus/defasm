@@ -4,6 +4,7 @@ const REG_NON = -3
 
 function M(opcode, extension)
 {
+    if(extension === undefined) extension = REG_NON;
     this.opcode = opcode;
 
     // 0-7 goes to modrm.reg,
@@ -36,7 +37,7 @@ function MTS(template, opcode)
     let sizes = template.sizes;
     if(sizes.includes(8)) nonByteOp += template.diff;
     return sizes.map(s => 
-        Object.assign(new M(s == 8 ? opcode : nonByteOp, REG_NON), { globalSize: s})
+        Object.assign(new M(s == 8 ? opcode : nonByteOp), { globalSize: s})
     );
 }
 
@@ -227,17 +228,17 @@ imul: [
     ...MT(MNT.LQ(), 0x69, REG_MOD, OPF.imm32, 'rm', 'r')
 ],
 nop: [
-    new M(0x90, REG_NON),
+    new M(0x90),
     ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
 ],
-syscall: [new M(0x0F05, REG_NON)],
+syscall: [new M(0x0F05)],
 int: [
     new M(0xCC, REG_NON, new specOpTemp(OPT.IMM, o => o.value === 3n)),
     new M(0xF1, REG_NON, OPF.one),
     new M(0xCD, REG_NON, OPF.imm8)
 ],
-int3: [new M(0xCC, REG_NON)],
-int1: [new M(0xF1, REG_NON)],
+int3: [new M(0xCC)],
+int1: [new M(0xF1)],
 
 lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
 
@@ -252,12 +253,12 @@ sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
 
 
-cbw: [Object.assign(new M(0x98, REG_NON), {autoSize: 16})],
-cwde: [new M(0x98, REG_NON)],
-cdqe: [Object.assign(new M(0x98, REG_NON), {autoSize: 64})],
-cwd: [Object.assign(new M(0x99, REG_NON), {autoSize: 16})],
-cdq: [new M(0x99, REG_NON)],
-cqo: [Object.assign(new M(0x99, REG_NON), {autoSize: 64})],
+cbw: [Object.assign(new M(0x98), {autoSize: 16})],
+cwde: [new M(0x98)],
+cdqe: [Object.assign(new M(0x98), {autoSize: 64})],
+cwd: [Object.assign(new M(0x99), {autoSize: 16})],
+cdq: [new M(0x99)],
+cqo: [Object.assign(new M(0x99), {autoSize: 64})],
 
 
 loopne: [new M(0xE0, REG_NON, OPF.imm8)],
@@ -288,31 +289,31 @@ stos: MTS(MNT.BWLQ(), 0xAA),
 lods: MTS(MNT.BWLQ(), 0xAC),
 scas: MTS(MNT.BWLQ(), 0xAE),
 
-pushf: [Object.assign(new M(0x9C, REG_NON), {defsTo64: true})],
-popf: [Object.assign(new M(0x9D, REG_NON), {defsTo64: true})],
+pushf: [Object.assign(new M(0x9C), {defsTo64: true})],
+popf: [Object.assign(new M(0x9D), {defsTo64: true})],
 
 
-hlt: [new M(0xF4, REG_NON)],
-cmc: [new M(0xF5, REG_NON)],
-clc: [new M(0xF8, REG_NON)],
-stc: [new M(0xF9, REG_NON)],
-cli: [new M(0xFA, REG_NON)],
-sti: [new M(0xFB, REG_NON)],
-cld: [new M(0xFC, REG_NON)],
-std: [new M(0xFD, REG_NON)],
+hlt: [new M(0xF4)],
+cmc: [new M(0xF5)],
+clc: [new M(0xF8)],
+stc: [new M(0xF9)],
+cli: [new M(0xFA)],
+sti: [new M(0xFB)],
+cld: [new M(0xFC)],
+std: [new M(0xFD)],
 
-xlat: [new M(0xD7, REG_NON)],
-wait: dummy = [new M(0x9B, REG_NON)],
+xlat: [new M(0xD7)],
+wait: dummy = [new M(0x9B)],
 fwait: dummy,
 
 ret: [
     Object.assign(new M(0xC2, REG_NON, OPF.imm16), {defsTo16: true}),
-    new M(0xC3, REG_NON)
+    new M(0xC3)
 ],
-iret: [new M(0xCF, REG_NON)],
+iret: [new M(0xCF)],
 
 enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
-leave: [new M(0xC9, REG_NON)]
+leave: [new M(0xC9)]
 }
 
 
