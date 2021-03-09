@@ -65,10 +65,22 @@ editor.on("change", function()
                 }
                 else
                 {
-                    uniSeq[uniDepth++] = byte;
-                    tempHexOutput += hex
-                    if(thisDepth != 1) dumpBadSeq();
-                    else if(expectedDepth === uniDepth) dumpUniSeq();
+                    if(thisDepth != 1)
+                    {
+                        dumpBadSeq();
+                        expectedDepth = thisDepth;
+                        uniSeq[uniDepth++] = byte;
+                        tempHexOutput += hex
+                    }
+                    else
+                    {
+                        uniSeq[uniDepth++] = byte;
+                        tempHexOutput += hex
+                        if(expectedDepth === uniDepth)
+                        {
+                            dumpUniSeq();
+                        }
+                    }
                 }
             }
         }
