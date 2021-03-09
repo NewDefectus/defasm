@@ -44,6 +44,7 @@ editor.on("change", function()
                 hexOutput += tempHexOutput + hex;
                 if(justEscaped && byte >= 48 && byte < 56) printableOutput += '""'; // Make sure escape codes don't merge into digits
                 if(byte == 13) printableOutput += "\\r";
+                else if(byte == 34) printableOutput += "\\\"";
                 else printableOutput += String.fromCharCode(byte);
                 tempHexOutput = "";
                 expectedDepth = uniDepth = 0;
