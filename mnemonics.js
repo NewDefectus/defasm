@@ -139,8 +139,9 @@ const MNT = {
     "LQ": MNTT([32, 64])
 }
 
-function ArithMnemonic(opBase, extension, )
+function ArithMnemonic(extension)
 {
+    let opBase = extension * 8;
     return [
         ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
         ...MT(MNT.WLQ(), 0x83, extension, OPF.imm8, 'rm'),
@@ -180,14 +181,14 @@ mov: [
 ],
 
 
-add:    ArithMnemonic(0x00, 0),
-or:     ArithMnemonic(0x08, 1),
-adc:    ArithMnemonic(0x10, 2),
-sbb:    ArithMnemonic(0x18, 3),
-and:    ArithMnemonic(0x20, 4),
-sub:    ArithMnemonic(0x28, 5),
-xor:    ArithMnemonic(0x30, 6),
-cmp:    ArithMnemonic(0x38, 7),
+add:    ArithMnemonic(0),
+or:     ArithMnemonic(1),
+adc:    ArithMnemonic(2),
+sbb:    ArithMnemonic(3),
+and:    ArithMnemonic(4),
+sub:    ArithMnemonic(5),
+xor:    ArithMnemonic(6),
+cmp:    ArithMnemonic(7),
 test: [ // Similar to the other ariths, but too distinct to reuse the function
     ...MT(MNT.BWLQ(), 0xA8, REG_NON, 'imm', 'ax'),
     ...MT(MNT.BWLQ(), 0xF6, 0, 'imm', 'rm'),
@@ -253,12 +254,12 @@ sar: ShiftMnemonic(7),
 shl: dummy, // sal and shl are the same
 
 
-cbw: [Object.assign(new M(0x98), {autoSize: 16})],
+cbw: [new M(0x6698)],
 cwde: [new M(0x98)],
-cdqe: [Object.assign(new M(0x98), {autoSize: 64})],
-cwd: [Object.assign(new M(0x99), {autoSize: 16})],
+cdqe: [new M(0x4898)],
+cwd: [new M(0x6699)],
 cdq: [new M(0x99)],
-cqo: [Object.assign(new M(0x99), {autoSize: 64})],
+cqo: [new M(0x4899)],
 
 
 loopne: [new M(0xE0, REG_NON, OPF.imm8)],
