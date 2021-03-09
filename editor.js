@@ -42,6 +42,5 @@ function makeELF(bytes)
     }
     
     download.setAttribute("href", "data:text/plain;charset=utf-8," + elfHeader1 + size + size + elfHeader2 + bytes);
-    console.log(download.href)
     download.setAttribute("download", "file.exe");
 }
