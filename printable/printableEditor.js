@@ -7,6 +7,12 @@ var asmTextOutput = document.getElementById("outputArea");
 var decoder = new TextDecoder();
 
 var printableOutputArea = document.getElementById("printableCodeOutput");
+var printableOutputContainer = document.getElementById("printableCode");
+printableOutputContainer.onclick = function()
+{
+    window.getSelection().selectAllChildren(printableOutputContainer);
+    document.execCommand("copy");
+}
 
 var uniSeq = new Uint8Array(8), uniDepth = 0, expectedDepth = 0;
 var hexOutput = "", printableOutput = "", tempHexOutput = "";
