@@ -176,7 +176,7 @@ Instruction.prototype.parse = function()
             {
                 if(op.types.includes(OPT.MEM)) rm = operands[i];
                 else if(op.types == OPT.IMM) imms.push(operands[i]);
-                else if(op.types == OPT.REG || op.types == OPT.SEG) reg = operands[i];
+                else reg = operands[i];
             }
             i++;
         }
