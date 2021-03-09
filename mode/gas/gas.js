@@ -101,11 +101,18 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
 
       if (ch === '%') {
         stream.eatWhile(/\w/);
-        if (stream.eat(":")) {
-          return 'tag';
-        }
         cur = stream.current().toLowerCase().slice(1);
         if(registers.hasOwnProperty(cur)) return "variable";
+        if(cur[0] === 'r')
+        {
+          cur = cur.slice(1);
+          if(parseInt(cur) > 0 && parseInt(cur) < 16 && (!isNaN(cur) || suffixes[cur[cur.length - 1]])) return "variable";
+        }
+        return null;
+      }
+
+      if(ch === ';')
+      {
         return null;
       }
 
@@ -118,6 +125,8 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
      }
      if(mnemonics.hasOwnProperty(cur)
      || (suffixes[cur[cur.length - 1]] && mnemonics.hasOwnProperty(cur.slice(0, -1)))) return "keyword";
+     
+     if(prefixes.hasOwnProperty(cur)) return "keyword";
     },
 
     lineComment: lineCommentStartSymbol
