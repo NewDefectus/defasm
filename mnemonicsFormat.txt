@@ -1,5 +1,33 @@
+A mnemonic, at its core, is a method of telling the assembler how to encode a given string.
 
-Format (each line break indicates a space character:)
+The assembler doesn't know what "mov %rax, %rsi" means - it might understand that %rax and %rsi are
+registers of size 64-bits, but it doesn't know how to encode it.
+The assembler has a few basic functions that are common to many mnemonics, like generating a ModRM byte,
+an SIB byte, prefixes, immediates, etc.. However, each mnemonic has its own quirks and flavors,
+and each mnemonic expects different operands and interprets them differently.
+
+For essentially all instructions, in their textual form, the assembler understands them as:
+    - An opcode (or mneomnic name, e.g. "mov").
+    - A list of operands - these can be registers, immediates, memory etc., and each may or may not have a known size.
+    * Sometimes there may be an opcode suffix (e.g. the 'l' in "movl"). These are simply there to tell the assembler
+        how to interpret operands that it's not 100% sure about, like immediates and memory.
+
+The opcode name is used to find the mnemonic list that is used to encode the instruction.
+Note that a single opcode name typically refers to multiple mnemonic variations. The assembler
+should go through each of them in order, attempt to enter the list of operands into it, and,
+on success, stop and continue on with the encoding using the results. If none of the variations
+match, the operands entered into the mnemonic were incorrect.
+
+We can infer from this that a mnemonic has a single function: take in a list of operands,
+check if they can be encoded, and if they can, return the information required to complete the encoding.
+The most necessary part of this information is an updated list of operands. Some operands may have
+incomplete information to encode - for example, an immediate operand's size, unless explicitly given, is
+unknown to the assembler. Part of the mnemonic's job is to attempt to infer (if possible) these missing
+facts from other information, whether that be the size of the other operands or some special values for
+the given opcode.
+
+
+Format (each line break indicates a space character):
     <opcode in hex>
     <extension> [offset from byte opcode - difference between opcode for byte size and for other size. defaults to 1]
     <operand name> [operand sizes (defaults appear first) (no sizes means use the same as the previous operand, or (for immediate implicit ops and some op types like segment registers) size doesn't matter)]
