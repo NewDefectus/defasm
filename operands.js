@@ -154,6 +154,7 @@ function Operand()
         this.value = parseImmediate();
         this.type = OPT.IMM;
         this.size = inferImmSize(this.value);
+        this.unsignedSize = inferUnsignedImmSize(this.value);
     }
     else // Address
     {
@@ -212,4 +213,16 @@ function inferImmSize(value)
     return value < 0x80n ? 8 :
             value < 0x8000n ? 16 :
             value < 0x80000000n ? 32 : 64;
+}
+
+// Ditto, but for unsigned values
+function inferUnsignedImmSize(value)
+{
+    if(value < 0n) // Technically this doesn't make sense, but we'll allow it
+    {
+        value = -2n * value - 1n
+    }
+    return value < 0x100n ? 8 :
+            value < 0x10000n ? 16 :
+            value < 0x100000000n ? 32 : 64;
 }
