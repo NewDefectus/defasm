@@ -75,6 +75,12 @@ DCC0 o f_0 f
 Example for "lods" instruction:
 AC z -bwlq
 
+Example for "nop" instruction:
+90 z
+F1F 0 rwl
+
+
+
 
 Extensions:
     - 0-7 - opcode extension, goes to modrm
