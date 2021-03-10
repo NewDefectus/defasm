@@ -30,21 +30,21 @@ the given opcode.
 Format (each line break indicates a space character):
     <opcode in hex>
     <extension> [offset from byte opcode - difference between opcode for byte size and for other size. defaults to 1]
-    <operand name> [operand sizes (defaults appear first) (no sizes means use the same as the previous operand, or (for immediate implicit ops and some op types like segment registers) size doesn't matter)]
+    <operand name> [operand sizes (should be in ascending order) (no sizes means use the same as the previous operand, or (for immediate implicit ops and some op types like segment registers) size doesn't matter)]
     [repeat for all operands, separated by spaces]
     [repeat for all mnemonic variations, separated by line breaks]
 
 Example for "push" instruction:
-50 o RQw        # opcode 0x50, register goes in opcode, accepts registers of size word or quadword (default to quadword without prefix)
+50 o RwQ        # opcode 0x50, register goes in opcode, accepts registers of size word or quadword (default to quadword without prefix)
 6A z-2 Ib~wl    # opcode 0x6A, solitary opcode (offset -2 from byte), accepts signed immediate of size byte, word (only if explicit) or double-word (default to byte)
-FF 6 mQw        # opcode 0xFF, extension 6, accepts memory of size word or quadword (default to quadword without prefix)
+FF 6 mwQ        # opcode 0xFF, extension 6, accepts memory of size word or quadword (default to quadword without prefix)
 FA0 z s_4       # opcode 0x0FA0, solitary opcode, accepts segment register of id 4 (fs)
 FA8 z s_5       # opcode 0x0FA8, solitary opcode, accepts segment register of id 5 (gs)
 
 Example for "mov" instruction:
 88 r Rbwlq r    # opcode 0x88, register goes in modrm, accepts a register of size byte, word, doubleword or quadword, followed by a register/memory of the same size
 8A r rbwlq R    # opcode 0x8A, same as above but operands reversed
-8C r s Rwlq/mW  # opcode 0x8C, register goes in modrm, accepts a segment register, followed by either A) a register of size word, doubleword or quadword, or B) memory of size word (no prefix/suffix needed)
+8C r s rWlq     # opcode 0x8C, register goes in modrm, accepts a segment register, followed by a register/memory of size word, doubleword or quadword (defaults to word with no prefix)
 8E r rWq s      # opcode 0x8E, register goes in modrm, accepts a register/memory of size word (no prefix, implicit for memory) or quadword, followed by a segment register
 A0 z obwlq R_0  # opcode 0xA0, solitary opcode, accepts a moffset of size byte, word, doubleword or quadword, followed by an unencoded ax register of the same size
 A2 z R_0bwlq o  # opcode 0xA2, same as above but operands reversed
@@ -72,6 +72,9 @@ DC 0 mQ
 D8C0 o f f_0
 DCC0 o f_0 f
 
+Example for "lods" instruction:
+AC z -bwlq
+
 
 Extensions:
     - 0-7 - opcode extension, goes to modrm
@@ -79,7 +82,7 @@ Extensions:
     - 'o' - register id goes to opcode (no modrm)
     - 'z' - solitary opcode (no modrm, might be followed by an immediate/offset though)
 
-Operand names (for multiple choices, separate by '/'):
+Operand names:
     - 'R' - register only
     - 'r' - register/memory (rm)
     - 'm' - memory only
