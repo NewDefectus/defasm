@@ -273,7 +273,9 @@ ret: [
 iret: [new M(0xCF)],
 
 enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
-leave: [new M(0xC9)]
+leave: [new M(0xC9)],
+
+bswap: MT(MNT.WLQ(), 0xFC8, REG_OP, 'r')
 }
 
 
