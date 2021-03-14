@@ -337,3 +337,12 @@ conditionalJmps.forEach((names, i) => {
     ];
     names.split(' ').forEach(name => mnemonics[name] = dummy);
 })
+
+
+let bitTests = "bt bts btr btc".split(' ');
+bitTests.forEach((name, i) => {
+    mnemonics[name] = [
+        ...MT(MNT.WLQ(), 0xFA3 + i * 8, REG_MOD, 'r', 'rm'),
+        ...MT(MNT.WLQ(), 0xFBA, i + 4, OPF.imm8, 'rm'),
+    ]
+})

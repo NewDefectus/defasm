@@ -28,7 +28,7 @@ the given opcode.
 
 
 Format (each line break indicates a space character):
-    <opcode in hex>
+    ([optional prefix in brackets, which will be added before REX]) <opcode in hex>
     <extension> [offset from byte opcode - difference between opcode for byte size and for other size. defaults to 1]
     <operand name> [operand sizes (should be in ascending order) (no sizes means use the same as the previous operand, or (for immediate implicit ops and some op types like segment registers) size doesn't matter)]
     [repeat for all operands, separated by spaces]
@@ -53,10 +53,11 @@ B0 o8 ibwlq R   # opcode 0xB0, register goes in opcode (offset 8 from byte), acc
 C6 0 ibwl r     # opcode 0xC6, extension 0, accepts an unsigned immediate of size byte, word or doubleword, followed by a register of the same size
 
 Example for "add" instruction (this can be extended to all other arithmetic instructions, like adc, sub, xor, and, etc.):
-4 z ibwl R_0    # opcode 0x04, solitary opcode, accepts an unsigned immediate of size byte, word or doubleword, followed by an unencoded ax register of the same size
-5 z Il R_0q     # opcode 0x05, solitary opcode, accepts a signed immediate of size doubleword, followed by an unencoded ax register of size quadword
+4 z ibw R_0
 83 0 Ib rwlq
+5 z Il R_0l
 80 0 ibwl r
+5 z Il R_0q
 81 0 Il rq
 0 r Rbwlq r
 2 r rbwlq R
@@ -78,6 +79,42 @@ AC z -bwlq
 Example for "nop" instruction:
 90 z
 F1F 0 rwl
+
+adcx:
+(66)F38F6 r rlq R
+
+adox:
+(F3)F38F6 r rlq R
+
+bndcu:
+F20F1A r rQ R
+
+bndcn:
+F20F1B r rQ R
+
+bndcl:
+F30F1A r rQ R
+
+bndmk:
+F30F1B r mQ R
+
+bndmov:
+660F1A r rQ R
+660F1B r RQ r
+
+bsf:
+FBC r rwlq R
+
+bsr:
+FBD r rwlq R
+
+bswap:
+FC8 o Rlq
+
+bt:
+FA3 r Rwlq r
+FBA 4 Ib rwlq
+
 
 
 
