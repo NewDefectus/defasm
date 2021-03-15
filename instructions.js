@@ -50,8 +50,8 @@ Instruction.prototype.genInteger = function(byte, size)
 
 Instruction.prototype.parse = function()
 {
-    let opcode = this.opcode, operand = null, globalSize = -1, hasRex = null, rexVal = 0x40, enforceSize = false;
-    let prefsToGen = new Set();
+    let opcode = this.opcode, operand = null, globalSize = -1, enforceSize = false;
+    let prefsToGen = 0;
     let reg = null, rm = null, imms = [];
     if(this.tokens) replayTokenRecording(this.tokens);
     this.length = 0;
@@ -76,7 +76,7 @@ Instruction.prototype.parse = function()
             throw "Invalid opcode suffix";
         enforceSize = true;
     }
-    let variations = mnemonics[opcode], operands = [], hateRex = false;
+    let variations = mnemonics[opcode], operands = [], rexVal = 0x40;
 
     while(token != ';' && token != '\n')
     {
@@ -85,7 +85,7 @@ Instruction.prototype.parse = function()
         {
             if(operand.type != OPT.SEG)
                 throw "Incorrect prefix";
-            prefsToGen.add([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][operand.reg])
+            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][operand.reg]);
             next();
             operand = new Operand();
             if(operand.type != OPT.MEM)
@@ -93,21 +93,7 @@ Instruction.prototype.parse = function()
         }
 
         operands.push(operand);
-        for(let p of operand.prefixRequests)
-        {
-            if(!isNaN(p))
-                prefsToGen.add(p);
-            else if(p == "NO REX")
-                hateRex = true;
-            else if(p.startsWith("REX"))
-            {
-                hasRex = true;
-                if(p[3] == '.')
-                {
-                    rexVal |= ({R: 4, X: 2, B: 1})[p[4]];
-                }
-            }
-        }
+        prefsToGen |= operand.prefs;
 
         // Infer default size from register operands
         if(globalSize < operand.size && (operand.type == OPT.REG || operand.type == OPT.SEG))
@@ -180,31 +166,32 @@ Instruction.prototype.parse = function()
         }
     }
 
-    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, hasRex = true;
+    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, prefsToGen |= prefixRequests.REX; // REX.W field
     
-    let extraRex, modRM = null, sib = null;
+    let modRM = null, sib = null;
+    let extraRex;
     if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
     {
-        if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, hasRex = true;
+        if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, prefsToGen |= prefixRequests.REX;
     }
     else
     {
         if(mnemonic.e >= 0) reg = {reg: mnemonic.e}; // Sometimes the "reg" field is an opcode extension
         [extraRex, modRM, sib] = makeModRM(rm, reg);
-        if(extraRex != 0) rexVal |= extraRex, hasRex = true;
+        if(extraRex != 0) rexVal |= extraRex, prefsToGen |= prefixRequests.REX;
     }
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-    if(hasRex && hateRex) throw "Can't encode high 8-bit register";
+    if((prefsToGen & prefixRequests.CLASHINGREX) == prefixRequests.CLASHINGREX) throw "Can't encode high 8-bit register";
 
     // Update the global size in case the immediate was fit into an operand template
     if(singleImm) globalSize = operands[0].size;
 
     // Time to generate!
-    for(let pref of prefsToGen) this.genByte(pref);
+    if(prefsToGen & prefixRequests.ADDRSIZE) this.genByte(0x67);
     if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
     if(mnemonic.prefix) this.genByte(mnemonic.prefix);
-    if(hasRex) this.genByte(rexVal);
+    if(prefsToGen & prefixRequests.REX) this.genByte(rexVal);
     if(mnemonic.opcode > 0xffff) this.genByte(mnemonic.opcode >> 16);
     if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));

@@ -26,16 +26,23 @@ const registers = Object.assign({}, ...[
 
 const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
 
+const prefixRequests = {
+    REX: 1,
+    NOREX: 2,
+    CLASHINGREX: 3,
+    ADDRSIZE: 4
+}
+
 function parseRegister(expectedType = null)
 {
     let reg = registers[next()];
-    let size = 0, type = -1, prefixRequests = new Set();
+    let size = 0, type = -1, prefs = 0;
     if(reg >= registers.al && reg <= registers.rdi)
     {
         type = OPT.REG;
         size = 8 << (reg >> 3);
         if(size == 8 && reg >= registers.ah && reg <= registers.bh)
-            prefixRequests.add("NO REX");
+            prefs |= prefixRequests.NOREX;
         reg &= 7;
     }
     else if(reg >= registers.mm0 && reg <= registers.mm7)
@@ -78,7 +85,7 @@ function parseRegister(expectedType = null)
     {
         type = OPT.REG;
         size = 8;
-        prefixRequests.add("REX");
+        prefs |= prefixRequests.REX;
         reg -= registers.spl - 4;
     }
     else if(token[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
@@ -104,7 +111,7 @@ function parseRegister(expectedType = null)
     if(expectedType != null && expectedType.indexOf(type) < 0) throw "Invalid register";
     
     next();
-    return [reg, type, size, prefixRequests];
+    return [reg, type, size, prefs];
 }
 
 function parseImmediate()
@@ -150,11 +157,11 @@ function Operand()
     this.value = null;
     this.type = null;
     this.size = NaN;
-    this.prefixRequests = new Set();
+    this.prefs = 0;
 
     if(token == '%') // Register
     {
-        [this.reg, this.type, this.size, this.prefixRequests] = parseRegister();
+        [this.reg, this.type, this.size, this.prefs] = parseRegister();
     }
     else if(token == '$' || (isNaN(token) && token != '(' && peekNext() != '('))// Immediate
     {
@@ -185,7 +192,7 @@ function Operand()
         else
         {
             [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP]);
-            if(tempSize == 32) this.prefixRequests.add(0x67);
+            if(tempSize == 32) this.prefs |= prefixRequests.ADDRSIZE;
             else if(tempSize != 64) throw "Invalid register size";
             if(tempType == OPT.IP)
             {
@@ -195,7 +202,7 @@ function Operand()
             {
                 if(next() != '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
-                if(tempSize == 32) this.prefixRequests.add(0x67);
+                if(tempSize == 32) this.prefs |= prefixRequests.ADDRSIZE;
                 else if(tempSize != 64) throw "Invalid register size";
 
                 if(token == ',')
