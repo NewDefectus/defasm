@@ -86,18 +86,15 @@ function specOpTemp(type, matcher)
 }
 
 const prefixes = {
-"lock": 0xF0n,
-"repne": 0xF2n,
-"repnz": 0xF2n,
-"rep": 0xF3n,
-"repe": 0xF3n,
-"repz": 0xF3n
+lock: 0xF0n,
+repne: 0xF2n,
+repnz: 0xF2n,
+rep: 0xF3n,
+repe: 0xF3n,
+repz: 0xF3n
 }
 
 // Operand filters
-const AND = (f1, f2) => (o) => f1(o) && f2(o);
-const OR = (f1, f2) => (o) => f1(o) || f2(o);
-
 const OPF = {
 r8: new opTemp(OPT.REG, 8),
 r16: new opTemp(OPT.REG, 16),

@@ -52,7 +52,7 @@ Instruction.prototype.parse = function()
 {
     let opcode = this.opcode, operand = null, globalSize = -1, enforceSize = false;
     let prefsToGen = 0;
-    let reg = null, rm = null, imms = [];
+    let reg = null, rm = null, imms = [], vop = null;
     if(this.tokens) replayTokenRecording(this.tokens);
     this.length = 0;
 
@@ -153,6 +153,11 @@ Instruction.prototype.parse = function()
     if(mnemonic.operandTemplates.length > 0)
     {
         i = 0;
+        if(mnemonic.vex)
+        {
+            vop = operands[mnemonic.vex.vop || 0];
+            vop.implicit = true;
+        }
         for(let op of mnemonic.operandTemplates)
         {
             op.fit(operands[i]);
@@ -166,34 +171,39 @@ Instruction.prototype.parse = function()
         }
     }
 
-    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, prefsToGen |= prefixRequests.REX; // REX.W field
+    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
-    let extraRex;
     if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
     {
-        if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, prefsToGen |= prefixRequests.REX;
+        if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, prefsToGen |= PREFIX_REX;
     }
     else
     {
+        let extraRex;
         if(mnemonic.e >= 0) reg = {reg: mnemonic.e}; // Sometimes the "reg" field is an opcode extension
         [extraRex, modRM, sib] = makeModRM(rm, reg);
-        if(extraRex != 0) rexVal |= extraRex, prefsToGen |= prefixRequests.REX;
+        if(extraRex != 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
     }
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-    if((prefsToGen & prefixRequests.CLASHINGREX) == prefixRequests.CLASHINGREX) throw "Can't encode high 8-bit register";
+    if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw "Can't encode high 8-bit register";
 
     // Update the global size in case the immediate was fit into an operand template
     if(singleImm) globalSize = operands[0].size;
 
     // Time to generate!
-    if(prefsToGen & prefixRequests.ADDRSIZE) this.genByte(0x67);
+    if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
     if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
     if(mnemonic.prefix) this.genByte(mnemonic.prefix);
-    if(prefsToGen & prefixRequests.REX) this.genByte(rexVal);
-    if(mnemonic.opcode > 0xffff) this.genByte(mnemonic.opcode >> 16);
-    if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
+    if(mnemonic.vex) makeVexPrefix(mnemonic.vex, rexVal, vop).map(x => this.genByte(x));
+    else
+    {
+        if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
+        // Generate the upper bytes of the opcode if needed
+        if(mnemonic.opcode > 0xffff) this.genByte(mnemonic.opcode >> 16);
+        if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8);
+    }
     this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
     if(modRM != null) this.genByte(modRM);
     if(sib != null) this.genByte(sib);
@@ -291,4 +301,22 @@ function makeModRM(rm, r)
 
 
     return [rex, modrm, sib];
+}
+
+
+function makeVexPrefix(info, rex, extraOp)
+{
+    let
+    byte1 = (~(rex & 7) << 5) // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
+            | info.map, // Then, the map/"implied leading opcode byte" (0F, 0F 38 or 0F 3A)
+    byte2 = ((info.w !== undefined ? info.w : (rex & 8)) << 5) // Identical to rex.w
+            | (extraOp ? ((~extraOp.reg & 15) << 3) : 0x78) // Inverted additional operand
+            | (info.L !== undefined ? info.L << 2 : 0) // Vector size (0 is 128, 1 is 256)
+            | info.PP; // "Implied mandatory prefix" (none, 66, F3 or F2)
+
+    if((byte1 & 0x7F) == 0x61 && (byte2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
+    {
+        return [0xC5, byte2 | (byte1 & 0x80)];
+    }
+    return [0xC4, byte1, byte2];
 }

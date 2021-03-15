@@ -26,12 +26,10 @@ const registers = Object.assign({}, ...[
 
 const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
 
-const prefixRequests = {
-    REX: 1,
-    NOREX: 2,
-    CLASHINGREX: 3,
-    ADDRSIZE: 4
-}
+const   PREFIX_REX = 1,
+        PREFIX_NOREX = 2,
+        PREFIX_CLASHREX = 3,
+        PREFIX_ADDRSIZE = 4;
 
 function parseRegister(expectedType = null)
 {
@@ -42,7 +40,7 @@ function parseRegister(expectedType = null)
         type = OPT.REG;
         size = 8 << (reg >> 3);
         if(size == 8 && reg >= registers.ah && reg <= registers.bh)
-            prefs |= prefixRequests.NOREX;
+            prefs |= PREFIX_NOREX;
         reg &= 7;
     }
     else if(reg >= registers.mm0 && reg <= registers.mm7)
@@ -85,7 +83,7 @@ function parseRegister(expectedType = null)
     {
         type = OPT.REG;
         size = 8;
-        prefs |= prefixRequests.REX;
+        prefs |= PREFIX_REX;
         reg -= registers.spl - 4;
     }
     else if(token[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
@@ -192,7 +190,7 @@ function Operand()
         else
         {
             [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP]);
-            if(tempSize == 32) this.prefs |= prefixRequests.ADDRSIZE;
+            if(tempSize == 32) this.prefs |= PREFIX_ADDRSIZE;
             else if(tempSize != 64) throw "Invalid register size";
             if(tempType == OPT.IP)
             {
@@ -202,7 +200,7 @@ function Operand()
             {
                 if(next() != '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
-                if(tempSize == 32) this.prefs |= prefixRequests.ADDRSIZE;
+                if(tempSize == 32) this.prefs |= PREFIX_ADDRSIZE;
                 else if(tempSize != 64) throw "Invalid register size";
 
                 if(token == ',')
