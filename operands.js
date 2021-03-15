@@ -10,6 +10,8 @@ const OPT = Object.assign({}, ...[
 "IP",
 "IMM",
 "MEM",
+"BND",
+"MASK"
 ].map((x, i) => ({[x]: i})));
 OPT.RM = [OPT.REG, OPT.MEM].toString(); // JavaScript is dumb at comparisons so we need to do this
 
@@ -97,13 +99,16 @@ function parseRegister(expectedType = null)
     }
     else
     {
-        if(token.startsWith("mm")) reg = token.slice(2), type = OPT.MMX;
+        let max = 16;
+        if(token.startsWith("mm")) reg = token.slice(2), type = OPT.MMX, max = 8;
         else if(token.startsWith("xmm")) reg = token.slice(3), type = OPT.XMM;
         else if(token.startsWith("ymm")) reg = token.slice(3), type = OPT.YMM;
         else if(token.startsWith("zmm")) reg = token.slice(3), type = OPT.YMM;
+        else if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
+        else if(token[0] == 'k') reg = token.slice(1), type = OPT.MASK, max = 8;
         else throw "Unknown register";
 
-        if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < 16)) throw "Unknown register";
+        if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max)) throw "Unknown register";
     }
     
     if(expectedType != null && expectedType.indexOf(type) < 0) throw "Invalid register";

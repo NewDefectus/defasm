@@ -110,9 +110,12 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         }
         else
         {
-          if(cur.startsWith("mm")) cur = cur.slice(2);
-          else if(cur.startsWith("xmm") || cur.startsWith("ymm") || cur.startsWith("zmm")) cur = cur.slice(3)
-          if(!isNaN(cur) && (cur = parseInt(cur), cur >= 0 && cur < 16)) return "variable";
+          let max = 16;
+          if(cur.startsWith("mm")) cur = cur.slice(2), max = 8;
+          else if(cur.startsWith("xmm") || cur.startsWith("ymm") || cur.startsWith("zmm")) cur = cur.slice(3);
+          else if(cur.startsWith("bnd")) cur = cur.slice(3), max = 4;
+          else if(cur[0] == 'k') cur = cur.slice(1), max = 8;
+          if(!isNaN(cur) && (cur = parseInt(cur), cur >= 0 && cur < max)) return "variable";
         }
         return null;
       }
