@@ -283,8 +283,23 @@ leave: [new M(0xC9)],
 bswap: MT(MNT.WLQ, 0xFC8, REG_OP, 'r'),
 
 addsubpd: [ // Unfinished, return to this once you add VEX prefix
-    new M(0x0FD0, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
-]
+    new M(0xFD0, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
+],
+addsubps: [ // Unfinished, return to this once you add VEX prefix
+    new M(0xFD0, {e: REG_MOD, prefix: 0xF2}, OPF.xmmm, OPF.xmm)
+],
+addss: [ // Unfinished, return to this once you add VEX prefix
+    new M(0xF58, {e: REG_MOD, prefix: 0xF3}, OPF.xmmm, OPF.xmm)
+],
+addsd: [ // Unfinished, return to this once you add VEX prefix
+    new M(0xF58, {e: REG_MOD, prefix: 0xF2}, OPF.xmmm, OPF.xmm)
+],
+addpd: [ // Unfinished, return to this once you add VEX prefix
+    new M(0xF58, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
+],
+
+adox: MT(MNT.LQ, 0xF38F6, {e: REG_MOD, prefix: 0xF3}, 'rm', 'r'),
+adcx: MT(MNT.LQ, 0xF38F6, {e: REG_MOD, prefix: 0x66}, 'rm', 'r')
 }
 
 

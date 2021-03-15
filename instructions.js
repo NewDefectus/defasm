@@ -205,6 +205,7 @@ Instruction.prototype.parse = function()
     if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
     if(mnemonic.prefix) this.genByte(mnemonic.prefix);
     if(hasRex) this.genByte(rexVal);
+    if(mnemonic.opcode > 0xffff) this.genByte(mnemonic.opcode >> 16);
     if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
     if(modRM != null) this.genByte(modRM);
