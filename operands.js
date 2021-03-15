@@ -2,7 +2,9 @@
 const OPT = Object.assign({}, ...[
 "REG",
 "MMX",
-"SSE",
+"XMM",
+"YMM",
+"ZMM",
 "ST",
 "SEG",
 "IP",
@@ -18,8 +20,6 @@ const registers = Object.assign({}, ...[
 "ax","cx","dx","bx","sp","bp","si","di",
 "eax","ecx","edx","ebx","esp","ebp","esi","edi",
 "rax","rcx","rdx","rbx","rsp","rbp","rsi","rdi",
-"mm0","mm1","mm2","mm3","mm4","mm5","mm6","mm7",
-"xmm0","xmm1","xmm2","xmm3","xmm4","xmm5","xmm6","xmm7",
 "es","cs","ss","ds","fs","gs",
 "st","rip","eip","spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
@@ -91,7 +91,15 @@ function parseRegister(expectedType = null)
         size = suffixes[token[token.length - 1]] || 64;
     }
     else
-        throw "Unknown register";
+    {
+        if(token.startsWith("mm")) reg = token.slice(2), type = OPT.MMX;
+        else if(token.startsWith("xmm")) reg = token.slice(3), type = OPT.XMM;
+        else if(token.startsWith("ymm")) reg = token.slice(3), type = OPT.YMM;
+        else if(token.startsWith("zmm")) reg = token.slice(3), type = OPT.YMM;
+        else throw "Unknown register";
+
+        if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < 16)) throw "Unknown register";
+    }
     
     if(expectedType != null && expectedType.indexOf(type) < 0) throw "Invalid register";
     

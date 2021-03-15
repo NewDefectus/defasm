@@ -203,6 +203,7 @@ Instruction.prototype.parse = function()
     // Time to generate!
     for(let pref of prefsToGen) this.genByte(pref);
     if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
+    if(mnemonic.prefix) this.genByte(mnemonic.prefix);
     if(hasRex) this.genByte(rexVal);
     if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8); // Generate the upper byte of the opcoded if needed
     this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
@@ -241,7 +242,7 @@ function makeModRM(rm, r)
     if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
 
     // Encoding the "mod" (modifier) field
-    if(rm.type == OPT.REG) modrm |= 0xC0; // mod=11
+    if(rm.type != OPT.MEM) modrm |= 0xC0; // mod=11
     else if(rm.dispSize != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
     else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
     // else mod=00

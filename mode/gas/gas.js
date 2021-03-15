@@ -108,6 +108,12 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
           cur = cur.slice(1);
           if(parseInt(cur) > 0 && parseInt(cur) < 16 && (!isNaN(cur) || suffixes[cur[cur.length - 1]])) return "variable";
         }
+        else
+        {
+          if(cur.startsWith("mm")) cur = cur.slice(2);
+          else if(cur.startsWith("xmm") || cur.startsWith("ymm") || cur.startsWith("zmm")) cur = cur.slice(3)
+          if(!isNaN(cur) && (cur = parseInt(cur), cur >= 0 && cur < 16)) return "variable";
+        }
         return null;
       }
 

@@ -11,31 +11,35 @@ function M(opcode, extension)
     // REG_MOD means reg goes in modrm.reg,
     // REG_OP means no modrm (register is encoded in op),
     // REG_NON means no modrm (register is not encoded at all) 
-    this.e = extension;
+    if(typeof extension === "number") this.e = extension;
+    else Object.assign(this, extension);
+
 
     this.operandTemplates = Array.from(arguments).slice(2);
 }
 
 // Mnemonic set from template
-function MT(template, opcode, extension)
+function MT(sizes, opcode, extension)
 {
     let nonByteOp = opcode;
     let ops = Array.from(arguments).slice(3);
-    let sizes = template.sizes, defsTo64 = template.def64;
-    if(sizes.includes(8)) nonByteOp += template.diff;
+    if(sizes.includes(8))
+    {
+        if(extension.diff === undefined) nonByteOp++;
+        else nonByteOp += extension.diff;
+    }
     return sizes.map(s => 
-        Object.assign(new M(s == 8 ? opcode : nonByteOp, extension, ...ops.map(op => 
+        new M(s == 8 ? opcode : nonByteOp, extension, ...ops.map(op => 
             typeof(op) === "string" ? OPF[op + s] : op
-            )), {defsTo64: defsTo64})
+            ))
     );
 }
 
 // Mnemonic set with 0 operands but differing sizes (e.g. string operations)
-function MTS(template, opcode)
+function MTS(sizes, opcode)
 {
     let nonByteOp = opcode;
-    let sizes = template.sizes;
-    if(sizes.includes(8)) nonByteOp += template.diff;
+    if(sizes.includes(8)) nonByteOp++;
     return sizes.map(s => 
         Object.assign(new M(s == 8 ? opcode : nonByteOp), { globalSize: s})
     );
@@ -115,6 +119,9 @@ imm16: new opTemp(OPT.IMM, 16),
 imm32: new opTemp(OPT.IMM, 32),
 imm64: new opTemp(OPT.IMM, 64),
 
+xmm: new opTemp(OPT.XMM),
+xmmm: new opTemp([OPT.XMM, OPT.MEM]),
+
 seg: new opTemp(OPT.SEG),
 ax8: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 8),
 ax16: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
@@ -127,17 +134,15 @@ fs: new specOpTemp(OPT.SEG, o => o.reg == 4),
 gs: new specOpTemp(OPT.SEG, o => o.reg == 5)
 }
 
-const MNTT = sizes => (diff=1, def64=false) => ({sizes: sizes, diff: diff, def64: def64})
-
 const MNT = {
-    "BWL": MNTT([8, 16, 32]),
-    "BWLQ": MNTT([8, 16, 32, 64]),
-    "WLQ": MNTT([16, 32, 64]),
-    "WL": MNTT([16, 32]),
-    "WQ": MNTT([16, 64]),
-    "BL": MNTT([8, 32]),
-    "BW": MNTT([8, 16]),
-    "LQ": MNTT([32, 64])
+    "BWL": [8, 16, 32],
+    "BWLQ": [8, 16, 32, 64],
+    "WLQ": [16, 32, 64],
+    "WL": [16, 32],
+    "WQ": [16, 64],
+    "BL": [8, 32],
+    "BW": [8, 16],
+    "LQ": [32, 64]
 }
 
 let dummy;
@@ -150,56 +155,56 @@ mov: [
     new M(0x8C, REG_MOD, OPF.seg, OPF.rm16),
     new M(0x8E, REG_MOD, OPF.rm16, OPF.seg),
 
-    ...MT(MNT.BWLQ(), 0x88, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ(), 0x8A, REG_MOD, 'rm', 'r'),
+    ...MT(MNT.BWLQ, 0x88, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ, 0x8A, REG_MOD, 'rm', 'r'),
 
     new M(0xC7, 0, OPF.imm32, OPF.rm64),
-    ...MT(MNT.BWLQ(8), 0xB0, REG_OP, 'imm', 'r'),
-    ...MT(MNT.BWL(), 0xC6, 0, 'imm', 'rm')
+    ...MT(MNT.BWLQ, 0xB0, {e: REG_OP, diff: 8}, 'imm', 'r'),
+    ...MT(MNT.BWL, 0xC6, 0, 'imm', 'rm')
 ],
 
 test: [
-    ...MT(MNT.BWLQ(), 0xA8, REG_NON, 'imm', 'ax'),
-    ...MT(MNT.BWLQ(), 0xF6, 0, 'imm', 'rm'),
-    ...MT(MNT.BWLQ(), 0x84, REG_MOD, 'r', 'rm')
+    ...MT(MNT.BWLQ, 0xA8, REG_NON, 'imm', 'ax'),
+    ...MT(MNT.BWLQ, 0xF6, 0, 'imm', 'rm'),
+    ...MT(MNT.BWLQ, 0x84, REG_MOD, 'r', 'rm')
 ],
 
 
 push: [
-    ...MT(MNT.WQ(1, true), 0x50, REG_OP, 'r'),
-    ...MT(MNT.BWL(-2), 0x6A, REG_NON, 'imm'),
-    ...MT(MNT.WQ(1, true), 0xFF, 6, 'm'),
+    ...MT(MNT.WQ, 0x50, {e: REG_OP, defsTo64: true}, 'r'),
+    ...MT(MNT.BWL, 0x6A, {e: REG_NON, diff: -2}, 'imm'),
+    ...MT(MNT.WQ, 0xFF, {e: 6, defsTo64: true}, 'm'),
     
     // x64 supports pushing only these two segment registers
     new M(0x0FA0, REG_NON, OPF.fs),
     new M(0x0FA8, REG_NON, OPF.gs)
 ],
 pop: [
-    ...MT(MNT.WQ(1, true), 0x58, REG_OP, 'r'),
-    ...MT(MNT.WQ(1, true), 0x8F, 0, 'm'),
+    ...MT(MNT.WQ, 0x58, {e: REG_OP, defsTo64: true}, 'r'),
+    ...MT(MNT.WQ, 0x8F, {e: 0, defsTo64: true}, 'm'),
 
     // x64 supports popping only these two segment registers
     new M(0x0FA1, REG_NON, OPF.fs),
     new M(0x0FA9, REG_NON, OPF.gs)
 ],
-inc:    MT(MNT.BWLQ(), 0xFE, 0, 'rm'),
-dec:    MT(MNT.BWLQ(), 0xFE, 1, 'rm'),
-not:    MT(MNT.BWLQ(), 0xF6, 2, 'rm'),
-neg:    MT(MNT.BWLQ(), 0xF6, 3, 'rm'),
-mul:    MT(MNT.BWLQ(), 0xF6, 4, 'rm'),
-div:    MT(MNT.BWLQ(), 0xF6, 6, 'rm'),
-idiv:   MT(MNT.BWLQ(), 0xF6, 7, 'rm'),
+inc:    MT(MNT.BWLQ, 0xFE, 0, 'rm'),
+dec:    MT(MNT.BWLQ, 0xFE, 1, 'rm'),
+not:    MT(MNT.BWLQ, 0xF6, 2, 'rm'),
+neg:    MT(MNT.BWLQ, 0xF6, 3, 'rm'),
+mul:    MT(MNT.BWLQ, 0xF6, 4, 'rm'),
+div:    MT(MNT.BWLQ, 0xF6, 6, 'rm'),
+idiv:   MT(MNT.BWLQ, 0xF6, 7, 'rm'),
 
 imul: [
-    ...MT(MNT.BWLQ(), 0xF6, 5, 'rm'),
-    ...MT(MNT.WLQ(), 0x0FAF, REG_MOD, 'rm', 'r'),
-    ...MT(MNT.WLQ(), 0x6B, REG_MOD, OPF.imm8, 'rm', 'r'),
+    ...MT(MNT.BWLQ, 0xF6, 5, 'rm'),
+    ...MT(MNT.WLQ, 0x0FAF, REG_MOD, 'rm', 'r'),
+    ...MT(MNT.WLQ, 0x6B, REG_MOD, OPF.imm8, 'rm', 'r'),
     new M(0x69, REG_MOD, OPF.imm16, OPF.rm16, OPF.r16),
-    ...MT(MNT.LQ(), 0x69, REG_MOD, OPF.imm32, 'rm', 'r')
+    ...MT(MNT.LQ, 0x69, REG_MOD, OPF.imm32, 'rm', 'r')
 ],
 nop: [
     new M(0x90),
-    ...MT(MNT.WL(), 0x0F1F, 0, 'rm')
+    ...MT(MNT.WL, 0x0F1F, 0, 'rm')
 ],
 syscall: [new M(0x0F05)],
 int: [
@@ -210,7 +215,7 @@ int: [
 int3: [new M(0xCC)],
 int1: [new M(0xF1)],
 
-lea: MT(MNT.WLQ(), 0x8D, REG_MOD, 'm', 'r'),
+lea: MT(MNT.WLQ, 0x8D, REG_MOD, 'm', 'r'),
 
 
 cbw: [new M(0x6698)],
@@ -225,32 +230,32 @@ loopne: [new M(0xE0, REG_NON, OPF.imm8)],
 loope: [new M(0xE1, REG_NON, OPF.imm8)],
 loop: [new M(0xE2, REG_NON, OPF.imm8)],
 jmp: [
-    ...MT(MNT.BL(-2), 0xEB, REG_NON, 'imm'),
-    Object.assign(new M(0xFF, 4, OPF.rm64), {defsTo64: true})
+    ...MT(MNT.BL, 0xEB, {e: REG_NON, diff: -2}, 'imm'),
+    new M(0xFF, {e: 4, defsTo64: true}, OPF.rm64)
 ],
 call: [
     new M(0xE8, REG_NON, OPF.imm32),
-    Object.assign(new M(0xFF, 2, OPF.rm64), {defsTo64: true})
+    new M(0xFF, {e: 2, defsTo64: true}, OPF.rm64)
 ],
 jecxz: [new M(0x67E3, REG_NON, OPF.imm8)],
 jrcxz: [new M(0xE3, REG_NON, OPF.imm8)],
 
 xchg: [
-    ...MT(MNT.WLQ(), 0x90, REG_OP, 'ax', 'r'),
-    ...MT(MNT.WLQ(), 0x90, REG_OP, 'r', 'ax'),
-    ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ(), 0x86, REG_MOD, 'rm', 'r')
+    ...MT(MNT.WLQ, 0x90, REG_OP, 'ax', 'r'),
+    ...MT(MNT.WLQ, 0x90, REG_OP, 'r', 'ax'),
+    ...MT(MNT.BWLQ, 0x86, REG_MOD, 'r', 'rm'),
+    ...MT(MNT.BWLQ, 0x86, REG_MOD, 'rm', 'r')
 ],
 
 
-movs: MTS(MNT.BWLQ(), 0xA4),
-cmps: MTS(MNT.BWLQ(), 0xA6),
-stos: MTS(MNT.BWLQ(), 0xAA),
-lods: MTS(MNT.BWLQ(), 0xAC),
-scas: MTS(MNT.BWLQ(), 0xAE),
+movs: MTS(MNT.BWLQ, 0xA4),
+cmps: MTS(MNT.BWLQ, 0xA6),
+stos: MTS(MNT.BWLQ, 0xAA),
+lods: MTS(MNT.BWLQ, 0xAC),
+scas: MTS(MNT.BWLQ, 0xAE),
 
-pushf: [Object.assign(new M(0x9C), {defsTo64: true})],
-popf: [Object.assign(new M(0x9D), {defsTo64: true})],
+pushf: [new M(0x9C, {e: REG_NON, defsTo64: true})],
+popf: [new M(0x9D, {e: REG_NON, defsTo64: true})],
 
 
 hlt: [new M(0xF4)],
@@ -267,7 +272,7 @@ wait: dummy = [new M(0x9B)],
 fwait: dummy,
 
 ret: [
-    Object.assign(new M(0xC2, REG_NON, OPF.imm16), {defsTo16: true}),
+    new M(0xC2, {e: REG_NON, defsTo16: true}, OPF.imm16),
     new M(0xC3)
 ],
 iret: [new M(0xCF)],
@@ -275,7 +280,11 @@ iret: [new M(0xCF)],
 enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
 leave: [new M(0xC9)],
 
-bswap: MT(MNT.WLQ(), 0xFC8, REG_OP, 'r')
+bswap: MT(MNT.WLQ, 0xFC8, REG_OP, 'r'),
+
+addsubpd: [ // Unfinished, return to this once you add VEX prefix
+    new M(0x0FD0, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
+]
 }
 
 
@@ -284,14 +293,14 @@ let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
 arithmeticMnemonics.forEach((name, i) => {
     let opBase = i * 8;
     mnemonics[name] = [
-        ...MT(MNT.BW(), opBase + 4, REG_NON, 'imm', 'ax'),
-        ...MT(MNT.WLQ(), 0x83, i, OPF.imm8, 'rm'),
+        ...MT(MNT.BW, opBase + 4, REG_NON, 'imm', 'ax'),
+        ...MT(MNT.WLQ, 0x83, i, OPF.imm8, 'rm'),
         new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax32),
-        ...MT(MNT.BWL(), 0x80, i, 'imm', 'rm'),
+        ...MT(MNT.BWL, 0x80, i, 'imm', 'rm'),
         new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax64),
         new M(0x81, i, OPF.imm32, OPF.rm64),
-        ...MT(MNT.BWLQ(), opBase, REG_MOD, 'r', 'rm'),
-        ...MT(MNT.BWLQ(), opBase + 2, REG_MOD, 'rm', 'r')
+        ...MT(MNT.BWLQ, opBase, REG_MOD, 'r', 'rm'),
+        ...MT(MNT.BWLQ, opBase + 2, REG_MOD, 'rm', 'r')
     ];
 });
 
@@ -306,9 +315,9 @@ shr
 sar`.split('\n');
 shiftMnemonics.forEach((names, i) => {
     dummy = [
-        ...MT(MNT.BWLQ(), 0xD0, i, OPF.one, 'rm'),
-        ...MT(MNT.BWLQ(), 0xD2, i, OPF.cx8, 'rm'),
-        ...MT(MNT.BWLQ(), 0xC0, i, OPF.imm8, 'rm')
+        ...MT(MNT.BWLQ, 0xD0, i, OPF.one, 'rm'),
+        ...MT(MNT.BWLQ, 0xD2, i, OPF.cx8, 'rm'),
+        ...MT(MNT.BWLQ, 0xC0, i, OPF.imm8, 'rm')
     ];
     names.split(' ').forEach(name => {
         mnemonics[name] = dummy;
@@ -344,7 +353,7 @@ conditionalJmps.forEach((names, i) => {
 let bitTests = "bt bts btr btc".split(' ');
 bitTests.forEach((name, i) => {
     mnemonics[name] = [
-        ...MT(MNT.WLQ(), 0xFA3 + i * 8, REG_MOD, 'r', 'rm'),
-        ...MT(MNT.WLQ(), 0xFBA, i + 4, OPF.imm8, 'rm'),
+        ...MT(MNT.WLQ, 0xFA3 + i * 8, REG_MOD, 'r', 'rm'),
+        ...MT(MNT.WLQ, 0xFBA, i + 4, OPF.imm8, 'rm'),
     ]
 })
