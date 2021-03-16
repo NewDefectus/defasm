@@ -53,30 +53,30 @@ B0 o8 ibwlq R   # opcode 0xB0, register goes in opcode (offset 8 from byte), acc
 C6 0 ibwl r     # opcode 0xC6, extension 0, accepts an unsigned immediate of size byte, word or doubleword, followed by a register of the same size
 
 Example for "add" instruction (this can be extended to all other arithmetic instructions, like adc, sub, xor, and, etc.):
-4 z ibw R_0
+04 z ibw R_0
 83 0 Ib rwlq
-5 z Il R_0l
+05 z Il R_0l
 80 0 ibwl r
-5 z Il R_0q
+05 z Il R_0q
 81 0 Il rq
-0 r Rbwlq r
-2 r rbwlq R
+00 r Rbwlq r
+02 r rbwlq R
 
-Example for "sal" instruction:
+sal:
 D0 4 I_1 rbwlq
 D2 4 R_1b rbwlq
 C0 4 Ib rbwlq
 
-Example for "fadd" instruction:
+fadd:
 D8 0 ml
 DC 0 mQ
 D8C0 o f f_0
 DCC0 o f_0 f
 
-Example for "lods" instruction:
+lods:
 AC z -bwlq
 
-Example for "nop" instruction:
+nop:
 90 z
 0F1F 0 rwl
 
