@@ -1,8 +1,6 @@
-const OPTShorts = {
-    R: o => o.type ==OPT.REG,
-    r: OPT.RM,
-    m: OPT.MEM,
-}
+const REG_MOD = -1,
+      REG_OP = -2,
+      REG_NON = -3;
 
 var mnemonics = {};
 
@@ -31,16 +29,8 @@ A0 z obwlq R_0
 A2 z R_0bwlq o
 C7 0 Il rq
 B0 o8 ibwlq R
-C6 0 ibwl r
-
-`.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
-
-
-// Format is a string specified by mnemonicsFormat.txt
-function Mnemonic(format)
-{
-    return format.split('\n').map(line => new MnemonicVariation(line.split(' ')));
-}
+C6 0 ibwl r`;
+mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
 
 function MnemonicVariation(format)
 {

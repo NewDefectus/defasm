@@ -70,13 +70,12 @@ Instruction.prototype.parse = function()
     {
         globalSize = suffixes[opcode[opcode.length - 1]];
         opcode = opcode.slice(0, -1);
-        if(!mnemonics.hasOwnProperty(opcode))
-            throw "Unknown opcode";
-        if(globalSize === undefined)
-            throw "Invalid opcode suffix";
-        enforceSize = true;
+        if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
+        if(globalSize === undefined) throw "Invalid opcode suffix";
     }
     let variations = mnemonics[opcode], operands = [], rexVal = 0x40;
+    if(Array.isArray(variations)) // If the mnemonic hasn't been decoded yet, decode it
+        mnemonics[opcode] = variations = variations.map(line => new MnemonicVariation(line.split(' ')));
 
     while(token != ';' && token != '\n')
     {
