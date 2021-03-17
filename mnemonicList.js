@@ -186,7 +186,7 @@ iret
 CF
 
 enter
-C8 z iw ib
+C8 z iW ib
 
 leave
 C9
