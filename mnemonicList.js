@@ -213,7 +213,10 @@ adox
 F3)0F38F6 r rlq R
 
 adcx
-66)0F38F6 r rlq R`;
+66)0F38F6 r rlq R
+
+sal
+#shl`;
 mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
 
 
@@ -236,23 +239,14 @@ arithmeticMnemonics.forEach((name, i) => {
 });
 
 // Shift mnemonics
-let shiftMnemonics = `rol
-ror
-rcl
-rcr
-sal shl
-shr
-
-sar`.split('\n');
-shiftMnemonics.forEach((names, i) => {
-    dummy = [
-        "D0 " + i + " i_1 rbwlq",
-        "D2 " + i + " R_1b rbwlq",
-        "C0 " + i + " ib rbwlq"
-    ];
-    names.split(' ').forEach(name => {
-        mnemonics[name] = dummy;
-    })
+let shiftMnemonics = `rol ror rcl rcr shl shr  sar`.split(' ');
+shiftMnemonics.forEach((name, i) => {
+    if(name)
+        mnemonics[name] = [
+            "D0 " + i + " i_1 rbwlq",
+            "D2 " + i + " R_1b rbwlq",
+            "C0 " + i + " ib rbwlq"
+        ];
 });
 
 // Adding conditional jmp instructions
@@ -273,11 +267,13 @@ jge jnl
 jle jng
 jg jnle`.split('\n');
 conditionalJmps.forEach((names, i) => {
-    dummy = [
+    names = names.split(' ');
+    let firstName = names.shift();
+    mnemonics[firstName] = [
         hex(0x70 + i) + " z Ib",
         hex(0x0F80 + i) + " z Il"
     ];
-    names.split(' ').forEach(name => mnemonics[name] = dummy);
+    names.forEach(name => mnemonics[name] = ['#' + firstName]);
 })
 
 
