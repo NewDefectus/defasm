@@ -1,371 +1,327 @@
-const REG_MOD = -1;
-const REG_OP = -2;
-const REG_NON = -3
-
-function M(opcode, extension)
-{
-    if(extension === undefined) extension = REG_NON;
-    this.opcode = opcode;
-
-    // 0-7 goes to modrm.reg,
-    // REG_MOD means reg goes in modrm.reg,
-    // REG_OP means no modrm (register is encoded in op),
-    // REG_NON means no modrm (register is not encoded at all) 
-    if(typeof extension === "number") this.e = extension;
-    else Object.assign(this, extension);
-
-
-    this.operandTemplates = Array.from(arguments).slice(2);
-}
-
-// Mnemonic set from template
-function MT(sizes, opcode, extension)
-{
-    let nonByteOp = opcode;
-    let ops = Array.from(arguments).slice(3);
-    if(sizes.includes(8))
-    {
-        if(extension.diff === undefined) nonByteOp++;
-        else nonByteOp += extension.diff;
-    }
-    return sizes.map(s => 
-        new M(s == 8 ? opcode : nonByteOp, extension, ...ops.map(op => 
-            typeof(op) === "string" ? OPF[op + s] : op
-            ))
-    );
-}
-
-// Mnemonic set with 0 operands but differing sizes (e.g. string operations)
-function MTS(sizes, opcode)
-{
-    let nonByteOp = opcode;
-    if(sizes.includes(8)) nonByteOp++;
-    return sizes.map(s => 
-        Object.assign(new M(s == 8 ? opcode : nonByteOp), { globalSize: s})
-    );
-}
-
-// Operand template
-function opTemp(type, size)
-{
-    // Matching function (does a given operator match this template?)
-    if(size === undefined) // No size specified
-        this.matchSize = o => true;
-    else if(type == OPT.IMM) // Allow immediates to be "upcast"
-        this.matchSize = o => o.size <= size;
-    else
-        this.matchSize = o => o.size == size;
-    
-    
-    if(type[0] !== undefined) // Multi-type templates (e.g. "rm")
-    {
-        this.types = type;
-        this.matchType = o => type.includes(o.type)
-    }
-    else
-    {
-        this.types = [type];
-        this.matchType = o => o.type == type;
-    }
-
-    // Fitting function (fit a given operator into this template)
-    if(size === undefined)
-        this.fit = o => o;
-    else
-        this.fit = o => o.size = size;
-}
-
-// Special operand template
-function specOpTemp(type, matcher)
-{
-    this.types = [type];
-    this.matchType = o => o.type == type;
-    this.matchSize = matcher;
-    this.fit = o => o;
-    this.implicit = true;
-}
+const REG_MOD = -1, REG_OP = -2, REG_NON = -3;
+const OPC = {
+    r: OPT.REG,
+    n: OPT.MMX,
+    x: OPT.XMM,
+    y: OPT.YMM,
+    z: OPT.ZMM,
+    i: OPT.IMM,
+    m: OPT.MEM,
+    s: OPT.SEG,
+    f: OPT.ST,
+    b: OPT.BND,
+    k: OPT.MASK
+};
 
 const prefixes = {
-lock: 0xF0n,
-repne: 0xF2n,
-repnz: 0xF2n,
-rep: 0xF3n,
-repe: 0xF3n,
-repz: 0xF3n
+    lock: 0xF0n,
+    repne: 0xF2n,
+    repnz: 0xF2n,
+    rep: 0xF3n,
+    repe: 0xF3n,
+    repz: 0xF3n
+};
+
+/** Mnemonic set (loaded in mnemonicList.js)
+* @type {Object.<string,(string[]|Operation[])} */
+var mnemonics = {};
+
+
+// To reduce memory use, operand catchers are cached and reused in the future
+var opCatcherCache = {};
+
+function getSizes(format)
+{
+    let sizes = [], size;
+    for(let i = 0; i < format.length; i++)
+    {
+        sizeChar = format[i];
+        if(sizeChar === '~') // ~ prefix means don't choose this size unless it's explicit
+            size = suffixes[format[++i]] | SUFFIX_UNINFERRABLE;
+        else if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
+            size = suffixes[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+        else if(sizeChar === 'o')
+            size = 64 | SUFFIX_SIGNED;
+        else
+            size = suffixes[sizeChar];
+        
+        sizes.push(size);
+    }
+    return sizes;
 }
 
-// Operand filters
-const OPF = {
-r8: new opTemp(OPT.REG, 8),
-r16: new opTemp(OPT.REG, 16),
-r32: new opTemp(OPT.REG, 32),
-r64: new opTemp(OPT.REG, 64),
+/**  Operand catchers
+ * @param {string} format 
+ */
+function OpCatcher(format)
+{
+    let i = 1, sizeChar, size;
+    this.sizes = [];
 
-m8: new opTemp(OPT.MEM, 8),
-m16: new opTemp(OPT.MEM, 16),
-m32: new opTemp(OPT.MEM, 32),
-m64: new opTemp(OPT.MEM, 64),
-
-rm8: new opTemp([OPT.REG, OPT.MEM], 8),
-rm16: new opTemp([OPT.REG, OPT.MEM], 16),
-rm32: new opTemp([OPT.REG, OPT.MEM], 32),
-rm64: new opTemp([OPT.REG, OPT.MEM], 64),
-
-imm8: new opTemp(OPT.IMM, 8),
-imm16: new opTemp(OPT.IMM, 16),
-imm32: new opTemp(OPT.IMM, 32),
-imm64: new opTemp(OPT.IMM, 64),
-
-xmm: new opTemp(OPT.XMM),
-xmmm: new opTemp([OPT.XMM, OPT.MEM]),
-
-seg: new opTemp(OPT.SEG),
-ax8: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 8),
-ax16: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 16),
-ax32: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 32),
-ax64: new specOpTemp(OPT.REG, o => o.reg == 0 && o.size == 64),
-cx8: new specOpTemp(OPT.REG, o => o.reg == 1 && o.size == 8),
-one: new specOpTemp(OPT.IMM, o => o.value === 1n),
-three: new specOpTemp(OPT.IMM, o => o.value === 3n),
-fs: new specOpTemp(OPT.SEG, o => o.reg == 4),
-gs: new specOpTemp(OPT.SEG, o => o.reg == 5)
-}
-
-const MNT = {
-    "BWL": [8, 16, 32],
-    "BWLQ": [8, 16, 32, 64],
-    "WLQ": [16, 32, 64],
-    "WL": [16, 32],
-    "WQ": [16, 64],
-    "BL": [8, 32],
-    "BW": [8, 16],
-    "LQ": [32, 64]
-}
-
-let dummy;
-
-/* Mnemonic variations should be ordered in a way that yields
-the shortest, most compact encoding of any given instruction. */
-
-var mnemonics = {
-mov: [
-    new M(0x8C, REG_MOD, OPF.seg, OPF.rm16),
-    new M(0x8E, REG_MOD, OPF.rm16, OPF.seg),
-
-    ...MT(MNT.BWLQ, 0x88, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ, 0x8A, REG_MOD, 'rm', 'r'),
-
-    new M(0xC7, 0, OPF.imm32, OPF.rm64),
-    ...MT(MNT.BWLQ, 0xB0, {e: REG_OP, diff: 8}, 'imm', 'r'),
-    ...MT(MNT.BWL, 0xC6, 0, 'imm', 'rm')
-],
-
-test: [
-    ...MT(MNT.BWLQ, 0xA8, REG_NON, 'imm', 'ax'),
-    ...MT(MNT.BWLQ, 0xF6, 0, 'imm', 'rm'),
-    ...MT(MNT.BWLQ, 0x84, REG_MOD, 'r', 'rm')
-],
-
-
-push: [
-    ...MT(MNT.WQ, 0x50, {e: REG_OP, defsTo64: true}, 'r'),
-    ...MT(MNT.BWL, 0x6A, {e: REG_NON, diff: -2}, 'imm'),
-    ...MT(MNT.WQ, 0xFF, {e: 6, defsTo64: true}, 'm'),
+    // First is the operand type
+    let opType = format[0];
+    this.acceptsMemory = "rnxyzm".includes(opType);
+    this.unsigned = opType === 'i';
+    this.type = OPC[opType.toLowerCase()];
     
-    // x64 supports pushing only these two segment registers
-    new M(0x0FA0, REG_NON, OPF.fs),
-    new M(0x0FA8, REG_NON, OPF.gs)
-],
-pop: [
-    ...MT(MNT.WQ, 0x58, {e: REG_OP, defsTo64: true}, 'r'),
-    ...MT(MNT.WQ, 0x8F, {e: 0, defsTo64: true}, 'm'),
-
-    // x64 supports popping only these two segment registers
-    new M(0x0FA1, REG_NON, OPF.fs),
-    new M(0x0FA9, REG_NON, OPF.gs)
-],
-inc:    MT(MNT.BWLQ, 0xFE, 0, 'rm'),
-dec:    MT(MNT.BWLQ, 0xFE, 1, 'rm'),
-not:    MT(MNT.BWLQ, 0xF6, 2, 'rm'),
-neg:    MT(MNT.BWLQ, 0xF6, 3, 'rm'),
-mul:    MT(MNT.BWLQ, 0xF6, 4, 'rm'),
-div:    MT(MNT.BWLQ, 0xF6, 6, 'rm'),
-idiv:   MT(MNT.BWLQ, 0xF6, 7, 'rm'),
-
-imul: [
-    ...MT(MNT.BWLQ, 0xF6, 5, 'rm'),
-    ...MT(MNT.WLQ, 0x0FAF, REG_MOD, 'rm', 'r'),
-    ...MT(MNT.WLQ, 0x6B, REG_MOD, OPF.imm8, 'rm', 'r'),
-    new M(0x69, REG_MOD, OPF.imm16, OPF.rm16, OPF.r16),
-    ...MT(MNT.LQ, 0x69, REG_MOD, OPF.imm32, 'rm', 'r')
-],
-nop: [
-    new M(0x90),
-    ...MT(MNT.WL, 0x0F1F, 0, 'rm')
-],
-syscall: [new M(0x0F05)],
-int: [
-    new M(0xCC, REG_NON, OPF.three),
-    new M(0xF1, REG_NON, OPF.one),
-    new M(0xCD, REG_NON, OPF.imm8)
-],
-int3: [new M(0xCC)],
-int1: [new M(0xF1)],
-
-lea: MT(MNT.WLQ, 0x8D, REG_MOD, 'm', 'r'),
 
 
-cbw: [new M(0x6698)],
-cwde: [new M(0x98)],
-cdqe: [new M(0x4898)],
-cwd: [new M(0x6699)],
-cdq: [new M(0x99)],
-cqo: [new M(0x4899)],
+    // Optional argument: value for implicit operands
+    this.implicitValue = null;
+    if(format[1] === '_')
+    {
+        this.implicitValue = parseInt(format[2]);
+        i = 3;
+    }
 
+    // Next are the sizes
+    this.sizes = getSizes(format.slice(i));
 
-loopne: [new M(0xE0, REG_NON, OPF.imm8)],
-loope: [new M(0xE1, REG_NON, OPF.imm8)],
-loop: [new M(0xE2, REG_NON, OPF.imm8)],
-jmp: [
-    ...MT(MNT.BL, 0xEB, {e: REG_NON, diff: -2}, 'imm'),
-    new M(0xFF, {e: 4, defsTo64: true}, OPF.rm64)
-],
-call: [
-    new M(0xE8, REG_NON, OPF.imm32),
-    new M(0xFF, {e: 2, defsTo64: true}, OPF.rm64)
-],
-jecxz: [new M(0x67E3, REG_NON, OPF.imm8)],
-jrcxz: [new M(0xE3, REG_NON, OPF.imm8)],
+    if(this.sizes.length === 0)
+    {
+        if(this.type > OPT.MEM) this.sizes = 0; // Meaning, size doesn't matter
+        else this.sizes = -1; // Meaning, use the previously parsed size to catch
+    }
 
-xchg: [
-    ...MT(MNT.WLQ, 0x90, REG_OP, 'ax', 'r'),
-    ...MT(MNT.WLQ, 0x90, REG_OP, 'r', 'ax'),
-    ...MT(MNT.BWLQ, 0x86, REG_MOD, 'r', 'rm'),
-    ...MT(MNT.BWLQ, 0x86, REG_MOD, 'rm', 'r')
-],
-
-
-movs: MTS(MNT.BWLQ, 0xA4),
-cmps: MTS(MNT.BWLQ, 0xA6),
-stos: MTS(MNT.BWLQ, 0xAA),
-lods: MTS(MNT.BWLQ, 0xAC),
-scas: MTS(MNT.BWLQ, 0xAE),
-
-pushf: [new M(0x9C, {e: REG_NON, defsTo64: true})],
-popf: [new M(0x9D, {e: REG_NON, defsTo64: true})],
-
-
-hlt: [new M(0xF4)],
-cmc: [new M(0xF5)],
-clc: [new M(0xF8)],
-stc: [new M(0xF9)],
-cli: [new M(0xFA)],
-sti: [new M(0xFB)],
-cld: [new M(0xFC)],
-std: [new M(0xFD)],
-
-xlat: [new M(0xD7)],
-wait: dummy = [new M(0x9B)],
-fwait: dummy,
-
-ret: [
-    new M(0xC2, {e: REG_NON, defsTo16: true}, OPF.imm16),
-    new M(0xC3)
-],
-iret: [new M(0xCF)],
-
-enter: [new M(0xC8, REG_NON, OPF.imm16, OPF.imm8)],
-leave: [new M(0xC9)],
-
-bswap: MT(MNT.WLQ, 0xFC8, REG_OP, 'r'),
-
-addsubpd: [ // Unfinished, return to this once you add VEX prefix
-    new M(0xFD0, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
-],
-addsubps: [ // Unfinished, return to this once you add VEX prefix
-    new M(0xFD0, {e: REG_MOD, prefix: 0xF2}, OPF.xmmm, OPF.xmm)
-],
-addss: [ // Unfinished, return to this once you add VEX prefix
-    new M(0xF58, {e: REG_MOD, prefix: 0xF3}, OPF.xmmm, OPF.xmm)
-],
-addsd: [ // Unfinished, return to this once you add VEX prefix
-    new M(0xF58, {e: REG_MOD, prefix: 0xF2}, OPF.xmmm, OPF.xmm)
-],
-addpd: [ // Unfinished, return to this once you add VEX prefix
-    new M(0xF58, {e: REG_MOD, prefix: 0x66}, OPF.xmmm, OPF.xmm)
-],
-
-adox: MT(MNT.LQ, 0xF38F6, {e: REG_MOD, prefix: 0xF3}, 'rm', 'r'),
-adcx: MT(MNT.LQ, 0xF38F6, {e: REG_MOD, prefix: 0x66}, 'rm', 'r')
+    opCatcherCache[format] = this; // Cache this op catcher
 }
 
+/** Attempt to "catch" a given operand.
+ * @param {Operand} operand 
+ * @param {number} prevSize 
+ * @param {boolean} enforcedSize 
+ * @returns {number|null} The operand's corrected size on success, null on failure
+ */
+OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
+{
+    // Check that the types match
+    if(operand.type != this.type && !(operand.type == OPT.MEM && this.acceptsMemory))
+    {
+        return null;
+    }
 
-// Some extra instructions (these are easier to encode programatically as they're quite repetitive)
-let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
-arithmeticMnemonics.forEach((name, i) => {
-    let opBase = i * 8;
-    mnemonics[name] = [
-        ...MT(MNT.BW, opBase + 4, REG_NON, 'imm', 'ax'),
-        ...MT(MNT.WLQ, 0x83, i, OPF.imm8, 'rm'),
-        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax32),
-        ...MT(MNT.BWL, 0x80, i, 'imm', 'rm'),
-        new M(opBase + 5, REG_NON, OPF.imm32, OPF.ax64),
-        new M(0x81, i, OPF.imm32, OPF.rm64),
-        ...MT(MNT.BWLQ, opBase, REG_MOD, 'r', 'rm'),
-        ...MT(MNT.BWLQ, opBase + 2, REG_MOD, 'rm', 'r')
-    ];
-});
+    // Check that the sizes match
+    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+    let rawSize, size = 0, found = false;
 
-// Shift mnemonics
-let shiftMnemonics = `rol
-ror
-rcl
-rcr
-sal shl
-shr
+    // For unknown-sized operand catchers, compare against the previous size
+    if(this.sizes === -1)
+    {
+        if(prevSize & SUFFIX_SIGNED) opSize = operand.size, prevSize = 32;
+        rawSize = prevSize & ~7;
+        if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
+        return null;
+    }
+    
+    if(Array.isArray(this.sizes))
+    {
+        for(size of this.sizes)
+        {
+            if(isNaN(opSize) && (size & SUFFIX_DEFAULT)) // For unknown-sized operands, choose the default size
+            {
+                found = true;
+                break;
+            }
+            
+            rawSize = size & ~7;
+            if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
+            {
+                if(!(size & SUFFIX_UNINFERRABLE) || enforcedSize)
+                {
+                    found = true;
+                    break;
+                }
+            }
+        }
+        
+        if(!found) return null;
+    }
+    if(this.implicitValue !== null)
+    {
+        let opValue = (operand.type === OPT.IMM ? operand.value : operand.reg);
+        if(this.implicitValue !== opValue) return null;
+    }
 
-sar`.split('\n');
-shiftMnemonics.forEach((names, i) => {
-    dummy = [
-        ...MT(MNT.BWLQ, 0xD0, i, OPF.one, 'rm'),
-        ...MT(MNT.BWLQ, 0xD2, i, OPF.cx8, 'rm'),
-        ...MT(MNT.BWLQ, 0xC0, i, OPF.imm8, 'rm')
-    ];
-    names.split(' ').forEach(name => {
-        mnemonics[name] = dummy;
-    })
-});
+    return size;
+}
 
-// Adding conditional jmp instructions
-let conditionalJmps = `jo
-jno
-jb jc jnae
-jae jnb jnc
-je jz
-jne jnz
-jbe jna
-ja jnbe
-js
-jns
-jp jpe
-jnp jpo
-jl jnge
-jge jnl
-jle jng
-jg jnle`.split('\n');
-conditionalJmps.forEach((names, i) => {
-    dummy = [
-        new M(0x70 + i, REG_NON, OPF.imm8),
-        new M(0x0F80 + i, REG_NON, OPF.imm32)
-    ];
-    names.split(' ').forEach(name => mnemonics[name] = dummy);
-})
+/** An operation (or "mnemonic variation") can be thought of as an overloaded instance of a mnemonic
+ * @param {string[]} format
+ */
+function Operation(format)
+{
+    // Interpreting the opcode
+    let opcode = format.shift();
+    if(opcode[2] === ')') // Prefix followed by ')'
+    {
+        this.code = parseInt(opcode.slice(3), 16);
+        this.prefix = parseInt(opcode.slice(0, 2), 16);
+    }
+    else
+    {
+        this.code = parseInt(opcode, 16);
+        this.prefix = null;
+    }
 
+    // Interpreting the extension
+    let extension = format.shift();
+    if(extension === undefined) // Default values
+    {
+        this.extension = REG_NON;
+        this.opDiff = 1;
+        this.opCatchers = [];
+    }
+    else
+    {
+        switch(extension[0])
+        {
+            case 'r':
+                this.extension = REG_MOD;
+                break;
+            case 'o':
+                this.extension = REG_OP;
+                break;
+            case 'z':
+                this.extension = REG_NON;
+                break;
+            default:
+                this.extension = parseInt(extension[0]);
+        }
 
-let bitTests = "bt bts btr btc".split(' ');
-bitTests.forEach((name, i) => {
-    mnemonics[name] = [
-        ...MT(MNT.WLQ, 0xFA3 + i * 8, REG_MOD, 'r', 'rm'),
-        ...MT(MNT.WLQ, 0xFBA, i + 4, OPF.imm8, 'rm'),
-    ]
-})
+        // Opcode difference might follow extension number (e.g. o8)
+        this.opDiff = extension[1] ? parseInt(extension.slice(1)) : 1;
+
+        // What follows is a list of operand specifiers
+        this.opCatchers = [];
+        this.checkableSizes = null;
+        for(let operand of format)
+        {
+            if(operand[0] === '-')
+            {
+                this.checkableSizes = getSizes(operand.slice(1));
+            }
+            else
+                this.opCatchers.push(opCatcherCache[operand] || new OpCatcher(operand));
+        }
+    }
+}
+
+/**
+ * @typedef {Object} operationResults
+ * @property {number} opcode The resulting opcode of the instruction
+ * @property {number} size The size that should be encoded into the instruction
+ * @property {number|null} prefix A prefix to add in the encoding before the REX prefix
+ * @property {boolean} extendOp Special case: if the register is encoded into the opcode but doesn't fit (id > 7), this is true
+ * @property {Operand} reg The register operand (goes into ModRM.reg)
+ * @property {Operand} rm The register/memory operand (goes into ModRM.rm)
+ * @property {Operand[]} imms The immediate operands (should be appended to the instruction)
+ */
+
+/** Attempt to fit the operand list into the operation
+ * @param {Operand[]} operands The operand list to be fitted
+ * @param {number} enforcedSize The size that was enforced, or -1 if no size was enforced
+ * @returns {operationResults|null} The information needed to encode the instruction
+ */
+Operation.prototype.fit = function(operands, enforcedSize)
+{
+    if(operands.length !== this.opCatchers.length) return null; // Operand numbers must match
+    let correctedSizes = new Array(operands.length), size = -1, i, catcher, isEnforced = enforcedSize > 0;
+
+    for(i = 0; i < operands.length; i++)
+    {
+        catcher = this.opCatchers[i];
+        if(size > 0 || Array.isArray(catcher.sizes))
+        {
+            size = catcher.catch(operands[i], size, isEnforced);
+            if(size === null) return null;
+        }
+        correctedSizes[i] = size;
+        if(size === 64 && catcher.copySize !== undefined) size = catcher.copySize;
+    }
+
+    // If the operand size specification wasn't in order,
+    // we'll have to redo the catching for the skipped operands
+    for(i = 0; i < operands.length; i++)
+    {
+        if(correctedSizes[i] < 0)
+        {
+            size = this.opCatchers[i].catch(operands[i], size, isEnforced);
+            if(size === null) return null;
+            correctedSizes[i] = size;
+        }
+    }
+
+    // If we've gotten this far, hurray! All operands fit, and the operation can be encoded.
+    // Note that while the following operations can be merged into the previous loop, they may
+    // be redundant as we wouldn't know if the operation is encodable at all.
+    // In other words, this aids performance.
+
+    let reg = null, rm = null, imms = [], correctedOpcode = this.code;
+    let adjustByteOp = true, extendOp = false, overallSize = 0;
+
+    let operand;
+
+    // Special case for the '-' implicit op catcher
+    
+    if(this.checkableSizes)
+    {
+        let foundSize = false;
+        for(let checkableSize of this.checkableSizes)
+        {
+            if(enforcedSize === (checkableSize & ~7) || (enforcedSize < 0 && (checkableSize & SUFFIX_DEFAULT)))
+            {
+                if(this.checkableSizes.includes(8) && enforcedSize > 8) correctedOpcode += this.opDiff;
+                overallSize = (checkableSize & SUFFIX_DEFAULT) ? 0 : enforcedSize;
+                foundSize = true;
+                break;
+            }
+        }
+        if(!foundSize) return null;
+    }
+
+    for(i = 0; i < operands.length; i++)
+    {
+        catcher = this.opCatchers[i], operand = operands[i];
+        size = correctedSizes[i];
+        operand.size = size & ~7;
+
+        if(catcher.implicitValue === null)
+        {
+            if(catcher.acceptsMemory) rm = operand; // Memory-accepting catchers correspond to the "rm" argument
+            else if(operand.type === OPT.IMM) imms.push(operand);
+            else reg = operand; // Todo: Add VEX 'vvvvv' argument catching
+        }
+
+        // Only set to overall size if it's not the default size
+        if(overallSize < (size & ~7) && !(size & SUFFIX_DEFAULT)) overallSize = size & ~7;
+
+        if(adjustByteOp && (size & ~7) != 8 && Array.isArray(catcher.sizes) && catcher.sizes.includes(8))
+        {
+            correctedOpcode += this.opDiff;
+            adjustByteOp = false;
+        }
+    }
+
+    if(this.extension === REG_OP)
+    {
+        correctedOpcode += reg.reg & 7;
+        extendOp = reg.reg > 7;
+        reg = null;
+    }
+    else if(this.extension === REG_NON) reg = null, rm = null; // Rarely needed, but should be done so the encoder can understand
+    else if(this.extension !== REG_MOD)
+    {
+        if(rm === null) rm = reg; // Move reg to rm if needed (not sure if it ever is needed, may change later)
+        reg = {reg: this.extension};
+    }
+
+    return {
+        opcode: correctedOpcode,
+        size: overallSize,
+        prefix: this.prefix,
+        extendOp: extendOp,
+        reg: reg,
+        rm: rm,
+        imms: imms
+    };
+}
