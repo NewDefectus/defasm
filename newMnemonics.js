@@ -22,35 +22,33 @@ const prefixes = {
     repz: 0xF3n
 };
 
-/** Mnemonic set
+/** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
 var mnemonics = {};
 
-let lines;
-var mnemonicStrings = `
 
-push
-50 o RwQ
-6A z-2 Ib~wl
-FF 6 mwQ
-0FA0 z s_4
-0FA8 z s_5
+// To reduce memory use, operand catchers are cached and reused in the future
+var opCatcherCache = {};
 
-pop
-58 o RwQ
-8F 0 mwQ
-0FA1 z s_4
-0FA9 z s_5
-
-mov
-88 r Rbwlq r
-8A r rbwlq R
-8C r s rWlq
-8E r rWq s
-C7 0 Il rq
-B0 o8 i Rbwlq
-C6 0 i rbwl`;
-mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
+function getSizes(format)
+{
+    let sizes = [], size;
+    for(let i = 0; i < format.length; i++)
+    {
+        sizeChar = format[i];
+        if(sizeChar === '~') // ~ prefix means don't choose this size unless it's explicit
+            size = suffixes[format[++i]] | SUFFIX_UNINFERRABLE;
+        else if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
+            size = suffixes[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+        else if(sizeChar === 'o')
+            size = 64 | SUFFIX_SIGNED;
+        else
+            size = suffixes[sizeChar];
+        
+        sizes.push(size);
+    }
+    return sizes;
+}
 
 /**  Operand catchers
  * @param {string} format 
@@ -77,22 +75,15 @@ function OpCatcher(format)
     }
 
     // Next are the sizes
-    while(sizeChar = format[i++])
-    {
-        if(sizeChar === '~') // ~ prefix means don't choose this size unless it's explicit
-            size = suffixes[format[i++]] | SUFFIX_UNINFERRABLE;
-        else if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
-            size = suffixes[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
-        else
-            size = suffixes[sizeChar];
-        this.sizes.push(size);
-    }
+    this.sizes = getSizes(format.slice(i));
 
     if(this.sizes.length === 0)
     {
         if(this.type > OPT.MEM) this.sizes = 0; // Meaning, size doesn't matter
         else this.sizes = -1; // Meaning, use the previously parsed size to catch
     }
+
+    opCatcherCache[format] = this; // Cache this op catcher
 }
 
 /** Attempt to "catch" a given operand.
@@ -110,11 +101,13 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     }
 
     // Check that the sizes match
-    let opSize = this.unsigned ? operand.unsignedSize : operand.size, rawSize, size = 0, found = false;
+    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+    let rawSize, size = 0, found = false;
 
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes === -1)
     {
+        if(prevSize & SUFFIX_SIGNED) opSize = operand.size, prevSize = 32;
         rawSize = prevSize & ~7;
         if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
         return null;
@@ -172,25 +165,45 @@ function Operation(format)
 
     // Interpreting the extension
     let extension = format.shift();
-    switch(extension[0])
+    if(extension === undefined) // Default values
     {
-        case 'r':
-            this.extension = REG_MOD;
-            break;
-        case 'o':
-            this.extension = REG_OP;
-            break;
-        case 'z':
-            this.extension = REG_NON;
-            break;
-        default:
-            this.extension = parseInt(extension[0]);
+        this.extension = REG_NON;
+        this.opDiff = 1;
+        this.opCatchers = [];
     }
-    // Opcode difference might follow extension number (e.g. o8)
-    this.opDiff = extension[1] ? parseInt(extension.slice(1)) : 1;
-    
-    // What follows is a list of operand specifiers
-    this.opCatchers = format.map(operand => new OpCatcher(operand));
+    else
+    {
+        switch(extension[0])
+        {
+            case 'r':
+                this.extension = REG_MOD;
+                break;
+            case 'o':
+                this.extension = REG_OP;
+                break;
+            case 'z':
+                this.extension = REG_NON;
+                break;
+            default:
+                this.extension = parseInt(extension[0]);
+        }
+
+        // Opcode difference might follow extension number (e.g. o8)
+        this.opDiff = extension[1] ? parseInt(extension.slice(1)) : 1;
+
+        // What follows is a list of operand specifiers
+        this.opCatchers = [];
+        this.checkableSizes = null;
+        for(let operand of format)
+        {
+            if(operand[0] === '-')
+            {
+                this.checkableSizes = getSizes(operand.slice(1));
+            }
+            else
+                this.opCatchers.push(opCatcherCache[operand] || new OpCatcher(operand));
+        }
+    }
 }
 
 /**
@@ -206,22 +219,24 @@ function Operation(format)
 
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
- * @param {boolean} enforcedSize True if the value was enforced with a suffix
+ * @param {number} enforcedSize The size that was enforced, or -1 if no size was enforced
  * @returns {operationResults|null} The information needed to encode the instruction
  */
 Operation.prototype.fit = function(operands, enforcedSize)
 {
     if(operands.length !== this.opCatchers.length) return null; // Operand numbers must match
-    let correctedSizes = new Array(operands.length), size = -1, i;
+    let correctedSizes = new Array(operands.length), size = -1, i, catcher, isEnforced = enforcedSize > 0;
 
     for(i = 0; i < operands.length; i++)
     {
-        if(size > 0 || this.opCatchers[i].sizes !== -1)
+        catcher = this.opCatchers[i];
+        if(size > 0 || Array.isArray(catcher.sizes))
         {
-            size = this.opCatchers[i].catch(operands[i], size, enforcedSize);
+            size = catcher.catch(operands[i], size, isEnforced);
             if(size === null) return null;
         }
         correctedSizes[i] = size;
+        if(size === 64 && catcher.copySize !== undefined) size = catcher.copySize;
     }
 
     // If the operand size specification wasn't in order,
@@ -230,7 +245,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
     {
         if(correctedSizes[i] < 0)
         {
-            size = this.opCatchers[i].catch(operands[i], size, enforcedSize);
+            size = this.opCatchers[i].catch(operands[i], size, isEnforced);
             if(size === null) return null;
             correctedSizes[i] = size;
         }
@@ -244,7 +259,25 @@ Operation.prototype.fit = function(operands, enforcedSize)
     let reg = null, rm = null, imms = [], correctedOpcode = this.code;
     let adjustByteOp = true, extendOp = false, overallSize = 0;
 
-    let catcher, operand;
+    let operand;
+
+    // Special case for the '-' implicit op catcher
+    
+    if(this.checkableSizes)
+    {
+        let foundSize = false;
+        for(let checkableSize of this.checkableSizes)
+        {
+            if(enforcedSize === (checkableSize & ~7) || (enforcedSize < 0 && (checkableSize & SUFFIX_DEFAULT)))
+            {
+                if(this.checkableSizes.includes(8) && enforcedSize > 8) correctedOpcode += this.opDiff;
+                overallSize = (checkableSize & SUFFIX_DEFAULT) ? 0 : enforcedSize;
+                foundSize = true;
+                break;
+            }
+        }
+        if(!foundSize) return null;
+    }
 
     for(i = 0; i < operands.length; i++)
     {
@@ -260,7 +293,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
         }
 
         // Only set to overall size if it's not the default size
-        if(overallSize == 0 && !(size & SUFFIX_DEFAULT)) overallSize = size & ~7;
+        if(overallSize < (size & ~7) && !(size & SUFFIX_DEFAULT)) overallSize = size & ~7;
 
         if(adjustByteOp && (size & ~7) != 8 && Array.isArray(catcher.sizes) && catcher.sizes.includes(8))
         {

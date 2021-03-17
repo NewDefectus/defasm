@@ -162,4 +162,5 @@ Operand sizes (capitalize if prefix isn't needed and memory ops should default t
     - 'w' - word
     - 'l' - double-word
     - 'q' - quad-word
+    - 'o' - quad-word, but recognized to other operands as sign-extended double-word
     - '~' - before a size that must be explicitly chosen by an opcode suffix

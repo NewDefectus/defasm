@@ -75,7 +75,18 @@ Instruction.prototype.parse = function()
     }
     let variations = mnemonics[opcode], operands = [], rexVal = 0x40;
     if(typeof variations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
-        mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
+    {
+        if(variations[0][0] === '#') // References other variation
+        {
+            let otherOpcode = variations[0].slice(1);
+            if(typeof mnemonics[otherOpcode] === "string")
+            {
+                mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
+            }
+            mnemonics[opcode] = variations = mnemonics[otherOpcode];
+        }
+        else mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
+    }
 
     while(token != ';' && token != '\n')
     {
@@ -124,7 +135,7 @@ Instruction.prototype.parse = function()
     
     for(let variation of variations)
     {
-        op = variation.fit(operands, enforceSize);
+        op = variation.fit(operands, enforceSize ? globalSize : -1);
         if(op !== null)
         {
             found = true;
