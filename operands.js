@@ -1,19 +1,22 @@
 // Operand types
-const OPT = Object.assign({}, ...[
-"REG",
-"MMX",
-"XMM",
-"YMM",
-"ZMM",
-"ST",
-"SEG",
-"IP",
-"IMM",
-"MEM",
-"BND",
-"MASK"
-].map((x, i) => ({[x]: i})));
-OPT.RM = [OPT.REG, OPT.MEM].toString(); // JavaScript is dumb at comparisons so we need to do this
+const OPT = {
+REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
+IMM:    2,  // Immediate value - e.g. $20
+MEM:    3,  // Memory operand - e.g. (%rax)
+MMX:    4,  // MMX register (64-bit) - %mm0 / %mm7
+XMM:    5,  // XMM register (128-bit) - %xmm0 / %xmm15
+YMM:    6,  // YMM register (256-bit) - %ymm0 / %ymm15
+ZMM:    7,  // ZMM register (512-bit) - %zmm0 / %zmm15
+ST:     8,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
+SEG:    9,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
+IP:     10, // Instruction pointer register (only used in memory) - %eip or %rip
+XMEM:   11, // XMM vector memory operand - e.g. (%xmm0)
+YMEM:   12, // YMM vector memory operand - e.g. (%ymm0)
+ZMEM:   13, // ZMM vector memory operand - e.g. (%zmm0)
+BND:    14, // Bound register (128-bit) - %bnd0 / %bnd3
+MASK:   15  // Mask register (64-bit) - %k0 / %k7
+};
+
 
 var allowLabels = false; // Only allow labels on the "second pass"
 
@@ -27,6 +30,8 @@ const registers = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 
 const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
+const SUFFIX_DEFAULT = 1;
+const SUFFIX_UNINFERRABLE = 2;
 
 const   PREFIX_REX = 1,
         PREFIX_NOREX = 2,

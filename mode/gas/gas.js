@@ -95,6 +95,7 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
           nextUntilUnescaped(stream, "'")
           return "number";
         }
+        stream.eat('-')
         stream.eatWhile(/\d/);
         return "number";
       }

@@ -132,24 +132,25 @@ Extensions:
     - 'z' - solitary opcode (no modrm, might be followed by an immediate/offset though)
 
 Operand names:
-    - 'R' - register only
-    - 'N' - MMX register only
-    - 'X' - XMM register only
-    - 'Y' - YMM register only
-    - 'Z' - ZMM register only (apparently not used in Intel docs)
-    - 'r' - register/memory (rm)
-    - 'n' - MMX register/memory
-    - 'x' - XMM register/memory
-    - 'y' - YMM register/memory
-    - 'z' - ZMM register/memory
+    For the following operand types, the capitalization specifies whether a memory operand can
+    be used instead (uppercase meaning memory can't be used, lowercase meaning memory can be used):
+    - 'r' - GPR register
+    - 'n' - MMX register
+    - 'x' - XMM register
+    - 'y' - YMM register
+    - 'z' - ZMM register
+
+    For the following operand type, the capitalization specifies whether the operand is signed
+    or unsigned (this mostly matters for size inference):
+    - 'i' - immediate
+
+    For the following operand types, capitalization doesn't matter (but lowercase is preferred):
     - 'm' - memory only
-    - 'i' - unsigned immediate
-    - 'I' - signed immediate
     - 's' - segment register
     - 'f' - floating-point register (st)
     - 'b' - bound register (bnd)
     - 'k' - mask register
-    - 'o' - moffset (memory that's just a simple offset)
+
     Implicit types (these won't be encoded in the instruction):
     - Follow operand name with '_', then specification.
         For registers, this is the register id (e.g. ax = R_0)

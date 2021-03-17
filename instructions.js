@@ -52,7 +52,6 @@ Instruction.prototype.parse = function()
 {
     let opcode = this.opcode, operand = null, globalSize = -1, enforceSize = false;
     let prefsToGen = 0;
-    let reg = null, rm = null, imms = [], vop = null;
     if(this.tokens) replayTokenRecording(this.tokens);
     this.length = 0;
 
@@ -72,10 +71,11 @@ Instruction.prototype.parse = function()
         opcode = opcode.slice(0, -1);
         if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
         if(globalSize === undefined) throw "Invalid opcode suffix";
+        enforceSize = true;
     }
     let variations = mnemonics[opcode], operands = [], rexVal = 0x40;
-    if(Array.isArray(variations)) // If the mnemonic hasn't been decoded yet, decode it
-        mnemonics[opcode] = variations = variations.map(line => new MnemonicVariation(line.split(' ')));
+    if(typeof variations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
+        mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
 
     while(token != ';' && token != '\n')
     {
@@ -119,100 +119,63 @@ Instruction.prototype.parse = function()
     }
 
 
-    // Now, we'll find the matching mnemonic for this operand list
-    let i, mnemonic, found = false, mnemTemp;
-
-    mnemonicLoop:
-    for(mnemonic of variations)
+    // Now, we'll find the matching operation for this operand list
+    let op, found = false;
+    
+    for(let variation of variations)
     {
-        if(mnemonic.operandTemplates.length != operands.length) continue;
-        if(operands.length == 0 && mnemonic.globalSize && !(mnemonic.globalSize == globalSize || mnemonic.defsTo16 || mnemonic.defsTo64)) continue;
-        for(i = 0; mnemTemp = mnemonic.operandTemplates[i], operand = operands[i]; i++)
+        op = variation.fit(operands, enforceSize);
+        if(op !== null)
         {
-            if(!mnemTemp.matchType(operand)
-            || !(mnemTemp.matchSize(operand) || 
-                // If possible, default unknown sizes to 64
-                mnemonic.defsTo64 && isNaN(operand.size))
-                )
-                continue mnemonicLoop;
-            operand.implicit = mnemTemp.implicit;
+            found = true;
+            break;
         }
-
-        found = true;
-        break;
     }
+
     if(!found)
     {
         if(globalSize < 0) throw "Cannot infer opcode suffix";
         throw "Invalid operands";
     }
+    globalSize = op.size;
 
-
-    // Finding the reg/rm/immediate operands
-    if(mnemonic.operandTemplates.length > 0)
-    {
-        i = 0;
-        if(mnemonic.vex)
-        {
-            vop = operands[mnemonic.vex.vop || 0];
-            vop.implicit = true;
-        }
-        for(let op of mnemonic.operandTemplates)
-        {
-            op.fit(operands[i]);
-            if(!op.implicit)
-            {
-                if(op.types.includes(OPT.MEM)) rm = operands[i];
-                else if(op.types == OPT.IMM) imms.push(operands[i]);
-                else reg = operands[i];
-            }
-            i++;
-        }
-    }
-
-    if(globalSize == 64 && !mnemonic.defsTo64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+    if(globalSize == 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
-    if(mnemonic.e == REG_OP || mnemonic.e == REG_NON)
-    {
-        if(mnemonic.e == REG_OP && reg.reg >= 8) rexVal |= 1, prefsToGen |= PREFIX_REX;
-    }
-    else
+    if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
+    else if(op.rm !== null)
     {
         let extraRex;
-        if(mnemonic.e >= 0) reg = {reg: mnemonic.e}; // Sometimes the "reg" field is an opcode extension
-        [extraRex, modRM, sib] = makeModRM(rm, reg);
+        [extraRex, modRM, sib] = makeModRM(op.rm, op.reg);
         if(extraRex != 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
     }
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
     if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw "Can't encode high 8-bit register";
-
-    // Update the global size in case the immediate was fit into an operand template
-    if(singleImm) globalSize = operands[0].size;
+    opcode = op.opcode;
 
     // Time to generate!
     if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
-    if(globalSize == 16 && !mnemonic.defsTo16) this.genByte(0x66);
-    if(mnemonic.prefix) this.genByte(mnemonic.prefix);
-    if(mnemonic.vex) makeVexPrefix(mnemonic.vex, rexVal, vop).map(x => this.genByte(x));
+    if(globalSize === 16) this.genByte(0x66);
+    if(op.prefix !== null) this.genByte(op.prefix);
+    if(op.vex) makeVexPrefix(op.vex, rexVal, vop).map(x => this.genByte(x));
     else
     {
         if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
         // Generate the upper bytes of the opcode if needed
-        if(mnemonic.opcode > 0xffff) this.genByte(mnemonic.opcode >> 16);
-        if(mnemonic.opcode > 0xff) this.genByte(mnemonic.opcode >> 8);
+        if(opcode > 0xffff) this.genByte(opcode >> 16);
+        if(opcode > 0xff) this.genByte(opcode >> 8);
     }
-    this.genByte(mnemonic.opcode | (mnemonic.e == REG_OP ? reg.reg & 7 : 0));
+    this.genByte(opcode);
     if(modRM != null) this.genByte(modRM);
     if(sib != null) this.genByte(sib);
 
     // Generating the displacement and immediate
-    if(rm != null && rm.value != null)
+    if(op.rm != null && op.rm.value != null)
     {
-        this.genInteger(rm.value, rm.dispSize || 32);
+        this.genInteger(op.rm.value, op.rm.dispSize || 32);
     }
-    for(let imm of imms) this.genInteger(imm.value, imm.size);
+    for(let imm of op.imms) this.genInteger(imm.value, imm.size);
 }
 
 // Generate the ModRM byte
