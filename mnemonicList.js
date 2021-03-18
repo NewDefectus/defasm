@@ -174,6 +174,22 @@ F6 0 i rbwlo
 
 wait:9B
 
+wbinvd:0F09
+
+wbnoinvd:F3)0F09
+
+wrfsbase:F3)0FAE 2 Rlq
+
+wrgsbase:F3)0FAE 3 Rlq
+
+wrmsr:0F30
+
+wrpkru:0F01EF
+
+wrss:0F38F6 r Rlq r
+
+wruss:66)0F38F5 r Rlq r
+
 xabort:C6F8 z ib
 
 xadd:0FC0 r Rbwlq r

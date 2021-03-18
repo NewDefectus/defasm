@@ -313,7 +313,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
     else if(this.extension === REG_NON) reg = null, rm = null; // Rarely needed, but should be done so the encoder can understand
     else if(this.extension !== REG_MOD)
     {
-        if(rm === null) rm = reg; // Move reg to rm if needed (not sure if it ever is needed, may change later)
+        if(rm === null) rm = reg;
         reg = {reg: this.extension};
     }
 
