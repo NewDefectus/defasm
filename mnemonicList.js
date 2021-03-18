@@ -174,13 +174,39 @@ F6 0 i rbwlo
 
 wait:9B
 
+xabort:C6F8 z ib
+
+xadd:0FC0 r Rbwlq r
+
+xbegin:C7F8 z Iwl
+
 xchg
 90 o R_0wlq R
 90 o Rwlq R_0
 86 r Rbwlq r
 86 r rbwlq R
 
-xlat:D7`;
+xend:0F01D5
+
+xgetbv:0F01D0
+
+xlat:D7
+
+xrstor:0FAE 5 mLq
+
+xrstors:0FC7 3 mLq
+
+xsave:0FAE 4 mLq
+
+xsavec:0FC7 4 mLq
+
+xsaveopt:0FAE 6 mLq
+
+xsaves:0FC7 5 mLq
+
+xsetbv:0F01D1
+
+xtest:0F01D6`;
 mnemonicStrings.split(/\n{2,}/).slice(1).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
 
 
