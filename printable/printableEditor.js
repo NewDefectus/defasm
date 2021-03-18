@@ -4,7 +4,6 @@ var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "lineNumbers": true
 });
 var asmTextOutput = document.getElementById("outputArea");
-var decoder = new TextDecoder();
 
 var printableOutputArea = document.getElementById("printableCodeOutput");
 var printableOutputContainer = document.getElementById("printableCode");

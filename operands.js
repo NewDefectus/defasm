@@ -132,10 +132,11 @@ function parseImmediate()
     {
         if(token == '\n')
             throw "";
-        if((token.startsWith("'") || token.startsWith('"')) && token.endsWith(token[0]))
+        if(token[0] === "'" && token[token.length - 1] === "'")
         {
+            token = eval(token); // Decode escape sequences
             // Parse as character constant
-            for(let i = 1; i < token.length - 1; i++)
+            for(let i = 0; i < token.length; i++)
             {
                 value <<= 8n;
                 value += BigInt(token.charCodeAt(i));

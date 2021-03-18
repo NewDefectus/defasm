@@ -3,6 +3,9 @@ var currIndex = 0;
 var labels = new Map(), macros = new Map();
 var tokenRecording = [], isRecording = false;
 
+var encoder = new TextEncoder();
+var decoder = new TextDecoder();
+
 function lowerCase(str)
 {
     if(str[0] == '"' || str[0] == "'")
@@ -74,7 +77,7 @@ function compileAsm(source)
     labels.clear(); macros.clear();
     currIndex = 0, allowLabels = false;
 
-    srcTokens = source.matchAll(/(["']).*?\1|[\w.-]+|#.*|[\S\n]/g);
+    srcTokens = source.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
 
     ASMLoop:
     while(next(), !match.done)

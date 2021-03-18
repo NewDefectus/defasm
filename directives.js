@@ -25,18 +25,13 @@ byte: result => {
     do { result.genByte(parseImmediate()) } while(token === ',');
 },
 string: result => {
-    while(next() != ';' && token != '\n')
+    if(next().length > 1 && token[0] === '"' && token[token.length - 1] === '"')
     {
-        if(token[0] != '"' && token[0] != "'" && token != ',')
-        {
-            throw "Expected string";
-        }
-
-        for(let c of token.slice(1, token.length - 1))
-        {
-            result.genByte(BigInt(c.charCodeAt(0)));
-        }
+        result.bytes = encoder.encode(eval(token));
+        result.length = result.bytes.length;
     }
+    else throw "Expected string";
+    if(next() != ';' && token != '\n') throw "Expected end of line";
 }
 }
 
