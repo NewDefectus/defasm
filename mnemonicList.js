@@ -194,6 +194,16 @@ C9
 bswap
 0FC8 o Rwlq
 
+sal
+#shl
+
+
+adox
+F3)0F38F6 r rlq R
+
+adcx
+66)0F38F6 r rlq R
+
 addsubpd
 66)0FD0 r x X
 
@@ -209,14 +219,8 @@ F2)0F58 r x X
 addpd
 66)0F58 r x X
 
-adox
-F3)0F38F6 r rlq R
-
-adcx
-66)0F38F6 r rlq R
-
-sal
-#shl`;
+aeskeygenassist
+66)0F3ADF r x X ib`;
 mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
 
 
