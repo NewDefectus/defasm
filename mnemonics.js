@@ -57,7 +57,7 @@ function getSizes(format)
  */
 function OpCatcher(format)
 {
-    let i = 1, sizeChar, size;
+    let i = 1;
     this.sizes = [];
 
     // First is the operand type

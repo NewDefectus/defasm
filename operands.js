@@ -2,8 +2,8 @@
 const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
 IMM:    2,  // Immediate value - e.g. $20
-MEM:    3,  // Memory operand - e.g. (%rax)
-VEC:    4,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+VEC:    3,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+MEM:    4,  // Memory operand - e.g. (%rax)
 ST:     5,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
 SEG:    6,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
 IP:     7,  // Instruction pointer register (only used in memory) - %eip or %rip
