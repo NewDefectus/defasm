@@ -84,6 +84,8 @@ EC z R_2W R_0bwl
 
 inc:FE 0 rbwlq
 
+ins:6C z -bwl
+
 int
 CC z i_3
 F1 z i_1
@@ -107,6 +109,10 @@ lea:8D r m Rwlq
 
 leave:C9
 
+lfs:0FB4 r m Rwlq
+
+lgs:0FB5 r m Rwlq
+
 lods:AC z -bwlq
 
 loop:E2 z Ib
@@ -114,6 +120,8 @@ loop:E2 z Ib
 loope:E1 z Ib
 
 loopne:E0 z Ib
+
+lss:0FB2 r m Rwlq
 
 mov
 88 r Rbwlq r
@@ -141,6 +149,8 @@ not:F6 2 rbwlq
 out
 E6 z R_0bwl ib
 EE z R_0bwl R_2W
+
+outs:6E z -bwl
 
 pop
 58 o RwQ
