@@ -20,7 +20,7 @@ function parseInstruction(opcode)
     {
         // Save the token recording for future recompilation
         while(token != ';' && token != '\n') next();
-        result.tokens = stopTokenRecording().slice(0, -1);
+        result.tokens = stopTokenRecording();
     }
     return result;
 }

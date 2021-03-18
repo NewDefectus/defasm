@@ -230,7 +230,7 @@ addpd
 
 aeskeygenassist
 66)0F3ADF r vx V ib`;
-mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
+mnemonicStrings.split(/\n{2,}/).slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
 
 
 let hex = num => num.toString(16), dummy;

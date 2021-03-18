@@ -49,7 +49,7 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         return null;
       }
 
-      var style, cur, ch = stream.next();
+      var cur, ch = stream.next();
 
       if (ch === lineCommentStartSymbol) {
         stream.skipToEnd();
@@ -68,13 +68,12 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         return null;
       }
 
+      stream.eatWhile(/\s/);
+
       if (stream.eat('=')) {
         stream.skipToEnd();
         return "tag";
       }
-
-      if(ch === '(' || ch === ')')
-        return "bracket";
       if (ch === '$') {
         if (stream.eat("0") && stream.eat("x")) {
           stream.eatWhile(/[0-9a-fA-F]/);

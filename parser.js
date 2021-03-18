@@ -15,9 +15,8 @@ function lowerCase(str)
 
 function putInToken(tok)
 {
-    token = tok;
-    if(isRecording) tokenRecording.push(tok);
-    return tok;
+    if(isRecording) tokenRecording.push(token);
+    return token = tok;
 }
 
 var next = defaultNext = () => 
@@ -32,7 +31,7 @@ var next = defaultNext = () =>
 function startTokenRecording()
 {
     isRecording = true;
-    tokenRecording = [token];
+    tokenRecording = [];
 }
 
 // Stop a token recording and return the tokens in the recording
@@ -71,7 +70,7 @@ function peekNext()
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
-    let opcode, resizeChange, instructions = [], instr, i, hexBytes = "";
+    let opcode, resizeChange, instructions = [], instr, i;
 
     next = defaultNext;
     labels.clear(); macros.clear();
@@ -79,57 +78,52 @@ function compileAsm(source)
 
     srcTokens = source.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
 
-    ASMLoop:
     while(next(), !match.done)
     {
         try
         {
-            if(token == '\n' || token == ';')
+            if(token !== '\n' && token !== ';')
             {
-                if(token == '\n') instructions.push("");
-                continue;
-            }
-
-            if(token[0] == '.') // Assembly directive
-            {
-                instr = parseDirective();
-                currIndex += instr.length;
-                instructions.push(instr);
-            }
-            else // Instruction, label or macro
-            {
-                opcode = token;
-                switch(next())
+                if(token[0] === '.') // Assembly directive
                 {
-                    case ':': // Label definition
-                        labels.set(opcode, currIndex);
-                        continue ASMLoop;
-                    
-                    case '=': // Macro definition
-                        startTokenRecording();
-                        while(next() != '\n');
-                        macros.set(opcode, stopTokenRecording().slice(0, -1));
-                        break;
-                    
-                    default: // Instruction
-                        instr = parseInstruction(opcode);
-                        currIndex += instr.length;
-                        instructions.push(instr);
-                        break;
+                    instr = parseDirective();
+                    currIndex += instr.length;
+                    instructions.push(instr);
+                }
+                else // Instruction, label or macro
+                {
+                    opcode = token;
+                    switch(next())
+                    {
+                        case ':': // Label definition
+                            labels.set(opcode, currIndex);
+                            continue;
+                        
+                        case '=': // Macro definition
+                            startTokenRecording();
+                            while(next() !== '\n');
+                            macros.set(opcode, stopTokenRecording());
+                            break;
+                        
+                        default: // Instruction
+                            instr = parseInstruction(opcode);
+                            currIndex += instr.length;
+                            instructions.push(instr);
+                            break;
+                    }
                 }
             }
 
-            if(token != ';' && token != '\n') throw "Expected end of line";
-            if(token == '\n') instructions.push("");
+            if(token === '\n') instructions.push("");
+            else if(token !== ';') throw "Expected end of line";
         }
         catch(e)
         {
             /* In case of an error, just skip the current instruction and go on.
             Remove this try/catch block if you want the entire code to compile */
             console.warn(e);
-            while(token != '\n' && token != ';')
-                next();
-            if(token == '\n') instructions.push("");
+            while(token !== '\n' && token !== ';') next();
+            if(token === '\n') instructions.push("");
         }
     }
 
