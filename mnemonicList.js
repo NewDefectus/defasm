@@ -1,6 +1,116 @@
 let lines;
 var mnemonicStrings = `
 
+adcx
+66)0F38F6 r rlq R
+
+addpd
+66)0F58 r vx V
+
+addsd
+F2)0F58 r vx V
+
+addss
+F3)0F58 r vx V
+
+addsubpd
+66)0FD0 r vx V
+
+addsubps
+F2)0FD0 r vx V
+
+adox
+F3)0F38F6 r rlq R
+
+aeskeygenassist
+66)0F3ADF r vx V ib
+
+bswap:0FC8 o Rwlq
+
+call
+E8 z Il
+FF 2 rQ
+
+cbw:66)98
+
+cdq:99
+
+cdqe:48)98
+
+clc:F8
+
+cld:FC
+
+cli:FA
+
+cmc:F5
+
+cmps:A6 z -bwlq
+
+cmpxchg16b:0FC7 1 m~Q
+
+cmpxchg8b:0FC7 1 mQ
+
+cmpxchg:0FB0 r Rbwlq r
+
+cqo:48)99
+
+cwd:66)99
+
+cwde:98
+
+dec:FE 1 rbwlq
+
+div:F6 6 rbwlq
+
+enter:C8 z iW ib
+
+fwait:#wait
+
+hlt:F4
+
+idiv:F6 7 rbwlq
+
+imul
+F6 5 rbwlq
+0FAF r rwlq R
+6B r ib rwlq R
+69 r iw rw Rw
+69 r il rlq R
+
+inc:FE 0 rbwlq
+
+int
+CC z i_3
+F1 z i_1
+CD z ib
+
+int1:F1
+
+int3:CC
+
+iret:CF
+
+jecxz:67)E3 z Ib
+
+jmp
+Eb z-2 Ibl
+FF 4 rQ
+
+jrcxz:E3 z Ib
+
+lea:8D r m Rwlq
+
+leave:C9
+
+lods:AC z -bwlq
+
+loop:E2 z Ib
+
+loope:E1 z Ib
+
+loopne:E0 z Ib
+
 mov
 88 r Rbwlq r
 8A r rbwlq R
@@ -10,10 +120,25 @@ C7 0 Il rq
 B0 o8 i Rbwlq
 C6 0 i rbwl
 
-test
-A8 z i R_0bwlo
-F6 0 i rbwlo
-84 r Rbwlq r
+movs:A4 z -bwlq
+
+mul:F6 4 rbwlq
+
+neg:F6 3 rbwlq
+
+nop
+90
+0F1F 0 rwL
+
+not:F6 2 rbwlq
+
+pop
+58 o RwQ
+8F 0 mwQ
+0FA1 z s_4
+0FA9 z s_5
+
+popf:9D z -wQ
 
 push
 50 o RwQ
@@ -22,79 +147,32 @@ FF 6 mwQ
 0FA0 z s_4
 0FA8 z s_5
 
-pop
-58 o RwQ
-8F 0 mwQ
-0FA1 z s_4
-0FA9 z s_5
+pushf:9C z -wQ
 
-inc:FE 0 rbwlq
+ret
+C3
+C2 z IW
 
-dec:FE 1 rbwlq
+sal:#shl
 
-not:F6 2 rbwlq
+scas:AE z -bwlq
 
-neg:F6 3 rbwlq
+stc:F9
 
-mul:F6 4 rbwlq
+std:FD
 
-div:F6 6 rbwlq
+sti:FB
 
-imul
-F6 5 rbwlq
-0FAF r rwlq R
-6B r ib rwlq R
-69 r iw rw Rw
-69 r il rlq R
-
-idiv:F6 7 rbwlq
-
-nop
-90
-0F1F 0 rwL
+stos:AA z -bwlq
 
 syscall:0F05
 
-int
-CC z i_3
-F1 z i_1
-CD z ib
+test
+A8 z i R_0bwlo
+F6 0 i rbwlo
+84 r Rbwlq r
 
-int3:CC
-
-int1:F1
-
-lea:8D r m Rwlq
-
-cbw:66)98
-
-cwde:98
-
-cdqe:48)98
-
-cwd:66)99
-
-cdq:99
-
-cqo:48)99
-
-loopne:E0 z Ib
-
-loope:E1 z Ib
-
-loop:E2 z Ib
-
-jmp
-Eb z-2 Ibl
-FF 4 rQ
-
-call
-E8 z Il
-FF 2 rQ
-
-jecxz:67)E3 z Ib
-
-jrcxz:E3 z Ib
+wait:9B
 
 xchg
 90 o R_0wlq R
@@ -102,86 +180,7 @@ xchg
 86 r Rbwlq r
 86 r rbwlq R
 
-movs:A4 z -bwlq
-
-cmps:A6 z -bwlq
-
-stos:AA z -bwlq
-
-lods:AC z -bwlq
-
-scas:AE z -bwlq
-
-pushf:9C z -wQ
-
-popf:9D z -wQ
-
-hlt:F4
-
-cmc:F5
-
-clc:F8
-
-stc:F9
-
-cli:FA
-
-sti:FB
-
-cld:FC
-
-std:FD
-
-xlat:D7
-
-wait:9B
-
-fwait:#wait
-
-ret
-C3
-C2 z IW
-
-iret:CF
-
-enter:C8 z iW ib
-
-leave:C9
-
-bswap:0FC8 o Rwlq
-
-cmpxchg:0FB0 r Rbwlq r
-
-cmpxchg8b:0FC7 1 mQ
-
-cmpxchg16b:0FC7 1 m~Q
-
-sal:#shl
-
-
-adox
-F3)0F38F6 r rlq R
-
-adcx
-66)0F38F6 r rlq R
-
-addsubpd
-66)0FD0 r vx V
-
-addsubps
-F2)0FD0 r vx V
-
-addss
-F3)0F58 r vx V
-
-addsd
-F2)0F58 r vx V
-
-addpd
-66)0F58 r vx V
-
-aeskeygenassist
-66)0F3ADF r vx V ib`;
+xlat:D7`;
 mnemonicStrings.split(/\n{2,}/).slice(1).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
 
 

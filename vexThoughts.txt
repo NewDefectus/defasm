@@ -1,0 +1,12 @@
+Here is some of the data that should be stored for each operation (mnemonic variation):
+    - Opcode map #1 (or "implied leading opcode bytes"):
+        A 5-bit number that goes into VEX.mmmmm. Detected through the opcode (required for VEX prefix).
+        1 = 0F
+        2 = 0F38
+        3 = 0F3A
+    - Opcode map #2 (or "implied prefixes"):
+        A 2-bit number that goes into VEX.pp. Detected through the operation prefix (defaults to 0).
+        0 = none
+        1 = 66
+        2 = F3
+        3 = F2
