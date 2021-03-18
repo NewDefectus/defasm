@@ -56,11 +56,6 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         return "comment";
       }
 
-      if (ch === '"') {
-        nextUntilUnescaped(stream, '"');
-        return "string";
-      }
-
       if (ch === '.') {
         stream.eatWhile(/\w/);
         cur = stream.current().toLowerCase();
@@ -83,11 +78,6 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
       if (ch === '$') {
         if (stream.eat("0") && stream.eat("x")) {
           stream.eatWhile(/[0-9a-fA-F]/);
-          return "number";
-        }
-        if(stream.eat('"'))
-        {
-          nextUntilUnescaped(stream, '"')
           return "number";
         }
         if(stream.eat("'"))

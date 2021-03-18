@@ -74,7 +74,7 @@ function compileAsm(source)
     labels.clear(); macros.clear();
     currIndex = 0, allowLabels = false;
 
-    srcTokens = source.matchAll(/(["'])[^]*?\1|[\w.-]+|#.*|[\S\n]/g);
+    srcTokens = source.matchAll(/(["']).*?\1|[\w.-]+|#.*|[\S\n]/g);
 
     ASMLoop:
     while(next(), !match.done)
