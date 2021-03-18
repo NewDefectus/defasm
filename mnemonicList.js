@@ -205,22 +205,22 @@ adcx
 66)0F38F6 r rlq R
 
 addsubpd
-66)0FD0 r x X
+66)0FD0 r vx V
 
 addsubps
-F2)0FD0 r x X
+F2)0FD0 r vx V
 
 addss
-F3)0F58 r x X
+F3)0F58 r vx V
 
 addsd
-F2)0F58 r x X
+F2)0F58 r vx V
 
 addpd
-66)0F58 r x X
+66)0F58 r vx V
 
 aeskeygenassist
-66)0F3ADF r x X ib`;
+66)0F3ADF r vx V ib`;
 mnemonicStrings.split("\n\n").slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
 
 

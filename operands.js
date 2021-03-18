@@ -3,18 +3,12 @@ const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
 IMM:    2,  // Immediate value - e.g. $20
 MEM:    3,  // Memory operand - e.g. (%rax)
-MMX:    4,  // MMX register (64-bit) - %mm0 / %mm7
-XMM:    5,  // XMM register (128-bit) - %xmm0 / %xmm15
-YMM:    6,  // YMM register (256-bit) - %ymm0 / %ymm15
-ZMM:    7,  // ZMM register (512-bit) - %zmm0 / %zmm15
-ST:     8,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
-SEG:    9,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
-IP:     10, // Instruction pointer register (only used in memory) - %eip or %rip
-XMEM:   11, // XMM vector memory operand - e.g. (%xmm0)
-YMEM:   12, // YMM vector memory operand - e.g. (%ymm0)
-ZMEM:   13, // ZMM vector memory operand - e.g. (%zmm0)
-BND:    14, // Bound register (128-bit) - %bnd0 / %bnd3
-MASK:   15  // Mask register (64-bit) - %k0 / %k7
+VEC:    4,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+ST:     5,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
+SEG:    6,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
+IP:     7,  // Instruction pointer register (only used in memory) - %eip or %rip
+BND:    8,  // Bound register (128-bit) - %bnd0 / %bnd3
+MASK:   9   // Mask register (64-bit) - %k0 / %k7
 };
 
 
@@ -106,13 +100,17 @@ function parseRegister(expectedType = null)
     else
     {
         let max = 16;
-        if(token.startsWith("mm")) reg = token.slice(2), type = OPT.MMX, max = 8;
-        else if(token.startsWith("xmm")) reg = token.slice(3), type = OPT.XMM;
-        else if(token.startsWith("ymm")) reg = token.slice(3), type = OPT.YMM;
-        else if(token.startsWith("zmm")) reg = token.slice(3), type = OPT.YMM;
-        else if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
+        if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
         else if(token[0] == 'k') reg = token.slice(1), type = OPT.MASK, max = 8;
-        else throw "Unknown register";
+        else
+        {
+            type = OPT.VEC;
+            if(token.startsWith("mm")) reg = token.slice(2), size = 64, max = 8;
+            else if(token.startsWith("xmm")) reg = token.slice(3), size = 128;
+            else if(token.startsWith("ymm")) reg = token.slice(3), size = 256;
+            else if(token.startsWith("zmm")) reg = token.slice(3), size = 512;
+            else throw "Unknown register";
+        }
 
         if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max)) throw "Unknown register";
     }

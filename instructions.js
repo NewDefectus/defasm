@@ -106,7 +106,7 @@ Instruction.prototype.parse = function()
         prefsToGen |= operand.prefs;
 
         // Infer default size from register operands
-        if(globalSize < operand.size && (operand.type == OPT.REG || operand.type == OPT.SEG))
+        if(globalSize < operand.size && (operand.type == OPT.REG || operand.type == OPT.VEC))
             globalSize = operand.size;
 
         if(token != ',') break;

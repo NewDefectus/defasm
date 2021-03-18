@@ -1,10 +1,7 @@
 const REG_MOD = -1, REG_OP = -2, REG_NON = -3;
 const OPC = {
     r: OPT.REG,
-    n: OPT.MMX,
-    x: OPT.XMM,
-    y: OPT.YMM,
-    z: OPT.ZMM,
+    v: OPT.VEC,
     i: OPT.IMM,
     m: OPT.MEM,
     s: OPT.SEG,
@@ -29,6 +26,7 @@ var mnemonics = {};
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
+const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
 
 function getSizes(format)
 {
@@ -37,13 +35,13 @@ function getSizes(format)
     {
         sizeChar = format[i];
         if(sizeChar === '~') // ~ prefix means don't choose this size unless it's explicit
-            size = suffixes[format[++i]] | SUFFIX_UNINFERRABLE;
+            size = sizeIds[format[++i]] | SUFFIX_UNINFERRABLE;
         else if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
-            size = suffixes[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+            size = sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
         else if(sizeChar === 'o')
             size = 64 | SUFFIX_SIGNED;
         else
-            size = suffixes[sizeChar];
+            size = sizeIds[sizeChar];
         
         sizes.push(size);
     }
@@ -60,7 +58,7 @@ function OpCatcher(format)
 
     // First is the operand type
     let opType = format[0];
-    this.acceptsMemory = "rnxyzm".includes(opType);
+    this.acceptsMemory = "rvm".includes(opType);
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
     
