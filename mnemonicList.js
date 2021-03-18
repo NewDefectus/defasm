@@ -194,6 +194,9 @@ C9
 bswap
 0FC8 o Rwlq
 
+cmpxchg
+0FB0 r Rbwlq r
+
 sal
 #shl
 
