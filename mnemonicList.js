@@ -105,6 +105,8 @@ FF 4 rQ
 
 jrcxz:E3 z Ib
 
+lahf:9F
+
 lea:8D r m Rwlq
 
 leave:C9
@@ -172,6 +174,8 @@ pushf:9C z -wQ
 ret
 C3
 C2 z IW
+
+sahf:9E
 
 sal:#shl
 
