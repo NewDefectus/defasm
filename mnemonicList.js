@@ -114,8 +114,10 @@ loopne:E0 z Ib
 mov
 88 r Rbwlq r
 8A r rbwlq R
-8C r s rwlq
-8E r rwlq s
+8C r s Rwlq
+8C r s mW
+8E r Rwlq s
+8E r mW s
 C7 0 Il rq
 B0 o8 i Rbwlq
 C6 0 i rbwl

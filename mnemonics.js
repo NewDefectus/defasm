@@ -289,8 +289,8 @@ Operation.prototype.fit = function(operands, enforcedSize)
 
         if(catcher.implicitValue === null)
         {
-            if(catcher.acceptsMemory) rm = operand; // Memory-accepting catchers correspond to the "rm" argument
-            else if(operand.type === OPT.IMM) imms.push(operand);
+            if(operand.type === OPT.IMM) imms.push(operand);
+            else if(catcher.acceptsMemory || reg !== null) rm = operand; // Memory-accepting catchers correspond to the "rm" argument
             else reg = operand; // Todo: Add VEX 'vvvvv' argument catching
         }
 
