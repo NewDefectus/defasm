@@ -15,8 +15,9 @@ function lowerCase(str)
 
 function putInToken(tok)
 {
-    if(isRecording) tokenRecording.push(token);
-    return token = tok;
+    token = tok;
+    if(isRecording) tokenRecording.push(tok);
+    return tok;
 }
 
 var next = defaultNext = () => 
@@ -31,14 +32,14 @@ var next = defaultNext = () =>
 function startTokenRecording()
 {
     isRecording = true;
-    tokenRecording = [];
+    tokenRecording = [token];
 }
 
 // Stop a token recording and return the tokens in the recording
 function stopTokenRecording()
 {
     isRecording = false;
-    return tokenRecording;
+    return tokenRecording.slice(0, -1);
 }
 
 // Add the tokens in a recording to the token stack
