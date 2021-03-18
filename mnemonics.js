@@ -27,21 +27,25 @@ var mnemonics = {};
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
 const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
+const SUFFIX_DEFAULT = 1;
+const SUFFIX_EXPLICIT = 2;
+const SUFFIX_SIGNED = 4;
 
 function getSizes(format)
 {
     let sizes = [], size;
     for(let i = 0; i < format.length; i++)
     {
+        size = 0;
         sizeChar = format[i];
-        if(sizeChar === '~') // ~ prefix means don't choose this size unless it's explicit
-            size = sizeIds[format[++i]] | SUFFIX_UNINFERRABLE;
-        else if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
-            size = sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+        if(sizeChar === '~') // ~ prefix means this size must be explicit
+            size |= SUFFIX_EXPLICIT, sizeChar = format[++i];
+        if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
+            size |= sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
         else if(sizeChar === 'o')
-            size = 64 | SUFFIX_SIGNED;
+            size |= 64 | SUFFIX_SIGNED;
         else
-            size = sizeIds[sizeChar];
+            size |= sizeIds[sizeChar];
         
         sizes.push(size);
     }
@@ -124,7 +128,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             rawSize = size & ~7;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {
-                if(!(size & SUFFIX_UNINFERRABLE) || enforcedSize)
+                if(!(size & SUFFIX_EXPLICIT) || enforcedSize)
                 {
                     found = true;
                     break;
@@ -291,7 +295,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
         }
 
         // Only set to overall size if it's not the default size
-        if(overallSize < (size & ~7) && !(size & SUFFIX_DEFAULT)) overallSize = size & ~7;
+        if(overallSize < (size & ~7) && (!(size & SUFFIX_DEFAULT) || (size & SUFFIX_EXPLICIT))) overallSize = size & ~7;
 
         if(adjustByteOp && (size & ~7) != 8 && Array.isArray(catcher.sizes) && catcher.sizes.includes(8))
         {

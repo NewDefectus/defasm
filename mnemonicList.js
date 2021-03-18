@@ -197,6 +197,12 @@ bswap
 cmpxchg
 0FB0 r Rbwlq r
 
+cmpxchg8b
+0FC7 1 mQ
+
+cmpxchg16b
+0FC7 1 m~Q
+
 sal
 #shl
 

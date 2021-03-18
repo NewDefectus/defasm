@@ -24,9 +24,6 @@ const registers = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 
 const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
-const SUFFIX_DEFAULT = 1;
-const SUFFIX_UNINFERRABLE = 2;
-const SUFFIX_SIGNED = 4;
 
 const   PREFIX_REX = 1,
         PREFIX_NOREX = 2,
