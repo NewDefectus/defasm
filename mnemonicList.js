@@ -28,23 +28,17 @@ pop
 0FA1 z s_4
 0FA9 z s_5
 
-inc
-FE 0 rbwlq
+inc:FE 0 rbwlq
 
-dec
-FE 1 rbwlq
+dec:FE 1 rbwlq
 
-not
-F6 2 rbwlq
+not:F6 2 rbwlq
 
-neg
-F6 3 rbwlq
+neg:F6 3 rbwlq
 
-mul
-F6 4 rbwlq
+mul:F6 4 rbwlq
 
-div
-F6 6 rbwlq
+div:F6 6 rbwlq
 
 imul
 F6 5 rbwlq
@@ -53,56 +47,42 @@ F6 5 rbwlq
 69 r iw rw Rw
 69 r il rlq R
 
-idiv
-F6 7 rbwlq
+idiv:F6 7 rbwlq
 
 nop
 90
 0F1F 0 rwl
 
-syscall
-0F05
+syscall:0F05
 
 int
 CC z i_3
 F1 z i_1
 CD z ib
 
-int3
-CC
+int3:CC
 
-int1
-F1
+int1:F1
 
-lea
-8D r m Rwlq
+lea:8D r m Rwlq
 
-cbw
-66)98
+cbw:66)98
 
-cwde
-98
+cwde:98
 
-cdqe
-48)98
+cdqe:48)98
 
-cwd
-66)99
+cwd:66)99
 
-cdq
-99
+cdq:99
 
-cqo
-48)99
+cqo:48)99
 
-loopne
-E0 z Ib
+loopne:E0 z Ib
 
-loope
-E1 z Ib
+loope:E1 z Ib
 
-loop
-E2 z Ib
+loop:E2 z Ib
 
 jmp
 Eb z-2 Ibl
@@ -112,11 +92,9 @@ call
 E8 z Il
 FF 2 rQ
 
-jecxz
-67)E3 z Ib
+jecxz:67)E3 z Ib
 
-jrcxz
-E3 z Ib
+jrcxz:E3 z Ib
 
 xchg
 90 o R_0wlq R
@@ -124,87 +102,61 @@ xchg
 86 r Rbwlq r
 86 r rbwlq R
 
-movs
-A4 z -bwlq
+movs:A4 z -bwlq
 
-cmps
-A6 z -bwlq
+cmps:A6 z -bwlq
 
-stos
-AA z -bwlq
+stos:AA z -bwlq
 
-lods
-AC z -bwlq
+lods:AC z -bwlq
 
-scas
-AE z -bwlq
+scas:AE z -bwlq
 
-pushf
-9C z -wQ
+pushf:9C z -wQ
 
-popf
-9D z -wQ
+popf:9D z -wQ
 
-hlt
-F4
+hlt:F4
 
-cmc
-F5
+cmc:F5
 
-clc
-F8
+clc:F8
 
-stc
-F9
+stc:F9
 
-cli
-FA
+cli:FA
 
-sti
-FB
+sti:FB
 
-cld
-FC
+cld:FC
 
-std
-FD
+std:FD
 
-xlat
-D7
+xlat:D7
 
-wait
-9B
+wait:9B
 
-fwait
-#wait
+fwait:#wait
 
 ret
 C3
 C2 z IW
 
-iret
-CF
+iret:CF
 
-enter
-C8 z iW ib
+enter:C8 z iW ib
 
-leave
-C9
+leave:C9
 
-bswap
-0FC8 o Rwlq
+bswap:0FC8 o Rwlq
 
-cmpxchg
-0FB0 r Rbwlq r
+cmpxchg:0FB0 r Rbwlq r
 
-cmpxchg8b
-0FC7 1 mQ
+cmpxchg8b:0FC7 1 mQ
 
-cmpxchg16b
-0FC7 1 m~Q
+cmpxchg16b:0FC7 1 m~Q
 
-sal
-#shl
+sal:#shl
 
 
 adox
@@ -230,7 +182,7 @@ addpd
 
 aeskeygenassist
 66)0F3ADF r vx V ib`;
-mnemonicStrings.split(/\n{2,}/).slice(1).forEach(x => { lines = x.split('\n'); mnemonics[lines.shift()] = lines; });
+mnemonicStrings.split(/\n{2,}/).slice(1).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
 
 
 let hex = num => num.toString(16), dummy;
