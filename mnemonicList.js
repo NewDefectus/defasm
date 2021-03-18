@@ -78,6 +78,10 @@ F6 5 rbwlq
 69 r iw rw Rw
 69 r il rlq R
 
+in
+E4 z ib R_0bwl
+EC z R_2W R_0bwl
+
 inc:FE 0 rbwlq
 
 int
@@ -133,6 +137,10 @@ nop
 0F1F 0 rwL
 
 not:F6 2 rbwlq
+
+out
+E6 z R_0bwl ib
+EE z R_0bwl R_2W
 
 pop
 58 o RwQ
