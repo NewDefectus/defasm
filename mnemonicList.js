@@ -51,7 +51,7 @@ idiv:F6 7 rbwlq
 
 nop
 90
-0F1F 0 rwl
+0F1F 0 rwL
 
 syscall:0F05
 

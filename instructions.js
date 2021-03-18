@@ -169,7 +169,7 @@ Instruction.prototype.parse = function()
     if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
     if(globalSize === 16) this.genByte(0x66);
     if(op.prefix !== null) this.genByte(op.prefix);
-    if(op.vex) makeVexPrefix(op.vex, rexVal, vop).map(x => this.genByte(x));
+    if(op.vex) makeVexPrefix(op.vex, rexVal).map(x => this.genByte(x));
     else
     {
         if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
@@ -277,19 +277,15 @@ function makeModRM(rm, r)
 }
 
 
-function makeVexPrefix(info, rex, extraOp)
+function makeVexPrefix(vex1, vex2, rex)
 {
-    let
-    byte1 = (~(rex & 7) << 5) // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
-            | info.map, // Then, the map/"implied leading opcode byte" (0F, 0F 38 or 0F 3A)
-    byte2 = ((info.w !== undefined ? info.w : (rex & 8)) << 5) // Identical to rex.w
-            | (extraOp ? ((~extraOp.reg & 15) << 3) : 0x78) // Inverted additional operand
-            | (info.L !== undefined ? info.L << 2 : 0) // Vector size (0 is 128, 1 is 256)
-            | info.PP; // "Implied mandatory prefix" (none, 66, F3 or F2)
+    // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
+    vex1 |= ((~rex & 7) << 5);
+    vex2 |= (((rex & 8)) << 5); // VEX.w = REX.w
 
-    if((byte1 & 0x7F) == 0x61 && (byte2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
+    if((vex1 & 0x7F) == 0x61 && (vex2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
     {
-        return [0xC5, byte2 | (byte1 & 0x80)];
+        return [0xC5, vex2 | (vex1 & 0x80)];
     }
-    return [0xC4, byte1, byte2];
+    return [0xC4, vex1, vex2];
 }
