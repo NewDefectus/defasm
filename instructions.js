@@ -79,7 +79,7 @@ Instruction.prototype.parse = function()
         if(variations[0][0] === '#') // References other variation
         {
             let otherOpcode = variations[0].slice(1);
-            if(typeof mnemonics[otherOpcode] === "string")
+            if(typeof mnemonics[otherOpcode][0] === "string")
             {
                 mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
             }
@@ -102,32 +102,16 @@ Instruction.prototype.parse = function()
                 throw "Segment prefix must be followed by memory reference";
         }
 
+        if(enforceSize) operand.size = operand.unsignedSize = globalSize;
+
         operands.push(operand);
         prefsToGen |= operand.prefs;
-
-        // Infer default size from register operands
-        if(globalSize < operand.size && (operand.type == OPT.REG || operand.type == OPT.VEC))
-            globalSize = operand.size;
 
         if(token != ',') break;
         next();
     }
 
-    let singleImm = operands.length == 1 && operands[0].type == OPT.IMM;
-
     //console.log(operands);
-    if(globalSize < 0 && operands.length > 0)
-    {
-        // If there's just one operand and it's an immediate, the overall size is the inferred size
-        if(singleImm) globalSize = operands[0].size;
-    }
-    else for(let o of operands)
-    {
-        if(isNaN(o.size) // Unknown sizes (e.g. memory) default to the global size
-        || (o.type == OPT.IMM && o.size > globalSize) // Reduce immediates to global size (downcast only)
-        || enforceSize) // If a suffix has been entered, it applies on all operands
-            o.size = globalSize;
-    }
 
 
     // Now, we'll find the matching operation for this operand list

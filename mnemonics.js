@@ -31,7 +31,7 @@ const SUFFIX_DEFAULT = 1;
 const SUFFIX_EXPLICIT = 2;
 const SUFFIX_SIGNED = 4;
 
-function getSizes(format)
+function getSizes(format, defaultCatcher = null)
 {
     let sizes = [], size;
     for(let i = 0; i < format.length; i++)
@@ -41,7 +41,10 @@ function getSizes(format)
         if(sizeChar === '~') // ~ prefix means this size must be explicit
             size |= SUFFIX_EXPLICIT, sizeChar = format[++i];
         if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
+        {
             size |= sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+            if(defaultCatcher) defaultCatcher(size);
+        }
         else if(sizeChar === 'o')
             size |= 64 | SUFFIX_SIGNED;
         else
@@ -77,7 +80,8 @@ function OpCatcher(format)
     }
 
     // Next are the sizes
-    this.sizes = getSizes(format.slice(i));
+    this.defSize = -1;
+    this.sizes = getSizes(format.slice(i), size => this.defSize = size);
 
     if(this.sizes.length === 0)
     {
@@ -106,6 +110,13 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
 
+    if(isNaN(opSize))
+    {
+        // For unknown-sized operands, if possible, choose the default size
+        if(this.defSize > 0) size = this.defSize;
+        else opSize = prevSize & ~7; // If a default size isn't available, use the previous size
+    }
+
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes === -1)
     {
@@ -114,17 +125,11 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
         return null;
     }
-    
-    if(Array.isArray(this.sizes))
+
+    if(size === 0 && Array.isArray(this.sizes))
     {
         for(size of this.sizes)
-        {
-            if(isNaN(opSize) && (size & SUFFIX_DEFAULT)) // For unknown-sized operands, choose the default size
-            {
-                found = true;
-                break;
-            }
-            
+        {   
             rawSize = size & ~7;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {

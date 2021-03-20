@@ -1,8 +1,7 @@
 let lines;
 var mnemonicStrings = `
 
-adcx
-66)0F38F6 r rlq R
+adcx:66)0F38F6 r rlq R
 
 addpd
 66)0F58 r vx V
@@ -122,6 +121,8 @@ loop:E2 z Ib
 loope:E1 z Ib
 
 loopne:E0 z Ib
+
+lsl:0F03 r rW Rwlq
 
 lss:0FB2 r m Rwlq
 

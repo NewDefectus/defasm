@@ -10,3 +10,21 @@ Here is some of the data that should be stored for each operation (mnemonic vari
         1 = 66
         2 = F3
         3 = F2
+
+
+Some examples of VEX-encoded instructions (with outliers):
+    - (v)addpd: normal VEX instruction.
+        Without a "v" at the start, it has 2 operands and is encoded without a VEX prefix.
+        With "v" at the start, it has 3 operands and is encoded with a VEX prefix.
+
+    - andn: VEX instruction that can't be written with a "v" at the start,
+        but is always encoded with a VEX prefix. Has 3 operands (all GPRs).
+        * Another example of pretty much the same thing: "pext" instruction
+
+    - (v)psllw: almost normal VEX instruction. Without V has 2 operands and no VEX prefix,
+        with V has 3 operands and a VEX prefix. However, one of the variations with the
+        VEX prefix (with V) has 2 register (XMM) operands and an immediate operand.
+
+    - (v)ptest: another nearly normal VEX instruction. Without V has 2 operands and no VEX prefix,
+        with V has (still!) 2 operands and a VEX prefix. With V allows use of YMM registers,
+        but also a variation with XMM registers (same as with no V).
