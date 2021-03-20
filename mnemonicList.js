@@ -152,6 +152,10 @@ mov
 C7 0 Il rq
 B0 o8 i Rbwlq
 C6 0 i rbwl
+0F20 r C ^RQ
+0F21 r D ^RQ
+0F22 r ^RQ C
+0F23 r ^RQ D
 
 movs:A4 z -bwlq
 

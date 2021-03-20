@@ -7,7 +7,9 @@ const OPC = {
     s: OPT.SEG,
     f: OPT.ST,
     b: OPT.BND,
-    k: OPT.MASK
+    k: OPT.MASK,
+    c: OPT.CTRL,
+    d: OPT.DBG
 };
 
 const prefixes = {
@@ -64,8 +66,11 @@ function OpCatcher(format)
     this.sizes = [];
 
     // First is the operand type
+    this.forceRM = format[0] === '^';
+    if(this.forceRM) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvm".includes(opType);
+    this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
     
@@ -101,7 +106,7 @@ function OpCatcher(format)
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 {
     // Check that the types match
-    if(operand.type != this.type && !(operand.type == OPT.MEM && this.acceptsMemory))
+    if(operand.type !== this.type && !(operand.type === OPT.MEM && this.acceptsMemory))
     {
         return null;
     }
@@ -295,7 +300,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.push(operand);
-            else if(catcher.acceptsMemory || reg !== null) rm = operand; // Memory-accepting catchers correspond to the "rm" argument
+            else if(catcher.forceRM || reg !== null) rm = operand;
             else reg = operand; // Todo: Add VEX 'vvvvv' argument catching
         }
 

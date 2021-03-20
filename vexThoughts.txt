@@ -28,3 +28,7 @@ Some examples of VEX-encoded instructions (with outliers):
     - (v)ptest: another nearly normal VEX instruction. Without V has 2 operands and no VEX prefix,
         with V has (still!) 2 operands and a VEX prefix. With V allows use of YMM registers,
         but also a variation with XMM registers (same as with no V).
+    
+    - (v)blendvpd: without V has 2 operands, plus an "implicit xmm0" operand (should it be written?)
+        With V has 4 operands - one of them being stored in bits 7:4 of the imm8 byte following the
+        instruction (bits 3:0 are ignored).

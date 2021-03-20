@@ -101,7 +101,8 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         else
         {
           let max = 16;
-          if(cur.startsWith("mm")) cur = cur.slice(2), max = 8;
+          if(cur.startsWith("mm") || cur.startsWith("dr")) cur = cur.slice(2), max = 8;
+          else if(cur.startsWith("cr")) cur = cur.slice(2), max = 9;
           else if(cur.startsWith("xmm") || cur.startsWith("ymm") || cur.startsWith("zmm")) cur = cur.slice(3);
           else if(cur.startsWith("bnd")) cur = cur.slice(3), max = 4;
           else if(cur[0] == 'k') cur = cur.slice(1), max = 8;

@@ -8,7 +8,9 @@ ST:     5,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
 SEG:    6,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
 IP:     7,  // Instruction pointer register (only used in memory) - %eip or %rip
 BND:    8,  // Bound register (128-bit) - %bnd0 / %bnd3
-MASK:   9   // Mask register (64-bit) - %k0 / %k7
+MASK:   9,  // Mask register (64-bit) - %k0 / %k7
+CTRL:   10, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
+DBG:    11, // Debug register (64-bit) - %dr0 / %dr7
 };
 
 
@@ -100,6 +102,8 @@ function parseRegister(expectedType = null)
         let max = 16;
         if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
         else if(token[0] == 'k') reg = token.slice(1), type = OPT.MASK, max = 8;
+        else if(token.startsWith("dr")) reg = token.slice(2), type = OPT.DBG, max = 8;
+        else if(token.startsWith("cr")) reg = token.slice(2), type = OPT.CTRL, max = 9;
         else
         {
             type = OPT.VEC;
