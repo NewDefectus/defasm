@@ -1,7 +1,7 @@
 let lines;
 var mnemonicStrings = `
 
-adcx:66)0F38F6 r rlq R
+adcx:66)0F38F6 r r Rlq
 
 addpd
 66)0F58 r vx V
@@ -19,7 +19,7 @@ addsubps
 F2)0FD0 r vx V
 
 adox
-F3)0F38F6 r rlq R
+F3)0F38F6 r r Rlq
 
 aeskeygenassist
 66)0F3ADF r vx V ib
@@ -72,10 +72,10 @@ idiv:F6 7 rbwlq
 
 imul
 F6 5 rbwlq
-0FAF r rwlq R
-6B r ib rwlq R
+0FAF r r Rwlq
+6B r ib r Rwlq
 69 r iw rw Rw
-69 r il rlq R
+69 r il r Rlq
 
 in
 E4 z ib R_0bwl
@@ -128,7 +128,7 @@ lss:0FB2 r m Rwlq
 
 mov
 88 r Rbwlq r
-8A r rbwlq R
+8A r r Rbwlq
 8C r s Rwlq
 8C r s mW
 8E r Rwlq s
@@ -225,7 +225,7 @@ xchg
 90 o R_0wlq R
 90 o Rwlq R_0
 86 r Rbwlq r
-86 r rbwlq R
+86 r r Rbwlq
 
 xend:0F01D5
 
@@ -265,7 +265,7 @@ arithmeticMnemonics.forEach((name, i) => {
         hex(opBase + 5) + " z il R_0q",
         "81 " + i + " Il rq",
         hex(opBase) + " r Rbwlq r",
-        hex(opBase + 2) + " r rbwlq R",
+        hex(opBase + 2) + " r r Rbwlq",
     ];
 });
 

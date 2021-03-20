@@ -71,7 +71,11 @@ function peekNext()
 // Compile Assembly from source code into machine code
 function compileAsm(source)
 {
-    let opcode, resizeChange, instructions = [], instr, i;
+    /**
+     * @type {Instruction[]}
+     */
+    let instructions = [];
+    let opcode, resizeChange, instr, i;
 
     next = defaultNext;
     labels.clear(); macros.clear();
@@ -107,7 +111,7 @@ function compileAsm(source)
                             break;
                         
                         default: // Instruction
-                            instr = parseInstruction(opcode);
+                            instr = new Instruction(opcode);
                             currIndex += instr.length;
                             instructions.push(instr);
                             break;
@@ -129,19 +133,31 @@ function compileAsm(source)
     }
 
     /* I guess this would be the "second pass", although we don't actually go through
-    the entire source code again; we're just resolving all the label references. */
+    the source code again; we're just resolving all the label references. */
     allowLabels = true;
     currIndex = 0;
     for(i = 0; i < instructions.length; i++)
     {
         instr = instructions[i];
         currIndex += instr.length;
-        if(instr.tokens)
+        if(instr.outline)
         {
             try
             {
+                for(let op of instr.outline[0]) // Resolve label dependencies
+                {
+                    if(op.labelDependency !== undefined)
+                    {
+                        op.value = BigInt(labels.get(op.labelDependency) - currIndex);
+                        if(op.type === OPT.IMM && instr.outline[1] < 0) // For immediates, re-adjust the size
+                        {
+                            op.size = inferImmSize(op.value);
+                            op.unsignedSize = inferUnsignedImmSize(op.value);
+                        }
+                    }
+                }
                 resizeChange = instr.length;
-                instr.parse();
+                instr.compile();
                 resizeChange -= instr.length;
 
                 if(resizeChange) // If the label resolve caused the instruction to resize

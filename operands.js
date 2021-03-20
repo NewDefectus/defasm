@@ -28,7 +28,8 @@ const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
 const   PREFIX_REX = 1,
         PREFIX_NOREX = 2,
         PREFIX_CLASHREX = 3,
-        PREFIX_ADDRSIZE = 4;
+        PREFIX_ADDRSIZE = 4,
+        PREFIX_SEG = 8;
 
 function parseRegister(expectedType = null)
 {
@@ -139,9 +140,8 @@ function parseImmediate()
         }
         else if(isNaN(token)) // Maybe it's a label?
         {
-            // Label references get initialized to 1 on the first pass
-            if(!allowLabels) labelException = true, value = 1n;
-            else value = BigInt(labels.get(token) - currIndex);
+            labelDependency = token;
+            value = 1n; // Default to 1 on first pass
         }
         else value = BigInt(token);
     
@@ -173,8 +173,11 @@ function Operand()
         if(token != '$') ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
-        this.size = inferImmSize(this.value);
-        this.unsignedSize = inferUnsignedImmSize(this.value);
+        if(typeof this.value !== "string")
+        {
+            this.size = inferImmSize(this.value);
+            this.unsignedSize = inferUnsignedImmSize(this.value);
+        }
     }
     else // Address
     {
@@ -220,6 +223,7 @@ function Operand()
         if(token != ')') throw "Expected ')'";
         next();
     }
+    if(typeof this.value === "string") this.labelDependency = this.value;
 }
 
 // Infer the size of an immediate from its value

@@ -1,35 +1,13 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
-var labelException = false; // True if the currently parsed instruction needs to be recompiled later for labels
-
-function parseInstruction(opcode)
-{
-    let result = new Instruction(opcode);
-    try
-    {
-        startTokenRecording();
-        result.parse();
-        stopTokenRecording();
-    }
-    catch(e)
-    {
-        stopTokenRecording();
-        throw e;
-    }
-
-    if(labelException)
-    {
-        // Save the token recording for future recompilation
-        while(token != ';' && token != '\n') next();
-        result.tokens = stopTokenRecording();
-    }
-    return result;
-}
+var labelDependency = null;
 
 function Instruction(opcode)
 {
     this.opcode = opcode;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
+
+    this.interpret();
 }
 
 // Generate a single byte
@@ -48,15 +26,14 @@ Instruction.prototype.genInteger = function(byte, size)
     } while(size -= 8);
 }
 
-Instruction.prototype.parse = function()
+// Generate Instruction.outline
+Instruction.prototype.interpret = function()
 {
-    let opcode = this.opcode, operand = null, globalSize = -1, enforceSize = false;
-    let prefsToGen = 0;
-    if(this.tokens) replayTokenRecording(this.tokens);
-    this.length = 0;
+    let opcode = this.opcode, operand = null, enforcedSize = -1, prefsToGen = 0;
+    let needsRecompilation = false;
+    labelDependency = null;
 
-    labelException = false;
-
+    // Prefix opcodes are interpreted as instructions that end with a semicolon
     if(prefixes.hasOwnProperty(opcode))
     {
         this.genByte(prefixes[opcode]);
@@ -65,15 +42,16 @@ Instruction.prototype.parse = function()
         return;
     }
 
+    // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        globalSize = suffixes[opcode[opcode.length - 1]];
+        enforcedSize = suffixes[opcode[opcode.length - 1]];
         opcode = opcode.slice(0, -1);
         if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
-        if(globalSize === undefined) throw "Invalid opcode suffix";
-        enforceSize = true;
+        if(enforcedSize === undefined) throw "Invalid opcode suffix";
     }
-    let variations = mnemonics[opcode], operands = [], rexVal = 0x40;
+
+    let variations = mnemonics[opcode], operands = [];
     if(typeof variations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
     {
         if(variations[0][0] === '#') // References other variation
@@ -88,21 +66,28 @@ Instruction.prototype.parse = function()
         else mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
     }
 
+    // Collecting the operands
     while(token != ';' && token != '\n')
     {
-        operand = new Operand(globalSize);
-        if(token == ':') // Segment specification for addressing
+        operand = new Operand();
+        if(token === ':') // Segment specification for addressing
         {
-            if(operand.type != OPT.SEG)
+            if(operand.type !== OPT.SEG)
                 throw "Incorrect prefix";
-            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][operand.reg]);
+            prefsToGen |= (operand.reg + 1) << 3;
             next();
             operand = new Operand();
-            if(operand.type != OPT.MEM)
+            if(operand.type !== OPT.MEM)
                 throw "Segment prefix must be followed by memory reference";
         }
 
-        if(enforceSize) operand.size = operand.unsignedSize = globalSize;
+        if(enforcedSize > 0) operand.size = operand.unsignedSize = enforcedSize;
+        if(labelDependency !== null)
+        {
+            needsRecompilation = true;
+            operand.labelDependency = labelDependency;
+            labelDependency = null;
+        }
 
         operands.push(operand);
         prefsToGen |= operand.prefs;
@@ -111,15 +96,22 @@ Instruction.prototype.parse = function()
         next();
     }
 
-    //console.log(operands);
+    this.outline = [operands, enforcedSize, variations, prefsToGen];
+    this.compile();
+    if(!needsRecompilation) this.outline = undefined;
+}
 
+Instruction.prototype.compile = function()
+{
+    let [operands, enforcedSize, variations, prefsToGen] = this.outline;
+    this.length = 0;
 
     // Now, we'll find the matching operation for this operand list
-    let op, found = false;
+    let op, found = false, rexVal = 0x40;
     
     for(let variation of variations)
     {
-        op = variation.fit(operands, enforceSize ? globalSize : -1);
+        op = variation.fit(operands, enforcedSize);
         if(op !== null)
         {
             found = true;
@@ -127,14 +119,9 @@ Instruction.prototype.parse = function()
         }
     }
 
-    if(!found)
-    {
-        if(globalSize < 0) throw "Cannot infer opcode suffix";
-        throw "Invalid operands";
-    }
-    globalSize = op.size;
+    if(!found) throw "Invalid operands";
 
-    if(globalSize == 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+    if(op.size == 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
     if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
@@ -150,8 +137,9 @@ Instruction.prototype.parse = function()
     opcode = op.opcode;
 
     // Time to generate!
+    if(prefsToGen >= PREFIX_SEG) this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
     if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
-    if(globalSize === 16) this.genByte(0x66);
+    if(op.size === 16) this.genByte(0x66);
     if(op.prefix !== null) this.genByte(op.prefix);
     if(op.vex) makeVexPrefix(op.vex, rexVal).map(x => this.genByte(x));
     else
