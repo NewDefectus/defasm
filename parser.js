@@ -1,7 +1,6 @@
 var srcTokens, token, match;
 var currIndex = 0;
 var labels = new Map(), macros = new Map();
-var tokenRecording = [], isRecording = false;
 
 var encoder = new TextEncoder();
 var decoder = new TextDecoder();
@@ -13,41 +12,16 @@ function lowerCase(str)
     return str.toLowerCase();
 }
 
-function putInToken(tok)
-{
-    token = tok;
-    if(isRecording) tokenRecording.push(tok);
-    return tok;
-}
-
 var next = defaultNext = () => 
-    putInToken((match = srcTokens.next()).done ? '\n' :
+    token = (match = srcTokens.next()).done ? '\n' :
     macros.has(match.value[0]) ?
-        (replayTokenRecording(macros.get(match.value[0])), next())
-    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]));
+        (insertTokens(macros.get(match.value[0])), next())
+    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]);
 
-/* "Token recordings" are strings of tokens that can be repeated after they are parsed */
-
-// Start a token recording
-function startTokenRecording()
+function insertTokens(tokens)
 {
-    isRecording = true;
-    tokenRecording = [token];
-}
-
-// Stop a token recording and return the tokens in the recording
-function stopTokenRecording()
-{
-    isRecording = false;
-    return tokenRecording.slice(0, -1);
-}
-
-// Add the tokens in a recording to the token stack
-function replayTokenRecording(recording)
-{
-    let tokensCopy = [...recording];
-    next = () => putInToken(tokensCopy.shift() || (next = defaultNext)());
-    next(); // First token in the recording should already be in the token variable
+    let tokensCopy = [...tokens];
+    next = () => token = tokensCopy.shift() || (next = defaultNext)();
 }
 
 // Highly unhygienic. You shouldn't put the token back on the stack after you touched it.
@@ -55,8 +29,7 @@ function replayTokenRecording(recording)
 function ungetToken(t)
 {
     let oldNext = next;
-    if(isRecording) tokenRecording.pop();
-    next = () => putInToken((next = oldNext, t));
+    next = () => token = (next = oldNext, t);
 }
 
 // Just a wee peek at the next token
@@ -105,9 +78,9 @@ function compileAsm(source)
                             continue;
                         
                         case '=': // Macro definition
-                            startTokenRecording();
-                            while(next() !== '\n');
-                            macros.set(opcode, stopTokenRecording());
+                            let macroTokens = [];
+                            while(next() !== '\n') macroTokens.push(token);
+                            macros.set(opcode, macroTokens);
                             break;
                         
                         default: // Instruction
