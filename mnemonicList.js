@@ -26,6 +26,22 @@ aeskeygenassist
 
 bswap:0FC8 o Rwlq
 
+bt
+0FA3 r Rwlq r
+0FBA 4 ib rwlq
+
+btc
+0FBB r Rwlq r
+0FBA 7 ib rwlq
+
+btr
+0FB3 r Rwlq r
+0FBA 6 ib rwlq
+
+bts
+0FAB r Rwlq r
+0FBA 5 ib rwlq
+
 call
 E8 z Il
 FF 2 rQ
@@ -305,13 +321,4 @@ conditionalJmps.forEach((names, i) => {
         hex(0x0F80 + i) + " z Il"
     ];
     names.forEach(name => mnemonics[name] = ['#' + firstName]);
-})
-
-
-let bitTests = "bt bts btr btc".split(' ');
-bitTests.forEach((name, i) => {
-    mnemonics[name] = [
-        hex(0x0FA3 + i * 8) + " r Rwlq r",
-        "0FBA " + (i + 4) + " ib rwlq"
-    ]
-})
+});
