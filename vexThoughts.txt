@@ -18,8 +18,39 @@ Some examples of VEX-encoded instructions (with outliers):
         With "v" at the start, it has 3 operands and is encoded with a VEX prefix.
 
     - andn: VEX instruction that can't be written with a "v" at the start,
-        but is always encoded with a VEX prefix. Has 3 operands (all GPRs).
-        * Another example of pretty much the same thing: "pext" instruction
+        but is always encoded with a VEX prefix. Has 3 operands (all GPRs). Encoding: 0F38F2
+        * Another example of pretty much the same thing: "pext" instruction. Encoding: F3)0F38F5
+        * There might be a pattern here. Can SIMD instructions with opcode Fx not be encoded without VEX?
+        * Another example: bzhi instruction (again, exact same thing). 0F38F5
+        * bextr: 0F38F7
+        * sarx: F3)0F38F7
+        * shlx: 66)0F38F7
+        * shrx: F2)0F38F7
+        * Note this is not a pattern for "normal" mnemonics with the letter X added.
+          For example, adcx has a SIMD encoding (66)0F38F6), but no valid VEX encoding.
+        * Conjecture: These are a subset of what the Intel docs call "VEX-encoded GPR instructions."
+          The name is misleading, though - some of these instructions don't have a VEX encoding at all.
+          For example, the lzcnt instruction is listed as such (encoding F3)0FBD), but has only 2 operands
+          and cannot be encoded with a VEX prefix (it behaves more like a standard SIMD instruction).
+          Same applies for the tzcnt instruction (encoding F3)0FBC, 2 operands),
+          and the invpcid (encoding 66)0F3882, 2 operands).
+          Besides these 3 outliers, the rest of these instructions seem to follow the pattern:
+            - andn      0F38F2 r    3 operands
+            - bextr     0F38F7 r    3 operands
+            - blsi      0F38F3 3    2 operands
+            - blsmsk    0F38F3 2    2 operands
+            - blsr      0F38F3 1    2 operands
+            - bzhi      0F38F5 r    3 operands
+            - mulx   F2)0F38F6 r    3 operands
+            - pdep   F2)0F38F5 r    3 operands
+            - pext   F3)0F38F5 r    3 operands
+            - rorx   F2)0F3AF0 r    3 operands (2 registers, 1 immediate)
+            - sarx   F3)0F38F7 r    3 operands
+            - shlx   66)0F38F7 r    3 operands
+            - shrx   F2)0F38F7 r    3 operands
+        * Correction: Not all SIMD instructions with opcode Fx have to have a VEX prefix.
+          For example, the (v)paddb/w/d/q instructions have encoding 0FFC/FD/FE/D4 (2 operands), but can be encoded
+          without a VEX prefix.
 
     - (v)psllw: almost normal VEX instruction. Without V has 2 operands and no VEX prefix,
         with V has 3 operands and a VEX prefix. However, one of the variations with the

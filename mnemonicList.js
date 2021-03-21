@@ -24,6 +24,22 @@ F3)0F38F6 r r Rlq
 aeskeygenassist
 66)0F3ADF r vx V ib
 
+bndcl:F3)0F1A r rQ B
+
+bndcn:F2)0F1B r rQ B
+
+bndcu:F2)0F1A r rQ B
+
+bndldx:0F1A r mQ B
+
+bndmk:F3)0F1B r mQ B
+
+bndmov
+66)0F1A r b B
+66)0F1B r B b
+
+bndstx:0F1B r B mQ
+
 bswap:0FC8 o Rwlq
 
 bt

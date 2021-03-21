@@ -69,7 +69,7 @@ function OpCatcher(format)
     this.forceRM = format[0] === '^';
     if(this.forceRM) format = format.slice(1);
     let opType = format[0];
-    this.acceptsMemory = "rvm".includes(opType);
+    this.acceptsMemory = "rvmb".includes(opType);
     this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
