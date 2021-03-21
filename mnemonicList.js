@@ -40,6 +40,10 @@ bndmov
 
 bndstx:0F1B r B mQ
 
+bsf:0FBC r r Rwlq
+
+bsr:0FBD r r Rwlq
+
 bswap:0FC8 o Rwlq
 
 bt
