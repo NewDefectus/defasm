@@ -39,6 +39,8 @@ andnpd:66)0F55 r v >V Vxy
 
 andnps:0F55 r v >V Vxy
 
+bextr:0F38F7 r >Rlq r R
+
 bndcl:F3)0F1A r rQ B
 
 bndcn:F2)0F1B r rQ B
