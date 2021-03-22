@@ -211,6 +211,7 @@ function Operand()
             {
                 if(next() !== '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
+                if(this.reg2 === 4) throw "Memory index cannot be RSP";
                 if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
                 else if(tempSize !== 64) throw "Invalid register size";
 

@@ -205,7 +205,6 @@ function makeModRM(rm, r)
         || rm.reg < 0 // If both registers are missing (it's just a displacement)
         )
     {
-        if(rm.reg2 === 4) throw "Memory index cannot be RSP";
         if(rm.reg < 0)
         {
             // These are the respective "none" type registers
