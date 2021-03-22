@@ -51,6 +51,15 @@ Some examples of VEX-encoded instructions (with outliers):
         * Correction: Not all SIMD instructions with opcode Fx have to have a VEX prefix.
           For example, the (v)paddb/w/d/q instructions have encoding 0FFC/FD/FE/D4 (2 operands), but can be encoded
           without a VEX prefix.
+        * Interestingly, however, the instructions listed above comprise the set of all instructions that must be
+          encoded with a VEX prefix but whose mnemonics don't start with the letter 'v'.
+        * So, we can actually make a generalization here:
+
+         Any instructions that utilize 3 GPR operands (or 2 GPR operands if the extension is a digit),
+         MUST be encoded with a VEX prefix, regardless of whether or not their mnemonic starts with the letter 'v'.
+
+         Note that the requirement that these be GPR operands is needed, because other AVX instructions with 3 operands
+         that are vector registers can only be encoded if the 'V' prefix is specified.
 
     - (v)psllw: almost normal VEX instruction. Without V has 2 operands and no VEX prefix,
         with V has 3 operands and a VEX prefix. However, one of the variations with the
@@ -60,6 +69,23 @@ Some examples of VEX-encoded instructions (with outliers):
         with V has (still!) 2 operands and a VEX prefix. With V allows use of YMM registers,
         but also a variation with XMM registers (same as with no V).
     
-    - (v)blendvpd: without V has 2 operands, plus an "implicit xmm0" operand (should it be written?)
+    - (v)blendvpd: without V has 2 operands, plus an implicit xmm0 operand.
         With V has 4 operands - one of them being stored in bits 7:4 of the imm8 byte following the
         instruction (bits 3:0 are ignored).
+
+
+
+
+So I think what I'll do is something like this:
+    Have a '>' prefix for op catchers in the mnemonic format, which specifies a VEX operand.
+    This operand will always be encoded into the VVVVV field of the VEX prefix (if it is present,
+    otherwise the field will default to 11111).
+    However, it will only be required if the mnemonic starts with the letter 'v' (or if it is a GPR
+    operand).
+
+The instruction compiler will generate a VEX prefix only if the mnemonic compiler has returned a valid
+VVVVV field.
+The mnemonic compiler will return a VVVVV field if one of two conditions is met:
+1) the mnemonic starts with the letter 'v'
+2) the "forceVex" flag of the operation is set to true (this is decided on generation if 3 GPR operands are provided)
+If one of these two conditions is met, the mnemonic compiler will also necessitate that the VEX operands (if any) be provided.
