@@ -124,7 +124,8 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
        return "meta";
      }
      if(mnemonics.hasOwnProperty(cur)
-     || (suffixes[cur[cur.length - 1]] && mnemonics.hasOwnProperty(cur.slice(0, -1)))) return "keyword";
+     || (suffixes[cur[cur.length - 1]] && mnemonics.hasOwnProperty(cur.slice(0, -1)))
+     || (cur[0] === 'v' && mnemonics.hasOwnProperty(cur.slice(1)))) return "keyword";
      
      if(prefixes.hasOwnProperty(cur)) return "keyword";
     },
