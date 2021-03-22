@@ -185,7 +185,7 @@ function makeModRM(rm, r)
         return [rex, modrm, sib];
     }
 
-    if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
+    if(inferImmSize(rm.value) === 8) rm.dispSize = 8;
 
     // Encoding the "mod" (modifier) field
     if(rm.type !== OPT.MEM) modrm |= 0xC0; // mod=11
@@ -212,12 +212,6 @@ function makeModRM(rm, r)
             rm.reg2 = 4;
             rm.dispSize = 32; // Displacements on their own have to be of size 32
         }
-        else if(rm.reg === 5) // Special case when the base is EBP
-        {
-            if(rm.value === null) modrm |= 0x40, rm.value = 0n;
-            else if(rm.dispSize === 8) modrm |= 0x40;
-            else modrm |= 0x80;
-        }
 
         if(rm.reg2 >= 8)
         {
@@ -225,7 +219,7 @@ function makeModRM(rm, r)
             rm.reg2 &= 7;
         }
         sib |= (rm.shift << 6) | (rm.reg2 << 3) | rm.reg;
-        modrm |= 4; // reg=100 signifies an SIB byte
+        modrm |= 4; // rm=100 signifies an SIB byte
     }
     else modrm |= rm.reg;
 
