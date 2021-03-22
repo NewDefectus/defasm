@@ -3,26 +3,31 @@ var mnemonicStrings = `
 
 adcx:66)0F38F6 r r Rlq
 
-addpd
-66)0F58 r v >V Vx
+addpd:66)0F58 r v >V Vx
 
-addsd
-F2)0F58 r vx V
+addps:0F58 r v >V Vx
 
-addss
-F3)0F58 r vx V
+addsd:F2)0F58 r v >V Vx
 
-addsubpd
-66)0FD0 r vx V
+addss:F3)0F58 r v >V Vx
 
-addsubps
-F2)0FD0 r vx V
+addsubpd:66)0FD0 r v >V Vx
 
-adox
-F3)0F38F6 r r Rlq
+addsubps:F2)0FD0 r v >V Vx
 
-aeskeygenassist
-66)0F3ADF r vx V ib
+adox:F3)0F38F6 r r Rlq
+
+aesdec:66)0F38DE r v >V Vx
+
+aesdeclast:66)0F38DF r v >V Vx
+
+aesenc:66)0F38DC r v >V Vx
+
+aesenclast:66)0F38DD r v >V Vx
+
+aesimc:66)0F38DB r v Vx >
+
+aeskeygenassist:66)0F3ADF r ib vx V >
 
 andn:0F38F2 r r >Rlq R
 
