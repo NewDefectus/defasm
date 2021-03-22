@@ -229,18 +229,7 @@ function makeModRM(rm, r)
         sib |= rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
     }
-    else
-    {
-        if(rm.type === OPT.MEM) // Simple memory access with one register, e.g. (%rax)
-        {
-            if(rm.reg === 5 && (modrm & 0xC0) === 0) // Special case for EBP register (so as not to confuse with disp32)
-            {
-                modrm |= 0x40; // Set to mod=01, so the modrm will be interpreted as EBP+disp8
-                sib = 0; // Bit of a hack - 0 doesn't actually go into SIB, it's a displacement value of 0
-            }
-        }
-        modrm |= rm.reg;
-    }
+    else modrm |= rm.reg;
 
 
     return [rex, modrm, sib];

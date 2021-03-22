@@ -222,6 +222,7 @@ function Operand()
                 }
             }
             else if(this.reg === 4) this.reg2 = 4;
+            else if(this.reg === 5 && this.value === null) this.value = 0n; 
         }
         if(token != ')') throw "Expected ')'";
         next();
