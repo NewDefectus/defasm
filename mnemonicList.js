@@ -49,6 +49,16 @@ blendvpd
 66)0F3815 r V_0x v V
 v 66)0F3A4B r <Vxy v >V V
 
+blendvps
+66)0F3814 r V_0x v V
+v 66)0F3A4A r <Vxy v >V V
+
+blsi:0F38F3 3 r >Rlq
+
+blsmsk:0F38F3 2 r >Rlq
+
+blsr:0F38F3 1 r >Rlq
+
 bndcl:F3)0F1A r rQ B
 
 bndcn:F2)0F1B r rQ B
@@ -86,6 +96,8 @@ btr
 bts
 0FAB r Rwlq r
 0FBA 5 ib rwlq
+
+bzhi:0F38F5 r Rlq r >R
 
 call
 E8 z Il
