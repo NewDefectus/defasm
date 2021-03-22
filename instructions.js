@@ -29,7 +29,7 @@ Instruction.prototype.genInteger = function(byte, size)
 // Generate Instruction.outline
 Instruction.prototype.interpret = function()
 {
-    let opcode = this.opcode, operand = null, enforcedSize = -1, prefsToGen = 0;
+    let opcode = this.opcode, operand = null, enforcedSize = -1, enforceVex = opcode[0] === 'v', prefsToGen = 0;
     let needsRecompilation = false;
     labelDependency = null;
 
@@ -42,13 +42,19 @@ Instruction.prototype.interpret = function()
         return;
     }
 
+    
+
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        enforcedSize = suffixes[opcode[opcode.length - 1]];
-        opcode = opcode.slice(0, -1);
-        if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
-        if(enforcedSize === undefined) throw "Invalid opcode suffix";
+        if(enforceVex && mnemonics.hasOwnProperty(opcode.slice(1))) opcode = opcode.slice(1);
+        else
+        {
+            enforcedSize = suffixes[opcode[opcode.length - 1]];
+            opcode = opcode.slice(0, -1);
+            if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
+            if(enforcedSize === undefined) throw "Invalid opcode suffix";
+        }
     }
 
     let variations = mnemonics[opcode], operands = [];
@@ -96,14 +102,14 @@ Instruction.prototype.interpret = function()
         next();
     }
 
-    this.outline = [operands, enforcedSize, variations, prefsToGen];
+    this.outline = [operands, enforcedSize, variations, prefsToGen, enforceVex];
     this.compile();
     if(!needsRecompilation) this.outline = undefined;
 }
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, variations, prefsToGen] = this.outline;
+    let [operands, enforcedSize, variations, prefsToGen, enforceVex] = this.outline;
     this.length = 0;
 
     // Now, we'll find the matching operation for this operand list
@@ -111,7 +117,7 @@ Instruction.prototype.compile = function()
     
     for(let variation of variations)
     {
-        op = variation.fit(operands, enforcedSize);
+        op = variation.fit(operands, enforcedSize, enforceVex);
         if(op !== null)
         {
             found = true;
@@ -141,7 +147,7 @@ Instruction.prototype.compile = function()
     if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
     if(op.size === 16) this.genByte(0x66);
     if(op.prefix !== null) this.genByte(op.prefix);
-    if(op.vex) makeVexPrefix(op.vex, rexVal).map(x => this.genByte(x));
+    if(op.vex !== null) makeVexPrefix(op.vex, rexVal).map(x => this.genByte(x));
     else
     {
         if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
@@ -249,11 +255,12 @@ function makeModRM(rm, r)
 }
 
 
-function makeVexPrefix(vex1, vex2, rex)
+function makeVexPrefix(vex, rex)
 {
+    let vex1 = vex >> 8, vex2 = vex & 255;
     // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
     vex1 |= ((~rex & 7) << 5);
-    vex2 |= (((rex & 8)) << 5); // VEX.w = REX.w
+    vex2 |= (((rex & 8)) << 4); // VEX.w = REX.w
 
     if((vex1 & 0x7F) == 0x61 && (vex2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
     {

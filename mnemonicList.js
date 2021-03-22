@@ -4,7 +4,7 @@ var mnemonicStrings = `
 adcx:66)0F38F6 r r Rlq
 
 addpd
-66)0F58 r vx V
+66)0F58 r v >V Vx
 
 addsd
 F2)0F58 r vx V
@@ -23,6 +23,8 @@ F3)0F38F6 r r Rlq
 
 aeskeygenassist
 66)0F3ADF r vx V ib
+
+andn:0F38F2 r r >Rlq R
 
 bndcl:F3)0F1A r rQ B
 

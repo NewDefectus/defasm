@@ -67,7 +67,8 @@ function OpCatcher(format)
 
     // First is the operand type
     this.forceRM = format[0] === '^';
-    if(this.forceRM) format = format.slice(1);
+    this.vexOp = format[0] === '>';
+    if(this.forceRM || this.vexOp) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvmb".includes(opType);
     this.forceRM ||= this.acceptsMemory;
@@ -205,15 +206,43 @@ function Operation(format)
 
         // What follows is a list of operand specifiers
         this.opCatchers = [];
+        this.vexOpCatchers = [];
+        this.allowVex = format.some(op => op.includes('>'));
         this.checkableSizes = null;
-        for(let operand of format)
+        this.forceVex = false;
+
+        let opCatcher;
+
+        if(format[0][0] === '-')
+            this.checkableSizes = getSizes(format[0].slice(1));
+        else
         {
-            if(operand[0] === '-')
+            for(let operand of format)
             {
-                this.checkableSizes = getSizes(operand.slice(1));
+                if(operand === '>') // Empty VEX operands shouldn't be counted
+                    continue;
+                opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
+                if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
+                else if(opCatcher.type === OPT.REG)
+                {
+                    this.allowVex = false;
+                    this.forceVex = true;
+                    this.vexOpCatchers = [];
+                    this.opCatchers.push(opCatcher);
+                }
+
+                if(this.allowVex) this.vexOpCatchers.push(opCatcher);
             }
-            else
-                this.opCatchers.push(opCatcherCache[operand] || new OpCatcher(operand));
+        }
+
+        this.vexBase = null;
+
+        // Generate the necessary vex info
+        if(this.allowVex || this.forceVex)
+        {
+            this.vexBase = 120 |
+                (([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1) << 8)
+                | [null, 0x66, 0xF3, 0xF2].indexOf(this.prefix)
         }
     }
 }
@@ -226,22 +255,26 @@ function Operation(format)
  * @property {boolean} extendOp Special case: if the register is encoded into the opcode but doesn't fit (id > 7), this is true
  * @property {Operand} reg The register operand (goes into ModRM.reg)
  * @property {Operand} rm The register/memory operand (goes into ModRM.rm)
+ * @property {number} vex The VEX prefix (partially generated)
  * @property {Operand[]} imms The immediate operands (should be appended to the instruction)
  */
 
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
  * @param {number} enforcedSize The size that was enforced, or -1 if no size was enforced
+ * @param {boolean} enforceVex True if a VEX prefix is needed (i.e. the mnemonic starts with the letter 'v')
  * @returns {operationResults|null} The information needed to encode the instruction
  */
-Operation.prototype.fit = function(operands, enforcedSize)
+Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
 {
-    if(operands.length !== this.opCatchers.length) return null; // Operand numbers must match
+    if(enforceVex && !this.allowVex) return null;
+    let opCatchers = enforceVex ? this.vexOpCatchers : this.opCatchers;
+    if(operands.length !== opCatchers.length) return null; // Operand numbers must match
     let correctedSizes = new Array(operands.length), size = -1, i, catcher, isEnforced = enforcedSize > 0;
 
     for(i = 0; i < operands.length; i++)
     {
-        catcher = this.opCatchers[i];
+        catcher = opCatchers[i];
         if(size > 0 || Array.isArray(catcher.sizes))
         {
             size = catcher.catch(operands[i], size, isEnforced);
@@ -257,7 +290,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
     {
         if(correctedSizes[i] < 0)
         {
-            size = this.opCatchers[i].catch(operands[i], size, isEnforced);
+            size = opCatchers[i].catch(operands[i], size, isEnforced);
             if(size === null) return null;
             correctedSizes[i] = size;
         }
@@ -268,7 +301,7 @@ Operation.prototype.fit = function(operands, enforcedSize)
     // be redundant as we wouldn't know if the operation is encodable at all.
     // In other words, this aids performance.
 
-    let reg = null, rm = null, imms = [], correctedOpcode = this.code;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code;
     let adjustByteOp = true, extendOp = false, overallSize = 0;
 
     let operand;
@@ -293,15 +326,16 @@ Operation.prototype.fit = function(operands, enforcedSize)
 
     for(i = 0; i < operands.length; i++)
     {
-        catcher = this.opCatchers[i], operand = operands[i];
+        catcher = opCatchers[i], operand = operands[i];
         size = correctedSizes[i];
         operand.size = size & ~7;
 
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.push(operand);
-            else if(catcher.forceRM || reg !== null) rm = operand;
-            else reg = operand; // Todo: Add VEX 'vvvvv' argument catching
+            else if(catcher.forceRM/* || reg !== null*/) rm = operand;
+            else if(catcher.vexOp) vex = (vex & ~120) | ((~operand.reg & 15) << 3);
+            else reg = operand;
         }
 
         // Only set to overall size if it's not the default size
@@ -327,13 +361,16 @@ Operation.prototype.fit = function(operands, enforcedSize)
         reg = {reg: this.extension};
     }
 
+    enforceVex ||= this.forceVex;
+
     return {
         opcode: correctedOpcode,
         size: overallSize,
-        prefix: this.prefix,
+        prefix: enforceVex ? null : this.prefix,
         extendOp: extendOp,
         reg: reg,
         rm: rm,
+        vex: enforceVex ? vex : null,
         imms: imms
     };
 }
