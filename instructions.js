@@ -73,7 +73,7 @@ Instruction.prototype.interpret = function()
     }
 
     // Collecting the operands
-    while(token != ';' && token != '\n')
+    while(token !== ';' && token !== '\n')
     {
         operand = new Operand();
         if(token === ':') // Segment specification for addressing
@@ -127,7 +127,7 @@ Instruction.prototype.compile = function()
 
     if(!found) throw "Invalid operands";
 
-    if(op.size == 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+    if(op.size === 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
     if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
@@ -135,7 +135,7 @@ Instruction.prototype.compile = function()
     {
         let extraRex;
         [extraRex, modRM, sib] = makeModRM(op.rm, op.reg);
-        if(extraRex != 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
+        if(extraRex !== 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
     }
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
@@ -156,14 +156,11 @@ Instruction.prototype.compile = function()
         if(opcode > 0xff) this.genByte(opcode >> 8);
     }
     this.genByte(opcode);
-    if(modRM != null) this.genByte(modRM);
-    if(sib != null) this.genByte(sib);
+    if(modRM !== null) this.genByte(modRM);
+    if(sib !== null) this.genByte(sib);
 
     // Generating the displacement and immediate
-    if(op.rm != null && op.rm.value != null)
-    {
-        this.genInteger(op.rm.value, op.rm.dispSize || 32);
-    }
+    if(op.rm !== null && op.rm.value !== null) this.genInteger(op.rm.value, op.rm.dispSize || 32);
     for(let imm of op.imms) this.genInteger(imm.value, imm.size);
 }
 
@@ -191,9 +188,9 @@ function makeModRM(rm, r)
     if(inferImmSize(rm.value) == 8) rm.dispSize = 8;
 
     // Encoding the "mod" (modifier) field
-    if(rm.type != OPT.MEM) modrm |= 0xC0; // mod=11
-    else if(rm.dispSize != 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
-    else if(rm.reg >= 0 && rm.value != null) modrm |= 0x40; // mod=01
+    if(rm.type !== OPT.MEM) modrm |= 0xC0; // mod=11
+    else if(rm.dispSize !== 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
+    else if(rm.reg >= 0 && rm.value !== null) modrm |= 0x40; // mod=01
     // else mod=00
     
     // Encoding the "rm" field
@@ -208,7 +205,7 @@ function makeModRM(rm, r)
         || rm.reg < 0 // If both registers are missing (it's just a displacement)
         )
     {
-        if(rm.reg2 == 4) throw "Memory index cannot be RSP";
+        if(rm.reg2 === 4) throw "Memory index cannot be RSP";
         if(rm.reg < 0)
         {
             // These are the respective "none" type registers
@@ -216,10 +213,10 @@ function makeModRM(rm, r)
             rm.reg2 = 4;
             rm.dispSize = 32; // Displacements on their own have to be of size 32
         }
-        else if(rm.reg == 5) // Special case when the base is EBP
+        else if(rm.reg === 5) // Special case when the base is EBP
         {
-            if(rm.value == null) modrm |= 0x40, rm.value = 0n;
-            else if(rm.dispSize == 8) modrm |= 0x40, rm.dispSize = 8;
+            if(rm.value === null) modrm |= 0x40, rm.value = 0n;
+            else if(rm.dispSize === 8) modrm |= 0x40, rm.dispSize = 8;
             else modrm |= 0x80;
         }
 
@@ -235,13 +232,13 @@ function makeModRM(rm, r)
     }
     else
     {
-        if(rm.type == OPT.MEM) // Simple memory access with one register, e.g. (%rax)
+        if(rm.type === OPT.MEM) // Simple memory access with one register, e.g. (%rax)
         {
-            if(rm.reg == 4) // Special case for ESP register (so as not to confuse with SIB)
+            if(rm.reg === 4) // Special case for ESP register (so as not to confuse with SIB)
             {
                 sib = 0x24; // This encodes to base=ESP, index=none, scale=0
             }
-            else if(rm.reg == 5 && (modrm & 0xC0) == 0) // Special case for EBP register (so as not to confuse with disp32)
+            else if(rm.reg === 5 && (modrm & 0xC0) === 0) // Special case for EBP register (so as not to confuse with disp32)
             {
                 modrm |= 0x40; // Set to mod=01, so the modrm will be interpreted as EBP+disp8
                 sib = 0; // Bit of a hack - 0 doesn't actually go into SIB, it's a displacement value of 0

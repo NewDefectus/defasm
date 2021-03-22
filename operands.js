@@ -63,7 +63,7 @@ function parseRegister(expectedType = null)
         size = 32; // Dunno what the actual size of the seg registers is, but this'll prevent the word prefix
         reg -= registers.es;
     }
-    else if(reg == registers.st)
+    else if(reg === registers.st)
     {
         type = OPT.ST;
         reg = 0;
@@ -74,7 +74,7 @@ function parseRegister(expectedType = null)
                 throw "Unknown register";
         }
     }
-    else if(reg == registers.rip || reg == registers.eip)
+    else if(reg === registers.rip || reg === registers.eip)
     {
         if(expectedType == null || !expectedType.includes(OPT.IP)) throw "Can't use RIP here";
         type = OPT.IP;
@@ -88,7 +88,7 @@ function parseRegister(expectedType = null)
         prefs |= PREFIX_REX;
         reg -= registers.spl - 4;
     }
-    else if(token[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
+    else if(token[0] === 'r') // Attempt to parse the register name as a numeric (e.g. r10)
     {
         reg = parseInt(token.slice(1));
         if(isNaN(reg) || reg <= 0 || reg >= 16)
@@ -117,7 +117,7 @@ function parseRegister(expectedType = null)
         if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max)) throw "Unknown register";
     }
     
-    if(expectedType != null && expectedType.indexOf(type) < 0) throw "Invalid register";
+    if(expectedType !== null && expectedType.indexOf(type) < 0) throw "Invalid register";
     
     next();
     return [reg, type, size, prefs];
@@ -168,13 +168,13 @@ function Operand()
     this.size = NaN;
     this.prefs = 0;
 
-    if(token == '%') // Register
+    if(token === '%') // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
     }
-    else if(token == '$' || (isNaN(token) && token != '(' && peekNext() != '('))// Immediate
+    else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
-        if(token != '$') ungetToken(token);
+        if(token !== '$') ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
         if(typeof this.value !== "string")
@@ -186,17 +186,17 @@ function Operand()
     else // Address
     {
         this.type = OPT.MEM;
-        if(token != '(')
+        if(token !== '(')
         {
             ungetToken(token);
             this.value = parseImmediate();
         }
 
-        if(token != '(') throw "Invalid operand";
+        if(token !== '(') throw "Invalid operand";
 
 
         let tempSize, tempType;
-        if(next() != '%') // For addresses that look like (<number>)
+        if(next() !== '%') // For addresses that look like (<number>)
         {
             ungetToken(token);
             this.value = parseImmediate();
@@ -204,20 +204,17 @@ function Operand()
         else
         {
             [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP]);
-            if(tempSize == 32) this.prefs |= PREFIX_ADDRSIZE;
-            else if(tempSize != 64) throw "Invalid register size";
-            if(tempType == OPT.IP)
+            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+            else if(tempSize !== 64) throw "Invalid register size";
+            if(tempType === OPT.IP) this.ripRelative = true;
+            else if(token === ',')
             {
-                this.ripRelative = true;
-            }
-            else if(token == ',')
-            {
-                if(next() != '%') throw "Expected register";
+                if(next() !== '%') throw "Expected register";
                 [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
-                if(tempSize == 32) this.prefs |= PREFIX_ADDRSIZE;
-                else if(tempSize != 64) throw "Invalid register size";
+                if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                else if(tempSize !== 64) throw "Invalid register size";
 
-                if(token == ',')
+                if(token === ',')
                 {
                     this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
                     if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
