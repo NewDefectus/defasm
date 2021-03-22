@@ -31,6 +31,14 @@ aeskeygenassist:66)0F3ADF r ib vx V >
 
 andn:0F38F2 r r >Rlq R
 
+andpd:66)0F54 r v >V Vxy
+
+andps:0F54 r v >V Vxy
+
+andnpd:66)0F55 r v >V Vxy
+
+andnps:0F55 r v >V Vxy
+
 bndcl:F3)0F1A r rQ B
 
 bndcn:F2)0F1B r rQ B
