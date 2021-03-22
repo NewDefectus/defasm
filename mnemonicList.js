@@ -27,7 +27,7 @@ aesenclast:66)0F38DD r v >V Vxy
 
 aesimc:66)0F38DB r v Vx >
 
-aeskeygenassist:66)0F3ADF r ib vx V >
+aeskeygenassist:66)0F3ADF r ib v Vx >
 
 andn:0F38F2 r r >Rlq R
 
@@ -40,6 +40,14 @@ andnpd:66)0F55 r v >V Vxy
 andnps:0F55 r v >V Vxy
 
 bextr:0F38F7 r >Rlq r R
+
+blendpd:66)0F3A0D r ib v >V Vxy
+
+blendps:66)0F3A0C r ib v >V Vxy
+
+blendvpd
+66)0F3815 r V_0x v V
+v 66)0F3A4B r <Vxy v >V V
 
 bndcl:F3)0F1A r rQ B
 

@@ -62,12 +62,14 @@ function getSizes(format, defaultCatcher = null)
  */
 function OpCatcher(format)
 {
+    opCatcherCache[format] = this; // Cache this op catcher
     let i = 1;
     this.sizes = [];
 
     // First is the operand type
     this.forceRM = format[0] === '^';
-    this.vexOp = format[0] === '>';
+    this.vexOpImm = format[0] === '<';
+    this.vexOp = this.vexOpImm || format[0] === '>';
     if(this.forceRM || this.vexOp) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvmb".includes(opType);
@@ -94,8 +96,6 @@ function OpCatcher(format)
         if(this.type > OPT.MEM) this.sizes = 0; // Meaning, size doesn't matter
         else this.sizes = -1; // Meaning, use the previously parsed size to catch
     }
-
-    opCatcherCache[format] = this; // Cache this op catcher
 }
 
 /** Attempt to "catch" a given operand.
@@ -164,6 +164,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 function Operation(format)
 {
     // Interpreting the opcode
+    this.vexOnly = format[0] === 'v';
+    if(this.vexOnly) format.shift();
     let opcode = format.shift();
     if(opcode[2] === ')') // Prefix followed by ')'
     {
@@ -267,7 +269,10 @@ function Operation(format)
  */
 Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
 {
-    if(enforceVex && !this.allowVex) return null;
+    if(enforceVex)
+    {
+        if(!this.allowVex) return null;
+    } else if(this.vexOnly) return null;
     let opCatchers = enforceVex ? this.vexOpCatchers : this.opCatchers;
     if(operands.length !== opCatchers.length) return null; // Operand numbers must match
     let correctedSizes = new Array(operands.length), size = -1, i, catcher, isEnforced = enforcedSize > 0;
@@ -282,6 +287,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         }
         correctedSizes[i] = size;
         if(size === 64 && catcher.copySize !== undefined) size = catcher.copySize;
+        if(catcher.type === OPT.IMM) size = correctedSizes[i - 1] || -1; // Size shouldn't be inferred from immediates 
     }
 
     // If the operand size specification wasn't in order,
@@ -334,7 +340,11 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         {
             if(operand.type === OPT.IMM) imms.push(operand);
             else if(catcher.forceRM/* || reg !== null*/) rm = operand;
-            else if(catcher.vexOp) vex = (vex & ~120) | ((~operand.reg & 15) << 3);
+            else if(catcher.vexOp)
+            {
+                if(catcher.vexOpImm) imms.push({value: BigInt(operand.reg << 4), size: 8});
+                else vex = (vex & ~120) | ((~operand.reg & 15) << 3);
+            }
             else reg = operand;
         }
 
