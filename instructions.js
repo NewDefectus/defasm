@@ -215,7 +215,7 @@ function makeModRM(rm, r)
         else if(rm.reg === 5) // Special case when the base is EBP
         {
             if(rm.value === null) modrm |= 0x40, rm.value = 0n;
-            else if(rm.dispSize === 8) modrm |= 0x40, rm.dispSize = 8;
+            else if(rm.dispSize === 8) modrm |= 0x40;
             else modrm |= 0x80;
         }
 
@@ -224,9 +224,7 @@ function makeModRM(rm, r)
             rex |= 2; // rex.X extension
             rm.reg2 &= 7;
         }
-        sib |= rm.shift << 6;
-        sib |= rm.reg2 << 3;
-        sib |= rm.reg;
+        sib |= (rm.shift << 6) | (rm.reg2 << 3) | rm.reg;
         modrm |= 4; // reg=100 signifies an SIB byte
     }
     else modrm |= rm.reg;
