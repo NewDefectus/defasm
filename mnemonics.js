@@ -362,6 +362,11 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     }
 
     enforceVex ||= this.forceVex;
+    if(overallSize === 256)
+    {
+        if(enforceVex) vex |= 4;
+        else return null; // ymm registers can't be encoded without VEX
+    }
 
     return {
         opcode: correctedOpcode,
