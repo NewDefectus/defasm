@@ -221,6 +221,7 @@ function Operand()
                     if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
                 }
             }
+            else if(this.reg === 4) this.reg2 = 4;
         }
         if(token != ')') throw "Expected ')'";
         next();
