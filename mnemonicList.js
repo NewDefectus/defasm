@@ -240,11 +240,11 @@ fabs:D9E1
 fadd
 D8 0 ml
 DC 0 mQ
-D8C0 o F F_0
-DCC0 o F_0 F
+D8 0 F F_0
+DC 0 F_0 F
 
 faddp
-DEC0 o F_0 F
+DE 0 F_0 F
 DEC1
 
 fbld:DF 4 mQ
@@ -255,39 +255,39 @@ fchs:D9E0
 
 fclex:9BDBE2
 
-fcmovb:DAC0 o F F_0
+fcmovb:DA 0 F F_0
 
-fcmove:DAC8 o F F_0
+fcmove:DA 1 F F_0
 
-fcmovbe:DAD0 o F F_0
+fcmovbe:DA 2 F F_0
 
-fcmovu:DAD8 o F F_0
+fcmovu:DA 3 F F_0
 
-fcmovnb:DBC0 o F F_0
+fcmovnb:DB 0 F F_0
 
-fcmovne:DBC8 o F F_0
+fcmovne:DB 1 F F_0
 
-fcmovnbe:DBD0 o F F_0
+fcmovnbe:DB 2 F F_0
 
-fcmovnu:DBD8 o F F_0
+fcmovnu:DB 3 F F_0
 
 fcom
 D8 2 ml
 DC 2 mQ
-D8D0 o F
+D8 2 F
 D8D1
 
 fcomp
 D8 3 ml
 DC 3 mQ
-D8D8 o F
+D8 3 F
 D8D9
 
 fcompp:DED9
 
-fcomi:DBF0 o F F_0
+fcomi:DB 6 F F_0
 
-fcomip:DFF0 o F F_0
+fcomip:DF 6 F F_0
 
 fcos:D9FF
 
@@ -296,24 +296,24 @@ fdecstp:D9F6
 fdiv
 D8 6 ml
 DC 6 mQ
-D8F0 o F F_0
-DCF8 o F_0 F
+D8 6 F F_0
+DC 7 F_0 F
 
 fdivp
-DEF8 o F_0 F
+DE 7 F_0 F
 DEF9
 
 fdivr
 D8 7 ml
 DC 7 mQ
-D8F8 o F F_0
-DCF0 o F_0 F
+D8 7 F F_0
+DC 6 F_0 F
 
 fdivrp
-DEF0 o F_0 F
+DE 6 F_0 F
 DEF1
 
-ffree:DDC0 o F
+ffree:DD 0 F
 
 fiadd
 DA 0 ml
@@ -373,7 +373,7 @@ DE 5 mW
 fld
 D9 0 ml
 DD 0 mQ
-D9C0 o F
+D9 0 F
 
 fld1:D9E8
 
@@ -398,11 +398,11 @@ fldenv:D9 4 mL
 fmul
 D8 1 ml
 DC 1 mQ
-D8C8 o F F_0
-DCC8 o F_0 F
+D8 1 F F_0
+DC 1 F_0 F
 
 fmulp
-DEC8 o F_0 F
+DE 1 F_0 F
 DEC9
 
 fnclex:DBE2
@@ -446,7 +446,7 @@ fsqrt:D9FA
 fst
 D9 2 ml
 DD 2 mQ
-DDD0 o F
+DD 2 F
 
 fstcw:9BD9 7 mW
 
@@ -455,7 +455,7 @@ fstenv:9BD9 6 mL
 fstp
 D9 3 ml
 DD 3 mQ
-DDD8 o F
+DD 3 F
 
 fstpt:DB 7 mQ
 
@@ -466,45 +466,45 @@ fstsw
 fsub
 D8 4 mW
 DC 4 mQ
-D8E0 o F F_0
-DCE8 o F_0 F
+D8 4 F F_0
+DC 5 F_0 F
 
 fsubp
-DEE8 o F_0 F
+DE 5 F_0 F
 DEE9
 
 fsubr
 D8 5 mW
 DC 5 mQ
-D8E8 o F F_0
-DCE0 o F_0 F
+D8 5 F F_0
+DC 4 F_0 F
 
 fsubrp
-DEE0 o F_0 F
+DE 4 F_0 F
 DEE1
 
 ftst:D9E4
 
 fucom
-DDE0 o F
+DD 4 F
 DDE1
 
 fucomp
-DDE8 o F
+DD 5 F
 DDE9
 
 fucompp:DAE9
 
-fucomi:DBE8 o F F_0
+fucomi:DB 5 F F_0
 
-fucomip:DFE8 o F F_0
+fucomip:DF 5 F F_0
 
 fwait:#wait
 
 fxam:D9E5
 
 fxch
-D9C8 o F
+D9 1 F
 D9C9
 
 fxrstor:0FAE 1 mQ
