@@ -274,7 +274,15 @@ A8 z i R_0bwlo
 F6 0 i rbwlo
 84 r Rbwlq r
 
-vgatherdpd:vw 66)0F3892 r >Vxy G V
+vgatherdpd:vw 66)0F3892 r >Vxy Gx V
+
+vgatherdps:66)0F3892 r >Vxy G V
+
+vgatherqpd:vw 66)0F3893 r >Vxy G V
+
+vgatherqps
+66)0F3893 r >Vx G V
+vl 66)0F3893 r >Vx Gy V
 
 wait:9B
 

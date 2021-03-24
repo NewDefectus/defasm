@@ -3,16 +3,15 @@ const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
 IMM:    2,  // Immediate value - e.g. $20
 VEC:    3,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
-MEM:    4,  // Memory operand - e.g. (%rax)
-ST:     5,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
-SEG:    6,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
-IP:     7,  // Instruction pointer register (only used in memory) - %eip or %rip
-BND:    8,  // Bound register (128-bit) - %bnd0 / %bnd3
-MASK:   9,  // Mask register (64-bit) - %k0 / %k7
-CTRL:   10, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
-DBG:    11, // Debug register (64-bit) - %dr0 / %dr7
-XMEM:   12, // XMM vector memory - e.g. (%xmm0)
-YMEM:   13  // YMM vector memory - e.g. (%ymm0)
+VMEM:   4,  // Vector memory - e.g. (%xmm0)
+MEM:    5,  // Memory operand - e.g. (%rax)
+ST:     6,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
+SEG:    7,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
+IP:     8,  // Instruction pointer register (only used in memory) - %eip or %rip
+BND:    9,  // Bound register (128-bit) - %bnd0 / %bnd3
+MASK:   10, // Mask register (64-bit) - %k0 / %k7
+CTRL:   11, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
+DBG:    12  // Debug register (64-bit) - %dr0 / %dr7
 };
 
 
@@ -208,9 +207,8 @@ function Operand()
             [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
             if(tempType === OPT.VEC)
             {
-                if(tempSize === 128) this.type = OPT.XMEM;
-                else if(tempSize === 256) this.type = OPT.YMEM;
-                else throw "Invalid register size";
+                this.type = OPT.VMEM; this.size = tempSize;
+                if(tempSize !== 128 && tempSize !== 256) throw "Invalid register size";
                 this.reg2 = this.reg;
                 this.reg = -1;
             }
@@ -225,9 +223,8 @@ function Operand()
                     [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
                     if(tempType === OPT.VEC)
                     {
-                        if(tempSize === 128) this.type = OPT.XMEM;
-                        else if(tempSize === 256) this.type = OPT.YMEM;
-                        else throw "Invalid register size";
+                        this.type = OPT.VMEM; this.size = tempSize;
+                        if(tempSize !== 128 && tempSize !== 256) throw "Invalid register size";
                     }
                     else
                     {

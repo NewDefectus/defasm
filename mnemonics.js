@@ -10,8 +10,7 @@ const OPC = {
     k: OPT.MASK,
     c: OPT.CTRL,
     d: OPT.DBG,
-    g: OPT.XMEM,
-    h: OPT.YMEM
+    g: OPT.VMEM
 };
 
 const prefixes = {
@@ -80,7 +79,7 @@ function OpCatcher(format)
     this.type = OPC[opType.toLowerCase()];
 
     this.carrySizeInference = true;
-    if(this.type === OPT.XMEM || this.type === OPT.YMEM || this.type === OPT.MEM)
+    if(this.type === OPT.VMEM || this.type === OPT.MEM)
     {
         this.forceRM = true;
         this.carrySizeInference = false;
@@ -178,7 +177,9 @@ function Operation(format)
     this.vexOnly = format[0][0] === 'v';
     if(this.vexOnly)
     {
-        if(format[0].includes('w')) this.vexBase = 0x80;
+        this.vexBase = 0;
+        if(format[0].includes('w')) this.vexBase |= 0x80;
+        if(format[0].includes('l')) this.vexBase |= 4;
         format.shift();
     }
     let opcode = format.shift();
