@@ -29,10 +29,9 @@ var mnemonics = {};
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
+const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "o": 96, "x": 128, "y": 256, "z": 512};
 const SUFFIX_DEFAULT = 1;
 const SUFFIX_EXPLICIT = 2;
-const SUFFIX_SIGNED = 4;
 
 function getSizes(format, defaultCatcher = null)
 {
@@ -48,8 +47,6 @@ function getSizes(format, defaultCatcher = null)
             size |= sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
             if(defaultCatcher) defaultCatcher(size);
         }
-        else if(sizeChar === 'o')
-            size |= 64 | SUFFIX_SIGNED;
         else
             size |= sizeIds[sizeChar];
         
@@ -73,7 +70,7 @@ function OpCatcher(format)
     this.vexOp = this.vexOpImm || format[0] === '>';
     if(this.forceRM || this.vexOp) format = format.slice(1);
     let opType = format[0];
-    this.acceptsMemory = "rvb".includes(opType);
+    this.acceptsMemory = "rvbk".includes(opType);
     this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
@@ -134,7 +131,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes === -1)
     {
-        if(prevSize & SUFFIX_SIGNED) opSize = operand.size, prevSize = 32;
+        if(prevSize === sizeIds.o) opSize = operand.size, prevSize = 32;
         rawSize = prevSize & ~7;
         if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
         return null;
@@ -144,7 +141,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     {
         for(size of this.sizes)
         {   
-            rawSize = size & ~7;
+            rawSize = size & ~7; if(rawSize === sizeIds.o) rawSize = 64;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {
                 if(!(size & SUFFIX_EXPLICIT) || enforcedSize)
@@ -240,7 +237,7 @@ function Operation(format)
                 continue;
             opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
             if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
-            else if(opCatcher.type === OPT.REG || opCatcher.type === OPT.MASK)
+            if((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK)
             {
                 this.allowVex = false;
                 this.forceVex = true;
