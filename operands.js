@@ -74,6 +74,7 @@ function parseRegister(expectedType = null)
             if(isNaN(reg) || reg >= 8 || reg < 0 || next() != ')')
                 throw "Unknown register";
         }
+        else ungetToken(token);
     }
     else if(reg === registers.rip || reg === registers.eip)
     {

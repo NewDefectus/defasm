@@ -353,11 +353,11 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
 
         if(catcher.implicitValue === null)
         {
-            if(operand.type === OPT.IMM) imms.push(operand);
+            if(operand.type === OPT.IMM) imms.unshift(operand);
             else if(catcher.forceRM/* || reg !== null*/) rm = operand;
             else if(catcher.vexOp)
             {
-                if(catcher.vexOpImm) imms.push({value: BigInt(operand.reg << 4), size: 8});
+                if(catcher.vexOpImm) imms.unshift({value: BigInt(operand.reg << 4), size: 8});
                 else vex = (vex & ~120) | ((~operand.reg & 15) << 3);
             }
             else reg = operand;

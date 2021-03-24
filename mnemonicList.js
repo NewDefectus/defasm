@@ -211,9 +211,315 @@ dec:FE 1 rbwlq
 
 div:F6 6 rbwlq
 
-enter:C8 z iW ib
+divpd:66)0F5E r v >V Vxy
+
+divps:0F5E r v >V Vxy
+
+divsd:F2)0F5E r v >V Vx
+
+divss:F3)0F5E r v >V Vx
+
+dppd:66)0F3A41 r ib v >V Vx
+
+dpps:66)0F3A40 r ib v >V Vxy
+
+emms:0F77
+
+endbr32:F3)0F1EFB
+
+endbr64:F3)0F1EFA
+
+enter:C8 z ib iW
+
+extractps:66)0F3A17 r ib Vx rL >
+
+f2xm1:D9F0
+
+fabs:D9E1
+
+fadd
+D8 0 ml
+DC 0 mQ
+D8C0 o F F_0
+DCC0 o F_0 F
+
+faddp
+DEC0 o F_0 F
+DEC1
+
+fbld:DF 4 mQ
+
+fbstp:DF 6 mQ
+
+fchs:D9E0
+
+fclex:9BDBE2
+
+fcmovb:DAC0 o F F_0
+
+fcmove:DAC8 o F F_0
+
+fcmovbe:DAD0 o F F_0
+
+fcmovu:DAD8 o F F_0
+
+fcmovnb:DBC0 o F F_0
+
+fcmovne:DBC8 o F F_0
+
+fcmovnbe:DBD0 o F F_0
+
+fcmovnu:DBD8 o F F_0
+
+fcom
+D8 2 ml
+DC 2 mQ
+D8D0 o F
+D8D1
+
+fcomp
+D8 3 ml
+DC 3 mQ
+D8D8 o F
+D8D9
+
+fcompp:DED9
+
+fcomi:DBF0 o F F_0
+
+fcomip:DFF0 o F F_0
+
+fcos:D9FF
+
+fdecstp:D9F6
+
+fdiv
+D8 6 ml
+DC 6 mQ
+D8F0 o F F_0
+DCF8 o F_0 F
+
+fdivp
+DEF8 o F_0 F
+DEF9
+
+fdivr
+D8 7 ml
+DC 7 mQ
+D8F8 o F F_0
+DCF0 o F_0 F
+
+fdivrp
+DEF0 o F_0 F
+DEF1
+
+ffree:DDC0 o F
+
+fiadd
+DA 0 ml
+DE 0 mW
+
+ficom
+DA 2 ml
+DE 2 mW
+
+ficomp
+DA 3 ml
+DE 3 mW
+
+fidiv
+DA 6 ml
+DE 6 mW
+
+fidivr
+DA 7 ml
+DE 7 mW
+
+fild
+DF 0 mW
+DB 0 ml
+DF 5 mQ
+
+fimul
+DA 1 ml
+DE 1 mW
+
+fincstp:D9F7
+
+finit:9BDBE3
+
+fist
+DB 2 ml
+DF 2 mW
+
+fistp
+DB 3 ml
+DF 3 mW
+DF 7 mQ
+
+fisttp
+DB 1 ml
+DF 1 mW
+DD 1 mQ
+
+fisub
+DA 4 ml
+DE 4 mW
+
+fisubr
+DA 5 ml
+DE 5 mW
+
+fld
+D9 0 ml
+DD 0 mQ
+D9C0 o F
+
+fld1:D9E8
+
+fldl2t:D9E9
+
+fldl2e:D9EA
+
+fldpi:D9EB
+
+fldlg2:D9EC
+
+fldln2:D9ED
+
+fldt:DB 5 mQ
+
+fldz:D9EE
+
+fldcw:D9 5 mW
+
+fldenv:D9 4 mL
+
+fmul
+D8 1 ml
+DC 1 mQ
+D8C8 o F F_0
+DCC8 o F_0 F
+
+fmulp
+DEC8 o F_0 F
+DEC9
+
+fnclex:DBE2
+
+fninit:DBE3
+
+fnop:D9D0
+
+fnsave:DD 6 mQ
+
+fnstcw:D9 7 mW
+
+fnstenv:D9 6 mL
+
+fnstsw
+DD 7 mW
+DFE0 z R_0w
+
+fpatan:D9F3
+
+fprem:D9F8
+
+fprem1:D9F5
+
+fptan:D9F2
+
+frndint:D9FC
+
+frstor:DD 4 mQ
+
+fsave:9BDD 6 mQ
+
+fscale:D9FD
+
+fsin:D9FE
+
+fsincos:D9FB
+
+fsqrt:D9FA
+
+fst
+D9 2 ml
+DD 2 mQ
+DDD0 o F
+
+fstcw:9BD9 7 mW
+
+fstenv:9BD9 6 mL
+
+fstp
+D9 3 ml
+DD 3 mQ
+DDD8 o F
+
+fstpt:DB 7 mQ
+
+fstsw
+9BDD 7 mW
+9BDFE0 z R_0w
+
+fsub
+D8 4 mW
+DC 4 mQ
+D8E0 o F F_0
+DCE8 o F_0 F
+
+fsubp
+DEE8 o F_0 F
+DEE9
+
+fsubr
+D8 5 mW
+DC 5 mQ
+D8E8 o F F_0
+DCE0 o F_0 F
+
+fsubrp
+DEE0 o F_0 F
+DEE1
+
+ftst:D9E4
+
+fucom
+DDE0 o F
+DDE1
+
+fucomp
+DDE8 o F
+DDE9
+
+fucompp:DAE9
+
+fucomi:DBE8 o F F_0
+
+fucomip:DFE8 o F F_0
 
 fwait:#wait
+
+fxam:D9E5
+
+fxch
+D9C8 o F
+D9C9
+
+fxrstor:0FAE 1 mQ
+
+fxrstor64:0FAE 1 m~Q
+
+fxsave:0FAE 0 mQ
+
+fxsave64:0FAE 0 m~Q
+
+fxtract:D9F4
+
+fyl2x:D9F1
+
+fyl2xp1:D9F9
 
 hlt:F4
 
