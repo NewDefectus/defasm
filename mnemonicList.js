@@ -119,7 +119,15 @@ cldemote:0F1C 0 mB
 
 clflush:0FAE 7 mB
 
+clflushopt:66)0FAE 7 mB
+
 cli:FA
+
+clrssbsy:F3)0FAE 6 mQ
+
+clts:0F06
+
+clwb:66)0FAE 6 mB
 
 cmc:F5
 
@@ -373,29 +381,39 @@ shiftMnemonics.forEach((name, i) => {
         ];
 });
 
-// Adding conditional jmp instructions
-let conditionalJmps = `jo
-jno
-jb jc jnae
-jae jnb jnc
-je jz
-jne jnz
-jbe jna
-ja jnbe
-js
-jns
-jp jpe
-jnp jpo
-jl jnge
-jge jnl
-jle jng
-jg jnle`.split('\n');
-conditionalJmps.forEach((names, i) => {
+// Adding conditional instructions
+let conditionals = `o
+no
+b c nae
+ae nb nc
+e z
+ne nz
+be na
+a nbe
+s
+ns
+p pe
+np po
+l nge
+ge nl
+le ng
+g nle`.split('\n');
+conditionals.forEach((names, i) => {
     names = names.split(' ');
     let firstName = names.shift();
-    mnemonics[firstName] = [
+
+    // jxx instructions
+    mnemonics['j' + firstName] = [
         hex(0x70 + i) + " z Ib",
         hex(0x0F80 + i) + " z Il"
     ];
-    names.forEach(name => mnemonics[name] = ['#' + firstName]);
+
+    // cmovxx instructions
+    mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r r Rwlq"];
+
+    // Aliases
+    names.forEach(name => {
+        mnemonics['j' + name] = ['#j' + firstName];
+        mnemonics['cmov' + name] = ['#cmov' + firstName];
+    });
 });
