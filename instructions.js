@@ -186,7 +186,7 @@ function makeModRM(rm, r)
     }
 
     // Encoding the "mod" (modifier) field
-    if(rm.type !== OPT.MEM) modrm |= 0xC0; // mod=11
+    if(rm.type !== OPT.MEM && rm.type !== OPT.XMEM && rm.type !== OPT.YMEM) modrm |= 0xC0; // mod=11
     else if(rm.reg >= 0)
     {
         if(rm.value !== null)
@@ -203,7 +203,8 @@ function makeModRM(rm, r)
     {
         // These are the respective "none" type registers
         rm.reg = 5;
-        rm.reg2 = 4;
+        if(rm.reg2 === null) rm.reg2 = 4;
+        rm.value ||= 0n;
     }
     
     // Encoding the "rm" field

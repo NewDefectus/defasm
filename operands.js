@@ -11,6 +11,8 @@ BND:    8,  // Bound register (128-bit) - %bnd0 / %bnd3
 MASK:   9,  // Mask register (64-bit) - %k0 / %k7
 CTRL:   10, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
 DBG:    11, // Debug register (64-bit) - %dr0 / %dr7
+XMEM:   12, // XMM vector memory - e.g. (%xmm0)
+YMEM:   13  // YMM vector memory - e.g. (%ymm0)
 };
 
 
@@ -203,26 +205,46 @@ function Operand()
         }
         else
         {
-            [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP]);
-            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-            else if(tempSize !== 64) throw "Invalid register size";
-            if(tempType === OPT.IP) this.ripRelative = true;
-            else if(token === ',')
+            [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+            if(tempType === OPT.VEC)
             {
-                if(next() !== '%') throw "Expected register";
-                [this.reg2, _, tempSize] = parseRegister([OPT.REG]);
-                if(this.reg2 === 4) throw "Memory index cannot be RSP";
+                if(tempSize === 128) this.type = OPT.XMEM;
+                else if(tempSize === 256) this.type = OPT.YMEM;
+                else throw "Invalid register size";
+                this.reg2 = this.reg;
+                this.reg = -1;
+            }
+            else
+            {
                 if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
                 else if(tempSize !== 64) throw "Invalid register size";
-
-                if(token === ',')
+                if(tempType === OPT.IP) this.ripRelative = true;
+                else if(token === ',')
                 {
-                    this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
-                    if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
+                    if(next() !== '%') throw "Expected register";
+                    [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
+                    if(tempType === OPT.VEC)
+                    {
+                        if(tempSize === 128) this.type = OPT.XMEM;
+                        else if(tempSize === 256) this.type = OPT.YMEM;
+                        else throw "Invalid register size";
+                    }
+                    else
+                    {
+                        if(this.reg2 === 4) throw "Memory index cannot be RSP";
+                        if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                        else if(tempSize !== 64) throw "Invalid register size";
+                    }
+
+                    if(token === ',')
+                    {
+                        this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
+                        if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
+                    }
                 }
+                else if(this.reg === 4) this.reg2 = 4;
             }
-            else if(this.reg === 4) this.reg2 = 4;
-            if(this.reg === 5) this.value ||= 0n; 
+            if((this.reg & 7) === 5) this.value ||= 0n; 
         }
         if(token != ')') throw "Expected ')'";
         next();

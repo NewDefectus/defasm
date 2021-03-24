@@ -9,7 +9,9 @@ const OPC = {
     b: OPT.BND,
     k: OPT.MASK,
     c: OPT.CTRL,
-    d: OPT.DBG
+    d: OPT.DBG,
+    g: OPT.XMEM,
+    h: OPT.YMEM
 };
 
 const prefixes = {
@@ -76,6 +78,8 @@ function OpCatcher(format)
     this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
+
+    if(this.type === OPT.XMEM || this.type == OPT.YMEM) this.forceRM = true;
     
 
 
@@ -163,9 +167,15 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
  */
 function Operation(format)
 {
+    this.vexBase = null;
+
     // Interpreting the opcode
-    this.vexOnly = format[0] === 'v';
-    if(this.vexOnly) format.shift();
+    this.vexOnly = format[0][0] === 'v';
+    if(this.vexOnly)
+    {
+        if(format[0].includes('w')) this.vexBase = 0x80;
+        format.shift();
+    }
     let opcode = format.shift();
     if(opcode[2] === ')') // Prefix followed by ')'
     {
@@ -237,12 +247,11 @@ function Operation(format)
             }
         }
 
-        this.vexBase = null;
-
         // Generate the necessary vex info
         if(this.allowVex || this.forceVex)
         {
-            this.vexBase = 120 |
+            if(this.vexBase === null) this.vexBase = 0;
+            this.vexBase |= 120 |
                 (([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1) << 8)
                 | [null, 0x66, 0xF3, 0xF2].indexOf(this.prefix)
         }
