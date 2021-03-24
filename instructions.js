@@ -167,7 +167,7 @@ Instruction.prototype.compile = function()
 // Generate the ModRM byte
 function makeModRM(rm, r)
 {
-    let modrm = 0, rex = 0, sib = null;
+    let modrm = 0, rex = 0;
 
     // Encoding the "reg" field
     if(r.reg >= 8)
@@ -182,16 +182,29 @@ function makeModRM(rm, r)
     {
         modrm |= 5; // mod = 00, reg = (reg), rm = 101
         rm.value ||= 0n;
-        return [rex, modrm, sib];
+        return [rex, modrm, null];
     }
-
-    if(inferImmSize(rm.value) === 8) rm.dispSize = 8;
 
     // Encoding the "mod" (modifier) field
     if(rm.type !== OPT.MEM) modrm |= 0xC0; // mod=11
-    else if(rm.dispSize !== 8 && rm.reg >= 0) modrm |= 0x80; // mod=10
-    else if(rm.reg >= 0 && rm.value !== null) modrm |= 0x40; // mod=01
-    // else mod=00
+    else if(rm.reg >= 0)
+    {
+        if(rm.value !== null)
+        {
+            if(inferImmSize(rm.value) === 8)
+            {
+                rm.dispSize = 8;
+                modrm |= 0x40; // mod=01
+            }
+            else modrm |= 0x80; // mod=10
+        }
+    }
+    else // mod = 00
+    {
+        // These are the respective "none" type registers
+        rm.reg = 5;
+        rm.reg2 = 4;
+    }
     
     // Encoding the "rm" field
     if(rm.reg >= 8)
@@ -201,30 +214,18 @@ function makeModRM(rm, r)
     }
 
     // Encoding an SIB byte if necessary
-    if(rm.reg2 >= 0 // If there's also an index register
-        || rm.reg < 0 // If both registers are missing (it's just a displacement)
-        )
+    if(rm.reg2 >= 0)
     {
-        if(rm.reg < 0)
-        {
-            // These are the respective "none" type registers
-            rm.reg = 5;
-            rm.reg2 = 4;
-            rm.dispSize = 32; // Displacements on their own have to be of size 32
-        }
-
         if(rm.reg2 >= 8)
         {
             rex |= 2; // rex.X extension
             rm.reg2 &= 7;
         }
-        sib |= (rm.shift << 6) | (rm.reg2 << 3) | rm.reg;
-        modrm |= 4; // rm=100 signifies an SIB byte
+        
+        // rm=100 signifies an SIB byte
+        return [rex, modrm | 4, (rm.shift << 6) | (rm.reg2 << 3) | rm.reg];
     }
-    else modrm |= rm.reg;
-
-
-    return [rex, modrm, sib];
+    return [rex, modrm | rm.reg, null];
 }
 
 
