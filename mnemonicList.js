@@ -109,9 +109,15 @@ cdq:99
 
 cdqe:48)98
 
+clac:0F01CA
+
 clc:F8
 
 cld:FC
+
+cldemote:0F1C 0 mB
+
+clflush:0FAE 7 mB
 
 cli:FA
 
