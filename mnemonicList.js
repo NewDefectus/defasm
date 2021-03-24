@@ -274,8 +274,7 @@ A8 z i R_0bwlo
 F6 0 i rbwlo
 84 r Rbwlq r
 
-vgatherdpd
-vw 66)0F3892 r >Vx G V
+vgatherdpd:vw 66)0F3892 r >Vxy G V
 
 wait:9B
 

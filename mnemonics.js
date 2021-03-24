@@ -74,12 +74,17 @@ function OpCatcher(format)
     this.vexOp = this.vexOpImm || format[0] === '>';
     if(this.forceRM || this.vexOp) format = format.slice(1);
     let opType = format[0];
-    this.acceptsMemory = "rvmb".includes(opType);
+    this.acceptsMemory = "rvb".includes(opType);
     this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
-    if(this.type === OPT.XMEM || this.type == OPT.YMEM) this.forceRM = true;
+    this.carrySizeInference = true;
+    if(this.type === OPT.XMEM || this.type === OPT.YMEM || this.type === OPT.MEM)
+    {
+        this.forceRM = true;
+        this.carrySizeInference = false;
+    }
     
 
 
@@ -296,7 +301,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         }
         correctedSizes[i] = size;
         if(size === 64 && catcher.copySize !== undefined) size = catcher.copySize;
-        if(catcher.type === OPT.IMM) size = correctedSizes[i - 1] || -1; // Size shouldn't be inferred from immediates 
+        if(!catcher.carrySizeInference) size = correctedSizes[i - 1] || -1; // Size shouldn't be inferred from some operands
     }
 
     // If the operand size specification wasn't in order,
