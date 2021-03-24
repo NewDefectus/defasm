@@ -30,8 +30,9 @@ var mnemonics = {};
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
 const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "o": 96, "x": 128, "y": 256, "z": 512};
-const SUFFIX_DEFAULT = 1;
-const SUFFIX_EXPLICIT = 2;
+const SIZETYPE_DEFAULT = 1;
+const SIZETYPE_EXPLICITSUF = 2;
+const SIZETYPE_IMPLICITENC = 4;
 
 function getSizes(format, defaultCatcher = null)
 {
@@ -40,11 +41,13 @@ function getSizes(format, defaultCatcher = null)
     {
         size = 0;
         sizeChar = format[i];
-        if(sizeChar === '~') // ~ prefix means this size must be explicit
-            size |= SUFFIX_EXPLICIT, sizeChar = format[++i];
+        if(sizeChar === '~') // ~ prefix means this size must be explicitly chosen with a suffix
+            size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
+        if(sizeChar === '$') // $ prefix means this size should be encoded without a prefix
+            size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
         if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
         {
-            size |= sizeIds[sizeChar.toLowerCase()] | SUFFIX_DEFAULT;
+            size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_DEFAULT | SIZETYPE_IMPLICITENC;
             if(defaultCatcher) defaultCatcher(size);
         }
         else
@@ -144,7 +147,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             rawSize = size & ~7; if(rawSize === sizeIds.o) rawSize = 64;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {
-                if(!(size & SUFFIX_EXPLICIT) || enforcedSize)
+                if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize)
                 {
                     found = true;
                     break;
@@ -330,10 +333,10 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         let foundSize = false;
         for(let checkableSize of this.checkableSizes)
         {
-            if(enforcedSize === (checkableSize & ~7) || (enforcedSize < 0 && (checkableSize & SUFFIX_DEFAULT)))
+            if(enforcedSize === (checkableSize & ~7) || (enforcedSize < 0 && (checkableSize & SIZETYPE_DEFAULT)))
             {
                 if(this.checkableSizes.includes(8) && enforcedSize > 8) correctedOpcode += this.opDiff;
-                overallSize = (checkableSize & SUFFIX_DEFAULT) ? 0 : enforcedSize;
+                overallSize = (checkableSize & SIZETYPE_DEFAULT) ? 0 : enforcedSize;
                 foundSize = true;
                 break;
             }
@@ -360,7 +363,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         }
 
         // Only set to overall size if it's not the default size
-        if(overallSize < (size & ~7) && (!(size & SUFFIX_DEFAULT) || (size & SUFFIX_EXPLICIT))) overallSize = size & ~7;
+        if(overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC)) overallSize = size & ~7;
 
         if(adjustByteOp && (size & ~7) != 8 && Array.isArray(catcher.sizes) && catcher.sizes.includes(8))
         {

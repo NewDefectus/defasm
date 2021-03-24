@@ -749,8 +749,8 @@ conditionals.forEach((names, i) => {
 // FPU arithmetics
 let fpuArithMnemonics = "add mul com comp sub subr div divr";
 fpuArithMnemonics.split(' ').forEach((name, i) => {
-    let list = ["D8 " + i + " ml", "DC " + i + " mQ"];
-    mnemonics['fi' + name] = ["DA " + i + " ml", "DE " + i + " mW"];
+    let list = ["D8 " + i + " ml", "DC " + i + " m$q"];
+    mnemonics['fi' + name] = ["DA " + i + " ml", "DE " + i + " m$w"];
 
     if(i === 2 || i === 3) list.push("D8 " + i + " F", hex(0xD8C1 + i * 8));
     else
