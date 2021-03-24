@@ -131,13 +131,75 @@ clwb:66)0FAE 6 mB
 
 cmc:F5
 
+cmppd:66)0FC2 r ib v >V Vxy
+
+cmpps:0FC2 r ib v >V Vxy
+
 cmps:A6 z -bwlq
 
-cmpxchg16b:0FC7 1 m~Q
+cmpsd:F2)0FC2 r ib v >V Vx
+
+cmpss:F3)0FC2 r ib v >V Vx
+
+cmpxchg:0FB0 r Rbwlq r
 
 cmpxchg8b:0FC7 1 mQ
 
-cmpxchg:0FB0 r Rbwlq r
+cmpxchg16b:0FC7 1 m~Q
+
+comisd:66)0F2F r v Vx >
+
+comiss:0F2F r v Vx >
+
+cpuid:0FA2
+
+crc32
+F2)0F38F0 r rbwl RL
+F2)0F38F0 r rbq Rq
+
+cvtdq2pd:F3)0FE6 r vX Vxy >
+
+cvtdq2ps:0F5B r v Vxy >
+
+cvtpd2dq:F2)0FE6 r vXy Vx >
+
+cvtpd2pi:66)0F2D r vX VQ
+
+cvtpd2ps:66)0F5A r vXy Vx >
+
+cvtpi2pd:66)0F2A r vQ Vx
+
+cvtpi2ps:0F2A r vQ Vx
+
+cvtps2dq:66)0F5B r v Vxy >
+
+cvtps2pd:0F5A r vX Vxy >
+
+cvtps2pi:0F2D r vX VQ
+
+cvtsd2si:F2)0F2D r vX Rlq >
+
+cvtsd2ss:F2)0F5A r vX >Vx Vx
+
+cvtsi2sd:F2)0F2A r rlq >VX VX
+
+cvtsi2ss:F3)0F2A r rlq >VX VX
+
+cvtss2sd:F3)0F5A r v >Vx Vx
+
+cvtss2si:F3)0F2D r vX Rlq >
+
+cvttpd2dq:66)0FE6 r vXy Vx >
+
+cvttpd2pi:66)0F2C r vX VQ
+
+cvttps2dq:F3)0F5B r v Vxy >
+
+cvttps2pi:0F2C r vX VQ
+
+cvttsd2si:F2)0F2C r vX Rlq >
+
+cvtss2si:F3)0F2C r vX Rlq >
 
 cqo:48)99
 

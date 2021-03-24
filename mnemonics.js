@@ -78,7 +78,7 @@ function OpCatcher(format)
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
-    this.carrySizeInference = true;
+    this.carrySizeInference = this.type !== OPT.IMM;
     if(this.type === OPT.VMEM || this.type === OPT.MEM)
     {
         this.forceRM = true;

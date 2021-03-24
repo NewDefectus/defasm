@@ -87,7 +87,7 @@ Instruction.prototype.interpret = function()
                 throw "Segment prefix must be followed by memory reference";
         }
 
-        if(enforcedSize > 0) operand.size = operand.unsignedSize = enforcedSize;
+        if(enforcedSize > 0 && operand.type !== OPT.REG) operand.size = operand.unsignedSize = enforcedSize;
         if(labelDependency !== null)
         {
             needsRecompilation = true;
