@@ -521,6 +521,12 @@ fyl2x:D9F1
 
 fyl2xp1:D9F9
 
+gf2p8affineinvqb:66)0F3ACF r ib v >V Vxy
+
+gf2p8affineqb:66)0F3ACE r ib v >V Vxy
+
+gf2p8mulb:66)0F38CF r v >V Vxy
+
 hlt:F4
 
 idiv:F6 7 rbwlq
