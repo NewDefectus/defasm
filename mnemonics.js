@@ -232,25 +232,24 @@ function Operation(format)
         let opCatcher;
 
         if(format[0][0] === '-')
-            this.checkableSizes = getSizes(format[0].slice(1));
-        else
-        {
-            for(let operand of format)
-            {
-                if(operand === '>') // Empty VEX operands shouldn't be counted
-                    continue;
-                opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-                if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
-                else if(opCatcher.type === OPT.REG)
-                {
-                    this.allowVex = false;
-                    this.forceVex = true;
-                    this.vexOpCatchers = [];
-                    this.opCatchers.push(opCatcher);
-                }
+            this.checkableSizes = getSizes(format.shift().slice(1));
 
-                if(this.allowVex) this.vexOpCatchers.push(opCatcher);
+        for(let operand of format)
+        {
+            if(operand === '>') // Empty VEX operands shouldn't be counted
+                continue;
+            opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
+            if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
+            else if(opCatcher.type === OPT.REG || opCatcher.type === OPT.MASK)
+            {
+                this.allowVex = false;
+                this.forceVex = true;
+                this.vexOnly = false;
+                this.vexOpCatchers = [];
+                this.opCatchers.push(opCatcher);
             }
+
+            if(this.allowVex) this.vexOpCatchers.push(opCatcher);
         }
 
         // Generate the necessary vex info

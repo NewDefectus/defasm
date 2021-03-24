@@ -527,7 +527,15 @@ gf2p8affineqb:66)0F3ACE r ib v >V Vxy
 
 gf2p8mulb:66)0F38CF r v >V Vxy
 
+haddpd:66)0F7C r v >V Vxy
+
+haddps:F2)0F7C r v >V Vxy
+
 hlt:F4
+
+hsubpd:66)0F7D r v >V Vxy
+
+hsubps:F2)0F7D r v >V Vxy
 
 idiv:F6 7 rbwlq
 
@@ -544,7 +552,11 @@ EC z R_2W R_0bwl
 
 inc:FE 0 rbwlq
 
+incsspd:F3)0FAE 5 Rlq
+
 ins:6C z -bwl
+
+insertps:66)0F3A21 r ib v >V Vx
 
 int
 CC z i_3
@@ -555,7 +567,13 @@ int1:F1
 
 int3:CC
 
-iret:CF
+invd:0F08
+
+invlpg:0F01 7 mB
+
+invpcid:66)0F3882 r mQ RQ
+
+iret:CF z -Lq
 
 jecxz:67)E3 z Ib
 
@@ -564,6 +582,24 @@ Eb z-2 Ibl
 FF 4 rQ
 
 jrcxz:E3 z Ib
+
+kadd
+vl 66)0F4A r -B ^K >K K
+vl 0F4A r -W ^K >K K
+vlw 66)0F4A r -L ^K >K K
+vlw 0F4A r -Q ^K >K K
+
+kand
+vl 66)0F41 r -B ^K >K K
+vl 0F41 r -W ^K >K K
+vlw 66)0F41 r -L ^K >K K
+vlw 0F41 r -Q ^K >K K
+
+kandn
+vl 66)0F42 r -B ^K >K K
+vl 0F42 r -W ^K >K K
+vlw 66)0F42 r -L ^K >K K
+vlw 0F42 r -Q ^K >K K
 
 lahf:9F
 
