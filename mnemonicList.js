@@ -1,5 +1,5 @@
 let lines;
-var mnemonicStrings = `
+let mnemonicStrings = `
 
 adcx:66)0F38F6 r r Rlq
 
@@ -237,16 +237,6 @@ f2xm1:D9F0
 
 fabs:D9E1
 
-fadd
-D8 0 ml
-DC 0 mQ
-D8 0 F F_0
-DC 0 F_0 F
-
-faddp
-DE 0 F_0 F
-DEC1
-
 fbld:DF 4 mQ
 
 fbstp:DF 6 mQ
@@ -271,18 +261,6 @@ fcmovnbe:DB 2 F F_0
 
 fcmovnu:DB 3 F F_0
 
-fcom
-D8 2 ml
-DC 2 mQ
-D8 2 F
-D8D1
-
-fcomp
-D8 3 ml
-DC 3 mQ
-D8 3 F
-D8D9
-
 fcompp:DED9
 
 fcomi:DB 6 F F_0
@@ -293,47 +271,7 @@ fcos:D9FF
 
 fdecstp:D9F6
 
-fdiv
-D8 6 ml
-DC 6 mQ
-D8 6 F F_0
-DC 7 F_0 F
-
-fdivp
-DE 7 F_0 F
-DEF9
-
-fdivr
-D8 7 ml
-DC 7 mQ
-D8 7 F F_0
-DC 6 F_0 F
-
-fdivrp
-DE 6 F_0 F
-DEF1
-
 ffree:DD 0 F
-
-fiadd
-DA 0 ml
-DE 0 mW
-
-ficom
-DA 2 ml
-DE 2 mW
-
-ficomp
-DA 3 ml
-DE 3 mW
-
-fidiv
-DA 6 ml
-DE 6 mW
-
-fidivr
-DA 7 ml
-DE 7 mW
 
 fild
 DF 0 mW
@@ -462,26 +400,6 @@ fstpt:DB 7 mQ
 fstsw
 9BDD 7 mW
 9BDFE0 z R_0w
-
-fsub
-D8 4 mW
-DC 4 mQ
-D8 4 F F_0
-DC 5 F_0 F
-
-fsubp
-DE 5 F_0 F
-DEE9
-
-fsubr
-D8 5 mW
-DC 5 mQ
-D8 5 F F_0
-DC 4 F_0 F
-
-fsubrp
-DE 4 F_0 F
-DEE1
 
 ftst:D9E4
 
@@ -827,3 +745,21 @@ conditionals.forEach((names, i) => {
         mnemonics['cmov' + name] = ['#cmov' + firstName];
     });
 });
+
+// FPU arithmetics
+let fpuArithMnemonics = "add mul com comp sub subr div divr";
+fpuArithMnemonics.split(' ').forEach((name, i) => {
+    let list = ["D8 " + i + " ml", "DC " + i + " mQ"];
+    mnemonics['fi' + name] = ["DA " + i + " ml", "DE " + i + " mW"];
+
+    if(i === 2 || i === 3) list.push("D8 " + i + " F", hex(0xD8C1 + i * 8));
+    else
+    {
+        list.push("D8 " + i + " F F_0");
+        if(i >= 4) i ^= 1;
+        list.push("DC " + i + " F_0 F");
+        mnemonics['f' + name + 'p'] = ["DE " + i + " F_0 F", hex(0xDEC1 + i * 8)];
+    }
+
+    mnemonics['f' + name] = list;
+})
