@@ -621,6 +621,14 @@ sha256msg1:0F38CC r v Vx
 
 sha256msg2:0F38CD r v Vx
 
+shld
+0FA4 r ib Rwlq r
+0FA5 r R_1b Rwlq r
+
+shrd
+0FAC r ib Rwlq r
+0FAD r R_1b Rwlq r
+
 stc:F9
 
 std:FD
