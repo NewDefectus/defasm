@@ -560,6 +560,8 @@ movs:A4 z -bwlq
 
 movzx:0FB6 r rb$w Rwlq
 
+mpsadbw:66)0F3A42 r ib v >V Vxy
+
 mul:F6 4 rbwlq
 
 neg:F6 3 rbwlq
