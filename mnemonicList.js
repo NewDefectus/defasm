@@ -558,6 +558,8 @@ C6 0 i rbwl
 
 movs:A4 z -bwlq
 
+movzx:0FB6 r rb$w Rwlq
+
 mul:F6 4 rbwlq
 
 neg:F6 3 rbwlq
