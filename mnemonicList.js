@@ -564,6 +564,8 @@ mpsadbw:66)0F3A42 r ib v >V Vxy
 
 mul:F6 4 rbwlq
 
+mulx:F2)0F38F6 r r >Rlq R
+
 neg:F6 3 rbwlq
 
 nop
