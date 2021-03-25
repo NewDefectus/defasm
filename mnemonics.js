@@ -98,6 +98,7 @@ function OpCatcher(format)
     // Next are the sizes
     this.defSize = -1;
     this.sizes = getSizes(format.slice(i), size => this.defSize = size);
+    this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
 
     if(this.sizes.length === 0)
     {
@@ -322,7 +323,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     // In other words, this aids performance.
 
     let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code;
-    let adjustByteOp = true, extendOp = false, overallSize = 0;
+    let adjustByteOp = false, extendOp = false, overallSize = 0;
 
     let operand;
 
@@ -365,12 +366,10 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         // Only set to overall size if it's not the default size
         if(overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC)) overallSize = size & ~7;
 
-        if(adjustByteOp && (size & ~7) != 8 && Array.isArray(catcher.sizes) && catcher.sizes.includes(8))
-        {
-            correctedOpcode += this.opDiff;
-            adjustByteOp = false;
-        }
+        if(size >= 16) adjustByteOp ||= catcher.hasByteSize;
     }
+
+    if(adjustByteOp) correctedOpcode += this.opDiff;
 
     if(this.extension === REG_OP)
     {
