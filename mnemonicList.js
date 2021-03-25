@@ -582,6 +582,10 @@ pop
 
 popf:9D z -wQ
 
+por
+0FEB r v VQ
+66)0FEB r v >V Vxy
+
 push
 50 o RwQ
 6A z-2 Ib~wl
