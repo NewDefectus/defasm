@@ -209,7 +209,7 @@ function Operand()
             if(tempType === OPT.VEC)
             {
                 this.type = OPT.VMEM; this.size = tempSize;
-                if(tempSize !== 128 && tempSize !== 256) throw "Invalid register size";
+                if(tempSize < 128) throw "Invalid register size";
                 this.reg2 = this.reg;
                 this.reg = -1;
             }
@@ -225,7 +225,7 @@ function Operand()
                     if(tempType === OPT.VEC)
                     {
                         this.type = OPT.VMEM; this.size = tempSize;
-                        if(tempSize !== 128 && tempSize !== 256) throw "Invalid register size";
+                        if(tempSize < 128) throw "Invalid register size";
                     }
                     else
                     {
