@@ -601,6 +601,26 @@ sal:#shl
 
 scas:AE z -bwlq
 
+setssbsy:F3)0F01E8
+
+sfence:0FAEF8
+
+sgdt:0F01 0 mQ
+
+sha1rnds4:0F3ACC r ib v Vx
+
+sha1nexte:0F38C8 r v Vx
+
+sha1msg1:0F38C9 r v Vx
+
+sha1msg2:0F38CA r v Vx
+
+sha256rnds2:0F38CB r V_0x v V
+
+sha256msg1:0F38CC r v Vx
+
+sha256msg2:0F38CD r v Vx
+
 stc:F9
 
 std:FD
