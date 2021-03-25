@@ -739,10 +739,14 @@ conditionals.forEach((names, i) => {
     // cmovxx instructions
     mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r r Rwlq"];
 
+    // setxx instructions
+    mnemonics['set' + firstName] = [hex(0x0F90 + i) + " 0 rB"]
+
     // Aliases
     names.forEach(name => {
         mnemonics['j' + name] = ['#j' + firstName];
         mnemonics['cmov' + name] = ['#cmov' + firstName];
+        mnemonics['set' + name] = ["#set" + firstName]
     });
 });
 
