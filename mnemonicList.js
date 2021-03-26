@@ -555,10 +555,10 @@ C6 0 i rbwl
 0F21 r D ^RQ
 0F22 r ^RQ C
 0F23 r ^RQ D
-0F6E r -lq rlq VQ
-0F7E r -lq VQ rlq
-66)0F6E r -lq rlq Vx >
-66)0F7E r -lq Vx rlq >
+0F6E r r~l~q VQ
+0F7E r VQ r~l~q
+66)0F6E r r~l~q VX >
+66)0F7E r VX r~l~q >
 0F6F r -$q v VQ
 0F7F r -$q VQ v
 F3)0F7E r -$q v Vx >

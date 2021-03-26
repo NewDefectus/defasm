@@ -45,8 +45,8 @@ Instruction.prototype.interpret = function()
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        if(enforceVex && mnemonics.hasOwnProperty(opcode.slice(1))) opcode = opcode.slice(1);
-        else
+        if(enforceVex) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+        if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
         {
             enforcedSize = suffixes[opcode[opcode.length - 1]];
             opcode = opcode.slice(0, -1);

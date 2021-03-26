@@ -156,7 +156,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             rawSize = size & ~7; if(rawSize === sizeIds.o) rawSize = 64;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {
-                if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize)
+                if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize === rawSize)
                 {
                     found = true;
                     break;
