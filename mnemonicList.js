@@ -544,17 +544,10 @@ lss:0FB2 r m Rwlq
 mov
 88 r Rbwlq r
 8A r r Rbwlq
-8C r s Rwlq
-8C r s mW
-8E r Rwlq s
-8E r mW s
-C7 0 Il rq
+C7 0 Il Rq
+C7 0 iL mq
 B0 o8 i Rbwlq
 C6 0 i rbwl
-0F20 r C ^RQ
-0F21 r D ^RQ
-0F22 r ^RQ C
-0F23 r ^RQ D
 0F6E r r~l~q VQ
 0F7E r VQ r~l~q
 66)0F6E r r~l~q VX >
@@ -563,6 +556,14 @@ C6 0 i rbwl
 0F7F r -$q VQ v
 F3)0F7E r -$q v Vx >
 66)0FD6 r -$q Vx v >
+8C r s Rwlq
+8C r s mW
+8E r Rwlq s
+8E r mW s
+0F20 r C ^RQ
+0F21 r D ^RQ
+0F22 r ^RQ C
+0F23 r ^RQ D
 
 movddup:F2)0F12 r v Vxy >
 
@@ -751,9 +752,9 @@ syscall:0F05
 
 test
 A8 z i R_0bwl
-A9 z il R_0q
+A9 z iL R_0q
 F6 0 i rbwl
-F7 0 il rq
+F7 0 iL rq
 84 r Rbwlq r
 
 vgatherdpd:vw 66)0F3892 r >Vxy Gx V
@@ -829,10 +830,10 @@ arithmeticMnemonics.forEach((name, i) => {
     mnemonics[name] = [
         hex(opBase + 4) + " z i R_0bw",
         "83 " + i + " Ib rwlq",
-        hex(opBase + 5) + " z il R_0l",
+        hex(opBase + 5) + " z iL R_0l",
         "80 " + i + " i rbwl",
-        hex(opBase + 5) + " z il R_0q",
-        "81 " + i + " Il rq",
+        hex(opBase + 5) + " z iL R_0q",
+        "81 " + i + " IL rq",
         hex(opBase) + " r Rbwlq r",
         hex(opBase + 2) + " r r Rbwlq"
     ];

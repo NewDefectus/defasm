@@ -136,8 +136,12 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     if(isNaN(opSize))
     {
         // For unknown-sized operands, if possible, choose the default size
-        if(this.defSize > 0) size = this.defSize;
+        if(this.defSize > 0) return this.defSize;
         else opSize = prevSize & ~7; // If a default size isn't available, use the previous size
+    }
+    else if(this.type === OPT.IMM) // Allow immediates to be downcast if necessary
+    {
+        if(this.defSize > 0 && this.defSize < opSize) return this.defSize;
     }
 
     // For unknown-sized operand catchers, compare against the previous size
@@ -148,7 +152,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         return null;
     }
 
-    if(size === 0 && Array.isArray(this.sizes))
+    if(this.sizes !== 0)
     {
         for(size of this.sizes)
         {   
