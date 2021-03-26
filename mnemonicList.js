@@ -496,7 +496,7 @@ iret:CF z -Lq
 jecxz:67)E3 z Ib
 
 jmp
-Eb z-2 Ibl
+EB z-2 Ibl
 FF 4 rQ
 
 jrcxz:E3 z Ib
