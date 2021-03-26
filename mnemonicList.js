@@ -541,6 +541,30 @@ lsl:0F03 r rW Rwlq
 
 lss:0FB2 r m Rwlq
 
+maskmovdqu:66)0FF7 r ^Vx V >
+
+maskmovq:0FF7 r ^VQ V
+
+maxpd:66)0F5F r v >V Vxy
+
+maxps:0F5F r v >V Vxy
+
+maxsd:F2)0F5F r v >V Vx
+
+maxss:F3)0F5F r v >V Vx
+
+mfence:0FAEF0
+
+minpd:66)0F5D r v >V Vxy
+
+minps:0F5D r v >V Vxy
+
+minsd:F2)0F5D r v >V Vx
+
+minss:F3)0F5D r v >V Vx
+
+monitor:0F01C8
+
 mov
 88 r Rbwlq r
 8A r r Rbwlq
