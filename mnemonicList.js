@@ -558,13 +558,51 @@ C6 0 i rbwl
 
 movs:A4 z -bwlq
 
+movsd
+F2)0F10 r ^Vx >V V
+F2)0F10 r m Vx >
+F2)0F11 r Vx m >
+
+movshdup:F3)0F16 r v Vxy >
+
+movsldup:F3)0F12 r v Vxy >
+
+movss
+F3)0F10 r ^Vx >V V
+F3)0F10 r m Vx >
+F3)0F11 r Vx m >
+
+movsx:0FBE r rb$w Rwlq
+
+movsxd
+63 r r Rw
+63 r rL Rlq
+
+movupd
+66)0F10 r v Vxy >
+66)0F11 r Vxy v >
+
+movups
+0F10 r v Vxy >
+0F11 r Vxy v >
+
 movzx:0FB6 r rb$w Rwlq
 
 mpsadbw:66)0F3A42 r ib v >V Vxy
 
 mul:F6 4 rbwlq
 
+mulpd:66)0F59 r v >V Vxy
+
+mulps:0F59 r v >V Vxy
+
+mulsd:F2)0F59 r v >V Vx
+
+mulss:F3)0F59 r v >V Vx
+
 mulx:F2)0F38F6 r r >Rlq R
+
+mwait:0F01C9
 
 neg:F6 3 rbwlq
 
