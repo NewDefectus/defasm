@@ -29,7 +29,7 @@ var mnemonics = {};
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "o": 96, "x": 128, "y": 256, "z": 512};
+const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
 const SIZETYPE_DEFAULT = 1;
 const SIZETYPE_EXPLICITSUF = 2;
 const SIZETYPE_IMPLICITENC = 4;
@@ -143,7 +143,6 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes === -1)
     {
-        if(prevSize === sizeIds.o) opSize = operand.size, prevSize = 32;
         rawSize = prevSize & ~7;
         if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
         return null;
@@ -153,7 +152,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     {
         for(size of this.sizes)
         {   
-            rawSize = size & ~7; if(rawSize === sizeIds.o) rawSize = 64;
+            rawSize = size & ~7;
             if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
             {
                 if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize === rawSize)

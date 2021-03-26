@@ -750,8 +750,10 @@ stos:AA z -bwlq
 syscall:0F05
 
 test
-A8 z i R_0bwlo
-F6 0 i rbwlo
+A8 z i R_0bwl
+A9 z il R_0q
+F6 0 i rbwl
+F7 0 il rq
 84 r Rbwlq r
 
 vgatherdpd:vw 66)0F3892 r >Vxy Gx V
@@ -832,7 +834,7 @@ arithmeticMnemonics.forEach((name, i) => {
         hex(opBase + 5) + " z il R_0q",
         "81 " + i + " Il rq",
         hex(opBase) + " r Rbwlq r",
-        hex(opBase + 2) + " r r Rbwlq",
+        hex(opBase + 2) + " r r Rbwlq"
     ];
 });
 
