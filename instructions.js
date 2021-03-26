@@ -29,7 +29,7 @@ Instruction.prototype.genInteger = function(byte, size)
 // Generate Instruction.outline
 Instruction.prototype.interpret = function()
 {
-    let opcode = this.opcode, operand = null, enforcedSize = -1, enforceVex = opcode[0] === 'v', prefsToGen = 0;
+    let opcode = this.opcode, operand = null, enforcedSize = 0, enforceVex = opcode[0] === 'v', prefsToGen = 0;
     let needsRecompilation = false;
     labelDependency = null;
 
@@ -41,8 +41,6 @@ Instruction.prototype.interpret = function()
         token = ';';
         return;
     }
-
-    
 
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
@@ -87,7 +85,6 @@ Instruction.prototype.interpret = function()
                 throw "Segment prefix must be followed by memory reference";
         }
 
-        if(enforcedSize > 0 && operand.type !== OPT.REG) operand.size = operand.unsignedSize = enforcedSize;
         if(labelDependency !== null)
         {
             needsRecompilation = true;

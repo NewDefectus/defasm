@@ -502,22 +502,22 @@ FF 4 rQ
 jrcxz:E3 z Ib
 
 kadd
-vl 66)0F4A r -B ^K >K K
-vl 0F4A r -W ^K >K K
-vlw 66)0F4A r -L ^K >K K
-vlw 0F4A r -Q ^K >K K
+vl 66)0F4A r -b ^K >K K
+vl 0F4A r -$w ^K >K K
+vlw 66)0F4A r -l ^K >K K
+vlw 0F4A r -$q ^K >K K
 
 kand
-vl 66)0F41 r -B ^K >K K
-vl 0F41 r -W ^K >K K
-vlw 66)0F41 r -L ^K >K K
-vlw 0F41 r -Q ^K >K K
+vl 66)0F41 r -b ^K >K K
+vl 0F41 r -$w ^K >K K
+vlw 66)0F41 r -l ^K >K K
+vlw 0F41 r -$q ^K >K K
 
 kandn
-vl 66)0F42 r -B ^K >K K
-vl 0F42 r -W ^K >K K
-vlw 66)0F42 r -L ^K >K K
-vlw 0F42 r -Q ^K >K K
+vl 66)0F42 r -b ^K >K K
+vl 0F42 r -$w ^K >K K
+vlw 66)0F42 r -l ^K >K K
+vlw 0F42 r -$q ^K >K K
 
 lahf:9F
 
@@ -555,6 +555,68 @@ C6 0 i rbwl
 0F21 r D ^RQ
 0F22 r ^RQ C
 0F23 r ^RQ D
+0F6E r -lq rlq VQ
+0F7E r -lq VQ rlq
+66)0F6E r -lq rlq Vx >
+66)0F7E r -lq Vx rlq >
+0F6F r -$q v VQ
+0F7F r -$q VQ v
+F3)0F7E r -$q v Vx >
+66)0FD6 r -$q Vx v >
+
+movddup:F2)0F12 r v Vxy >
+
+movdiri:0F38F9 r Rlq m
+
+movdir64b:66)0F38F8 r m Rwlq
+
+movdqa
+66)0F6F r v Vxy >
+66)0F7F r Vxy v >
+
+movdqu
+F3)0F6F r v Vxy >
+F3)0F7F r Vxy v >
+
+movdq2q:F2)0FD6 r ^Vx VQ
+
+movhlps:0F12 r ^Vx >V V
+
+movhpd
+66)0F16 r m >V Vx
+66)0F17 r Vx m >
+
+movhps
+0F16 r m >V Vx
+0F17 r Vx m >
+
+movlhps:0F16 r ^Vx >V V
+
+movlpd
+66)0F12 r m >V Vx
+66)0F13 r Vx m >
+
+movlps
+0F12 r m >V Vx
+0F13 r Vx m >
+
+movmskpd:66)0F50 r ^Vxy R! >
+
+movmskps:0F50 r ^Vxy R! >
+
+movntdqa:66)0F382A r m Vxy >
+
+movntdq:66)0FE7 r Vxy m >
+
+movnti:0FC3 r Rlq m
+
+movntpd:66)0F2B r Vxy m >
+
+movntps:0F2B r Vxy m >
+
+movntq:0FE7 r VQ m
+
+movq2dq:F3)0FD6 r ^VQ Vx
 
 movs:A4 z -bwlq
 

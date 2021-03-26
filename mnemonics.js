@@ -97,8 +97,17 @@ function OpCatcher(format)
 
     // Next are the sizes
     this.defSize = -1;
-    this.sizes = getSizes(format.slice(i), size => this.defSize = size);
-    this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
+
+    if(format[i] === '!')
+    {
+        this.sizes = 0;
+        this.hasByteSize = false;
+    }
+    else
+    {
+        this.sizes = getSizes(format.slice(i), size => this.defSize = size);
+        this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
+    }
 
     if(this.sizes.length === 0)
     {
@@ -110,20 +119,19 @@ function OpCatcher(format)
 /** Attempt to "catch" a given operand.
  * @param {Operand} operand 
  * @param {number} prevSize 
- * @param {boolean} enforcedSize 
+ * @param {number} enforcedSize 
  * @returns {number|null} The operand's corrected size on success, null on failure
  */
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 {
     // Check that the types match
-    if(operand.type !== this.type && !(operand.type === OPT.MEM && this.acceptsMemory))
-    {
-        return null;
-    }
+    if(operand.type !== this.type && !(operand.type === OPT.MEM && this.acceptsMemory)) return null;
 
     // Check that the sizes match
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
+
+    if(enforcedSize > 0 && (operand.type === OPT.IMM || operand.type === OPT.MEM)) opSize = enforcedSize;
 
     if(isNaN(opSize))
     {
@@ -278,7 +286,7 @@ function Operation(format)
 
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
- * @param {number} enforcedSize The size that was enforced, or -1 if no size was enforced
+ * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
  * @param {boolean} enforceVex True if a VEX prefix is needed (i.e. the mnemonic starts with the letter 'v')
  * @returns {operationResults|null} The information needed to encode the instruction
  */
@@ -288,16 +296,37 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     {
         if(!this.allowVex) return null;
     } else if(this.vexOnly) return null;
+
+    let adjustByteOp = false, overallSize = 0;
+
+    // Special case for the '-' implicit op catcher
+    if(this.checkableSizes)
+    {
+        let foundSize = false;
+        for(let checkableSize of this.checkableSizes)
+        {
+            if(enforcedSize === (checkableSize & ~7) || (enforcedSize === 0 && (checkableSize & SIZETYPE_DEFAULT)))
+            {
+                if(this.checkableSizes.includes(8) && enforcedSize > 8) adjustByteOp = true;
+                overallSize = (checkableSize & SIZETYPE_IMPLICITENC) ? 0 : enforcedSize;
+                foundSize = true;
+                break;
+            }
+        }
+        if(!foundSize) return null;
+        enforcedSize = 0;
+    }
+
     let opCatchers = enforceVex ? this.vexOpCatchers : this.opCatchers;
     if(operands.length !== opCatchers.length) return null; // Operand numbers must match
-    let correctedSizes = new Array(operands.length), size = -1, i, catcher, isEnforced = enforcedSize > 0;
+    let correctedSizes = new Array(operands.length), size = -1, i, catcher;
 
     for(i = 0; i < operands.length; i++)
     {
         catcher = opCatchers[i];
         if(size > 0 || Array.isArray(catcher.sizes))
         {
-            size = catcher.catch(operands[i], size, isEnforced);
+            size = catcher.catch(operands[i], size, enforcedSize);
             if(size === null) return null;
         }
         correctedSizes[i] = size;
@@ -311,7 +340,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     {
         if(correctedSizes[i] < 0)
         {
-            size = opCatchers[i].catch(operands[i], size, isEnforced);
+            size = opCatchers[i].catch(operands[i], size, enforcedSize);
             if(size === null) return null;
             correctedSizes[i] = size;
         }
@@ -323,27 +352,9 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     // In other words, this aids performance.
 
     let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code;
-    let adjustByteOp = false, extendOp = false, overallSize = 0;
+    let extendOp = false;
 
     let operand;
-
-    // Special case for the '-' implicit op catcher
-    
-    if(this.checkableSizes)
-    {
-        let foundSize = false;
-        for(let checkableSize of this.checkableSizes)
-        {
-            if(enforcedSize === (checkableSize & ~7) || (enforcedSize < 0 && (checkableSize & SIZETYPE_DEFAULT)))
-            {
-                if(this.checkableSizes.includes(8) && enforcedSize > 8) correctedOpcode += this.opDiff;
-                overallSize = (checkableSize & SIZETYPE_DEFAULT) ? 0 : enforcedSize;
-                foundSize = true;
-                break;
-            }
-        }
-        if(!foundSize) return null;
-    }
 
     for(i = 0; i < operands.length; i++)
     {
