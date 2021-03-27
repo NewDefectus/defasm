@@ -52,6 +52,7 @@ function parseEvexPermits(string)
             case 'b': permits |= EVEXPERM_BROADCAST; break;
             case 's': permits |= EVEXPERM_SAE; break;
             case 'r': permits |= EVEXPERM_ROUNDING; break;
+            case 'R': permits |= EVEXPERM_ROUNDING
             case 'w': permits |= EVEXPERM_FORCEW; break;
         }
     }
@@ -265,6 +266,7 @@ function Operation(format)
     this.checkableSizes = null;
     this.defaultCheckableSize = null;
     this.forceVex = false;
+    this.maxSize = 0;
 
     let opCatcher;
 
@@ -289,8 +291,9 @@ function Operation(format)
             if(opCatcher.type === OPT.MASK) this.maskSizing |= 1;
         }
         if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
-
         if(this.allowVex) this.vexOpCatchers.push(opCatcher);
+
+        if(Array.isArray(opCatcher.sizes)) this.maxSize = Math.max(...opCatcher.sizes, this.maxSize) & ~7;
     }
 
     // Generate the necessary vex info
@@ -492,6 +495,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
         if(vexInfo.round !== null)
         {
+            if(overallSize !== this.maxSize) return null; // For embedded rounding, the vector size has to be maximum
             if(vexInfo.round > 0) vexInfo.round--;
             vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
         }
