@@ -3,7 +3,7 @@ let mnemonicStrings = `
 
 adcx:66)0F38F6 r Rlq
 
-addpd:66)0F58 v >V Vxyz {kzew
+addpd:66)0F58 v >V Vxyz {kzrw
 
 addps:0F58 v >V Vxy
 
