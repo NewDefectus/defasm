@@ -252,11 +252,8 @@ function makeModRM(rm, r)
     }
     
     // Encoding the "rm" field
-    if(rm.reg >= 8)
-    {
-        rex |= 1; // rex.B extension
-        rm.reg &= 7;
-    }
+    rex |= rm.reg >> 3; // rex.B extension
+    rm.reg &= 7;
 
     // Encoding an SIB byte if necessary
     if(rm.reg2 >= 0)

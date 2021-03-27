@@ -493,7 +493,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
         if(vexInfo.round !== null)
         {
-            if(overallSize !== this.maxSize) return null; // For embedded rounding, the vector size has to be maximum
+            if(overallSize !== this.maxSize) throw "Invalid vector size for embedded rounding";
             if(vexInfo.round > 0) vexInfo.round--;
             vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
         }
@@ -504,19 +504,20 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 
             if(vexInfo.broadcast !== null)
             {
-                if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId--;
-                if(vexInfo.broadcast !== sizeId) return null; // Make sure it's the correct broadcast
+                if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId++;
+                if(vexInfo.broadcast !== sizeId) throw "Invalid broadcast";
                 vex |= 0x100000; // EVEX.b
             }
         }
         vex |= vexInfo.mask << 16; // EVEX.aaa
         if(this.evexPermits & EVEXPERM_FORCEW) vex |= 0x8000;
         if(reg.reg >= 16) vex |= 0x10, reg.reg &= 15; // EVEX.R'
+        if(rm.reg2 >= 16) vex |= 0x80000; // EVEX.V' sometimes serves as an extension to EVEX.X
     }
     else if(overallSize === 256)
     {
         if(vexInfo) vex |= 0x400;
-        else return null; // ymm registers can't be encoded without VEX
+        else throw "YMM registers can't be encoded without VEX";
     }
 
     if(adjustByteOp) correctedOpcode += this.opDiff;

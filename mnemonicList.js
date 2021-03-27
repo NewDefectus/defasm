@@ -5,7 +5,7 @@ adcx:66)0F38F6 r Rlq
 
 addpd:66)0F58 v >V Vxyz {kzrBw
 
-addps:0F58 v >V Vxy
+addps:0F58 v >V Vxyz {kzrb
 
 addsd:F2)0F58 v >V Vx
 
