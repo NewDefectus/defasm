@@ -507,6 +507,14 @@ kand:vl 0F41 r ^Kbwlq >K K
 
 kandn:vl 0F42 r ^Kbwlq >K K
 
+kmov
+0F90 r k Kbwlq >
+0F91 r Kbwlq m >
+0F92 r ^Rl Kbwl >
+0F92 r ^Rq Kq >
+0F93 r ^Kbwl Rl >
+0F93 r ^Kq Rq >
+
 lahf:9F
 
 ldmxcsr:0FAE 2 mL >

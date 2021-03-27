@@ -184,7 +184,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 function Operation(format)
 {
     this.vexBase = null;
-    this.maskSizing = false;
+    this.maskSizing = 0;
     this.allowEvex = false; // For now
 
     // Interpreting the opcode
@@ -254,12 +254,13 @@ function Operation(format)
                 continue;
             opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
             if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
-            if((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK)
+            if(!this.forceVex && ((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK))
             {
                 this.forceVex = true;
                 this.vexOnly = false;
-                if(opCatcher.type === OPT.MASK) this.maskSizing = true;
+                if(opCatcher.type === OPT.MASK) this.maskSizing |= 1;
             }
+            if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
 
             if(this.allowVex) this.vexOpCatchers.push(opCatcher);
         }
@@ -407,14 +408,23 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
 
     if(this.forceVex) vexLevel |= 1;
 
-    if(this.maskSizing)
+    switch(this.maskSizing)
     {
-        if(overallSize === 8 || overallSize === 32) vex |= 1; // 66 prefix for byte or doubleword masks
-        if(overallSize > 16) vex |= 0x80; // W flag for doubleword or quadword masks
-        overallSize = 0;
-        adjustByteOp = false;
+        case 1:
+            if(enforcedSize === 8 || enforcedSize === 32) vex |= 1; // 66 prefix for byte or doubleword masks
+            if(enforcedSize === 32) overallSize = 64; // W flag for doubleword or quadword masks
+            else overallSize = 0;
+            adjustByteOp = false;
+            break;
+
+        case 3:
+            if(enforcedSize === 8) vex |= 1; // 66 prefix for byte masks
+            if(enforcedSize > 16) vex |= 3; // F2 prefix for doubleword or quadword masks
+            adjustByteOp = false;
+            break;
     }
-    else if(overallSize === 256)
+
+    if(overallSize === 256)
     {
         if(vexLevel & 1) vex |= 4;
         else return null; // ymm registers can't be encoded without VEX
