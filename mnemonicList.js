@@ -521,6 +521,8 @@ vlw 0F42 r -$q ^K >K K
 
 lahf:9F
 
+ldmxcsr:0FAE 2 mL >
+
 lea:8D r m Rwlq
 
 leave:C9
@@ -769,6 +771,8 @@ stc:F9
 std:FD
 
 sti:FB
+
+stmxcsr:0FAE 3 mL >
 
 stos:AA z -bwlq
 

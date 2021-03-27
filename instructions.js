@@ -226,7 +226,7 @@ function makeModRM(rm, r)
     return [rex, modrm | rm.reg, null];
 }
 
-
+// Generate the VEX prefix
 function makeVexPrefix(vex, rex)
 {
     let vex1 = vex >> 8, vex2 = vex & 255;
