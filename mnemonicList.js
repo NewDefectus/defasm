@@ -539,6 +539,10 @@ kxor:vl 0F47 r ^Kbwlq >K K
 
 lahf:9F
 
+lar:0F02 r rW Rwlq
+
+lddqu:F2)0FF0 r m Vxy >
+
 ldmxcsr:0FAE 2 mL >
 
 lea:8D r m Rwlq
@@ -596,8 +600,8 @@ C6 0 i rbwl
 0F7E r VQ r~l~q
 66)0F6E r r~l~q VX >
 66)0F7E r VX r~l~q >
-0F6F r -$q v VQ
-0F7F r -$q VQ v
+0F6F r v V~$q
+0F7F r V~$q v
 F3)0F7E r -$q v Vx >
 66)0FD6 r -$q Vx v >
 8C r s Rwlq
