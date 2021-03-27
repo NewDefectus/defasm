@@ -9,7 +9,7 @@ addps:0F58 v >V Vxyz {kzrb
 
 addsd:F2)0F58 v >V Vx {kzrw
 
-addss:F3)0F58 v >V Vx
+addss:F3)0F58 v >V Vx {kzr
 
 addsubpd:66)0FD0 v >V Vxy
 
@@ -17,13 +17,13 @@ addsubps:F2)0FD0 v >V Vxy
 
 adox:F3)0F38F6 r Rlq
 
-aesdec:66)0F38DE v >V Vxy
+aesdec:66)0F38DE v >V Vxyz {
 
-aesdeclast:66)0F38DF v >V Vxy
+aesdeclast:66)0F38DF v >V Vxyz {
 
-aesenc:66)0F38DC v >V Vxy
+aesenc:66)0F38DC v >V Vxyz {
 
-aesenclast:66)0F38DD v >V Vxy
+aesenclast:66)0F38DD v >V Vxyz {
 
 aesimc:66)0F38DB v Vx >
 
@@ -31,13 +31,13 @@ aeskeygenassist:66)0F3ADF ib v Vx >
 
 andn:0F38F2 r >Rlq R
 
-andpd:66)0F54 v >V Vxy
+andpd:66)0F54 v >V Vxyz {kzBw
 
-andps:0F54 v >V Vxy
+andps:0F54 v >V Vxyz {kzb
 
-andnpd:66)0F55 v >V Vxy
+andnpd:66)0F55 v >V Vxyz {kzBw
 
-andnps:0F55 v >V Vxy
+andnps:0F55 v >V Vxyz {kzb
 
 bextr:0F38F7 >Rlq r R
 
