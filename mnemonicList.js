@@ -798,7 +798,15 @@ stmxcsr:0FAE.3 mL >
 
 stos:AA -bwlq
 
+swapgs:0F01F8
+
 syscall:0F05
+
+sysenter:0F34
+
+sysexit:0F35 -Lq
+
+sysret:0F07 -Lq
 
 test
 A8 i R_0bwl
