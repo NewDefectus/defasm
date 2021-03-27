@@ -232,6 +232,8 @@ function Operation(format)
         else this.extension = parseInt(extension[0]);
     }
 
+    if(format.length === 0) return;
+
     // What follows is a list of operand specifiers
     this.opCatchers = [];
     this.vexOpCatchers = [];
