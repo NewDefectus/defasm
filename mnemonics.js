@@ -173,7 +173,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     }
     if(this.implicitValue !== null)
     {
-        let opValue = (operand.type === OPT.IMM ? operand.value : operand.reg);
+        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
         if(this.implicitValue !== opValue) return null;
     }
 
