@@ -35,10 +35,12 @@ const SIZETYPE_IMPLICITENC = 2;
 
 const EVEXPERM_MASK = 1;
 const EVEXPERM_ZEROING = 2;
-const EVEXPERM_BROADCAST = 4;
-const EVEXPERM_SAE = 8;
-const EVEXPERM_ROUNDING = 16;
-const EVEXPERM_FORCEW = 32;
+const EVEXPERM_BROADCAST_32 = 4;
+const EVEXPERM_BROADCAST_64 = 8;
+const EVEXPERM_BROADCAST = 12;
+const EVEXPERM_SAE = 16;
+const EVEXPERM_ROUNDING = 32;
+const EVEXPERM_FORCEW = 64;
 
 function parseEvexPermits(string)
 {
@@ -49,10 +51,10 @@ function parseEvexPermits(string)
         {
             case 'k': permits |= EVEXPERM_MASK; break;
             case 'z': permits |= EVEXPERM_ZEROING; break;
-            case 'b': permits |= EVEXPERM_BROADCAST; break;
+            case 'b': permits |= EVEXPERM_BROADCAST_32; break;
+            case 'B': permits |= EVEXPERM_BROADCAST_64; break;
             case 's': permits |= EVEXPERM_SAE; break;
             case 'r': permits |= EVEXPERM_ROUNDING; break;
-            case 'R': permits |= EVEXPERM_ROUNDING
             case 'w': permits |= EVEXPERM_FORCEW; break;
         }
     }
@@ -440,11 +442,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 
                 if(operand.reg >= 16) vex |= 0x80000; // EVEX.V'
             }
-            else
-            {
-                reg = operand;
-                if(operand.reg >= 16) vex |= 0x10, operand.reg &= 15; // EVEX.R'
-            }
+            else reg = operand;
         }
 
         // Only set to overall size if it's not the default size
@@ -501,11 +499,19 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         }
         else
         {
-            vex |= [128, 256, 512].indexOf(overallSize) << 21; // EVEX.L'L
-            if(vexInfo.broadcast) vex |= 0x100000; // EVEX.b
+            let sizeId = [128, 256, 512].indexOf(overallSize);
+            vex |= sizeId << 21; // EVEX.L'L
+
+            if(vexInfo.broadcast !== null)
+            {
+                if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId--;
+                if(vexInfo.broadcast !== sizeId) return null; // Make sure it's the correct broadcast
+                vex |= 0x100000; // EVEX.b
+            }
         }
         vex |= vexInfo.mask << 16; // EVEX.aaa
         if(this.evexPermits & EVEXPERM_FORCEW) vex |= 0x8000;
+        if(reg.reg >= 16) vex |= 0x10, reg.reg &= 15; // EVEX.R'
     }
     else if(overallSize === 256)
     {

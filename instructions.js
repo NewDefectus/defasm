@@ -38,7 +38,7 @@ Instruction.prototype.interpret = function()
         broadcast: null
     };
 
-    let needsRecompilation = false;
+    let needsRecompilation = false, usesMemory = false;
     labelDependency = null;
 
     // Prefix opcodes are interpreted as instructions that end with a semicolon
@@ -114,6 +114,7 @@ Instruction.prototype.interpret = function()
         prefsToGen |= operand.prefs;
 
         if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512) vexLevel |= 2;
+        if(operand.type === OPT.MEM) usesMemory = true;
 
         while(token === '{') // Decorator (mask or broadcast specifier)
         {
@@ -126,9 +127,8 @@ Instruction.prototype.interpret = function()
             else if(token === 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
             else if(operand.type === OPT.MEM)
             {
-                if(token === '1to8') vexInfo.broadcast = 0;
-                else if(token === '1to16') vexInfo.broadcast = 1;
-                else throw "Invalid broadcast mode";
+                vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
+                if(vexInfo.broadcast < 0) throw "Invalid broadcast mode";
                 next();
             }
             else throw "Invalid decorator";
@@ -140,6 +140,8 @@ Instruction.prototype.interpret = function()
         if(token !== ',') break;
         next();
     }
+
+    if(usesMemory && vexInfo.round !== null) throw "Embedded rounding can only be used on reg-reg";
 
     if(vexLevel === 0) vexInfo = null;
     else if(vexLevel === 1) vexInfo = true;
