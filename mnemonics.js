@@ -30,15 +30,15 @@ var mnemonics = {};
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
 const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
-const SIZETYPE_DEFAULT = 1;
-const SIZETYPE_EXPLICITSUF = 2;
-const SIZETYPE_IMPLICITENC = 4;
+const SIZETYPE_EXPLICITSUF = 1;
+const SIZETYPE_IMPLICITENC = 2;
 
 function getSizes(format, defaultCatcher = null)
 {
-    let sizes = [], size;
+    let sizes = [], size, defaultSize;
     for(let i = 0; i < format.length; i++)
     {
+        defaultSize = false;
         size = 0;
         sizeChar = format[i];
         if(sizeChar === '~') // ~ prefix means this size must be explicitly chosen with a suffix
@@ -46,15 +46,14 @@ function getSizes(format, defaultCatcher = null)
         if(sizeChar === '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
         if(sizeChar === '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
-            size |= SIZETYPE_DEFAULT, sizeChar = format[++i];
+            defaultSize = true, sizeChar = format[++i];
 
         if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
-            size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_DEFAULT | SIZETYPE_IMPLICITENC;
+            defaultSize = true, size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
         else
             size |= sizeIds[sizeChar];
         
-        if((size & SIZETYPE_DEFAULT) && defaultCatcher) defaultCatcher(size);
-            
+        if(defaultSize) defaultCatcher(size);    
         
         sizes.push(size);
     }
@@ -245,12 +244,13 @@ function Operation(format)
         this.vexOpCatchers = [];
         this.allowVex = format.some(op => op.includes('>'));
         this.checkableSizes = null;
+        this.defaultCheckableSize = null;
         this.forceVex = false;
 
         let opCatcher;
 
         if(format[0][0] === '-')
-            this.checkableSizes = getSizes(format.shift().slice(1));
+            this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
 
         for(let operand of format)
         {
@@ -319,18 +319,27 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
     // Special case for the '-' implicit op catcher
     if(this.checkableSizes)
     {
-        let foundSize = false;
-        for(let checkableSize of this.checkableSizes)
+        if(enforcedSize === 0)
         {
-            if(enforcedSize === (checkableSize & ~7) || (enforcedSize === 0 && (checkableSize & SIZETYPE_DEFAULT)))
-            {
-                if(this.checkableSizes.includes(8) && enforcedSize > 8) adjustByteOp = true;
-                overallSize = (checkableSize & SIZETYPE_IMPLICITENC) ? 0 : enforcedSize;
-                foundSize = true;
-                break;
-            }
+            if(this.defaultCheckableSize === null) return null;
+            overallSize = this.defaultCheckableSize;
+            if(this.checkableSizes.includes(8) && overallSize > 8) adjustByteOp = true;
         }
-        if(!foundSize) return null;
+        else
+        {
+            let foundSize = false;
+            for(let checkableSize of this.checkableSizes)
+            {
+                if(enforcedSize === (checkableSize & ~7))
+                {
+                    if(this.checkableSizes.includes(8) && enforcedSize > 8) adjustByteOp = true;
+                    overallSize = (checkableSize & SIZETYPE_IMPLICITENC) ? 0 : enforcedSize;
+                    foundSize = true;
+                    break;
+                }
+            }
+            if(!foundSize) return null;
+        }
         enforcedSize = 0;
     }
 
