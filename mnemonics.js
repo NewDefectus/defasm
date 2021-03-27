@@ -199,6 +199,15 @@ function Operation(format)
         format.shift();
     }
     let [opcode, extension] = format.shift().split('.');
+
+    // Op difference (the value to add to the opcode if the size isn't 8)
+    if(opcode[opcode.length - 2] === '+' || opcode[opcode.length - 2] === '-')
+    {
+        this.opDiff = parseInt(opcode.slice(-2));
+        opcode = opcode.slice(0, -2);
+    }
+    else this.opDiff = 1;
+
     if(opcode[2] === ')') // Prefix followed by ')'
     {
         this.code = parseInt(opcode.slice(3), 16);
@@ -215,16 +224,12 @@ function Operation(format)
     if(extension === undefined) // Default values
     {
         this.extension = REG_MOD;
-        this.opDiff = 1;
         this.opCatchers = [];
     }
     else
     {
         if(extension[0] === 'o') this.extension = REG_OP;
         else this.extension = parseInt(extension[0]);
-
-        // Opcode difference might follow extension number (e.g. o8)
-        this.opDiff = extension[1] ? parseInt(extension.slice(1)) : 1;
     }
 
     // What follows is a list of operand specifiers

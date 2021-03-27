@@ -496,7 +496,7 @@ iret:CF -Lq
 jecxz:67)E3 Ib
 
 jmp
-EB z-2 Ibl
+EB-2 Ibl
 FF.4 rQ
 
 jrcxz:E3 Ib
@@ -594,7 +594,7 @@ mov
 8A Rbwlq
 C7.0 Il Rq
 C7.0 iL mq
-B0.o8 i Rbwlq
+B0+8.o i Rbwlq
 C6.0 i rbwl
 0F6E r~l~q VQ
 0F7E VQ r~l~q
@@ -743,7 +743,7 @@ por
 
 push
 50.o RwQ
-6A z-2 Ib~wl
+6A-2 Ib~wl
 FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
