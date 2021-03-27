@@ -79,7 +79,7 @@ bsf:0FBC r Rwlq
 
 bsr:0FBD r Rwlq
 
-bswap:0FC8.o Rwlq
+bswap:0FC8.o Rlq
 
 bt
 0FA3 Rwlq r
