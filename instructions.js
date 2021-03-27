@@ -274,7 +274,7 @@ function makeModRM(rm, r)
 // Generate the VEX prefix
 function makeVexPrefix(vex, rex)
 {
-    let vex1 = vex >> 8, vex2 = vex & 255;
+    let vex1 = vex & 255, vex2 = vex >> 8;
     // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
     vex1 |= ((~rex & 7) << 5);
     vex2 |= (((rex & 8)) << 4); // VEX.w = REX.w
