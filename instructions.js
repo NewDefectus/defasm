@@ -29,7 +29,7 @@ Instruction.prototype.genInteger = function(byte, size)
 // Generate Instruction.outline
 Instruction.prototype.interpret = function()
 {
-    let opcode = this.opcode, operand = null, enforcedSize = 0, enforceVex = opcode[0] === 'v', prefsToGen = 0;
+    let opcode = this.opcode, operand = null, enforcedSize = 0, enforceVex = opcode[0] === 'v', prefsToGen = 0, maskMode = 0, roundMode = null;
     let needsRecompilation = false;
     labelDependency = null;
 
@@ -70,6 +70,15 @@ Instruction.prototype.interpret = function()
         else mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
     }
 
+    // An optional "pseudo-operand" for rounding semantics may appear at the start
+    if(token === '{')
+    {
+        roundMode = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
+        if(roundMode < 0) throw "Invalid rounding mode";
+        if(next() !== '}') throw "Expected '}'";
+        if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
+    }
+
     // Collecting the operands
     while(token !== ';' && token !== '\n')
     {
@@ -95,18 +104,32 @@ Instruction.prototype.interpret = function()
         operands.push(operand);
         prefsToGen |= operand.prefs;
 
-        if(token != ',') break;
+        if(token !== ',') break;
         next();
     }
 
-    this.outline = [operands, enforcedSize, variations, prefsToGen, enforceVex];
+    while(token === '{') // Mask specifier
+    {
+        if(next() === '%') // Opmask
+        {
+            maskMode = (maskMode & 8) | parseRegister([OPT.MASK])[0];
+            if((maskMode & 7) === 0) throw "Can't use %k0 as writemask";
+        }
+        else if(token === 'z') maskMode |= 8, next(); // Zeroing-masking
+        else throw "Invalid mask specifier";
+        
+        if(token !== '}') throw "Expected '}'";
+        next();
+    }
+
+    this.outline = [operands, enforcedSize, variations, prefsToGen, enforceVex, maskMode, roundMode];
     this.compile();
     if(!needsRecompilation) this.outline = undefined;
 }
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, variations, prefsToGen, enforceVex] = this.outline;
+    let [operands, enforcedSize, variations, prefsToGen, enforceVex, maskMode, roundMode] = this.outline;
     this.length = 0;
 
     // Now, we'll find the matching operation for this operand list
