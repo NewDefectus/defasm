@@ -100,7 +100,7 @@ CodeMirror.defineMode("gas", function(_config, parserConfig) {
         }
         else
         {
-          let max = 16;
+          let max = 32;
           if(cur.startsWith("mm") || cur.startsWith("dr")) cur = cur.slice(2), max = 8;
           else if(cur.startsWith("cr")) cur = cur.slice(2), max = 9;
           else if(cur.startsWith("xmm") || cur.startsWith("ymm") || cur.startsWith("zmm")) cur = cur.slice(3);

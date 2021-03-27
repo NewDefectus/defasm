@@ -101,7 +101,7 @@ function parseRegister(expectedType = null)
     }
     else
     {
-        let max = 16;
+        let max = 32;
         if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
         else if(token[0] == 'k') reg = token.slice(1), type = OPT.MASK, max = 8;
         else if(token.startsWith("dr")) reg = token.slice(2), type = OPT.DBG, max = 8;
@@ -173,6 +173,7 @@ function Operand()
     if(token === '%') // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
+        this.needsEvex = this.reg >= 16;
     }
     else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
@@ -212,6 +213,7 @@ function Operand()
                 if(tempSize < 128) throw "Invalid register size";
                 this.reg2 = this.reg;
                 this.reg = -1;
+                this.needsEvex = this.reg2 >= 16;
             }
             else
             {
@@ -226,6 +228,7 @@ function Operand()
                     {
                         this.type = OPT.VMEM; this.size = tempSize;
                         if(tempSize < 128) throw "Invalid register size";
+                        this.needsEvex = this.reg2 >= 16;
                     }
                     else
                     {

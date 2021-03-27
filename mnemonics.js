@@ -184,6 +184,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 function Operation(format)
 {
     this.vexBase = null;
+    this.allowEvex = false; // For now
 
     // Interpreting the opcode
     this.vexOnly = format[0][0] === 'v';
@@ -327,6 +328,7 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
     for(i = 0; i < operands.length; i++)
     {
         catcher = opCatchers[i];
+        if(operands[i].needsEvex && !this.allowEvex) return null;
         if(size > 0 || Array.isArray(catcher.sizes))
         {
             size = catcher.catch(operands[i], size, enforcedSize);
