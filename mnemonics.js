@@ -291,15 +291,17 @@ function Operation(format)
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
  * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
- * @param {boolean} enforceVex True if a VEX prefix is needed (i.e. the mnemonic starts with the letter 'v')
+ * @param {number} vexLevel 1 for VEX prefix, 2/3 for EVEX prefix, 0 for neither
  * @returns {operationResults|null} The information needed to encode the instruction
  */
-Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
+Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
 {
-    if(enforceVex)
+    if(vexLevel & 1)
     {
         if(!this.allowVex) return null;
     } else if(this.vexOnly) return null;
+
+    if((vexLevel & 2) && !this.allowEvex) return null;
 
     let adjustByteOp = false, overallSize = 0;
 
@@ -321,14 +323,13 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         enforcedSize = 0;
     }
 
-    let opCatchers = enforceVex ? this.vexOpCatchers : this.opCatchers;
+    let opCatchers = (vexLevel & 1) ? this.vexOpCatchers : this.opCatchers;
     if(operands.length !== opCatchers.length) return null; // Operand numbers must match
     let correctedSizes = new Array(operands.length), size = -1, i, catcher;
 
     for(i = 0; i < operands.length; i++)
     {
         catcher = opCatchers[i];
-        if(operands[i].needsEvex && !this.allowEvex) return null;
         if(size > 0 || Array.isArray(catcher.sizes))
         {
             size = catcher.catch(operands[i], size, enforcedSize);
@@ -400,21 +401,21 @@ Operation.prototype.fit = function(operands, enforcedSize, enforceVex)
         reg = {reg: this.extension};
     }
 
-    enforceVex ||= this.forceVex;
+    if(this.forceVex) vexLevel |= 1;
     if(overallSize === 256)
     {
-        if(enforceVex) vex |= 4;
+        if(vexLevel & 1) vex |= 4;
         else return null; // ymm registers can't be encoded without VEX
     }
 
     return {
         opcode: correctedOpcode,
         size: overallSize,
-        prefix: enforceVex ? null : this.prefix,
+        prefix: vexLevel ? null : this.prefix,
         extendOp: extendOp,
         reg: reg,
         rm: rm,
-        vex: enforceVex ? vex : null,
+        vex: vexLevel ? vex : null,
         imms: imms
     };
 }

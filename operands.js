@@ -173,7 +173,6 @@ function Operand()
     if(token === '%') // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
-        this.needsEvex = this.reg >= 16;
     }
     else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
@@ -213,7 +212,6 @@ function Operand()
                 if(tempSize < 128) throw "Invalid register size";
                 this.reg2 = this.reg;
                 this.reg = -1;
-                this.needsEvex = this.reg2 >= 16;
             }
             else
             {
@@ -228,7 +226,6 @@ function Operand()
                     {
                         this.type = OPT.VMEM; this.size = tempSize;
                         if(tempSize < 128) throw "Invalid register size";
-                        this.needsEvex = this.reg2 >= 16;
                     }
                     else
                     {

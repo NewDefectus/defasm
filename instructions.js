@@ -30,7 +30,7 @@ Instruction.prototype.genInteger = function(byte, size)
 Instruction.prototype.interpret = function()
 {
     let opcode = this.opcode, operand = null, enforcedSize = 0,
-    enforceVex = opcode[0] === 'v', prefsToGen = 0, maskMode = 0, roundMode = null, broadcast = null;
+    vexLevel = opcode[0] === 'v' ? 1 : 0, prefsToGen = 0, maskMode = 0, roundMode = null, broadcast = null;
     let needsRecompilation = false;
     labelDependency = null;
 
@@ -46,7 +46,7 @@ Instruction.prototype.interpret = function()
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        if(enforceVex) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+        if(vexLevel) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
         if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
         {
             enforcedSize = suffixes[opcode[opcode.length - 1]];
@@ -74,6 +74,7 @@ Instruction.prototype.interpret = function()
     // An optional "pseudo-operand" for rounding semantics may appear at the start
     if(token === '{')
     {
+        vexLevel |= 2;
         roundMode = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
         if(roundMode < 0) throw "Invalid rounding mode";
         if(next() !== '}') throw "Expected '}'";
@@ -105,8 +106,11 @@ Instruction.prototype.interpret = function()
         operands.push(operand);
         prefsToGen |= operand.prefs;
 
+        if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512) vexLevel |= 2;
+
         while(token === '{') // Decorator (mask or broadcast specifier)
         {
+            vexLevel |= 2;
             if(next() === '%') // Opmask
             {
                 maskMode = (maskMode & 8) | parseRegister([OPT.MASK])[0];
@@ -130,14 +134,14 @@ Instruction.prototype.interpret = function()
         next();
     }
 
-    this.outline = [operands, enforcedSize, variations, prefsToGen, enforceVex, maskMode, roundMode, broadcast];
+    this.outline = [operands, enforcedSize, variations, prefsToGen, vexLevel, maskMode, roundMode, broadcast];
     this.compile();
     if(!needsRecompilation) this.outline = undefined;
 }
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, variations, prefsToGen, enforceVex, maskMode, roundMode, broadcast] = this.outline;
+    let [operands, enforcedSize, variations, prefsToGen, vexLevel, maskMode, roundMode, broadcast] = this.outline;
     this.length = 0;
 
     // Now, we'll find the matching operation for this operand list
@@ -145,7 +149,7 @@ Instruction.prototype.compile = function()
     
     for(let variation of variations)
     {
-        op = variation.fit(operands, enforcedSize, enforceVex);
+        op = variation.fit(operands, enforcedSize, vexLevel);
         if(op !== null)
         {
             found = true;
