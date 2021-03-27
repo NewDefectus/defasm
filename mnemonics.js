@@ -293,20 +293,28 @@ function Operation(format)
  * @property {Operand[]} imms The immediate operands (should be appended to the instruction)
  */
 
+/**
+ * @typedef {Object} vexData
+ * @property {number} mask The id of the mask register used as the instruction writemask
+ * @property {boolean} zeroing True if the instruction uses zero-masking, false for merge-masking
+ * @property {number|null} round Used to identify one of 4 rounding modes, or 0 for SAE, or null for none specified
+ * @property {number|null} broadcast Used to identify one of 2 broadcasting modes, or null for none specified
+ * @returns 
+ */
+
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
  * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
- * @param {number} vexLevel 1 for VEX prefix, 2/3 for EVEX prefix, 0 for neither
+ * @param {vexData|true|null} vexInfo Additional info needed to encode the instruction with a VEX/EVEX prefix
  * @returns {operationResults|null} The information needed to encode the instruction
  */
-Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
+Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 {
-    if(vexLevel & 1)
+    if(vexInfo !== null)
     {
         if(!this.allowVex) return null;
+        if((vexInfo !== true) && !this.allowEvex) return null;
     } else if(this.vexOnly) return null;
-
-    if((vexLevel & 2) && !this.allowEvex) return null;
 
     let adjustByteOp = false, overallSize = 0;
 
@@ -337,7 +345,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
         enforcedSize = 0;
     }
 
-    let opCatchers = (vexLevel & 1) ? this.vexOpCatchers : this.opCatchers;
+    let opCatchers = vexInfo ? this.vexOpCatchers : this.opCatchers;
     if(operands.length !== opCatchers.length) return null; // Operand numbers must match
     let correctedSizes = new Array(operands.length), size = -1, i, catcher;
 
@@ -412,7 +420,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
         reg = {reg: this.extension};
     }
 
-    if(this.forceVex) vexLevel |= 1;
+    if(this.forceVex) vexInfo ||= true;
 
     switch(this.maskSizing)
     {
@@ -437,7 +445,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
 
     if(overallSize === 256)
     {
-        if(vexLevel & 1) vex |= 4;
+        if(vexInfo) vex |= 4;
         else return null; // ymm registers can't be encoded without VEX
     }
 
@@ -446,11 +454,11 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
     return {
         opcode: correctedOpcode,
         size: overallSize,
-        prefix: vexLevel ? null : this.prefix,
+        prefix: vexInfo ? null : this.prefix,
         extendOp: extendOp,
         reg: reg,
         rm: rm,
-        vex: vexLevel ? vex : null,
+        vex: vexInfo ? vex : null,
         imms: imms
     };
 }

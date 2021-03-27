@@ -29,8 +29,15 @@ Instruction.prototype.genInteger = function(byte, size)
 // Generate Instruction.outline
 Instruction.prototype.interpret = function()
 {
-    let opcode = this.opcode, operand = null, enforcedSize = 0,
-    vexLevel = opcode[0] === 'v' ? 1 : 0, prefsToGen = 0, maskMode = 0, roundMode = null, broadcast = null;
+    let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
+    let vexLevel = opcode[0] === 'v' ? 1 : 0;
+    let vexInfo = {
+        mask: 0,
+        zeroing: false,
+        round: null,
+        broadcast: null
+    };
+
     let needsRecompilation = false;
     labelDependency = null;
 
@@ -75,8 +82,8 @@ Instruction.prototype.interpret = function()
     if(token === '{')
     {
         vexLevel |= 2;
-        roundMode = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
-        if(roundMode < 0) throw "Invalid rounding mode";
+        vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
+        if(vexInfo.round < 0) throw "Invalid rounding mode";
         if(next() !== '}') throw "Expected '}'";
         if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
     }
@@ -113,14 +120,14 @@ Instruction.prototype.interpret = function()
             vexLevel |= 2;
             if(next() === '%') // Opmask
             {
-                maskMode = (maskMode & 8) | parseRegister([OPT.MASK])[0];
-                if((maskMode & 7) === 0) throw "Can't use %k0 as writemask";
+                vexInfo.mask = parseRegister([OPT.MASK])[0];
+                if((vexInfo.mask & 7) === 0) throw "Can't use %k0 as writemask";
             }
-            else if(token === 'z') maskMode |= 8, next(); // Zeroing-masking
+            else if(token === 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
             else if(operand.type === OPT.MEM)
             {
-                if(token === '1to8') broadcast = 1;
-                else if(token === '1to16') broadcast = 2;
+                if(token === '1to8') vexInfo.broadcast = 0;
+                else if(token === '1to16') vexInfo.broadcast = 1;
                 else throw "Invalid broadcast mode";
                 next();
             }
@@ -134,14 +141,17 @@ Instruction.prototype.interpret = function()
         next();
     }
 
-    this.outline = [operands, enforcedSize, variations, prefsToGen, vexLevel, maskMode, roundMode, broadcast];
+    if(vexLevel === 0) vexInfo = null;
+    else if(vexLevel === 1) vexInfo = true;
+
+    this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
     this.compile();
     if(!needsRecompilation) this.outline = undefined;
 }
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, variations, prefsToGen, vexLevel, maskMode, roundMode, broadcast] = this.outline;
+    let [operands, enforcedSize, variations, prefsToGen, vexInfo] = this.outline;
     this.length = 0;
 
     // Now, we'll find the matching operation for this operand list
@@ -149,7 +159,7 @@ Instruction.prototype.compile = function()
     
     for(let variation of variations)
     {
-        op = variation.fit(operands, enforcedSize, vexLevel);
+        op = variation.fit(operands, enforcedSize, vexInfo);
         if(op !== null)
         {
             found = true;
