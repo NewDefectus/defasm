@@ -7,7 +7,7 @@ addpd:66)0F58 v >V Vxyz {kzrBw
 
 addps:0F58 v >V Vxyz {kzrb
 
-addsd:F2)0F58 v >V Vx
+addsd:F2)0F58 v >V Vx {kzrw
 
 addss:F3)0F58 v >V Vx
 
@@ -728,6 +728,14 @@ E6 R_0bwl ib
 EE R_0bwl R_2W
 
 outs:6E -bwl
+
+pcmpestri:66)0F3A61 ib v Vx >
+
+pcmpestrm:66)0F3A60 ib v Vx >
+
+pcmpistri:66)0F3A63 ib v Vx >
+
+pcmpistrm:66)0F3A62 ib v Vx >
 
 pop
 58.o RwQ
