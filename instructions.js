@@ -189,7 +189,7 @@ Instruction.prototype.compile = function()
     if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
     if(op.size === 16) this.genByte(0x66);
     if(op.prefix !== null) this.genByte(op.prefix);
-    if(op.vex !== null) makeVexPrefix(op.vex, rexVal).map(x => this.genByte(x));
+    if(op.vex !== null) makeVexPrefix(op.vex, rexVal, vexInfo && vexInfo !== true).map(x => this.genByte(x));
     else
     {
         if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
@@ -271,13 +271,22 @@ function makeModRM(rm, r)
     return [rex, modrm | rm.reg, null];
 }
 
-// Generate the VEX prefix
-function makeVexPrefix(vex, rex)
+// Generate the VEX/EVEX prefix
+function makeVexPrefix(vex, rex, isEvex)
 {
-    let vex1 = vex & 255, vex2 = vex >> 8;
+    if(isEvex)
+    {
+        vex ^= 0x80010; // Invert the V' and R' bits
+    }
+    let vex1 = vex & 255, vex2 = vex >> 8, vex3 = vex >> 16;
     // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
     vex1 |= ((~rex & 7) << 5);
     vex2 |= (((rex & 8)) << 4); // VEX.w = REX.w
+
+    if(isEvex)
+    {
+        return [0x62, vex1, vex2, vex3];
+    }
 
     if((vex1 & 0x7F) == 0x61 && (vex2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
     {

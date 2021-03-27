@@ -38,6 +38,7 @@ const EVEXPERM_ZEROING = 2;
 const EVEXPERM_BROADCAST = 4;
 const EVEXPERM_SAE = 8;
 const EVEXPERM_ROUNDING = 16;
+const EVEXPERM_FORCEW = 32;
 
 function parseEvexPermits(string)
 {
@@ -51,6 +52,7 @@ function parseEvexPermits(string)
             case 'b': permits |= EVEXPERM_BROADCAST; break;
             case 's': permits |= EVEXPERM_SAE; break;
             case 'r': permits |= EVEXPERM_ROUNDING; break;
+            case 'w': permits |= EVEXPERM_FORCEW; break;
         }
     }
     return permits;
@@ -427,19 +429,18 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.unshift(operand);
-            else if(catcher.forceRM)
-            {
-                rm = operand;
-            }
+            else if(catcher.forceRM) rm = operand;
             else if(catcher.vexOp)
             {
                 if(catcher.vexOpImm) imms.unshift({value: BigInt(operand.reg << 4), size: 8});
                 else vex = (vex & ~0x7800) | ((~operand.reg & 15) << 11);
+
+                if(operand.reg >= 16) vex |= 0x80000; // EVEX.V'
             }
             else
             {
                 reg = operand;
-                if(operand.reg >= 16) vex |= 0x10, operand.reg &= 15; // R' field in EVEX
+                if(operand.reg >= 16) vex |= 0x10, operand.reg &= 15; // EVEX.R'
             }
         }
 
@@ -484,7 +485,25 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             break;
     }
 
-    if(overallSize === 256)
+    // Some additional EVEX data
+    if(vexInfo && vexInfo !== true)
+    {
+        vex |= 0x400; // This reserved bit is always set to 1
+        if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
+        if(vexInfo.round !== null)
+        {
+            if(vexInfo.round > 0) vexInfo.round--;
+            vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
+        }
+        else
+        {
+            vex |= [128, 256, 512].indexOf(overallSize) << 21; // EVEX.L'L
+            if(vexInfo.broadcast) vex |= 0x100000; // EVEX.b
+        }
+        vex |= vexInfo.mask << 16; // EVEX.aaa
+        if(this.evexPermits & EVEXPERM_FORCEW) vex |= 0x8000;
+    }
+    else if(overallSize === 256)
     {
         if(vexInfo) vex |= 0x400;
         else return null; // ymm registers can't be encoded without VEX
