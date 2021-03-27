@@ -145,7 +145,7 @@ cmpxchg:0FB0 r Rbwlq r
 
 cmpxchg8b:0FC7 1 mQ
 
-cmpxchg16b:0FC7 1 m~Q
+cmpxchg16b:0FC7 1 m#q
 
 comisd:66)0F2F r v Vx >
 
@@ -427,11 +427,11 @@ D9C9
 
 fxrstor:0FAE 1 mQ
 
-fxrstor64:0FAE 1 m~Q
+fxrstor64:0FAE 1 m#q
 
 fxsave:0FAE 0 mQ
 
-fxsave64:0FAE 0 m~Q
+fxsave64:0FAE 0 m#q
 
 fxtract:D9F4
 
@@ -514,6 +514,28 @@ kmov
 0F92 r ^Rq Kq >
 0F93 r ^Kbwl Rl >
 0F93 r ^Kq Rq >
+
+knot:0F44 r ^Kbwlq K >
+
+kor:vl 0F45 r ^Kbwlq >K K
+
+kortest:0F98 r ^Kbwlq K >
+
+kshiftl:66)0F3A32 r iB ^Kbwlq K >
+
+kshiftr:66)0F3A30 r iB ^Kbwlq K >
+
+ktest:0F99 r ^Kbwlq K >
+
+kunpckbw:vl 0F4B r ^K#b >K K
+
+kunpckdq:vl 0F4B r ^K#q >K K
+
+kunpckwd:vl 0F4B r ^K#w >K K
+
+kxnor:vl 0F46 r ^Kbwlq >K K
+
+kxor:vl 0F47 r ^Kbwlq >K K
 
 lahf:9F
 

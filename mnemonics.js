@@ -45,13 +45,16 @@ function getSizes(format, defaultCatcher = null)
             size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
         if(sizeChar === '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
-        if(sizeChar < 'a') // Capital letters mean the size should be chosen by default and encoded without a prefix
-        {
+        if(sizeChar === '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
+            size |= SIZETYPE_DEFAULT, sizeChar = format[++i];
+
+        if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
             size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_DEFAULT | SIZETYPE_IMPLICITENC;
-            if(defaultCatcher) defaultCatcher(size);
-        }
         else
             size |= sizeIds[sizeChar];
+        
+        if((size & SIZETYPE_DEFAULT) && defaultCatcher) defaultCatcher(size);
+            
         
         sizes.push(size);
     }
@@ -201,6 +204,7 @@ function Operation(format)
     {
         this.code = parseInt(opcode.slice(3), 16);
         this.prefix = parseInt(opcode.slice(0, 2), 16);
+        this.maskSizing = 4;
     }
     else
     {
@@ -411,16 +415,21 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
     switch(this.maskSizing)
     {
         case 1:
-            if(enforcedSize === 8 || enforcedSize === 32) vex |= 1; // 66 prefix for byte or doubleword masks
-            if(enforcedSize === 32) overallSize = 64; // W flag for doubleword or quadword masks
+            if(overallSize === 8 || overallSize === 32) vex |= 1; // 66 prefix for byte or doubleword masks
+            if(overallSize > 16) overallSize = 64; // W flag for doubleword or quadword masks
             else overallSize = 0;
             adjustByteOp = false;
             break;
 
         case 3:
-            if(enforcedSize === 8) vex |= 1; // 66 prefix for byte masks
-            if(enforcedSize > 16) vex |= 3; // F2 prefix for doubleword or quadword masks
+            if(overallSize === 8) vex |= 1; // 66 prefix for byte masks
+            if(overallSize > 16) vex |= 3; // F2 prefix for doubleword or quadword masks
             adjustByteOp = false;
+            break;
+
+        case 5:
+            adjustByteOp = overallSize > 16;
+            if(overallSize === 16 || overallSize === 64) overallSize = 64; // W flag for word or quadword masks
             break;
     }
 
