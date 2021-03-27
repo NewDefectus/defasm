@@ -100,7 +100,7 @@ bts
 bzhi:0F38F5 r Rlq r >R
 
 call
-E8 z Il
+E8 r Il
 FF 2 rQ
 
 cbw:66)98
@@ -135,7 +135,7 @@ cmppd:66)0FC2 r ib v >V Vxy
 
 cmpps:0FC2 r ib v >V Vxy
 
-cmps:A6 z -bwlq
+cmps:A6 r -bwlq
 
 cmpsd:F2)0FC2 r ib v >V Vx
 
@@ -229,7 +229,7 @@ endbr32:F3)0F1EFB
 
 endbr64:F3)0F1EFA
 
-enter:C8 z ib iW
+enter:C8 r ib iW
 
 extractps:66)0F3A17 r ib Vx rL >
 
@@ -357,7 +357,7 @@ fnstenv:D9 6 mL
 
 fnstsw
 DD 7 mW
-DFE0 z R_0w
+DFE0 r R_0W
 
 fpatan:D9F3
 
@@ -399,7 +399,7 @@ fstpt:DB 7 mQ
 
 fstsw
 9BDD 7 mW
-9BDFE0 z R_0w
+9BDFE0 r R_0W
 
 ftst:D9E4
 
@@ -465,21 +465,21 @@ F6 5 rbwlq
 69 r il r Rlq
 
 in
-E4 z ib R_0bwl
-EC z R_2W R_0bwl
+E4 r ib R_0bwl
+EC r R_2W R_0bwl
 
 inc:FE 0 rbwlq
 
 incsspd:F3)0FAE 5 Rlq
 
-ins:6C z -bwl
+ins:6C r -bwl
 
 insertps:66)0F3A21 r ib v >V Vx
 
 int
-CC z i_3
-F1 z i_1
-CD z ib
+CC r i_3b
+F1 r i_1b
+CD r ib
 
 int1:F1
 
@@ -491,15 +491,15 @@ invlpg:0F01 7 mB
 
 invpcid:66)0F3882 r mQ RQ
 
-iret:CF z -Lq
+iret:CF r -Lq
 
-jecxz:67)E3 z Ib
+jecxz:67)E3 r Ib
 
 jmp
 EB z-2 Ibl
 FF 4 rQ
 
-jrcxz:E3 z Ib
+jrcxz:E3 r Ib
 
 kadd:vl 0F4A r ^Kbwlq >K K
 
@@ -553,13 +553,13 @@ lfs:0FB4 r m Rwlq
 
 lgs:0FB5 r m Rwlq
 
-lods:AC z -bwlq
+lods:AC r -bwlq
 
-loop:E2 z Ib
+loop:E2 r Ib
 
-loope:E1 z Ib
+loope:E1 r Ib
 
-loopne:E0 z Ib
+loopne:E0 r Ib
 
 lsl:0F03 r rW Rwlq
 
@@ -667,7 +667,7 @@ movntq:0FE7 r VQ m
 
 movq2dq:F3)0FD6 r ^VQ Vx
 
-movs:A4 z -bwlq
+movs:A4 r -bwlq
 
 movsd
 F2)0F10 r ^Vx >V V
@@ -724,18 +724,18 @@ nop
 not:F6 2 rbwlq
 
 out
-E6 z R_0bwl ib
-EE z R_0bwl R_2W
+E6 r R_0bwl ib
+EE r R_0bwl R_2W
 
-outs:6E z -bwl
+outs:6E r -bwl
 
 pop
 58 o RwQ
 8F 0 mwQ
-0FA1 z s_4
-0FA9 z s_5
+0FA1 r s_4
+0FA9 r s_5
 
-popf:9D z -wQ
+popf:9D r -wQ
 
 por
 0FEB r v VQ
@@ -745,20 +745,20 @@ push
 50 o RwQ
 6A z-2 Ib~wl
 FF 6 mwQ
-0FA0 z s_4
-0FA8 z s_5
+0FA0 r s_4
+0FA8 r s_5
 
-pushf:9C z -wQ
+pushf:9C r -wQ
 
 ret
 C3
-C2 z IW
+C2 r IW
 
 sahf:9E
 
 sal:#shl
 
-scas:AE z -bwlq
+scas:AE r -bwlq
 
 setssbsy:F3)0F01E8
 
@@ -796,13 +796,13 @@ sti:FB
 
 stmxcsr:0FAE 3 mL >
 
-stos:AA z -bwlq
+stos:AA r -bwlq
 
 syscall:0F05
 
 test
-A8 z i R_0bwl
-A9 z iL R_0q
+A8 r i R_0bwl
+A9 r iL R_0q
 F6 0 i rbwl
 F7 0 iL rq
 84 r Rbwlq r
@@ -835,11 +835,11 @@ wrss:0F38F6 r Rlq r
 
 wruss:66)0F38F5 r Rlq r
 
-xabort:C6F8 z ib
+xabort:C6F8 r ib
 
 xadd:0FC0 r Rbwlq r
 
-xbegin:C7F8 z Iwl
+xbegin:C7F8 r Iwl
 
 xchg
 90 o R_0wlq R
@@ -878,11 +878,11 @@ let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
 arithmeticMnemonics.forEach((name, i) => {
     let opBase = i * 8;
     mnemonics[name] = [
-        hex(opBase + 4) + " z i R_0bw",
+        hex(opBase + 4) + " r i R_0bw",
         "83 " + i + " Ib rwlq",
-        hex(opBase + 5) + " z iL R_0l",
+        hex(opBase + 5) + " r iL R_0l",
         "80 " + i + " i rbwl",
-        hex(opBase + 5) + " z iL R_0q",
+        hex(opBase + 5) + " r iL R_0q",
         "81 " + i + " IL rq",
         hex(opBase) + " r Rbwlq r",
         hex(opBase + 2) + " r r Rbwlq"
@@ -923,8 +923,8 @@ conditionals.forEach((names, i) => {
 
     // jxx instructions
     mnemonics['j' + firstName] = [
-        hex(0x70 + i) + " z Ib",
-        hex(0x0F80 + i) + " z Il"
+        hex(0x70 + i) + " r Ib",
+        hex(0x0F80 + i) + " r Il"
     ];
 
     // cmovxx instructions

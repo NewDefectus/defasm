@@ -1,4 +1,4 @@
-const REG_MOD = -1, REG_OP = -2, REG_NON = -3;
+const REG_MOD = -1, REG_OP = -2;
 const OPC = {
     r: OPT.REG,
     v: OPT.VEC,
@@ -215,7 +215,7 @@ function Operation(format)
     let extension = format.shift();
     if(extension === undefined) // Default values
     {
-        this.extension = REG_NON;
+        this.extension = REG_MOD;
         this.opDiff = 1;
         this.opCatchers = [];
     }
@@ -228,9 +228,6 @@ function Operation(format)
                 break;
             case 'o':
                 this.extension = REG_OP;
-                break;
-            case 'z':
-                this.extension = REG_NON;
                 break;
             default:
                 this.extension = parseInt(extension[0]);
@@ -412,7 +409,6 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
         extendOp = reg.reg > 7;
         reg = null;
     }
-    else if(this.extension === REG_NON) reg = null, rm = null; // Rarely needed, but should be done so the encoder can understand
     else if(this.extension !== REG_MOD)
     {
         if(rm === null) rm = reg;
