@@ -198,7 +198,7 @@ function Operation(format)
         if(format[0].includes('l')) this.vexBase |= 4;
         format.shift();
     }
-    let opcode = format.shift();
+    let [opcode, extension] = format.shift().split('.');
     if(opcode[2] === ')') // Prefix followed by ')'
     {
         this.code = parseInt(opcode.slice(3), 16);
@@ -212,7 +212,6 @@ function Operation(format)
     }
 
     // Interpreting the extension
-    let extension = format.shift();
     if(extension === undefined) // Default values
     {
         this.extension = REG_MOD;
@@ -221,66 +220,57 @@ function Operation(format)
     }
     else
     {
-        switch(extension[0])
-        {
-            case 'r':
-                this.extension = REG_MOD;
-                break;
-            case 'o':
-                this.extension = REG_OP;
-                break;
-            default:
-                this.extension = parseInt(extension[0]);
-        }
+        if(extension[0] === 'o') this.extension = REG_OP;
+        else this.extension = parseInt(extension[0]);
 
         // Opcode difference might follow extension number (e.g. o8)
         this.opDiff = extension[1] ? parseInt(extension.slice(1)) : 1;
+    }
 
-        // What follows is a list of operand specifiers
-        this.opCatchers = [];
-        this.vexOpCatchers = [];
-        this.allowVex = format.some(op => op.includes('>'));
-        this.checkableSizes = null;
-        this.defaultCheckableSize = null;
-        this.forceVex = false;
+    // What follows is a list of operand specifiers
+    this.opCatchers = [];
+    this.vexOpCatchers = [];
+    this.allowVex = format.some(op => op.includes('>'));
+    this.checkableSizes = null;
+    this.defaultCheckableSize = null;
+    this.forceVex = false;
 
-        let opCatcher;
+    let opCatcher;
 
-        if(format[0][0] === '-')
-            this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
+    if(format[0][0] === '-')
+        this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
 
-        for(let operand of format)
+    for(let operand of format)
+    {
+        if(operand === '>') // Empty VEX operands shouldn't be counted
+            continue;
+        opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
+        if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
+        if(!this.forceVex && ((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK))
         {
-            if(operand === '>') // Empty VEX operands shouldn't be counted
-                continue;
-            opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-            if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
-            if(!this.forceVex && ((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK))
-            {
-                this.forceVex = true;
-                this.vexOnly = false;
-                if(opCatcher.type === OPT.MASK) this.maskSizing |= 1;
-            }
-            if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
-
-            if(this.allowVex) this.vexOpCatchers.push(opCatcher);
+            this.forceVex = true;
+            this.vexOnly = false;
+            if(opCatcher.type === OPT.MASK) this.maskSizing |= 1;
         }
+        if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
 
-        // Generate the necessary vex info
-        if(this.allowVex)
-        {
-            if(this.vexBase === null) this.vexBase = 0;
-            this.vexBase |= 120 |
-                (([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1) << 8)
-                | [null, 0x66, 0xF3, 0xF2].indexOf(this.prefix)
-        }
+        if(this.allowVex) this.vexOpCatchers.push(opCatcher);
+    }
 
-        if(this.forceVex)
-        {
-            this.opCatchers = this.vexOpCatchers
-            this.vexOpCatchers = null;
-            this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
-        }
+    // Generate the necessary vex info
+    if(this.allowVex)
+    {
+        if(this.vexBase === null) this.vexBase = 0;
+        this.vexBase |= 120 |
+            (([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1) << 8)
+            | [null, 0x66, 0xF3, 0xF2].indexOf(this.prefix)
+    }
+
+    if(this.forceVex)
+    {
+        this.opCatchers = this.vexOpCatchers
+        this.vexOpCatchers = null;
+        this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
     }
 }
 

@@ -1,107 +1,107 @@
 let lines;
 let mnemonicStrings = `
 
-adcx:66)0F38F6 r r Rlq
+adcx:66)0F38F6 Rlq
 
-addpd:66)0F58 r v >V Vxy
+addpd:66)0F58 v >V Vxy
 
-addps:0F58 r v >V Vxy
+addps:0F58 v >V Vxy
 
-addsd:F2)0F58 r v >V Vx
+addsd:F2)0F58 v >V Vx
 
-addss:F3)0F58 r v >V Vx
+addss:F3)0F58 v >V Vx
 
-addsubpd:66)0FD0 r v >V Vxy
+addsubpd:66)0FD0 v >V Vxy
 
-addsubps:F2)0FD0 r v >V Vxy
+addsubps:F2)0FD0 v >V Vxy
 
-adox:F3)0F38F6 r r Rlq
+adox:F3)0F38F6 Rlq
 
-aesdec:66)0F38DE r v >V Vxy
+aesdec:66)0F38DE v >V Vxy
 
-aesdeclast:66)0F38DF r v >V Vxy
+aesdeclast:66)0F38DF v >V Vxy
 
-aesenc:66)0F38DC r v >V Vxy
+aesenc:66)0F38DC v >V Vxy
 
-aesenclast:66)0F38DD r v >V Vxy
+aesenclast:66)0F38DD v >V Vxy
 
-aesimc:66)0F38DB r v Vx >
+aesimc:66)0F38DB v Vx >
 
-aeskeygenassist:66)0F3ADF r ib v Vx >
+aeskeygenassist:66)0F3ADF ib v Vx >
 
-andn:0F38F2 r r >Rlq R
+andn:0F38F2 >Rlq R
 
-andpd:66)0F54 r v >V Vxy
+andpd:66)0F54 v >V Vxy
 
-andps:0F54 r v >V Vxy
+andps:0F54 v >V Vxy
 
-andnpd:66)0F55 r v >V Vxy
+andnpd:66)0F55 v >V Vxy
 
-andnps:0F55 r v >V Vxy
+andnps:0F55 v >V Vxy
 
-bextr:0F38F7 r >Rlq r R
+bextr:0F38F7 >Rlq R
 
-blendpd:66)0F3A0D r ib v >V Vxy
+blendpd:66)0F3A0D ib v >V Vxy
 
-blendps:66)0F3A0C r ib v >V Vxy
+blendps:66)0F3A0C ib v >V Vxy
 
 blendvpd
-66)0F3815 r V_0x v V
-v 66)0F3A4B r <Vxy v >V V
+66)0F3815 V_0x v V
+v 66)0F3A4B <Vxy v >V V
 
 blendvps
-66)0F3814 r V_0x v V
-v 66)0F3A4A r <Vxy v >V V
+66)0F3814 V_0x v V
+v 66)0F3A4A <Vxy v >V V
 
-blsi:0F38F3 3 r >Rlq
+blsi:0F38F3.3 >Rlq
 
-blsmsk:0F38F3 2 r >Rlq
+blsmsk:0F38F3.2 >Rlq
 
-blsr:0F38F3 1 r >Rlq
+blsr:0F38F3.1 >Rlq
 
-bndcl:F3)0F1A r rQ B
+bndcl:F3)0F1A rQ B
 
-bndcn:F2)0F1B r rQ B
+bndcn:F2)0F1B rQ B
 
-bndcu:F2)0F1A r rQ B
+bndcu:F2)0F1A rQ B
 
-bndldx:0F1A r mQ B
+bndldx:0F1A mQ B
 
-bndmk:F3)0F1B r mQ B
+bndmk:F3)0F1B mQ B
 
 bndmov
-66)0F1A r b B
-66)0F1B r B b
+66)0F1A b B
+66)0F1B B b
 
-bndstx:0F1B r B mQ
+bndstx:0F1B B mQ
 
-bsf:0FBC r r Rwlq
+bsf:0FBC Rwlq
 
-bsr:0FBD r r Rwlq
+bsr:0FBD Rwlq
 
-bswap:0FC8 o Rwlq
+bswap:0FC8.o Rwlq
 
 bt
-0FA3 r Rwlq r
-0FBA 4 ib rwlq
+0FA3 Rwlq r
+0FBA.4 ib rwlq
 
 btc
-0FBB r Rwlq r
-0FBA 7 ib rwlq
+0FBB Rwlq r
+0FBA.7 ib rwlq
 
 btr
-0FB3 r Rwlq r
-0FBA 6 ib rwlq
+0FB3 Rwlq r
+0FBA.6 ib rwlq
 
 bts
-0FAB r Rwlq r
-0FBA 5 ib rwlq
+0FAB Rwlq r
+0FBA.5 ib rwlq
 
-bzhi:0F38F5 r Rlq r >R
+bzhi:0F38F5 Rlq >R
 
 call
-E8 r Il
-FF 2 rQ
+E8 Il
+FF.2 rQ
 
 cbw:66)98
 
@@ -115,91 +115,91 @@ clc:F8
 
 cld:FC
 
-cldemote:0F1C 0 mB
+cldemote:0F1C.0 mB
 
-clflush:0FAE 7 mB
+clflush:0FAE.7 mB
 
-clflushopt:66)0FAE 7 mB
+clflushopt:66)0FAE.7 mB
 
 cli:FA
 
-clrssbsy:F3)0FAE 6 mQ
+clrssbsy:F3)0FAE.6 mQ
 
 clts:0F06
 
-clwb:66)0FAE 6 mB
+clwb:66)0FAE.6 mB
 
 cmc:F5
 
-cmppd:66)0FC2 r ib v >V Vxy
+cmppd:66)0FC2 ib v >V Vxy
 
-cmpps:0FC2 r ib v >V Vxy
+cmpps:0FC2 ib v >V Vxy
 
-cmps:A6 r -bwlq
+cmps:A6 -bwlq
 
-cmpsd:F2)0FC2 r ib v >V Vx
+cmpsd:F2)0FC2 ib v >V Vx
 
-cmpss:F3)0FC2 r ib v >V Vx
+cmpss:F3)0FC2 ib v >V Vx
 
-cmpxchg:0FB0 r Rbwlq r
+cmpxchg:0FB0 Rbwlq r
 
-cmpxchg8b:0FC7 1 mQ
+cmpxchg8b:0FC7.1 mQ
 
-cmpxchg16b:0FC7 1 m#q
+cmpxchg16b:0FC7.1 m#q
 
-comisd:66)0F2F r v Vx >
+comisd:66)0F2F v Vx >
 
-comiss:0F2F r v Vx >
+comiss:0F2F v Vx >
 
 cpuid:0FA2
 
 crc32
-F2)0F38F0 r rbwl RL
-F2)0F38F0 r rbq Rq
+F2)0F38F0 rbwl RL
+F2)0F38F0 rbq Rq
 
-cvtdq2pd:F3)0FE6 r vX Vxy >
+cvtdq2pd:F3)0FE6 vX Vxy >
 
-cvtdq2ps:0F5B r v Vxy >
+cvtdq2ps:0F5B v Vxy >
 
-cvtpd2dq:F2)0FE6 r vXy Vx >
+cvtpd2dq:F2)0FE6 vXy Vx >
 
-cvtpd2pi:66)0F2D r vX VQ
+cvtpd2pi:66)0F2D vX VQ
 
-cvtpd2ps:66)0F5A r vXy Vx >
+cvtpd2ps:66)0F5A vXy Vx >
 
-cvtpi2pd:66)0F2A r vQ Vx
+cvtpi2pd:66)0F2A vQ Vx
 
-cvtpi2ps:0F2A r vQ Vx
+cvtpi2ps:0F2A vQ Vx
 
-cvtps2dq:66)0F5B r v Vxy >
+cvtps2dq:66)0F5B v Vxy >
 
-cvtps2pd:0F5A r vX Vxy >
+cvtps2pd:0F5A vX Vxy >
 
-cvtps2pi:0F2D r vX VQ
+cvtps2pi:0F2D vX VQ
 
-cvtsd2si:F2)0F2D r vX Rlq >
+cvtsd2si:F2)0F2D vX Rlq >
 
-cvtsd2ss:F2)0F5A r vX >Vx Vx
+cvtsd2ss:F2)0F5A vX >Vx Vx
 
-cvtsi2sd:F2)0F2A r rlq >VX VX
+cvtsi2sd:F2)0F2A rlq >VX VX
 
-cvtsi2ss:F3)0F2A r rlq >VX VX
+cvtsi2ss:F3)0F2A rlq >VX VX
 
-cvtss2sd:F3)0F5A r v >Vx Vx
+cvtss2sd:F3)0F5A v >Vx Vx
 
-cvtss2si:F3)0F2D r vX Rlq >
+cvtss2si:F3)0F2D vX Rlq >
 
-cvttpd2dq:66)0FE6 r vXy Vx >
+cvttpd2dq:66)0FE6 vXy Vx >
 
-cvttpd2pi:66)0F2C r vX VQ
+cvttpd2pi:66)0F2C vX VQ
 
-cvttps2dq:F3)0F5B r v Vxy >
+cvttps2dq:F3)0F5B v Vxy >
 
-cvttps2pi:0F2C r vX VQ
+cvttps2pi:0F2C vX VQ
 
-cvttsd2si:F2)0F2C r vX Rlq >
+cvttsd2si:F2)0F2C vX Rlq >
 
-cvtss2si:F3)0F2C r vX Rlq >
+cvtss2si:F3)0F2C vX Rlq >
 
 cqo:48)99
 
@@ -207,21 +207,21 @@ cwd:66)99
 
 cwde:98
 
-dec:FE 1 rbwlq
+dec:FE.1 rbwlq
 
-div:F6 6 rbwlq
+div:F6.6 rbwlq
 
-divpd:66)0F5E r v >V Vxy
+divpd:66)0F5E v >V Vxy
 
-divps:0F5E r v >V Vxy
+divps:0F5E v >V Vxy
 
-divsd:F2)0F5E r v >V Vx
+divsd:F2)0F5E v >V Vx
 
-divss:F3)0F5E r v >V Vx
+divss:F3)0F5E v >V Vx
 
-dppd:66)0F3A41 r ib v >V Vx
+dppd:66)0F3A41 ib v >V Vx
 
-dpps:66)0F3A40 r ib v >V Vxy
+dpps:66)0F3A40 ib v >V Vxy
 
 emms:0F77
 
@@ -229,89 +229,89 @@ endbr32:F3)0F1EFB
 
 endbr64:F3)0F1EFA
 
-enter:C8 r ib iW
+enter:C8 ib iW
 
-extractps:66)0F3A17 r ib Vx rL >
+extractps:66)0F3A17 ib Vx rL >
 
 f2xm1:D9F0
 
 fabs:D9E1
 
-fbld:DF 4 mQ
+fbld:DF.4 mQ
 
-fbstp:DF 6 mQ
+fbstp:DF.6 mQ
 
 fchs:D9E0
 
 fclex:9BDBE2
 
-fcmovb:DA 0 F F_0
+fcmovb:DA.0 F F_0
 
-fcmove:DA 1 F F_0
+fcmove:DA.1 F F_0
 
-fcmovbe:DA 2 F F_0
+fcmovbe:DA.2 F F_0
 
-fcmovu:DA 3 F F_0
+fcmovu:DA.3 F F_0
 
-fcmovnb:DB 0 F F_0
+fcmovnb:DB.0 F F_0
 
-fcmovne:DB 1 F F_0
+fcmovne:DB.1 F F_0
 
-fcmovnbe:DB 2 F F_0
+fcmovnbe:DB.2 F F_0
 
-fcmovnu:DB 3 F F_0
+fcmovnu:DB.3 F F_0
 
 fcompp:DED9
 
-fcomi:DB 6 F F_0
+fcomi:DB.6 F F_0
 
-fcomip:DF 6 F F_0
+fcomip:DF.6 F F_0
 
 fcos:D9FF
 
 fdecstp:D9F6
 
-ffree:DD 0 F
+ffree:DD.0 F
 
 fild
-DF 0 mW
-DB 0 ml
-DF 5 mQ
+DF.0 mW
+DB.0 ml
+DF.5 mQ
 
 fimul
-DA 1 ml
-DE 1 mW
+DA.1 ml
+DE.1 mW
 
 fincstp:D9F7
 
 finit:9BDBE3
 
 fist
-DB 2 ml
-DF 2 mW
+DB.2 ml
+DF.2 mW
 
 fistp
-DB 3 ml
-DF 3 mW
-DF 7 mQ
+DB.3 ml
+DF.3 mW
+DF.7 mQ
 
 fisttp
-DB 1 ml
-DF 1 mW
-DD 1 mQ
+DB.1 ml
+DF.1 mW
+DD.1 mQ
 
 fisub
-DA 4 ml
-DE 4 mW
+DA.4 ml
+DE.4 mW
 
 fisubr
-DA 5 ml
-DE 5 mW
+DA.5 ml
+DE.5 mW
 
 fld
-D9 0 ml
-DD 0 mQ
-D9 0 F
+D9.0 ml
+DD.0 mQ
+D9.0 F
 
 fld1:D9E8
 
@@ -325,22 +325,22 @@ fldlg2:D9EC
 
 fldln2:D9ED
 
-fldt:DB 5 mQ
+fldt:DB.5 mQ
 
 fldz:D9EE
 
-fldcw:D9 5 mW
+fldcw:D9.5 mW
 
-fldenv:D9 4 mL
+fldenv:D9.4 mL
 
 fmul
-D8 1 ml
-DC 1 mQ
-D8 1 F F_0
-DC 1 F_0 F
+D8.1 ml
+DC.1 mQ
+D8.1 F F_0
+DC.1 F_0 F
 
 fmulp
-DE 1 F_0 F
+DE.1 F_0 F
 DEC9
 
 fnclex:DBE2
@@ -349,15 +349,15 @@ fninit:DBE3
 
 fnop:D9D0
 
-fnsave:DD 6 mQ
+fnsave:DD.6 mQ
 
-fnstcw:D9 7 mW
+fnstcw:D9.7 mW
 
-fnstenv:D9 6 mL
+fnstenv:D9.6 mL
 
 fnstsw
-DD 7 mW
-DFE0 r R_0W
+DD.7 mW
+DFE0 R_0W
 
 fpatan:D9F3
 
@@ -369,9 +369,9 @@ fptan:D9F2
 
 frndint:D9FC
 
-frstor:DD 4 mQ
+frstor:DD.4 mQ
 
-fsave:9BDD 6 mQ
+fsave:9BDD.6 mQ
 
 fscale:D9FD
 
@@ -382,56 +382,56 @@ fsincos:D9FB
 fsqrt:D9FA
 
 fst
-D9 2 ml
-DD 2 mQ
-DD 2 F
+D9.2 ml
+DD.2 mQ
+DD.2 F
 
-fstcw:9BD9 7 mW
+fstcw:9BD9.7 mW
 
-fstenv:9BD9 6 mL
+fstenv:9BD9.6 mL
 
 fstp
-D9 3 ml
-DD 3 mQ
-DD 3 F
+D9.3 ml
+DD.3 mQ
+DD.3 F
 
-fstpt:DB 7 mQ
+fstpt:DB.7 mQ
 
 fstsw
-9BDD 7 mW
-9BDFE0 r R_0W
+9BDD.7 mW
+9BDFE0 R_0W
 
 ftst:D9E4
 
 fucom
-DD 4 F
+DD.4 F
 DDE1
 
 fucomp
-DD 5 F
+DD.5 F
 DDE9
 
 fucompp:DAE9
 
-fucomi:DB 5 F F_0
+fucomi:DB.5 F F_0
 
-fucomip:DF 5 F F_0
+fucomip:DF.5 F F_0
 
 fwait:#wait
 
 fxam:D9E5
 
 fxch
-D9 1 F
+D9.1 F
 D9C9
 
-fxrstor:0FAE 1 mQ
+fxrstor:0FAE.1 mQ
 
-fxrstor64:0FAE 1 m#q
+fxrstor64:0FAE.1 m#q
 
-fxsave:0FAE 0 mQ
+fxsave:0FAE.0 mQ
 
-fxsave64:0FAE 0 m#q
+fxsave64:0FAE.0 m#q
 
 fxtract:D9F4
 
@@ -439,47 +439,47 @@ fyl2x:D9F1
 
 fyl2xp1:D9F9
 
-gf2p8affineinvqb:66)0F3ACF r ib v >V Vxy
+gf2p8affineinvqb:66)0F3ACF ib v >V Vxy
 
-gf2p8affineqb:66)0F3ACE r ib v >V Vxy
+gf2p8affineqb:66)0F3ACE ib v >V Vxy
 
-gf2p8mulb:66)0F38CF r v >V Vxy
+gf2p8mulb:66)0F38CF v >V Vxy
 
-haddpd:66)0F7C r v >V Vxy
+haddpd:66)0F7C v >V Vxy
 
-haddps:F2)0F7C r v >V Vxy
+haddps:F2)0F7C v >V Vxy
 
 hlt:F4
 
-hsubpd:66)0F7D r v >V Vxy
+hsubpd:66)0F7D v >V Vxy
 
-hsubps:F2)0F7D r v >V Vxy
+hsubps:F2)0F7D v >V Vxy
 
-idiv:F6 7 rbwlq
+idiv:F6.7 rbwlq
 
 imul
-F6 5 rbwlq
-0FAF r r Rwlq
-6B r ib r Rwlq
-69 r iw rw Rw
-69 r il r Rlq
+F6.5 rbwlq
+0FAF Rwlq
+6B ib Rwlq
+69 iw rw Rw
+69 il Rlq
 
 in
-E4 r ib R_0bwl
-EC r R_2W R_0bwl
+E4 ib R_0bwl
+EC R_2W R_0bwl
 
-inc:FE 0 rbwlq
+inc:FE.0 rbwlq
 
-incsspd:F3)0FAE 5 Rlq
+incsspd:F3)0FAE.5 Rlq
 
-ins:6C r -bwl
+ins:6C -bwl
 
-insertps:66)0F3A21 r ib v >V Vx
+insertps:66)0F3A21 ib v >V Vx
 
 int
-CC r i_3b
-F1 r i_1b
-CD r ib
+CC i_3b
+F1 i_1b
+CD ib
 
 int1:F1
 
@@ -487,306 +487,306 @@ int3:CC
 
 invd:0F08
 
-invlpg:0F01 7 mB
+invlpg:0F01.7 mB
 
-invpcid:66)0F3882 r mQ RQ
+invpcid:66)0F3882 mQ RQ
 
-iret:CF r -Lq
+iret:CF -Lq
 
-jecxz:67)E3 r Ib
+jecxz:67)E3 Ib
 
 jmp
 EB z-2 Ibl
-FF 4 rQ
+FF.4 rQ
 
-jrcxz:E3 r Ib
+jrcxz:E3 Ib
 
-kadd:vl 0F4A r ^Kbwlq >K K
+kadd:vl 0F4A ^Kbwlq >K K
 
-kand:vl 0F41 r ^Kbwlq >K K
+kand:vl 0F41 ^Kbwlq >K K
 
-kandn:vl 0F42 r ^Kbwlq >K K
+kandn:vl 0F42 ^Kbwlq >K K
 
 kmov
-0F90 r k Kbwlq >
-0F91 r Kbwlq m >
-0F92 r ^Rl Kbwl >
-0F92 r ^Rq Kq >
-0F93 r ^Kbwl Rl >
-0F93 r ^Kq Rq >
+0F90 k Kbwlq >
+0F91 Kbwlq m >
+0F92 ^Rl Kbwl >
+0F92 ^Rq Kq >
+0F93 ^Kbwl Rl >
+0F93 ^Kq Rq >
 
-knot:0F44 r ^Kbwlq K >
+knot:0F44 ^Kbwlq K >
 
-kor:vl 0F45 r ^Kbwlq >K K
+kor:vl 0F45 ^Kbwlq >K K
 
-kortest:0F98 r ^Kbwlq K >
+kortest:0F98 ^Kbwlq K >
 
-kshiftl:66)0F3A32 r iB ^Kbwlq K >
+kshiftl:66)0F3A32 iB ^Kbwlq K >
 
-kshiftr:66)0F3A30 r iB ^Kbwlq K >
+kshiftr:66)0F3A30 iB ^Kbwlq K >
 
-ktest:0F99 r ^Kbwlq K >
+ktest:0F99 ^Kbwlq K >
 
-kunpckbw:vl 0F4B r ^K#b >K K
+kunpckbw:vl 0F4B ^K#b >K K
 
-kunpckdq:vl 0F4B r ^K#q >K K
+kunpckdq:vl 0F4B ^K#q >K K
 
-kunpckwd:vl 0F4B r ^K#w >K K
+kunpckwd:vl 0F4B ^K#w >K K
 
-kxnor:vl 0F46 r ^Kbwlq >K K
+kxnor:vl 0F46 ^Kbwlq >K K
 
-kxor:vl 0F47 r ^Kbwlq >K K
+kxor:vl 0F47 ^Kbwlq >K K
 
 lahf:9F
 
-lar:0F02 r rW Rwlq
+lar:0F02 rW Rwlq
 
-lddqu:F2)0FF0 r m Vxy >
+lddqu:F2)0FF0 m Vxy >
 
-ldmxcsr:0FAE 2 mL >
+ldmxcsr:0FAE.2 mL >
 
-lea:8D r m Rwlq
+lea:8D m Rwlq
 
 leave:C9
 
-lfs:0FB4 r m Rwlq
+lfs:0FB4 m Rwlq
 
-lgs:0FB5 r m Rwlq
+lgs:0FB5 m Rwlq
 
-lods:AC r -bwlq
+lods:AC -bwlq
 
-loop:E2 r Ib
+loop:E2 Ib
 
-loope:E1 r Ib
+loope:E1 Ib
 
-loopne:E0 r Ib
+loopne:E0 Ib
 
-lsl:0F03 r rW Rwlq
+lsl:0F03 rW Rwlq
 
-lss:0FB2 r m Rwlq
+lss:0FB2 m Rwlq
 
-maskmovdqu:66)0FF7 r ^Vx V >
+maskmovdqu:66)0FF7 ^Vx V >
 
-maskmovq:0FF7 r ^VQ V
+maskmovq:0FF7 ^VQ V
 
-maxpd:66)0F5F r v >V Vxy
+maxpd:66)0F5F v >V Vxy
 
-maxps:0F5F r v >V Vxy
+maxps:0F5F v >V Vxy
 
-maxsd:F2)0F5F r v >V Vx
+maxsd:F2)0F5F v >V Vx
 
-maxss:F3)0F5F r v >V Vx
+maxss:F3)0F5F v >V Vx
 
 mfence:0FAEF0
 
-minpd:66)0F5D r v >V Vxy
+minpd:66)0F5D v >V Vxy
 
-minps:0F5D r v >V Vxy
+minps:0F5D v >V Vxy
 
-minsd:F2)0F5D r v >V Vx
+minsd:F2)0F5D v >V Vx
 
-minss:F3)0F5D r v >V Vx
+minss:F3)0F5D v >V Vx
 
 monitor:0F01C8
 
 mov
-88 r Rbwlq r
-8A r r Rbwlq
-C7 0 Il Rq
-C7 0 iL mq
-B0 o8 i Rbwlq
-C6 0 i rbwl
-0F6E r r~l~q VQ
-0F7E r VQ r~l~q
-66)0F6E r r~l~q VX >
-66)0F7E r VX r~l~q >
-0F6F r v V~$q
-0F7F r V~$q v
-F3)0F7E r -$q v Vx >
-66)0FD6 r -$q Vx v >
-8C r s Rwlq
-8C r s mW
-8E r Rwlq s
-8E r mW s
-0F20 r C ^RQ
-0F21 r D ^RQ
-0F22 r ^RQ C
-0F23 r ^RQ D
+88 Rbwlq r
+8A Rbwlq
+C7.0 Il Rq
+C7.0 iL mq
+B0.o8 i Rbwlq
+C6.0 i rbwl
+0F6E r~l~q VQ
+0F7E VQ r~l~q
+66)0F6E r~l~q VX >
+66)0F7E VX r~l~q >
+0F6F v V~$q
+0F7F V~$q v
+F3)0F7E -$q v Vx >
+66)0FD6 -$q Vx v >
+8C s Rwlq
+8C s mW
+8E Rwlq s
+8E mW s
+0F20 C ^RQ
+0F21 D ^RQ
+0F22 ^RQ C
+0F23 ^RQ D
 
-movddup:F2)0F12 r v Vxy >
+movddup:F2)0F12 v Vxy >
 
-movdiri:0F38F9 r Rlq m
+movdiri:0F38F9 Rlq m
 
-movdir64b:66)0F38F8 r m Rwlq
+movdir64b:66)0F38F8 m Rwlq
 
 movdqa
-66)0F6F r v Vxy >
-66)0F7F r Vxy v >
+66)0F6F v Vxy >
+66)0F7F Vxy v >
 
 movdqu
-F3)0F6F r v Vxy >
-F3)0F7F r Vxy v >
+F3)0F6F v Vxy >
+F3)0F7F Vxy v >
 
-movdq2q:F2)0FD6 r ^Vx VQ
+movdq2q:F2)0FD6 ^Vx VQ
 
-movhlps:0F12 r ^Vx >V V
+movhlps:0F12 ^Vx >V V
 
 movhpd
-66)0F16 r m >V Vx
-66)0F17 r Vx m >
+66)0F16 m >V Vx
+66)0F17 Vx m >
 
 movhps
-0F16 r m >V Vx
-0F17 r Vx m >
+0F16 m >V Vx
+0F17 Vx m >
 
-movlhps:0F16 r ^Vx >V V
+movlhps:0F16 ^Vx >V V
 
 movlpd
-66)0F12 r m >V Vx
-66)0F13 r Vx m >
+66)0F12 m >V Vx
+66)0F13 Vx m >
 
 movlps
-0F12 r m >V Vx
-0F13 r Vx m >
+0F12 m >V Vx
+0F13 Vx m >
 
-movmskpd:66)0F50 r ^Vxy R! >
+movmskpd:66)0F50 ^Vxy R! >
 
-movmskps:0F50 r ^Vxy R! >
+movmskps:0F50 ^Vxy R! >
 
-movntdqa:66)0F382A r m Vxy >
+movntdqa:66)0F382A m Vxy >
 
-movntdq:66)0FE7 r Vxy m >
+movntdq:66)0FE7 Vxy m >
 
-movnti:0FC3 r Rlq m
+movnti:0FC3 Rlq m
 
-movntpd:66)0F2B r Vxy m >
+movntpd:66)0F2B Vxy m >
 
-movntps:0F2B r Vxy m >
+movntps:0F2B Vxy m >
 
-movntq:0FE7 r VQ m
+movntq:0FE7 VQ m
 
-movq2dq:F3)0FD6 r ^VQ Vx
+movq2dq:F3)0FD6 ^VQ Vx
 
-movs:A4 r -bwlq
+movs:A4 -bwlq
 
 movsd
-F2)0F10 r ^Vx >V V
-F2)0F10 r m Vx >
-F2)0F11 r Vx m >
+F2)0F10 ^Vx >V V
+F2)0F10 m Vx >
+F2)0F11 Vx m >
 
-movshdup:F3)0F16 r v Vxy >
+movshdup:F3)0F16 v Vxy >
 
-movsldup:F3)0F12 r v Vxy >
+movsldup:F3)0F12 v Vxy >
 
 movss
-F3)0F10 r ^Vx >V V
-F3)0F10 r m Vx >
-F3)0F11 r Vx m >
+F3)0F10 ^Vx >V V
+F3)0F10 m Vx >
+F3)0F11 Vx m >
 
-movsx:0FBE r rb$w Rwlq
+movsx:0FBE rb$w Rwlq
 
 movsxd
-63 r r Rw
-63 r rL Rlq
+63 Rw
+63 rL Rlq
 
 movupd
-66)0F10 r v Vxy >
-66)0F11 r Vxy v >
+66)0F10 v Vxy >
+66)0F11 Vxy v >
 
 movups
-0F10 r v Vxy >
-0F11 r Vxy v >
+0F10 v Vxy >
+0F11 Vxy v >
 
-movzx:0FB6 r rb$w Rwlq
+movzx:0FB6 rb$w Rwlq
 
-mpsadbw:66)0F3A42 r ib v >V Vxy
+mpsadbw:66)0F3A42 ib v >V Vxy
 
-mul:F6 4 rbwlq
+mul:F6.4 rbwlq
 
-mulpd:66)0F59 r v >V Vxy
+mulpd:66)0F59 v >V Vxy
 
-mulps:0F59 r v >V Vxy
+mulps:0F59 v >V Vxy
 
-mulsd:F2)0F59 r v >V Vx
+mulsd:F2)0F59 v >V Vx
 
-mulss:F3)0F59 r v >V Vx
+mulss:F3)0F59 v >V Vx
 
-mulx:F2)0F38F6 r r >Rlq R
+mulx:F2)0F38F6 >Rlq R
 
 mwait:0F01C9
 
-neg:F6 3 rbwlq
+neg:F6.3 rbwlq
 
 nop
 90
-0F1F 0 rwL
+0F1F.0 rwL
 
-not:F6 2 rbwlq
+not:F6.2 rbwlq
 
 out
-E6 r R_0bwl ib
-EE r R_0bwl R_2W
+E6 R_0bwl ib
+EE R_0bwl R_2W
 
-outs:6E r -bwl
+outs:6E -bwl
 
 pop
-58 o RwQ
-8F 0 mwQ
-0FA1 r s_4
-0FA9 r s_5
+58.o RwQ
+8F.0 mwQ
+0FA1 s_4
+0FA9 s_5
 
-popf:9D r -wQ
+popf:9D -wQ
 
 por
-0FEB r v VQ
-66)0FEB r v >V Vxy
+0FEB v VQ
+66)0FEB v >V Vxy
 
 push
-50 o RwQ
+50.o RwQ
 6A z-2 Ib~wl
-FF 6 mwQ
-0FA0 r s_4
-0FA8 r s_5
+FF.6 mwQ
+0FA0 s_4
+0FA8 s_5
 
-pushf:9C r -wQ
+pushf:9C -wQ
 
 ret
 C3
-C2 r IW
+C2 IW
 
 sahf:9E
 
 sal:#shl
 
-scas:AE r -bwlq
+scas:AE -bwlq
 
 setssbsy:F3)0F01E8
 
 sfence:0FAEF8
 
-sgdt:0F01 0 mQ
+sgdt:0F01.0 mQ
 
-sha1rnds4:0F3ACC r ib v Vx
+sha1rnds4:0F3ACC ib v Vx
 
-sha1nexte:0F38C8 r v Vx
+sha1nexte:0F38C8 v Vx
 
-sha1msg1:0F38C9 r v Vx
+sha1msg1:0F38C9 v Vx
 
-sha1msg2:0F38CA r v Vx
+sha1msg2:0F38CA v Vx
 
-sha256rnds2:0F38CB r V_0x v V
+sha256rnds2:0F38CB V_0x v V
 
-sha256msg1:0F38CC r v Vx
+sha256msg1:0F38CC v Vx
 
-sha256msg2:0F38CD r v Vx
+sha256msg2:0F38CD v Vx
 
 shld
-0FA4 r ib Rwlq r
-0FA5 r R_1b Rwlq r
+0FA4 ib Rwlq r
+0FA5 R_1b Rwlq r
 
 shrd
-0FAC r ib Rwlq r
-0FAD r R_1b Rwlq r
+0FAC ib Rwlq r
+0FAD R_1b Rwlq r
 
 stc:F9
 
@@ -794,28 +794,28 @@ std:FD
 
 sti:FB
 
-stmxcsr:0FAE 3 mL >
+stmxcsr:0FAE.3 mL >
 
-stos:AA r -bwlq
+stos:AA -bwlq
 
 syscall:0F05
 
 test
-A8 r i R_0bwl
-A9 r iL R_0q
-F6 0 i rbwl
-F7 0 iL rq
-84 r Rbwlq r
+A8 i R_0bwl
+A9 iL R_0q
+F6.0 i rbwl
+F7.0 iL rq
+84 Rbwlq r
 
-vgatherdpd:vw 66)0F3892 r >Vxy Gx V
+vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
-vgatherdps:66)0F3892 r >Vxy G V
+vgatherdps:66)0F3892 >Vxy G V
 
-vgatherqpd:vw 66)0F3893 r >Vxy G V
+vgatherqpd:vw 66)0F3893 >Vxy G V
 
 vgatherqps
-66)0F3893 r >Vx G V
-vl 66)0F3893 r >Vx Gy V
+66)0F3893 >Vx G V
+vl 66)0F3893 >Vx Gy V
 
 wait:9B
 
@@ -823,29 +823,29 @@ wbinvd:0F09
 
 wbnoinvd:F3)0F09
 
-wrfsbase:F3)0FAE 2 Rlq
+wrfsbase:F3)0FAE.2 Rlq
 
-wrgsbase:F3)0FAE 3 Rlq
+wrgsbase:F3)0FAE.3 Rlq
 
 wrmsr:0F30
 
 wrpkru:0F01EF
 
-wrss:0F38F6 r Rlq r
+wrss:0F38F6 Rlq r
 
-wruss:66)0F38F5 r Rlq r
+wruss:66)0F38F5 Rlq r
 
-xabort:C6F8 r ib
+xabort:C6F8 ib
 
-xadd:0FC0 r Rbwlq r
+xadd:0FC0 Rbwlq r
 
-xbegin:C7F8 r Iwl
+xbegin:C7F8 Iwl
 
 xchg
-90 o R_0wlq R
-90 o Rwlq R_0
-86 r Rbwlq r
-86 r r Rbwlq
+90.o R_0wlq R
+90.o Rwlq R_0
+86 Rbwlq r
+86 Rbwlq
 
 xend:0F01D5
 
@@ -853,17 +853,17 @@ xgetbv:0F01D0
 
 xlat:D7
 
-xrstor:0FAE 5 mLq
+xrstor:0FAE.5 mLq
 
-xrstors:0FC7 3 mLq
+xrstors:0FC7.3 mLq
 
-xsave:0FAE 4 mLq
+xsave:0FAE.4 mLq
 
-xsavec:0FC7 4 mLq
+xsavec:0FC7.4 mLq
 
-xsaveopt:0FAE 6 mLq
+xsaveopt:0FAE.6 mLq
 
-xsaves:0FC7 5 mLq
+xsaves:0FC7.5 mLq
 
 xsetbv:0F01D1
 
@@ -878,14 +878,14 @@ let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
 arithmeticMnemonics.forEach((name, i) => {
     let opBase = i * 8;
     mnemonics[name] = [
-        hex(opBase + 4) + " r i R_0bw",
-        "83 " + i + " Ib rwlq",
-        hex(opBase + 5) + " r iL R_0l",
-        "80 " + i + " i rbwl",
-        hex(opBase + 5) + " r iL R_0q",
-        "81 " + i + " IL rq",
-        hex(opBase) + " r Rbwlq r",
-        hex(opBase + 2) + " r r Rbwlq"
+        hex(opBase + 4) + " i R_0bw",
+        "83." + i + " Ib rwlq",
+        hex(opBase + 5) + " iL R_0l",
+        "80." + i + " i rbwl",
+        hex(opBase + 5) + " iL R_0q",
+        "81." + i + " IL rq",
+        hex(opBase) + " Rbwlq r",
+        hex(opBase + 2) + " Rbwlq"
     ];
 });
 
@@ -894,9 +894,9 @@ let shiftMnemonics = `rol ror rcl rcr shl shr  sar`.split(' ');
 shiftMnemonics.forEach((name, i) => {
     if(name)
         mnemonics[name] = [
-            "D0 " + i + " i_1 rbwlq",
-            "D2 " + i + " R_1b rbwlq",
-            "C0 " + i + " ib rbwlq"
+            "D0." + i + " i_1 rbwlq",
+            "D2." + i + " R_1b rbwlq",
+            "C0." + i + " ib rbwlq"
         ];
 });
 
@@ -923,15 +923,15 @@ conditionals.forEach((names, i) => {
 
     // jxx instructions
     mnemonics['j' + firstName] = [
-        hex(0x70 + i) + " r Ib",
-        hex(0x0F80 + i) + " r Il"
+        hex(0x70 + i) + " Ib",
+        hex(0x0F80 + i) + " Il"
     ];
 
     // cmovxx instructions
-    mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r r Rwlq"];
+    mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " Rwlq"];
 
     // setxx instructions
-    mnemonics['set' + firstName] = [hex(0x0F90 + i) + " 0 rB"]
+    mnemonics['set' + firstName] = [hex(0x0F90 + i) + ".0 rB"]
 
     // Aliases
     names.forEach(name => {
@@ -944,16 +944,16 @@ conditionals.forEach((names, i) => {
 // FPU arithmetics
 let fpuArithMnemonics = "add mul com comp sub subr div divr";
 fpuArithMnemonics.split(' ').forEach((name, i) => {
-    let list = ["D8 " + i + " ml", "DC " + i + " m$q"];
-    mnemonics['fi' + name] = ["DA " + i + " ml", "DE " + i + " m$w"];
+    let list = ["D8." + i + " ml", "DC." + i + " m$q"];
+    mnemonics['fi' + name] = ["DA." + i + " ml", "DE " + i + " m$w"];
 
-    if(i === 2 || i === 3) list.push("D8 " + i + " F", hex(0xD8C1 + i * 8));
+    if(i === 2 || i === 3) list.push("D8." + i + " F", hex(0xD8C1 + i * 8));
     else
     {
-        list.push("D8 " + i + " F F_0");
+        list.push("D8." + i + " F F_0");
         if(i >= 4) i ^= 1;
-        list.push("DC " + i + " F_0 F");
-        mnemonics['f' + name + 'p'] = ["DE " + i + " F_0 F", hex(0xDEC1 + i * 8)];
+        list.push("DC." + i + " F_0 F");
+        mnemonics['f' + name + 'p'] = ["DE." + i + " F_0 F", hex(0xDEC1 + i * 8)];
     }
 
     mnemonics['f' + name] = list;
