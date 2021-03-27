@@ -103,11 +103,11 @@ call
 E8 Il
 FF.2 rQ
 
-cbw:66)98
+cbtw:66)98
 
-cdq:99
+cltd:99
 
-cdqe:48)98
+cltq:48)98
 
 clac:0F01CA
 
@@ -201,11 +201,11 @@ cvttsd2si:F2)0F2C vX Rlq >
 
 cvtss2si:F3)0F2C vX Rlq >
 
-cqo:48)99
+cqto:48)99
 
-cwd:66)99
+cwtd:66)99
 
-cwde:98
+cwtl:98
 
 dec:FE.1 rbwlq
 
