@@ -1,7 +1,7 @@
 let lines;
 let mnemonicStrings = `
 
-adcx:66)0F38F6 Rlq
+adcx:66)0F38F6 r Rlq
 
 addpd:66)0F58 v >V Vxy
 
@@ -15,7 +15,7 @@ addsubpd:66)0FD0 v >V Vxy
 
 addsubps:F2)0FD0 v >V Vxy
 
-adox:F3)0F38F6 Rlq
+adox:F3)0F38F6 r Rlq
 
 aesdec:66)0F38DE v >V Vxy
 
@@ -29,7 +29,7 @@ aesimc:66)0F38DB v Vx >
 
 aeskeygenassist:66)0F3ADF ib v Vx >
 
-andn:0F38F2 >Rlq R
+andn:0F38F2 r >Rlq R
 
 andpd:66)0F54 v >V Vxy
 
@@ -39,7 +39,7 @@ andnpd:66)0F55 v >V Vxy
 
 andnps:0F55 v >V Vxy
 
-bextr:0F38F7 >Rlq R
+bextr:0F38F7 >Rlq r R
 
 blendpd:66)0F3A0D ib v >V Vxy
 
@@ -53,11 +53,11 @@ blendvps
 66)0F3814 V_0x v V
 v 66)0F3A4A <Vxy v >V V
 
-blsi:0F38F3.3 >Rlq
+blsi:0F38F3.3 r >Rlq
 
-blsmsk:0F38F3.2 >Rlq
+blsmsk:0F38F3.2 r >Rlq
 
-blsr:0F38F3.1 >Rlq
+blsr:0F38F3.1 r >Rlq
 
 bndcl:F3)0F1A rQ B
 
@@ -75,9 +75,9 @@ bndmov
 
 bndstx:0F1B B mQ
 
-bsf:0FBC Rwlq
+bsf:0FBC r Rwlq
 
-bsr:0FBD Rwlq
+bsr:0FBD r Rwlq
 
 bswap:0FC8.o Rwlq
 
@@ -97,7 +97,7 @@ bts
 0FAB Rwlq r
 0FBA.5 ib rwlq
 
-bzhi:0F38F5 Rlq >R
+bzhi:0F38F5 Rlq r >R
 
 call
 E8 Il
@@ -459,10 +459,10 @@ idiv:F6.7 rbwlq
 
 imul
 F6.5 rbwlq
-0FAF Rwlq
-6B ib Rwlq
+0FAF r Rwlq
+6B ib r Rwlq
 69 iw rw Rw
-69 il Rlq
+69 il r Rlq
 
 in
 E4 ib R_0bwl
@@ -591,7 +591,7 @@ monitor:0F01C8
 
 mov
 88 Rbwlq r
-8A Rbwlq
+8A r Rbwlq
 C7.0 Il Rq
 C7.0 iL mq
 B0+8.o i Rbwlq
@@ -686,7 +686,7 @@ F3)0F11 Vx m >
 movsx:0FBE rb$w Rwlq
 
 movsxd
-63 Rw
+63 r Rw
 63 rL Rlq
 
 movupd
@@ -711,7 +711,7 @@ mulsd:F2)0F59 v >V Vx
 
 mulss:F3)0F59 v >V Vx
 
-mulx:F2)0F38F6 >Rlq R
+mulx:F2)0F38F6 r >Rlq R
 
 mwait:0F01C9
 
@@ -845,7 +845,7 @@ xchg
 90.o R_0wlq R
 90.o Rwlq R_0
 86 Rbwlq r
-86 Rbwlq
+86 r Rbwlq
 
 xend:0F01D5
 
@@ -885,7 +885,7 @@ arithmeticMnemonics.forEach((name, i) => {
         hex(opBase + 5) + " iL R_0q",
         "81." + i + " IL rq",
         hex(opBase) + " Rbwlq r",
-        hex(opBase + 2) + " Rbwlq"
+        hex(opBase + 2) + " r Rbwlq"
     ];
 });
 
@@ -945,7 +945,7 @@ conditionals.forEach((names, i) => {
 let fpuArithMnemonics = "add mul com comp sub subr div divr";
 fpuArithMnemonics.split(' ').forEach((name, i) => {
     let list = ["D8." + i + " ml", "DC." + i + " m$q"];
-    mnemonics['fi' + name] = ["DA." + i + " ml", "DE " + i + " m$w"];
+    mnemonics['fi' + name] = ["DA." + i + " ml", "DE." + i + " m$w"];
 
     if(i === 2 || i === 3) list.push("D8." + i + " F", hex(0xD8C1 + i * 8));
     else
