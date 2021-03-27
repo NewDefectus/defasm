@@ -501,23 +501,11 @@ FF 4 rQ
 
 jrcxz:E3 z Ib
 
-kadd
-vl 66)0F4A r -b ^K >K K
-vl 0F4A r -$w ^K >K K
-vlw 66)0F4A r -l ^K >K K
-vlw 0F4A r -$q ^K >K K
+kadd:vl 0F4A r ^Kbwlq >K K
 
-kand
-vl 66)0F41 r -b ^K >K K
-vl 0F41 r -$w ^K >K K
-vlw 66)0F41 r -l ^K >K K
-vlw 0F41 r -$q ^K >K K
+kand:vl 0F41 r ^Kbwlq >K K
 
-kandn
-vl 66)0F42 r -b ^K >K K
-vl 0F42 r -$w ^K >K K
-vlw 66)0F42 r -l ^K >K K
-vlw 0F42 r -$q ^K >K K
+kandn:vl 0F42 r ^Kbwlq >K K
 
 lahf:9F
 

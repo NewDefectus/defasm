@@ -1,15 +1,15 @@
 // Operand types
 const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
-IMM:    2,  // Immediate value - e.g. $20
-VEC:    3,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
-VMEM:   4,  // Vector memory - e.g. (%xmm0)
-MEM:    5,  // Memory operand - e.g. (%rax)
-ST:     6,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
-SEG:    7,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
-IP:     8,  // Instruction pointer register (only used in memory) - %eip or %rip
-BND:    9,  // Bound register (128-bit) - %bnd0 / %bnd3
-MASK:   10, // Mask register (64-bit) - %k0 / %k7
+VEC:    2,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+VMEM:   3,  // Vector memory - e.g. (%xmm0)
+IMM:    4,  // Immediate value - e.g. $20
+MASK:   5,  // Mask register (64-bit) - %k0 / %k7
+MEM:    6,  // Memory operand - e.g. (%rax)
+ST:     7,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
+SEG:    8,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
+IP:     9,  // Instruction pointer register (only used in memory) - %eip or %rip
+BND:    10, // Bound register (128-bit) - %bnd0 / %bnd3
 CTRL:   11, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
 DBG:    12  // Debug register (64-bit) - %dr0 / %dr7
 };

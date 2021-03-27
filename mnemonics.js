@@ -131,7 +131,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
 
-    if(enforcedSize > 0 && (operand.type === OPT.IMM || operand.type === OPT.MEM)) opSize = enforcedSize;
+    if(enforcedSize > 0 && operand.type >= OPT.IMM) opSize = enforcedSize;
 
     if(isNaN(opSize))
     {
@@ -184,6 +184,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 function Operation(format)
 {
     this.vexBase = null;
+    this.maskSizing = false;
     this.allowEvex = false; // For now
 
     // Interpreting the opcode
@@ -255,23 +256,28 @@ function Operation(format)
             if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
             if((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK)
             {
-                this.allowVex = false;
                 this.forceVex = true;
                 this.vexOnly = false;
-                this.vexOpCatchers = [];
-                this.opCatchers.push(opCatcher);
+                if(opCatcher.type === OPT.MASK) this.maskSizing = true;
             }
 
             if(this.allowVex) this.vexOpCatchers.push(opCatcher);
         }
 
         // Generate the necessary vex info
-        if(this.allowVex || this.forceVex)
+        if(this.allowVex)
         {
             if(this.vexBase === null) this.vexBase = 0;
             this.vexBase |= 120 |
                 (([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1) << 8)
                 | [null, 0x66, 0xF3, 0xF2].indexOf(this.prefix)
+        }
+
+        if(this.forceVex)
+        {
+            this.opCatchers = this.vexOpCatchers
+            this.vexOpCatchers = null;
+            this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
         }
     }
 }
@@ -386,8 +392,6 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
         if(size >= 16) adjustByteOp ||= catcher.hasByteSize;
     }
 
-    if(adjustByteOp) correctedOpcode += this.opDiff;
-
     if(this.extension === REG_OP)
     {
         correctedOpcode += reg.reg & 7;
@@ -402,11 +406,21 @@ Operation.prototype.fit = function(operands, enforcedSize, vexLevel)
     }
 
     if(this.forceVex) vexLevel |= 1;
-    if(overallSize === 256)
+
+    if(this.maskSizing)
+    {
+        if(overallSize === 8 || overallSize === 32) vex |= 1; // 66 prefix for byte or doubleword masks
+        if(overallSize > 16) vex |= 0x80; // W flag for doubleword or quadword masks
+        overallSize = 0;
+        adjustByteOp = false;
+    }
+    else if(overallSize === 256)
     {
         if(vexLevel & 1) vex |= 4;
         else return null; // ymm registers can't be encoded without VEX
     }
+
+    if(adjustByteOp) correctedOpcode += this.opDiff;
 
     return {
         opcode: correctedOpcode,
