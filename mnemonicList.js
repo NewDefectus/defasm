@@ -769,6 +769,48 @@ EE R_0bwl R_2W
 
 outs:6E -bwl
 
+pabsb
+0F381C v VQ
+66)0F381C v Vxyz > {kz
+
+pabsd
+0F381E v VQ
+66)0F381E v Vxyz > {kzb
+
+pabsw
+0F381D v VQ
+66)0F381D v Vxyz > {kz
+
+packssdw
+0F6B v VQ
+66)0F6B v >V Vxyz {kzb
+
+packsswb
+0F63 v VQ
+66)0F63 v >V Vxyz {kz
+
+packusdw:66)0F382B v >V Vxyz {kzb
+
+packuswb
+0F67 v VQ
+66)0F67 v >V Vxyz {kz
+
+paddb
+0FFC v VQ
+66)0FFC v >V Vxyz {kz
+
+paddd
+0FFE v VQ
+66)0FFE v >V Vxyz {kbz
+
+paddq
+0FD4 v VQ
+66)0FD4 v >V Vxyz {kBzw
+
+paddw
+0FFD v VQ
+66)0FFD v >V Vxyz {kz
+
 pcmpestri:66)0F3A61 ib v Vx >
 
 pcmpestrm:66)0F3A60 ib v Vx >
@@ -896,6 +938,8 @@ F3)0F7F Vxyz v > {kzf
 vmovdqu64
 F3)0F6F v Vxyz > {kzfw
 F3)0F7F Vxyz v > {kzfw
+
+vpabsq:66)0F381F v Vxyz > {kzBwf
 
 wait:9B
 
