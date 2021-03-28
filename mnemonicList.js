@@ -759,6 +759,10 @@ nop
 
 not:F6.2 rbwlq
 
+orpd:66)0F56 v >V Vxyz {kzBw
+
+orps:0F56 v >V Vxyz {kzb
+
 out
 E6 R_0bwl ib
 EE R_0bwl R_2W
