@@ -622,12 +622,12 @@ B0+8.o i Rbwlq
 C6.0 i rbwl
 0F6E r~l~q VQ
 0F7E VQ r~l~q
-66)0F6E r~l~q VX >
-66)0F7E VX r~l~q >
+66)0F6E r~l~q VX > {
+66)0F7E VX r~l~q > {
 0F6F v V~$q
 0F7F V~$q v
-F3)0F7E -$q v Vx >
-66)0FD6 -$q Vx v >
+F3)0F7E -$q v Vx > {w
+66)0FD6 -$q Vx v > {w
 8C s Rwlq
 8C s mW
 8E Rwlq s
@@ -637,7 +637,19 @@ F3)0F7E -$q v Vx >
 0F22 ^RQ C
 0F23 ^RQ D
 
-movddup:F2)0F12 v Vxy >
+movapd
+66)0F28 v Vxyz > {kzw
+66)0F29 Vxyz v > {kzw
+
+movaps
+0F28 v Vxyz > {kz
+0F29 Vxyz v > {kz
+
+movbe
+0F38F0 m Rwlq
+0F38F1 Rwlq m
+
+movddup:F2)0F12 v Vxyz > {kzw
 
 movdiri:0F38F9 Rlq m
 
@@ -653,39 +665,39 @@ F3)0F7F Vxy v >
 
 movdq2q:F2)0FD6 ^Vx VQ
 
-movhlps:0F12 ^Vx >V V
+movhlps:0F12 ^Vx >V V {
 
 movhpd
-66)0F16 m >V Vx
-66)0F17 Vx m >
+66)0F16 m >V Vx {w
+66)0F17 Vx m > {w
 
 movhps
-0F16 m >V Vx
-0F17 Vx m >
+0F16 m >V Vx {
+0F17 Vx m > {
 
-movlhps:0F16 ^Vx >V V
+movlhps:0F16 ^Vx >V V {
 
 movlpd
-66)0F12 m >V Vx
-66)0F13 Vx m >
+66)0F12 m >V Vx {w
+66)0F13 Vx m > {w
 
 movlps
-0F12 m >V Vx
-0F13 Vx m >
+0F12 m >V Vx {
+0F13 Vx m > {
 
 movmskpd:66)0F50 ^Vxy R! >
 
 movmskps:0F50 ^Vxy R! >
 
-movntdqa:66)0F382A m Vxy >
+movntdqa:66)0F382A m Vxyz > {
 
-movntdq:66)0FE7 Vxy m >
+movntdq:66)0FE7 Vxyz m > {
 
 movnti:0FC3 Rlq m
 
-movntpd:66)0F2B Vxy m >
+movntpd:66)0F2B Vxyz m > {w
 
-movntps:0F2B Vxy m >
+movntps:0F2B Vxyz m > {
 
 movntq:0FE7 VQ m
 
@@ -694,18 +706,18 @@ movq2dq:F3)0FD6 ^VQ Vx
 movs:A4 -bwlq
 
 movsd
-F2)0F10 ^Vx >V V
-F2)0F10 m Vx >
-F2)0F11 Vx m >
+F2)0F10 ^Vx >V V {kzw
+F2)0F10 m Vx > {kzw
+F2)0F11 Vx m > {kw
 
-movshdup:F3)0F16 v Vxy >
+movshdup:F3)0F16 v Vxyz > {kz
 
-movsldup:F3)0F12 v Vxy >
+movsldup:F3)0F12 v Vxy > {kz
 
 movss
-F3)0F10 ^Vx >V V
-F3)0F10 m Vx >
-F3)0F11 Vx m >
+F3)0F10 ^Vx >V V {kz
+F3)0F10 m Vx > {kz
+F3)0F11 Vx m > {k
 
 movsx:0FBE rb$w Rwlq
 
@@ -714,12 +726,12 @@ movsxd
 63 rL Rlq
 
 movupd
-66)0F10 v Vxy >
-66)0F11 Vxy v >
+66)0F10 v Vxyz > {kzw
+66)0F11 Vxyz v > {kzw
 
 movups
-0F10 v Vxy >
-0F11 Vxy v >
+0F10 v Vxy > {kz
+0F11 Vxy v > {kz
 
 movzx:0FB6 rb$w Rwlq
 
@@ -727,13 +739,13 @@ mpsadbw:66)0F3A42 ib v >V Vxy
 
 mul:F6.4 rbwlq
 
-mulpd:66)0F59 v >V Vxy
+mulpd:66)0F59 v >V Vxyz {kzBrw
 
-mulps:0F59 v >V Vxy
+mulps:0F59 v >V Vxyz {kzbr
 
-mulsd:F2)0F59 v >V Vx
+mulsd:F2)0F59 v >V Vx {kzrw
 
-mulss:F3)0F59 v >V Vx
+mulss:F3)0F59 v >V Vx {kzr
 
 mulx:F2)0F38F6 r >Rlq R
 
@@ -856,6 +868,30 @@ vgatherqpd:vw 66)0F3893 >Vxy G V
 vgatherqps
 66)0F3893 >Vx G V
 vl 66)0F3893 >Vx Gy V
+
+vmovdqa32
+66)0F6F v Vxyz > {kzf
+66)0F7F Vxyz v > {kzf
+
+vmovdqa64
+66)0F6F v Vxyz > {kzfw
+66)0F7F Vxyz v > {kzfw
+
+vmovdqu8
+F2)0F6F v Vxyz > {kzf
+F2)0F7F Vxyz v > {kzf
+
+vmovdqu16
+F2)0F6F v Vxyz > {kzfw
+F2)0F7F Vxyz v > {kzfw
+
+vmovdqu32
+F3)0F6F v Vxyz > {kzf
+F3)0F7F Vxyz v > {kzf
+
+vmovdqu64
+F3)0F6F v Vxyz > {kzfw
+F3)0F7F Vxyz v > {kzfw
 
 wait:9B
 
