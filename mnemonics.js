@@ -361,6 +361,7 @@ function Operation(format)
 
 /**
  * @typedef {Object} vexData
+ * @property {boolean} needed True if the instruction should be encoded with VEX
  * @property {boolean} evex True if the instruction should be encoded with EVEX
  * @property {number} mask The id of the mask register used as the instruction writemask
  * @property {boolean} zeroing True if the instruction uses zero-masking, false for merge-masking
@@ -377,7 +378,7 @@ function Operation(format)
  */
 Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 {
-    if(vexInfo !== null)
+    if(vexInfo.needed)
     {
         if(!this.allowVex) return null;
         if(vexInfo.evex)
@@ -424,9 +425,9 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         enforcedSize = 0;
     }
 
-    let opCatchers = vexInfo ? this.vexOpCatchers : this.opCatchers;
+    let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
     if(operands.length !== opCatchers.length) return null; // Operand numbers must match
-    let correctedSizes = new Array(operands.length), size = -1, i, catcher;
+    let correctedSizes = new Array(operands.length), size = -1, prevSize = -1, i, catcher;
 
     for(i = 0; i < operands.length; i++)
     {
@@ -438,7 +439,8 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         }
         correctedSizes[i] = size;
         if(size === 64 && catcher.copySize !== undefined) size = catcher.copySize;
-        if(!catcher.carrySizeInference) size = correctedSizes[i - 1] || -1; // Size shouldn't be inferred from some operands
+        if(!catcher.carrySizeInference) size = prevSize; // Size shouldn't be inferred from some operands
+        prevSize = size;
     }
 
     // If the operand size specification wasn't in order,
@@ -502,7 +504,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         reg = {reg: this.extension};
     }
 
-    if(this.forceVex && !vexInfo) vexInfo = {evex: false};
+    vexInfo.needed ||= this.forceVex;
 
     switch(this.maskSizing)
     {
@@ -525,9 +527,9 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             break;
     }
 
-    if(vexInfo)
+    if(vexInfo.needed)
     {
-        if(overallSize === 64) return null;
+        if(overallSize === 64 && !this.forceVex) throw "Can't encode MMX with VEX prefix";
         if(this.allVectors) vex |= 0x100; // 66 prefix
 
         // Some additional EVEX data
@@ -568,11 +570,11 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         opcode: correctedOpcode,
         size: overallSize,
         rexw: rexw,
-        prefix: vexInfo ? null : (this.allVectors && overallSize > 64 ? 0x66 : this.prefix),
+        prefix: vexInfo.needed ? null : (this.allVectors && overallSize > 64 ? 0x66 : this.prefix),
         extendOp: extendOp,
         reg: reg,
         rm: rm,
-        vex: vexInfo ? vex : null,
+        vex: vexInfo.needed ? vex : null,
         imms: imms
     };
 }

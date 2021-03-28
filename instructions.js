@@ -30,8 +30,8 @@ Instruction.prototype.genInteger = function(byte, size)
 Instruction.prototype.interpret = function()
 {
     let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
-    let vexNeeded = opcode[0] === 'v';
     let vexInfo = {
+        needed: opcode[0] === 'v',
         evex: false,
         mask: 0,
         zeroing: false,
@@ -54,7 +54,7 @@ Instruction.prototype.interpret = function()
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        if(vexNeeded) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+        if(vexInfo.needed) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
         if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
         {
             enforcedSize = suffixes[opcode[opcode.length - 1]];
@@ -143,8 +143,6 @@ Instruction.prototype.interpret = function()
     }
 
     if(usesMemory && vexInfo.round !== null) throw "Embedded rounding can only be used on reg-reg";
-
-    if(!vexNeeded) vexInfo = null;
 
     this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
     this.compile();

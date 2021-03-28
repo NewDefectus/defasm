@@ -839,9 +839,71 @@ pcmpestri:66)0F3A61 ib v Vx >
 
 pcmpestrm:66)0F3A60 ib v Vx >
 
+pcmpgtb
+0F64 v >V Vqxy
+66)0F64 v >Vxyz *KB {kf
+
+pcmpgtd
+0F66 v >V Vqxy
+66)0F66 v >Vxyz *KB {kbf
+
+pcmpgtq
+66)0F3837 v >V Vxy
+66)0F3837 v >Vxyz *KB {kBwf
+
+pcmpgtw
+0F65 v >V Vqxy
+66)0F65 v >Vxyz *KB {kf
+
 pcmpistri:66)0F3A63 ib v Vx >
 
 pcmpistrm:66)0F3A62 ib v Vx >
+
+pdep:F2)0F38F5 r >Rlq R
+
+pext:F3)0F38F5 r >Rlq R
+
+pextrb:66)0F3A14 ib Vx r! > {
+
+pextrd:66)0F3A16 ib Vx rL > {
+
+pextrw
+0FC5 ib ^Vqx R! > {
+66)0F3A15 ib Vx m > {
+
+pextrq:66)0F3A16 ib Vx rq > {
+
+phaddw:0F3801 v >V Vqxy
+
+phaddd:0F3802 v >V Vqxy
+
+phaddsw:0F3803 v >V Vqxy
+
+phminposuw:66)0F3841 v Vx >
+
+phsubd:0F3806 v >V Vqxy
+
+phsubsw:0F3807 v >V Vqxy
+
+phsubw:0F3805 v >V Vqxy
+
+pinsrb:66)0F3A20 ib rL >Vx Vx {
+
+pinsrd:66)0F3A22 ib rL >Vx Vx {
+
+pinsrq:66)0F3A22 ib r#q >Vx Vx {
+
+pinsrw:0FC4 ib *rL >V Vqx {
+
+pmaddubsw:0F3804 v >V Vqxyz {kz
+
+pmaddwd:0FF5 v >V Vqxyz {kz
+
+pmaxsb:66)0F383C v >V Vxyz {kz
+
+pmaxsw:0FEE v >V Vqxyz {kz
+
+pmaxsd:66)0F383D v >V Vxyz {kzb
 
 pop
 58.o RwQ
@@ -972,6 +1034,8 @@ vpandnd:66)0FDF v >V Vxyz {kzbf
 vpandnq:66)0FDF v >V Vxyz {kzBwf
 
 vpandq:66)0FDB v >V Vxyz {kzBwf
+
+vpmaxq:66)0F383D v >V Vxyz {kzBwf
 
 wait:9B
 
