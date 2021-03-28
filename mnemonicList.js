@@ -187,27 +187,27 @@ cvtps2pi:0F2D vX VQ
 
 cvtsd2si:F2)0F2D v#x Rlq > {r
 
-cvtsd2ss:F2)0F5A vX >Vx Vx
+cvtsd2ss:F2)0F5A vX >Vx Vx {kzrw
 
-cvtsi2sd:F2)0F2A rlq >VX VX
+cvtsi2sd:F2)0F2A rlq >Vx Vx {r
 
-cvtsi2ss:F3)0F2A rlq >VX VX
+cvtsi2ss:F3)0F2A rlq >Vx Vx {r
 
-cvtss2sd:F3)0F5A v >Vx Vx
+cvtss2sd:F3)0F5A v >Vx Vx {kzs
 
-cvtss2si:F3)0F2D vX Rlq >
+cvtss2si:F3)0F2D v#x Rlq > {r
 
-cvttpd2dq:66)0FE6 vXy Vx >
+cvttpd2dq:66)0FE6 vXyz V/ > {kzBsw
 
 cvttpd2pi:66)0F2C vX VQ
 
-cvttps2dq:F3)0F5B v Vxy >
+cvttps2dq:F3)0F5B v Vxyz > {kzbs
 
 cvttps2pi:0F2C vX VQ
 
-cvttsd2si:F2)0F2C vX Rlq >
+cvttsd2si:F2)0F2C v#x Rlq > {s
 
-cvtss2si:F3)0F2C vX Rlq >
+cvtss2si:F3)0F2C v#x Rlq > {s
 
 cqto:48)99
 
