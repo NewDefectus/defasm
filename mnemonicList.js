@@ -791,6 +791,50 @@ paddq:0FD4 v >V Vqxyz {kBzw
 
 paddw:0FFD v >V Vqxyz {kz
 
+paddsb:0FEC v >V Vqxyz {kz
+
+paddsw:0FED v >V Vqxyz {kz
+
+paddusb:0FDC v >V Vqxyz {kz
+
+paddusw:0FDD v >V Vqxyz {kz
+
+palignr:0F3A0F ib v >V Vqxyz {kz
+
+pand:0FDB v >V Vqxy
+
+pandn:0FDF v >V Vqxy
+
+pause:F3)90
+
+pavgb:0FE0 v >V Vqxyz {kz
+
+pavgw:0FE3 v >V Vqxyz {kz
+
+pblendvb
+66)0F3810 V_0x v V
+v 66)0F3A4C <Vxy v >V V
+
+pblendw:66)0F3A0E ib v >V Vxy
+
+pclmulqdq:66)0F3A44 ib v >V Vxyz {
+
+pcmpeqb
+0F74 v >V Vqxy
+66)0F74 v >Vxyz *KB {kf
+
+pcmpeqd
+0F76 v >V Vqxy
+66)0F76 v >Vxyz *KB {kbf
+
+pcmpeqw
+0F75 v >V Vqxy
+66)0F75 v >Vxyz *KB {kf
+
+pcmpeqq
+66)0F3829 v >V Vxy
+66)0F3829 v >Vxyz *KB {kBwf
+
 pcmpestri:66)0F3A61 ib v Vx >
 
 pcmpestrm:66)0F3A60 ib v Vx >
@@ -920,6 +964,14 @@ F3)0F6F v Vxyz > {kzfw
 F3)0F7F Vxyz v > {kzfw
 
 vpabsq:66)0F381F v Vxyz > {kzBwf
+
+vpandd:66)0FDB v >V Vxyz {kzbf
+
+vpandnd:66)0FDF v >V Vxyz {kzbf
+
+vpandnq:66)0FDF v >V Vxyz {kzBwf
+
+vpandq:66)0FDB v >V Vxyz {kzBwf
 
 wait:9B
 
