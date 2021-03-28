@@ -165,7 +165,7 @@ crc32
 F2)0F38F0 rbwl RL
 F2)0F38F0 rbq Rq
 
-cvtdq2pd:F3)0FE6 vX Vxy >
+cvtdq2pd:F3)0FE6 v/ Vxy > {kzb
 
 cvtdq2ps:0F5B v Vxy >
 

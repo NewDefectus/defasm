@@ -137,6 +137,11 @@ function OpCatcher(format)
         this.sizes = 0;
         this.hasByteSize = false;
     }
+    else if(format[i] === '/')
+    {
+        this.sizes = -2;
+        this.hasByteSize = false;
+    }
     else
     {
         this.sizes = getSizes(format.slice(i), size => this.defSize = size);
@@ -171,6 +176,11 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     {
         // For unknown-sized operands, if possible, choose the default size
         if(this.defSize > 0) return this.defSize;
+        else if(this.sizes === -2)
+        {
+            opSize = (prevSize & ~7) >> 1;
+            if(opSize < 128) opSize = 128;
+        }
         else opSize = prevSize & ~7; // If a default size isn't available, use the previous size
     }
     else if(this.type === OPT.IMM) // Allow immediates to be downcast if necessary
@@ -183,6 +193,14 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     {
         rawSize = prevSize & ~7;
         if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
+        return null;
+    }
+
+    if(this.sizes === -2)
+    {
+        rawSize = (prevSize & ~7) >> 1;
+        if(rawSize < 128) rawSize = 128;
+        if(opSize === rawSize) return prevSize;
         return null;
     }
 
