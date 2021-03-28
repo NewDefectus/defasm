@@ -478,11 +478,13 @@ EC R_2W R_0bwl
 
 inc:FE.0 rbwlq
 
-incsspd:F3)0FAE.5 Rlq
+incsspd:F3)0FAE.5 Rl
+
+incsspq:F3)0FAE.5 Rq
 
 ins:6C -bwl
 
-insertps:66)0F3A21 ib v >V Vx
+insertps:66)0F3A21 ib v >V Vx {
 
 int
 CC i_3b
