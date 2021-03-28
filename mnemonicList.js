@@ -593,23 +593,23 @@ maskmovdqu:66)0FF7 ^Vx V >
 
 maskmovq:0FF7 ^VQ V
 
-maxpd:66)0F5F v >V Vxy
+maxpd:66)0F5F v >V Vxyz {kzBsw
 
-maxps:0F5F v >V Vxy
+maxps:0F5F v >V Vxyz {kzbs
 
-maxsd:F2)0F5F v >V Vx
+maxsd:F2)0F5F v >V Vx {kzsw
 
-maxss:F3)0F5F v >V Vx
+maxss:F3)0F5F v >V Vx {kzs
 
 mfence:0FAEF0
 
-minpd:66)0F5D v >V Vxy
+minpd:66)0F5D v >V Vxyz {kzBsw
 
-minps:0F5D v >V Vxy
+minps:0F5D v >V Vxyz {kzbs
 
-minsd:F2)0F5D v >V Vx
+minsd:F2)0F5D v >V Vx {kzsw
 
-minss:F3)0F5D v >V Vx
+minss:F3)0F5D v >V Vx {kzs
 
 monitor:0F01C8
 
