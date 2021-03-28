@@ -769,47 +769,27 @@ EE R_0bwl R_2W
 
 outs:6E -bwl
 
-pabsb
-0F381C v VQ
-66)0F381C v Vxyz > {kz
+pabsb:0F381C v Vqxyz > {kz
 
-pabsd
-0F381E v VQ
-66)0F381E v Vxyz > {kzb
+pabsd:0F381E v Vqxyz > {kzb
 
-pabsw
-0F381D v VQ
-66)0F381D v Vxyz > {kz
+pabsw:0F381D v Vqxyz > {kz
 
-packssdw
-0F6B v VQ
-66)0F6B v >V Vxyz {kzb
+packssdw:0F6B v >V Vqxyz {kzb
 
-packsswb
-0F63 v VQ
-66)0F63 v >V Vxyz {kz
+packsswb:0F63 v >V Vqxyz {kz
 
 packusdw:66)0F382B v >V Vxyz {kzb
 
-packuswb
-0F67 v VQ
-66)0F67 v >V Vxyz {kz
+packuswb:0F67 v >V Vqxyz {kz
 
-paddb
-0FFC v VQ
-66)0FFC v >V Vxyz {kz
+paddb:0FFC v >V Vqxyz {kz
 
-paddd
-0FFE v VQ
-66)0FFE v >V Vxyz {kbz
+paddd:0FFE v >V Vqxyz {kbz
 
-paddq
-0FD4 v VQ
-66)0FD4 v >V Vxyz {kBzw
+paddq:0FD4 v >V Vqxyz {kBzw
 
-paddw
-0FFD v VQ
-66)0FFD v >V Vxyz {kz
+paddw:0FFD v >V Vqxyz {kz
 
 pcmpestri:66)0F3A61 ib v Vx >
 

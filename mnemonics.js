@@ -296,6 +296,8 @@ function Operation(format)
 
     if(format[0][0] === '-')
         this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
+    
+    this.allVectors = false;
 
     for(let operand of format)
     {
@@ -317,7 +319,16 @@ function Operation(format)
         if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
         if(this.allowVex) this.vexOpCatchers.push(opCatcher);
 
-        if(Array.isArray(opCatcher.sizes)) this.maxSize = Math.max(...opCatcher.sizes, this.maxSize) & ~7;
+        if(Array.isArray(opCatcher.sizes))
+        {
+            let had64 = false;
+            for(let size of opCatcher.sizes)
+            {
+                if(size > this.maxSize) this.maxSize = size & ~7;
+                if((size & ~7) === 64) had64 = true;
+                else if(had64 && (size & ~7) > 64) this.allVectors = true;
+            }
+        }
     }
 
     // Generate the necessary vex info
@@ -458,7 +469,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         size = correctedSizes[i];
         operand.size = size & ~7;
 
-        if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC)) rexw = true;
+        if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors) rexw = true;
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.unshift(operand);
@@ -514,39 +525,42 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             break;
     }
 
-    // Some additional EVEX data
-    if(vexInfo && vexInfo.evex)
+    if(vexInfo)
     {
-        vex |= 0x400; // This reserved bit is always set to 1
-        if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
-        if(vexInfo.round !== null)
-        {
-            if(overallSize !== this.maxSize) throw "Invalid vector size for embedded rounding";
-            if(vexInfo.round > 0) vexInfo.round--;
-            vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
-        }
-        else
-        {
-            let sizeId = [128, 256, 512].indexOf(overallSize);
-            vex |= sizeId << 21; // EVEX.L'L
+        if(overallSize === 64) return null;
+        if(this.allVectors) vex |= 0x100; // 66 prefix
 
-            if(vexInfo.broadcast !== null)
+        // Some additional EVEX data
+        if(vexInfo.evex)
+        {
+            vex |= 0x400; // This reserved bit is always set to 1
+            if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
+            if(vexInfo.round !== null)
             {
-                if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId++;
-                if(vexInfo.broadcast !== sizeId) throw "Invalid broadcast";
-                vex |= 0x100000; // EVEX.b
+                if(overallSize !== this.maxSize) throw "Invalid vector size for embedded rounding";
+                if(vexInfo.round > 0) vexInfo.round--;
+                vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
             }
+            else
+            {
+                let sizeId = [128, 256, 512].indexOf(overallSize);
+                vex |= sizeId << 21; // EVEX.L'L
+
+                if(vexInfo.broadcast !== null)
+                {
+                    if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId++;
+                    if(vexInfo.broadcast !== sizeId) throw "Invalid broadcast";
+                    vex |= 0x100000; // EVEX.b
+                }
+            }
+            vex |= vexInfo.mask << 16; // EVEX.aaa
+            if(this.evexPermits & EVEXPERM_FORCEW) vex |= 0x8000;
+            if(reg.reg >= 16) vex |= 0x10, reg.reg &= 15; // EVEX.R'
+            if(rm.reg2 >= 16) vex |= 0x80000; // EVEX.V' sometimes serves as an extension to EVEX.X
         }
-        vex |= vexInfo.mask << 16; // EVEX.aaa
-        if(this.evexPermits & EVEXPERM_FORCEW) vex |= 0x8000;
-        if(reg.reg >= 16) vex |= 0x10, reg.reg &= 15; // EVEX.R'
-        if(rm.reg2 >= 16) vex |= 0x80000; // EVEX.V' sometimes serves as an extension to EVEX.X
+        else if(overallSize === 256) vex |= 0x400;
     }
-    else if(overallSize === 256)
-    {
-        if(vexInfo) vex |= 0x400;
-        else throw "YMM registers can't be encoded without VEX";
-    }
+    else if(overallSize > 128) throw "YMM/ZMM registers can't be encoded without VEX";
 
     if(adjustByteOp) correctedOpcode += this.opDiff;
 
@@ -554,7 +568,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         opcode: correctedOpcode,
         size: overallSize,
         rexw: rexw,
-        prefix: vexInfo ? null : this.prefix,
+        prefix: vexInfo ? null : (this.allVectors && overallSize > 64 ? 0x66 : this.prefix),
         extendOp: extendOp,
         reg: reg,
         rm: rm,
