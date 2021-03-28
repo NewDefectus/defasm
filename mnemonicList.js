@@ -659,9 +659,33 @@ movdqa
 66)0F6F v Vxy >
 66)0F7F Vxy v >
 
+movdqa32
+66)0F6F v Vxyz > {kzf
+66)0F7F Vxyz v > {kzf
+
+movdqa64
+66)0F6F v Vxyz > {kzfw
+66)0F7F Vxyz v > {kzfw
+
 movdqu
 F3)0F6F v Vxy >
 F3)0F7F Vxy v >
+
+movdqu8
+F2)0F6F v Vxyz > {kzf
+F2)0F7F Vxyz v > {kzf
+
+movdqu16
+F2)0F6F v Vxyz > {kzfw
+F2)0F7F Vxyz v > {kzfw
+
+movdqu32
+F3)0F6F v Vxyz > {kzf
+F3)0F7F Vxyz v > {kzf
+
+movdqu64
+F3)0F6F v Vxyz > {kzfw
+F3)0F7F Vxyz v > {kzfw
 
 movdq2q:F2)0FD6 ^Vx VQ
 
@@ -773,6 +797,8 @@ pabsb:0F381C v Vqxyz > {kz
 
 pabsd:0F381E v Vqxyz > {kzb
 
+pabsq:66)0F381F v Vxyz > {kzBwf
+
 pabsw:0F381D v Vqxyz > {kz
 
 packssdw:0F6B v >V Vqxyz {kzb
@@ -804,6 +830,14 @@ palignr:0F3A0F ib v >V Vqxyz {kz
 pand:0FDB v >V Vqxy
 
 pandn:0FDF v >V Vqxy
+
+pandd:66)0FDB v >V Vxyz {kzbf
+
+pandnd:66)0FDF v >V Vxyz {kzbf
+
+pandnq:66)0FDF v >V Vxyz {kzBwf
+
+pandq:66)0FDB v >V Vxyz {kzBwf
 
 pause:F3)90
 
@@ -899,17 +933,87 @@ pmaddubsw:0F3804 v >V Vqxyz {kz
 
 pmaddwd:0FF5 v >V Vqxyz {kz
 
+pmaxq:66)0F383D v >V Vxyz {kzBwf
+
 pmaxsb:66)0F383C v >V Vxyz {kz
+
+pmaxsd:66)0F383D v >V Vxyz {kzb
 
 pmaxsw:0FEE v >V Vqxyz {kz
 
-pmaxsd:66)0F383D v >V Vxyz {kzb
+pmaxub:0FDE v >V Vqxyz {kz
+
+pmaxud:66)0F383F v >V Vxyz {kzb
+
+pmaxuq:66)0F383F v >V Vxyz {kzBwf
+
+pmaxuw:66)0F383E v >V Vxyz {kz
+
+pminq:66)0F3839 v >V Vxyz {kzBwf
+
+pminsb:66)0F3838 v >V Vxyz {kz
+
+pminsw:0FEA v >V Vqxyz {kz
+
+pminsd:66)0F3839 v >V Vxyz {kzb
+
+pminub:0FDA v >V Vqxyz {kz
+
+pminud:66)0F383B v >V Vxyz {kzb
+
+pminuq:66)0F383B v >V Vxyz {kzBwf
+
+pminuw:66)0F383A v >V Vxyz {kz
+
+pmovmskb:0FD7 ^Vqxy R! >
+
+pmovsxbw:66)0F3820 v/ Vxyz > {kz
+
+pmovsxbd:66)0F3821 vX Vxyz > {kz
+
+pmovsxbq:66)0F3822 vX Vxyz > {kz
+
+pmovsxwd:66)0F3823 v/ Vxyz > {kz
+
+pmovsxwq:66)0F3824 vX Vxyz > {kz
+
+pmovsxdq:66)0F3825 v/ Vxyz > {kz
+
+pmovzxbw:66)0F3830 v/ Vxyz > {kz
+
+pmovzxbd:66)0F3831 vX Vxyz > {kz
+
+pmovzxbq:66)0F3832 vX Vxyz > {kz
+
+pmovzxwd:66)0F3833 v/ Vxyz > {kz
+
+pmovzxwq:66)0F3834 vX Vxyz > {kz
+
+pmovzxdq:66)0F3835 v/ Vxyz > {kz
+
+pmuldq:66)0F3828 v >V Vxyz {kzBw
+
+pmulhrsw:0F380B v >V Vqxyz {kz
+
+pmulhuw:0FE4 v >V Vqxyz {kz
+
+pmulhw:0FE5 v >V Vqxyz {kz
+
+pmulld:66)0F3840 v >V Vxyz {kzb
+
+pmullq:66)0F3840 v >V Vxyz {kzBfw
+
+pmullw:0FD5 v >V Vqxyz {kz
+
+pmuludq:0FF4 v >V Vqxyz {kzBw
 
 pop
 58.o RwQ
 8F.0 mwQ
 0FA1 s_4
 0FA9 s_5
+
+popcnt:F3)0FB8 r Rwlq
 
 popf:9D -wQ
 
@@ -1000,42 +1104,6 @@ vgatherqpd:vw 66)0F3893 >Vxy G V
 vgatherqps
 66)0F3893 >Vx G V
 vl 66)0F3893 >Vx Gy V
-
-vmovdqa32
-66)0F6F v Vxyz > {kzf
-66)0F7F Vxyz v > {kzf
-
-vmovdqa64
-66)0F6F v Vxyz > {kzfw
-66)0F7F Vxyz v > {kzfw
-
-vmovdqu8
-F2)0F6F v Vxyz > {kzf
-F2)0F7F Vxyz v > {kzf
-
-vmovdqu16
-F2)0F6F v Vxyz > {kzfw
-F2)0F7F Vxyz v > {kzfw
-
-vmovdqu32
-F3)0F6F v Vxyz > {kzf
-F3)0F7F Vxyz v > {kzf
-
-vmovdqu64
-F3)0F6F v Vxyz > {kzfw
-F3)0F7F Vxyz v > {kzfw
-
-vpabsq:66)0F381F v Vxyz > {kzBwf
-
-vpandd:66)0FDB v >V Vxyz {kzbf
-
-vpandnd:66)0FDF v >V Vxyz {kzbf
-
-vpandnq:66)0FDF v >V Vxyz {kzBwf
-
-vpandq:66)0FDB v >V Vxyz {kzBwf
-
-vpmaxq:66)0F383D v >V Vxyz {kzBwf
 
 wait:9B
 
