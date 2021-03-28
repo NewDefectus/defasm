@@ -559,9 +559,19 @@ lea:8D m Rwlq
 
 leave:C9
 
+lfence:0FAEE8
+
+lgdt:0F01.2 mL
+
+lidt:0F01.3 mL
+
 lfs:0FB4 m Rwlq
 
 lgs:0FB5 m Rwlq
+
+lldt:0F00.2 rW
+
+lmsw:0F01.6 rW
 
 lods:AC -bwlq
 
@@ -574,6 +584,10 @@ loopne:E0 Ib
 lsl:0F03 rW Rwlq
 
 lss:0FB2 m Rwlq
+
+ltr:0F00.3 rW
+
+lzcnt:F3)0FBD r Rwlq
 
 maskmovdqu:66)0FF7 ^Vx V >
 
