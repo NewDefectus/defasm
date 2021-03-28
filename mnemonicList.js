@@ -219,13 +219,13 @@ dec:FE.1 rbwlq
 
 div:F6.6 rbwlq
 
-divpd:66)0F5E v >V Vxy
+divpd:66)0F5E v >V Vxyz {kzBwr
 
-divps:0F5E v >V Vxy
+divps:0F5E v >V Vxyz {kzbr
 
-divsd:F2)0F5E v >V Vx
+divsd:F2)0F5E v >V Vx {kzwr
 
-divss:F3)0F5E v >V Vx
+divss:F3)0F5E v >V Vx {kzr
 
 dppd:66)0F3A41 ib v >V Vx
 
