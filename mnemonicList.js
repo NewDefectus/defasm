@@ -165,27 +165,27 @@ crc32
 F2)0F38F0 rbwl RL
 F2)0F38F0 rbq Rq
 
-cvtdq2pd:F3)0FE6 v/ Vxy > {kzb
+cvtdq2pd:F3)0FE6 v/ Vxyz > {kzb
 
-cvtdq2ps:0F5B v Vxy >
+cvtdq2ps:0F5B v Vxyz > {kzbr
 
-cvtpd2dq:F2)0FE6 vXy Vx >
+cvtpd2dq:F2)0FE6 vXyz V/ > {kzBrw
 
 cvtpd2pi:66)0F2D vX VQ
 
-cvtpd2ps:66)0F5A vXy Vx >
+cvtpd2ps:66)0F5A vXyz V/ > {kzBrw
 
 cvtpi2pd:66)0F2A vQ Vx
 
 cvtpi2ps:0F2A vQ Vx
 
-cvtps2dq:66)0F5B v Vxy >
+cvtps2dq:66)0F5B v Vxyz > {kzbr
 
-cvtps2pd:0F5A vX Vxy >
+cvtps2pd:0F5A v/ Vxyz > {kzbs
 
 cvtps2pi:0F2D vX VQ
 
-cvtsd2si:F2)0F2D vX Rlq >
+cvtsd2si:F2)0F2D v#x Rlq > {r
 
 cvtsd2ss:F2)0F5A vX >Vx Vx
 

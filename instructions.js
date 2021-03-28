@@ -171,7 +171,7 @@ Instruction.prototype.compile = function()
 
     if(!found) throw "Invalid operands";
 
-    if(op.size === 64) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+    if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
     if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;

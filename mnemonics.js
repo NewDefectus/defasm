@@ -341,6 +341,7 @@ function Operation(format)
  * @property {number} size The size that should be encoded into the instruction
  * @property {number|null} prefix A prefix to add in the encoding before the REX prefix
  * @property {boolean} extendOp Special case: if the register is encoded into the opcode but doesn't fit (id > 7), this is true
+ * @property {boolean} rexw The value of REX.w
  * @property {Operand} reg The register operand (goes into ModRM.reg)
  * @property {Operand} rm The register/memory operand (goes into ModRM.rm)
  * @property {number} vex The VEX prefix (partially generated)
@@ -382,7 +383,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     else if(this.vexOnly) return null;
     else if(this.evexPermits & EVEXPERM_FORCE) return null;
 
-    let adjustByteOp = false, overallSize = 0;
+    let adjustByteOp = false, overallSize = 0, rexw = false;
 
     // Special case for the '-' implicit op catcher
     if(this.checkableSizes)
@@ -408,6 +409,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             }
             if(!foundSize) return null;
         }
+        if((overallSize & ~7) === 64) rexw = true;
         enforcedSize = 0;
     }
 
@@ -456,6 +458,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         size = correctedSizes[i];
         operand.size = size & ~7;
 
+        if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC)) rexw = true;
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.unshift(operand);
@@ -550,6 +553,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     return {
         opcode: correctedOpcode,
         size: overallSize,
+        rexw: rexw,
         prefix: vexInfo ? null : this.prefix,
         extendOp: extendOp,
         reg: reg,
