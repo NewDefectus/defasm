@@ -41,6 +41,7 @@ const EVEXPERM_BROADCAST = 12;
 const EVEXPERM_SAE = 16;
 const EVEXPERM_ROUNDING = 32;
 const EVEXPERM_FORCEW = 64;
+const EVEXPERM_FORCE = 128;
 
 function parseEvexPermits(string)
 {
@@ -56,6 +57,7 @@ function parseEvexPermits(string)
             case 's': permits |= EVEXPERM_SAE; break;
             case 'r': permits |= EVEXPERM_ROUNDING; break;
             case 'w': permits |= EVEXPERM_FORCEW; break;
+            case 'f': permits |= EVEXPERM_FORCE; break
         }
     }
     return permits;
@@ -100,15 +102,17 @@ function OpCatcher(format)
     // First is the operand type
     this.forceRM = format[0] === '^';
     this.vexOpImm = format[0] === '<';
+    this.carrySizeInference = format[0] !== '*';
     this.vexOp = this.vexOpImm || format[0] === '>';
     if(this.forceRM || this.vexOp) format = format.slice(1);
+    if(!this.carrySizeInference) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbk".includes(opType);
     this.forceRM ||= this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
-    this.carrySizeInference = this.type !== OPT.IMM;
+    this.carrySizeInference &&= this.type !== OPT.IMM;
     if(this.type === OPT.VMEM || this.type === OPT.MEM)
     {
         this.forceRM = true;
@@ -290,7 +294,7 @@ function Operation(format)
         {
             this.forceVex = true;
             this.vexOnly = false;
-            if(opCatcher.type === OPT.MASK) this.maskSizing |= 1;
+            if(opCatcher.type === OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
         }
         if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
         if(this.allowVex) this.vexOpCatchers.push(opCatcher);
@@ -308,9 +312,8 @@ function Operation(format)
 
     if(this.forceVex)
     {
-        this.opCatchers = this.vexOpCatchers
-        this.vexOpCatchers = null;
-        this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
+        this.opCatchers = this.vexOpCatchers;
+        if(!(this.evexPermits & EVEXPERM_FORCE)) this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
     }
 }
 
@@ -328,6 +331,7 @@ function Operation(format)
 
 /**
  * @typedef {Object} vexData
+ * @property {boolean} evex True if the instruction should be encoded with EVEX
  * @property {number} mask The id of the mask register used as the instruction writemask
  * @property {boolean} zeroing True if the instruction uses zero-masking, false for merge-masking
  * @property {number|null} round Used to identify one of 4 rounding modes, or 0 for SAE, or null for none specified
@@ -338,7 +342,7 @@ function Operation(format)
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
  * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
- * @param {vexData|true|null} vexInfo Additional info needed to encode the instruction with a VEX/EVEX prefix
+ * @param {vexData|null} vexInfo Additional info needed to encode the instruction with a VEX/EVEX prefix
  * @returns {operationResults|null} The information needed to encode the instruction
  */
 Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
@@ -346,7 +350,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     if(vexInfo !== null)
     {
         if(!this.allowVex) return null;
-        if(vexInfo !== true)
+        if(vexInfo.evex)
         {
             if(this.evexPermits === null) return null;
             if(!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0) return null;
@@ -355,7 +359,10 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             if(!(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0) return null;
             if(!(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing) return null;
         }
-    } else if(this.vexOnly) return null;
+        else if(this.evexPermits & EVEXPERM_FORCE) vexInfo.evex = true;
+    }
+    else if(this.vexOnly) return null;
+    else if(this.evexPermits & EVEXPERM_FORCE) return null;
 
     let adjustByteOp = false, overallSize = 0;
 
@@ -463,7 +470,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         reg = {reg: this.extension};
     }
 
-    if(this.forceVex) vexInfo ||= true;
+    if(this.forceVex && !vexInfo) vexInfo = {evex: false};
 
     switch(this.maskSizing)
     {
@@ -487,7 +494,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     }
 
     // Some additional EVEX data
-    if(vexInfo && vexInfo !== true)
+    if(vexInfo && vexInfo.evex)
     {
         vex |= 0x400; // This reserved bit is always set to 1
         if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z

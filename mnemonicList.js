@@ -131,15 +131,23 @@ clwb:66)0FAE.6 mB
 
 cmc:F5
 
-cmppd:66)0FC2 ib v >V Vxy
+cmppd
+66)0FC2 ib v >V Vxy
+66)0FC2 ib v >Vxyz *KB {kBsfw
 
-cmpps:0FC2 ib v >V Vxy
+cmpps
+0FC2 ib v >V Vxy
+0FC2 ib v >Vxyz *KB {kbsf
 
 cmps:A6 -bwlq
 
-cmpsd:F2)0FC2 ib v >V Vx
+cmpsd
+F2)0FC2 ib v >V Vx
+F2)0FC2 ib v >Vx *KB {ksfw
 
-cmpss:F3)0FC2 ib v >V Vx
+cmpss
+F3)0FC2 ib v >V Vx
+F3)0FC2 ib v >Vx *KB {ksf
 
 cmpxchg:0FB0 Rbwlq r
 
@@ -147,9 +155,9 @@ cmpxchg8b:0FC7.1 mQ
 
 cmpxchg16b:0FC7.1 m#q
 
-comisd:66)0F2F v Vx >
+comisd:66)0F2F v Vx > {sw
 
-comiss:0F2F v Vx >
+comiss:0F2F v Vx > {s
 
 cpuid:0FA2
 
