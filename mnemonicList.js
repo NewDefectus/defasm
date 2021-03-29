@@ -1238,6 +1238,26 @@ shrd
 
 shrx:V F2)0F38F7 >Rlq r R
 
+shufpd:66)0FC6 ib v >V Vxyz {kzBw
+
+shufps:0FC6 ib v >V Vxyz {kzb
+
+sidt:0F01.1 m
+
+sldt:0F00.0 rW
+
+smsw:0F01.4 rw#lq
+
+sqrtpd:66)0F51 v Vxyz > {kzBrw
+
+sqrtps:0F51 v Vxyz > {kzbr
+
+sqrtsd:F2)0F51 v >V Vx {kzrw
+
+sqrtss:F3)0F51 v >V Vx {kzr
+
+stac:0F01CB
+
 stc:F9
 
 std:FD
@@ -1247,6 +1267,16 @@ sti:FB
 stmxcsr:0FAE.3 m >
 
 stos:AA -bwlq
+
+str:0F00.1 rwLq
+
+subpd:66)0F5C v >V Vxyz {kzrBw
+
+subps:0F5C v >V Vxyz {kzrb
+
+subsd:F2)0F5C v >V Vx {kzrw
+
+subss:F3)0F5C v >V Vx {kzr
 
 swapgs:0F01F8
 
