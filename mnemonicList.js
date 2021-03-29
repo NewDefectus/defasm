@@ -1769,6 +1769,14 @@ vprorvd:66)0F3814 v >Vxyz V {kzbf
 
 vprorvq:66)0F3814 v >Vxyz V {kzBfw
 
+vpscatterdd:66)0F38A0 Vxyz G > {kf
+
+vpscatterdq:66)0F38A0 Vxyz G/ > {kfw
+
+vpscatterqd:66)0F38A1 V/ Gxyz > {kf
+
+vpscatterqq:66)0F38A1 Vxyz G > {kfw
+
 wait:9B
 
 wbinvd:0F09
