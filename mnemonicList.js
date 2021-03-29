@@ -1743,6 +1743,32 @@ vpmovm2q:F3)0F3838 ^*KB Vxyz > {fw
 
 vpmovm2w:F3)0F3828 ^*KB Vxyz > {fw
 
+vpmultishiftqb:66)0F3883 v >Vxyz V {kzBfw
+
+vpopcntb:66)0F3854 v Vxyz > {kzf
+
+vpopcntw:66)0F3854 v Vxyz > {kzfw
+
+vpopcntd:66)0F3855 v Vxyz > {kzbf
+
+vpopcntq:66)0F3855 v Vxyz > {kzBfw
+
+vprold:66)0F72.1 ib v >Vxyz {kzbf
+
+vprolq:66)0F72.1 ib v >Vxyz {kzBfw
+
+vprolvd:66)0F3815 v >Vxyz V {kzbf
+
+vprolvq:66)0F3815 v >Vxyz V {kzBfw
+
+vprord:66)0F72.0 ib v >Vxyz {kzbf
+
+vprorq:66)0F72.0 ib v >Vxyz {kzBfw
+
+vprorvd:66)0F3814 v >Vxyz V {kzbf
+
+vprorvq:66)0F3814 v >Vxyz V {kzBfw
+
 wait:9B
 
 wbinvd:0F09
