@@ -1343,6 +1343,66 @@ vbroadcastf32x8:66)0F381B m Vz > {kzf
 
 vbroadcastf64x4:66)0F381B m Vz > {kzfw
 
+vcompresspd:66)0F388A Vxyz v > {kzwf
+
+vcompressps:66)0F388A Vxyz v > {kzf
+
+vcvtne2ps2bf16:F2)0F3872 v >V Vxyz {kzbf
+
+vcvtneps2bf16:F3)0F3872 vxyz V/ > {kzbf
+
+vcvtpd2qq:66)0F7B v Vxyz > {kzBwrf
+
+vcvtpd2udq:0F79 vxyz V/ > {kzBwrf
+
+vcvtpd2uqq:66)0F79 v Vxyz > {kzBwrf
+
+vcvtph2ps:66)0F3813 v/ Vxyz > {kzs
+
+vcvtps2ph:66)0F3A1D ib Vxyz v/ > {kzs
+
+vcvtps2udq:0F79 v Vxyz > {kzbrf
+
+vcvtps2qq:66)0F7B v/ Vxyz > {kzBrf
+
+vcvtps2uqq:66)0F79 v/ Vxyz > {kzBrf
+
+vcvtqq2pd:F3)0FE6 v Vxyz > {kzBrfw
+
+vcvtqq2ps:0F5B vxyz V/ > {kzBrfw
+
+vcvtsd2usi:F2)0F79 v#x Rlq > {rf
+
+vcvtss2usi:F3)0F79 v#x Rlq > {rf
+
+vcvttpd2qq:66)0F7A v Vxyz > {kzBwsf
+
+vcvttpd2udq:0F78 vxyz V/ > {kzBwsf
+
+vcvttpd2uqq:66)0F78 v Vxyz > {kzBwsf
+
+vcvttps2udq:0F78 v Vxyz > {kzbsf
+
+vcvttps2qq:66)0F7A v/ Vxyz > {kzBsf
+
+vcvttps2uqq:66)0F78 v/ Vxyz > {kzBsf
+
+vcvttsd2usi:F2)0F78 v#x Rlq > {sf
+
+vcvttss2usi:F3)0F78 v#x Rlq > {sf
+
+vcvtudq2pd:F3)0F7A v/ Vxyz > {kzBf
+
+vcvtudq2ps:F2)0F7A v Vxyz > {kzbrf
+
+vcvtuqq2pd:F3)0F7A v Vxyz > {kzBrfw
+
+vcvtuqq2ps:F2)0F7A vxyz V/ > {kzBfrw
+
+vcvtusi2sd:F2)0F7B rlq >Vx V {rf
+
+vcvtusi2ss:F3)0F7B rlq >Vx V {rf
+
 vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
 vgatherdps:66)0F3892 >Vxy G V

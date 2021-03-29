@@ -476,6 +476,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
                 if(operand.reg >= 16) vex |= 0x80000; // EVEX.V'
             }
             else reg = operand;
+            if(operand.type === OPT.VEC && operand.size === 64 && vexInfo.needed) throw "Can't encode MMX with VEX prefix";
         }
 
         // Only set to overall size if it's not the default size
@@ -525,7 +526,6 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 
     if(vexInfo.needed)
     {
-        if(overallSize === 64 && !this.forceVex) throw "Can't encode MMX with VEX prefix";
         if(this.allVectors) vex |= 0x100; // 66 prefix
 
         // Some additional EVEX data

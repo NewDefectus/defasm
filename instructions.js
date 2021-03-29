@@ -54,7 +54,10 @@ Instruction.prototype.interpret = function()
     // Finding the matching mnemonic for this opcode
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        if(vexInfo.needed) opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+        if(vexInfo.needed && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) // Make sure it's not a VEX instruction with a suffix
+        {
+            opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+        }
         if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
         {
             enforcedSize = suffixes[opcode[opcode.length - 1]];
