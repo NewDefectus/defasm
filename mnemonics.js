@@ -102,9 +102,9 @@ function OpCatcher(format)
     // First is the operand type
     this.forceRM = format[0] === '^';
     this.vexOpImm = format[0] === '<';
-    this.carrySizeInference = format[0] !== '*';
     this.vexOp = this.vexOpImm || format[0] === '>';
     if(this.forceRM || this.vexOp) format = format.slice(1);
+    this.carrySizeInference = format[0] !== '*';
     if(!this.carrySizeInference) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbk".includes(opType);
