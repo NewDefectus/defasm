@@ -1111,6 +1111,22 @@ psrlw
 0F71.2 ib Vqxy >V
 66)0F71.2 ib v >Vxyz {kzf
 
+psubb:0FF8 v >V Vqxyz {kz
+
+psubd:0FFA v >V Vqxyz {kzb
+
+psubq:0FFB v >V Vqxyz {kzBw
+
+psubw:0FF9 v >V Vqxyz {kz
+
+psubsb:0FE8 v >V Vqxyz {kz
+
+psubsw:0FE9 v >V Vqxyz {kz
+
+psubusb:0FD8 v >V Vqxyz {kz
+
+psubusw:0FD9 v >V Vqxyz {kz
+
 push
 50.o RwQ
 6A-2 Ib~wl
