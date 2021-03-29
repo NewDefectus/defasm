@@ -1651,6 +1651,30 @@ vpermt2q:66)0F387E v >Vxyz V {kzBfw
 
 vpermt2w:66)0F387D v >Vxyz V {kzfw
 
+vpexpandb:66)0F3862 v Vxyz > {kzf
+
+vpexpandd:66)0F3889 v Vxyz > {kzf
+
+vpexpandq:66)0F3889 v Vxyz > {kzfw
+
+vpexpandw:66)0F3862 v Vxyz > {kzfw
+
+vpgatherdd
+66)0F3890 >Vxy G V
+66)0F3890 Gxyz V > {kf
+
+vpgatherdq
+vw 66)0F3890 >Vxy *Gx V
+66)0F3890 G/ Vxyz > {kfw
+
+vpgatherqd
+66)0F3891 >Vx *Gxy V
+66)0F3891 Gxyz V/ > {kf
+
+vpgatherqq
+vw 66)0F3891 >Vxy G V
+66)0F3891 Gxyz V > {kfw
+
 wait:9B
 
 wbinvd:0F09
