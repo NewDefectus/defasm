@@ -274,18 +274,18 @@ function Operation(format)
     if(extension === undefined) // Default values
     {
         this.extension = REG_MOD;
-        this.opCatchers = [];
+        this.modExtension = null;
     }
     else
     {
         if(extension[0] === 'o') this.extension = REG_OP;
         else this.extension = parseInt(extension[0]);
+        this.modExtension = extension[1] ? parseInt(extension[1]) : null;
     }
-
-    if(format.length === 0) return;
 
     // What follows is a list of operand specifiers
     this.opCatchers = [];
+    if(format.length === 0) return;
     this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
     this.vexOpCatchers = this.allowVex ? [] : null;
     this.checkableSizes = null;
@@ -492,7 +492,11 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     }
     else if(this.extension !== REG_MOD)
     {
-        if(rm === null) rm = reg;
+        if(rm === null)
+        {
+            if(this.modExtension === null) rm = reg;
+            else rm = {type: OPT.MEM, reg: this.modExtension, value: null};
+        }
         reg = {reg: this.extension};
     }
 

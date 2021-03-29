@@ -1200,6 +1200,10 @@ sahf:9E
 
 sal:#shl
 
+sarx:V F3)0F38F7 >Rlq r R
+
+saveprevssp:F3)0F01EA.52
+
 scas:AE -bwlq
 
 setssbsy:F3)0F01E8
@@ -1226,9 +1230,13 @@ shld
 0FA4 ib Rwlq r
 0FA5 R_1b Rwlq r
 
+shlx:V 66)0F38F7 >Rlq r R
+
 shrd
 0FAC ib Rwlq r
 0FAD R_1b Rwlq r
+
+shrx:V F2)0F38F7 >Rlq r R
 
 stc:F9
 
