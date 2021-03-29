@@ -1017,9 +1017,61 @@ popcnt:F3)0FB8 r Rwlq
 
 popf:9D -wQ
 
-por
-0FEB v VQ
-66)0FEB v >V Vxy
+por:0FEB v >V Vqxy
+
+pord:66)0FEB v >Vxyz V {kzbf
+
+porq:66)0FEB v >Vxyz V {kzBwf
+
+prefetcht0:0F18.1 mB
+
+prefetcht1:0F18.2 mB
+
+prefetcht2:0F18.3 mB
+
+prefetchnta:0F18.0 mB
+
+prefetchw:0F0D.1 mB
+
+psadbw:0FF6 v >V Vqxyz {
+
+pshufb:0F3800 v >V Vqxyz {kz
+
+pshufd:66)0F70 ib v Vxyz > {kzb
+
+pshufhw:F3)0F70 ib v Vxyz > {kz
+
+pshuflw:F2)0F70 ib v Vxyz > {kz
+
+pshufw:0F70 ib v VQ
+
+psignb:0F3808 v >V Vqxy
+
+psignd:0F380A v >V Vqxy
+
+psignw:0F3809 v >V Vqxy
+
+pslldq
+66)0F73.7 ib Vxy >V
+66)0F73.7 ib v >Vxyz {f
+
+pslld
+0FF2 vQ VQ
+66)0FF2 *vX >V Vxyz {kzb
+0F72.6 ib Vqxy >V
+66)0F72.6 ib v >Vxyz {kzbf
+
+psllq
+0FF3 vQ VQ
+66)0FF3 *vX >V Vxyz {kzBw
+0F73.6 ib Vqxy >V
+66)0F73.6 ib v >Vxyz {kzBfw
+
+psllw
+0FF1 vQ VQ
+66)0FF1 *vX >V Vxyz {kz
+0F71.6 ib Vqxy >V
+66)0F71.6 ib v >Vxyz {kzf
 
 push
 50.o RwQ
