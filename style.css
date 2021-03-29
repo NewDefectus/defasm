@@ -4,10 +4,10 @@ body {
 }
 
 h1 {
-    font-family:Arial, Helvetica, sans-serif;
+    font-family:monospace;
     font-weight:normal;
-    font-size: 3.6em;
-    color:white
+    font-size: 4.5em;
+    color:white;
 }
 
 #asmDataTable {
