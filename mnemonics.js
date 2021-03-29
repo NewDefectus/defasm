@@ -238,6 +238,7 @@ function Operation(format)
     this.vexBase = 0;
     this.maskSizing = 0;
     this.evexPermits = null;
+    this.actuallyNotVex = false;
 
     // Interpreting the opcode
     this.vexOnly = format[0][0] === 'v';
@@ -246,6 +247,11 @@ function Operation(format)
     {
         if(format[0].includes('w')) this.vexBase |= 0x8000;
         if(format[0].includes('l')) this.vexBase |= 0x400;
+        if(format[0].includes('!'))
+        {
+            this.actuallyNotVex = true; // For non-VEX instructions starting with V
+            this.vexOnly = this.forceVex = false;
+        }
         format.shift();
     }
     let [opcode, extension] = format.shift().split('.');
@@ -369,9 +375,11 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 {
     if(vexInfo.needed)
     {
-        if(!this.allowVex) return null;
+        if(this.actuallyNotVex) vexInfo.needed = false;
+        else if(!this.allowVex) return null;
         if(vexInfo.evex)
         {
+            if(this.actuallyNotVex) return null;
             if(this.evexPermits === null) return null;
             if(!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0) return null;
             if(!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null) return null;

@@ -1333,6 +1333,8 @@ vbroadcastss:66)0F3818 vX Vxyz > {kz
 
 vbroadcastsd:66)0F3819 vX Vyz > {kzw
 
+vbroadcastf128:66)0F381A m Vy >
+
 vbroadcastf32x2:66)0F3819 vX Vyz > {kzf
 
 vbroadcastf32x4:66)0F381A m Vyz > {kzf
@@ -1402,6 +1404,46 @@ vcvtuqq2ps:F2)0F7A vxyz V/ > {kzBfrw
 vcvtusi2sd:F2)0F7B rlq >Vx V {rf
 
 vcvtusi2ss:F3)0F7B rlq >Vx V {rf
+
+vdbpsadbw:66)0F3A42 ib v >Vxyz V {kzf
+
+vdpbf16ps:F3)0F3852 v >Vxyz V {kzf
+
+vexpandpd:66)0F3888 v Vxyz > {kzwf
+
+vexpandps:66)0F3888 v Vxyz > {kzf
+
+verr:v! 0F00.4 rW
+
+verw:v! 0F00.5 rW
+
+vextractf128:66)0F3A19 ib Vy vX >
+
+vextractf32x4:66)0F3A19 ib Vyz vX > {kzf
+
+vextractf64x2:66)0F3A19 ib Vyz vX > {kzfw
+
+vextractf32x8:66)0F3A1B ib Vz vY > {kzf
+
+vextractf64x4:66)0F3A1B ib Vz vY > {kzfw
+
+vextracti128:66)0F3A39 ib Vy vX >
+
+vextracti32x4:66)0F3A39 ib Vyz vX > {kzf
+
+vextracti64x2:66)0F3A39 ib Vyz vX > {kzfw
+
+vextracti32x8:66)0F3A3B ib Vz vY > {kzf
+
+vextracti64x4:66)0F3A3B ib Vz vY > {kzfw
+
+vfixupimmpd:66)0F3A54 ib v >Vxyz V {kzBsfw
+
+vfixupimmps:66)0F3A54 ib v >Vxyz V {kzbsf
+
+vfixupimmsd:66)0F3A55 ib v >Vx V {kzsfw
+
+vfixupimmss:66)0F3A55 ib v >Vx V {kzsf
 
 vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
@@ -1565,4 +1607,27 @@ fpuArithMnemonics.split(' ').forEach((name, i) => {
     }
 
     mnemonics['f' + name] = list;
-})
+});
+
+// VFM (Vector fused multiply (-add)) instructions
+let vfmOps = ["add", "sub"];
+let vfmDirs = ["132", "213", "231"];
+let vfmTypes = ["pd", "ps", "sd", "ss"];
+let vfmPrefs = ["vfm", "vfnm"];
+
+vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((type, typeI) =>
+{
+    vfmPrefs.forEach((pref, prefI) => 
+        mnemonics[pref + op + dir + type] = [
+            (typeI % 2 ? "" : "vw ") + "66)" +
+                hex(0x0F3898 + 0x10 * dirI + 4 * prefI + 2 * opI + (typeI >> 1))
+                + " v >Vx" + (typeI < 2 ? "yz" : "") + " V {kzr" + ['B', 'b', '', ''][typeI]
+        ]);
+    if(typeI < 2)
+    {
+        mnemonics["vfm" + op + vfmOps[1 - opI] + dir + type] = [
+            (typeI % 2 ? "" : "vw ") + "66)" +
+                hex(0x0F3896 + 0x10 * dirI + opI) + " v >Vxyz V {kzr" + "Bb"[typeI]
+        ];
+    }
+})));
