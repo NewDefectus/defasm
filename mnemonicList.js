@@ -1057,13 +1057,13 @@ pslldq
 
 pslld
 0FF2 vQ VQ
-66)0FF2 *vX >V Vxyz {kzb
+66)0FF2 *vX >V Vxyz {kz
 0F72.6 ib Vqxy >V
 66)0F72.6 ib v >Vxyz {kzbf
 
 psllq
 0FF3 vQ VQ
-66)0FF3 *vX >V Vxyz {kzBw
+66)0FF3 *vX >V Vxyz {kzw
 0F73.6 ib Vqxy >V
 66)0F73.6 ib v >Vxyz {kzBfw
 
@@ -1072,6 +1072,44 @@ psllw
 66)0FF1 *vX >V Vxyz {kz
 0F71.6 ib Vqxy >V
 66)0F71.6 ib v >Vxyz {kzf
+
+psrad
+0FE2 vQ VQ
+66)0FE2 *vX >V Vxyz {kz
+0F72.4 ib Vqxy >V
+66)0F72.4 ib v >Vxyz {kzbf
+
+psraq
+66)0FE2 *vX >V Vxyz {kzwf
+66)0F72.4 ib v >Vxyz {kzBfw
+
+psraw
+0FE1 vQ VQ
+66)0FE1 *vX >V Vxyz {kz
+0F71.4 ib Vqxy >V
+66)0F71.4 ib v >Vxyz {kzf
+
+psrldq
+66)0F73.3 ib Vxy >V
+66)0F73.3 ib v >Vxyz {f
+
+psrld
+0FD2 vQ VQ
+66)0FD2 *vX >V Vxyz {kz
+0F72.2 ib Vqxy >V
+66)0F72.2 ib v >Vxyz {kzbf
+
+psrlq
+0FD3 vQ VQ
+66)0FD3 *vX >V Vxyz {kzw
+0F73.2 ib Vqxy >V
+66)0F73.2 ib v >Vxyz {kzBfw
+
+psrlw
+0FD1 vQ VQ
+66)0FD1 *vX >V Vxyz {kz
+0F71.2 ib Vqxy >V
+66)0F71.2 ib v >Vxyz {kzf
 
 push
 50.o RwQ
