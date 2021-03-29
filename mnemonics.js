@@ -112,12 +112,8 @@ function OpCatcher(format)
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
-    this.carrySizeInference &&= this.type !== OPT.IMM;
-    if(this.type === OPT.VMEM || this.type === OPT.MEM)
-    {
-        this.forceRM = true;
-        this.carrySizeInference = false;
-    }
+    this.carrySizeInference &&= this.type !== OPT.IMM && this.type !== OPT.MEM;
+    this.forceRM ||= this.type === OPT.VMEM || this.type === OPT.MEM;
     
 
 
@@ -487,7 +483,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             if(operand.type === OPT.VEC && operand.size === 64 && vexInfo.needed) throw "Can't encode MMX with VEX prefix";
         }
 
-        // Only set to overall size if it's not the default size
+        // Overall size represents the highest non-implicitly encoded size
         if(overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC)) overallSize = size & ~7;
 
         if(size >= 16) adjustByteOp ||= catcher.hasByteSize;

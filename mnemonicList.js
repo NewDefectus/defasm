@@ -1445,15 +1445,29 @@ vfixupimmsd:66)0F3A55 ib v >Vx V {kzsfw
 
 vfixupimmss:66)0F3A55 ib v >Vx V {kzsf
 
-vgatherdpd:vw 66)0F3892 >Vxy Gx V
+vfpclasspd:66)0F3A66 ib vxyz *KB > {kBfw
 
-vgatherdps:66)0F3892 >Vxy G V
+vfpclassps:66)0F3A66 ib vxyz *KB > {kbf
 
-vgatherqpd:vw 66)0F3893 >Vxy G V
+vfpclasssd:66)0F3A67 ib v#x *KB > {kfw
+
+vfpclassss:66)0F3A67 ib v#x *KB > {kf
+
+vgatherdpd
+vw 66)0F3892 >Vxy *Gx V
+66)0F3892 G/ Vxyz > {kfw
+
+vgatherdps
+66)0F3892 >Vxy G V
+66)0F3892 Gxyz V > {kf
+
+vgatherqpd
+vw 66)0F3893 >Vxy G V
+66)0F3893 Gxyz V > {kfw
 
 vgatherqps
-66)0F3893 >Vx G V
-vl 66)0F3893 >Vx Gy V
+66)0F3893 >Vx Gxy Vx
+66)0F3893 Gxyz V/ > {kf
 
 wait:9B
 
