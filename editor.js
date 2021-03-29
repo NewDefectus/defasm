@@ -4,6 +4,11 @@ var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "lineNumbers": true
 });
 var asmTextOutput = document.getElementById("outputArea");
+asmTextOutput.onclick = function()
+{
+    window.getSelection().selectAllChildren(asmTextOutput.parentElement);
+    document.execCommand("copy");
+};
 var download = document.getElementById("downloadButtonLink");
 
 const elfHeader1 = "%7F%45%4C%46%02%01%01%00%00%00%00%00%00%00%00%00%02%00%3E%00%01%00%00%00%78%80%04%08%00%00%00%00%40%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%40%00%38%00%01%00%00%00%00%00%00%00%01%00%00%00%07%00%00%00%00%00%00%00%00%00%00%00%00%80%04%08%00%00%00%00%00%80%04%08%00%00%00%00";

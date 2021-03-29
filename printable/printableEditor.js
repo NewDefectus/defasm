@@ -4,6 +4,11 @@ var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "lineNumbers": true
 });
 var asmTextOutput = document.getElementById("outputArea");
+asmTextOutput.onclick = function()
+{
+    window.getSelection().selectAllChildren(asmTextOutput.parentElement);
+    document.execCommand("copy");
+};
 
 var printableOutputArea = document.getElementById("printableCodeOutput");
 var printableOutputContainer = document.getElementById("printableCode");
@@ -11,7 +16,7 @@ printableOutputContainer.onclick = function()
 {
     window.getSelection().selectAllChildren(printableOutputContainer);
     document.execCommand("copy");
-}
+};
 
 var uniSeq = new Uint8Array(8), uniDepth = 0, expectedDepth = 0;
 var hexOutput = "", printableOutput = "", tempHexOutput = "";

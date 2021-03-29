@@ -1164,6 +1164,8 @@ pxorq:66)0FEF v >Vxyz V {kzBfw
 
 rcpps:0F53 v Vxy >
 
+rcpss:F3)0F53 v >V Vx
+
 ret
 C3
 C2 IW
