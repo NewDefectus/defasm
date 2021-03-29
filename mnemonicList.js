@@ -65,15 +65,15 @@ bndcn:F2)0F1B rQ B
 
 bndcu:F2)0F1A rQ B
 
-bndldx:0F1A mQ B
+bndldx:0F1A m B
 
-bndmk:F3)0F1B mQ B
+bndmk:F3)0F1B m B
 
 bndmov
 66)0F1A b B
 66)0F1B B b
 
-bndstx:0F1B B mQ
+bndstx:0F1B B m
 
 bsf:0FBC r Rwlq
 
@@ -115,15 +115,15 @@ clc:F8
 
 cld:FC
 
-cldemote:0F1C.0 mB
+cldemote:0F1C.0 m
 
-clflush:0FAE.7 mB
+clflush:0FAE.7 m
 
-clflushopt:66)0FAE.7 mB
+clflushopt:66)0FAE.7 m
 
 cli:FA
 
-clrssbsy:F3)0FAE.6 mQ
+clrssbsy:F3)0FAE.6 m
 
 clts:0F06
 
@@ -151,7 +151,7 @@ F3)0FC2 ib v >Vx *KB {ksf
 
 cmpxchg:0FB0 Rbwlq r
 
-cmpxchg8b:0FC7.1 mQ
+cmpxchg8b:0FC7.1 m
 
 cmpxchg16b:0FC7.1 m#q
 
@@ -245,9 +245,9 @@ f2xm1:D9F0
 
 fabs:D9E1
 
-fbld:DF.4 mQ
+fbld:DF.4 m
 
-fbstp:DF.6 mQ
+fbstp:DF.6 m
 
 fchs:D9E0
 
@@ -284,11 +284,7 @@ ffree:DD.0 F
 fild
 DF.0 mW
 DB.0 ml
-DF.5 mQ
-
-fimul
-DA.1 ml
-DE.1 mW
+DF.5 m$q
 
 fincstp:D9F7
 
@@ -307,14 +303,6 @@ fisttp
 DB.1 ml
 DF.1 mW
 DD.1 mQ
-
-fisub
-DA.4 ml
-DE.4 mW
-
-fisubr
-DA.5 ml
-DE.5 mW
 
 fld
 D9.0 ml
@@ -1206,6 +1194,18 @@ roundpd:66)0F3A09 ib v Vxy >
 
 roundps:66)0F3A08 ib v Vxy >
 
+roundsd:66)0F3A0B ib v >V Vx
+
+roundss:66)0F3A0A ib v >V Vx
+
+rsm:0FAA
+
+rsqrtps:0F52 v Vxy >
+
+rsqrtss:F3)0F52 v >V Vx
+
+rstorssp:F3)0F01.5 m
+
 sahf:9E
 
 sal:#shl
@@ -1216,7 +1216,7 @@ setssbsy:F3)0F01E8
 
 sfence:0FAEF8
 
-sgdt:0F01.0 mQ
+sgdt:0F01.0 m
 
 sha1rnds4:0F3ACC ib v Vx
 
