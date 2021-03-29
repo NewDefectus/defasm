@@ -414,14 +414,17 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
                 if(enforcedSize === (checkableSize & ~7))
                 {
                     if(this.checkableSizes.includes(8) && enforcedSize > 8) adjustByteOp = true;
-                    overallSize = (checkableSize & SIZETYPE_IMPLICITENC) ? 0 : enforcedSize;
+                    overallSize = checkableSize;
                     foundSize = true;
                     break;
                 }
             }
             if(!foundSize) return null;
         }
-        if((overallSize & ~7) === 64) rexw = true;
+
+        if(overallSize & SIZETYPE_IMPLICITENC) overallSize = 0;
+        overallSize &= ~7;
+        if(overallSize === 64) rexw = true;
         enforcedSize = 0;
     }
 

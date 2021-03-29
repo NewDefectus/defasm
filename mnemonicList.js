@@ -1127,6 +1127,26 @@ psubusb:0FD8 v >V Vqxyz {kz
 
 psubusw:0FD9 v >V Vqxyz {kz
 
+ptest:66)0F3817 v Vxy >
+
+ptwrite:F3)0FAE.4 rlq
+
+punpckhbw:0F68 v >V Vqxyz {kz
+
+punpckhwd:0F69 v >V Vqxyz {kz
+
+punpckhdq:0F6A v >V Vqxyz {kzb
+
+punpckhqdq:66)0F6D v >V Vxyz {kzBw
+
+punpcklbw:0F60 v >V Vqxyz {kz
+
+punpcklwd:0F61 v >V Vqxyz {kz
+
+punpckldq:0F62 v >V Vqxyz {kzb
+
+punpcklqdq:66)0F6C v >V Vxyz {kzBw
+
 push
 50.o RwQ
 6A-2 Ib~wl
@@ -1135,6 +1155,12 @@ FF.6 mwQ
 0FA8 s_5
 
 pushf:9C -wQ
+
+pxor:0FEF v >V Vqxy
+
+pxord:66)0FEF v >Vxyz V {kzbf
+
+pxorq:66)0FEF v >Vxyz V {kzBfw
 
 ret
 C3
