@@ -1299,6 +1299,28 @@ tpause:66)0FAE.6 R_0l R_2 R
 
 tzcnt:F3)0FBC r Rwlq
 
+ucomisd:66)0F2E v Vx > {sw
+
+ucomiss:0F2E v Vx > {s
+
+ud0:0FFF rL R
+
+ud1:0FB9 rL R
+
+ud2:0F0B
+
+umonitor:F3)0FAE.6 Rwlq
+
+umwait:F2)0FAE.6 R_0l R_2 R
+
+unpckhpd:66)0F15 v >V Vxyz {kzBw
+
+unpckhps:0F15 v >V Vxyz {kzb
+
+unpcklpd:66)0F14 v >V Vxyz {kzBw
+
+unpcklps:0F14 v >V Vxyz {kzb
+
 vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
 vgatherdps:66)0F3892 >Vxy G V
