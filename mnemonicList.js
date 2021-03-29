@@ -127,7 +127,7 @@ clrssbsy:F3)0FAE.6 m
 
 clts:0F06
 
-clwb:66)0FAE.6 mB
+clwb:66)0FAE.6 m
 
 cmc:F5
 
@@ -282,7 +282,7 @@ fdecstp:D9F6
 ffree:DD.0 F
 
 fild
-DF.0 mW
+DF.0 m$w
 DB.0 ml
 DF.5 m$q
 
@@ -292,21 +292,21 @@ finit:9BDBE3
 
 fist
 DB.2 ml
-DF.2 mW
+DF.2 m$w
 
 fistp
 DB.3 ml
-DF.3 mW
-DF.7 mQ
+DF.3 m$w
+DF.7 m$q
 
 fisttp
 DB.1 ml
-DF.1 mW
-DD.1 mQ
+DF.1 m$w
+DD.1 m$q
 
 fld
 D9.0 ml
-DD.0 mQ
+DD.0 m$q
 D9.0 F
 
 fld1:D9E8
@@ -321,23 +321,13 @@ fldlg2:D9EC
 
 fldln2:D9ED
 
-fldt:DB.5 mQ
+fldt:DB.5 m
 
 fldz:D9EE
 
-fldcw:D9.5 mW
+fldcw:D9.5 m
 
-fldenv:D9.4 mL
-
-fmul
-D8.1 ml
-DC.1 mQ
-D8.1 F F_0
-DC.1 F_0 F
-
-fmulp
-DE.1 F_0 F
-DEC9
+fldenv:D9.4 m
 
 fnclex:DBE2
 
@@ -345,14 +335,14 @@ fninit:DBE3
 
 fnop:D9D0
 
-fnsave:DD.6 mQ
+fnsave:DD.6 m
 
-fnstcw:D9.7 mW
+fnstcw:D9.7 m
 
-fnstenv:D9.6 mL
+fnstenv:D9.6 m
 
 fnstsw
-DD.7 mW
+DD.7 m
 DFE0 R_0W
 
 fpatan:D9F3
@@ -365,9 +355,9 @@ fptan:D9F2
 
 frndint:D9FC
 
-frstor:DD.4 mQ
+frstor:DD.4 m
 
-fsave:9BDD.6 mQ
+fsave:9BDD.6 m
 
 fscale:D9FD
 
@@ -379,22 +369,22 @@ fsqrt:D9FA
 
 fst
 D9.2 ml
-DD.2 mQ
+DD.2 m$q
 DD.2 F
 
-fstcw:9BD9.7 mW
+fstcw:9BD9.7 m
 
-fstenv:9BD9.6 mL
+fstenv:9BD9.6 m
 
 fstp
 D9.3 ml
-DD.3 mQ
+DD.3 m$q
 DD.3 F
 
-fstpt:DB.7 mQ
+fstpt:DB.7 m
 
 fstsw
-9BDD.7 mW
+9BDD.7 m
 9BDFE0 R_0W
 
 ftst:D9E4
@@ -421,11 +411,11 @@ fxch
 D9.1 F
 D9C9
 
-fxrstor:0FAE.1 mQ
+fxrstor:0FAE.1 m
 
 fxrstor64:0FAE.1 m#q
 
-fxsave:0FAE.0 mQ
+fxsave:0FAE.0 m
 
 fxsave64:0FAE.0 m#q
 
@@ -485,9 +475,9 @@ int3:CC
 
 invd:0F08
 
-invlpg:0F01.7 mB
+invlpg:0F01.7 m
 
-invpcid:66)0F3882 mQ RQ
+invpcid:66)0F3882 m RQ
 
 iret:CF -wLq
 
@@ -541,7 +531,7 @@ lar:0F02 rW Rwlq
 
 lddqu:F2)0FF0 m Vxy >
 
-ldmxcsr:0FAE.2 mL >
+ldmxcsr:0FAE.2 m >
 
 lea:8D m Rwlq
 
@@ -549,11 +539,11 @@ leave:C9
 
 lfence:0FAEE8
 
-lgdt:0F01.2 mL
+lgdt:0F01.2 m
 
-lidt:0F01.3 mL
+lidt:0F01.3 m
 
-ljmp:FF.5 mL
+ljmp:FF.5 m
 
 lfs:0FB4 m Rwlq
 
@@ -623,9 +613,9 @@ C6.0 i rbwl
 F3)0F7E -$q v Vx > {w
 66)0FD6 -$q Vx v > {w
 8C s Rwlq
-8C s mW
+8C s m
 8E Rwlq s
-8E mW s
+8E m s
 0F20 C ^RQ
 0F21 D ^RQ
 0F22 ^RQ C
@@ -1017,15 +1007,15 @@ pord:66)0FEB v >Vxyz V {kzbf
 
 porq:66)0FEB v >Vxyz V {kzBwf
 
-prefetcht0:0F18.1 mB
+prefetcht0:0F18.1 m
 
-prefetcht1:0F18.2 mB
+prefetcht1:0F18.2 m
 
-prefetcht2:0F18.3 mB
+prefetcht2:0F18.3 m
 
-prefetchnta:0F18.0 mB
+prefetchnta:0F18.0 m
 
-prefetchw:0F0D.1 mB
+prefetchw:0F0D.1 m
 
 psadbw:0FF6 v >V Vqxyz {
 
@@ -1246,7 +1236,7 @@ std:FD
 
 sti:FB
 
-stmxcsr:0FAE.3 mL >
+stmxcsr:0FAE.3 m >
 
 stos:AA -bwlq
 
@@ -1313,17 +1303,29 @@ xgetbv:0F01D0
 
 xlat:D7
 
-xrstor:0FAE.5 mLq
+xrstor:0FAE.5 m
 
-xrstors:0FC7.3 mLq
+xrstor64:0FAE.5 m#q
 
-xsave:0FAE.4 mLq
+xrstors:0FC7.3 m
 
-xsavec:0FC7.4 mLq
+xrstors64:0FC7.3 m#q
 
-xsaveopt:0FAE.6 mLq
+xsave:0FAE.4 m
 
-xsaves:0FC7.5 mLq
+xsave64:0FAE.4 m#q
+
+xsavec:0FC7.4 m
+
+xsavec64:0FC7.4 m#q
+
+xsaveopt:0FAE.6 m
+
+xsaveopt64:0FAE.6 m#q
+
+xsaves:0FC7.5 m
+
+xsaves64:0FC7.5 m#q
 
 xsetbv:0F01D1
 
