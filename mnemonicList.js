@@ -1469,6 +1469,22 @@ vgatherqps
 66)0F3893 >Vx Gxy Vx
 66)0F3893 Gxyz V/ > {kf
 
+vgetexppd:66)0F3842 v Vxyz > {kzBsfw
+
+vgetexpps:66)0F3842 v Vxyz > {kzbsf
+
+vgetexpsd:66)0F3843 v >Vx V > {kzsfw
+
+vgetexpss:66)0F3843 v >Vx V > {kzsf
+
+vgetmantpd:66)0F3A26 ib v Vxyz > {kzBsfw
+
+vgetmantps:66)0F3A26 ib v Vxyz > {kzbsf
+
+vgetmantsd:66)0F3A27 ib v >Vx V {kzsfw
+
+vgetmantss:66)0F3A27 ib v >Vx V {kzsf
+
 wait:9B
 
 wbinvd:0F09
