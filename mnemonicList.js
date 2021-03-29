@@ -1485,6 +1485,26 @@ vgetmantsd:66)0F3A27 ib v >Vx V {kzsfw
 
 vgetmantss:66)0F3A27 ib v >Vx V {kzsf
 
+vinsertf128:66)0F3A18 ib vX >Vy V
+
+vinsertf32x4:66)0F3A18 ib vX >Vyz V {kzf
+
+vinsertf64x2:66)0F3A18 ib vX >Vyz V {kzfw
+
+vinsertf32x8:66)0F3A1A ib vY >Vz V {kzf
+
+vinsertf64x4:66)0F3A1A ib vY >Vz V {kzfw
+
+vinserti128:66)0F3A38 ib vX >Vy V
+
+vinserti32x4:66)0F3A38 ib vX >Vyz V {kzf
+
+vinserti64x2:66)0F3A38 ib vX >Vyz V {kzfw
+
+vinserti32x8:66)0F3A3A ib vY >Vz V {kzf
+
+vinserti64x4:66)0F3A3A ib vY >Vz V {kzfw
+
 wait:9B
 
 wbinvd:0F09
