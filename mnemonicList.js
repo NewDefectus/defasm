@@ -1675,6 +1675,74 @@ vpgatherqq
 vw 66)0F3891 >Vxy G V
 66)0F3891 Gxyz V > {kfw
 
+vplzcntd:66)0F3844 v Vxyz > {kzbf
+
+vplzcntq:66)0F3844 v Vxyz > {kzBwf
+
+vpmadd52huq:66)0F38B5 v >Vxyz V {kzBwf
+
+vpmadd52luq:66)0F38B4 v >Vxyz V {kzBwf
+
+vpmaskmovd
+66)0F388C m >Vxy V
+66)0F388E Vxy >V m
+
+vpmaskmovq
+vw 66)0F388C m >Vxy V
+vw 66)0F388E Vxy >V m
+
+vpmovb2m:F3)0F3829 ^Vxyz *KB > {f
+
+vpmovd2m:F3)0F3839 ^Vxyz *KB > {f
+
+vpmovq2m:F3)0F3839 ^Vxyz *KB > {fw
+
+vpmovw2m:F3)0F3829 ^Vxyz *KB > {fw
+
+vpmovdb:F3)0F3831 Vxyz vX > {kzf
+
+vpmovdw:F3)0F3833 Vxyz v/ > {kzf
+
+vpmovqb:F3)0F3832 Vxyz vX > {kzf
+
+vpmovqd:F3)0F3835 Vxyz vX > {kzf
+
+vpmovqw:F3)0F3834 Vxyz vX > {kzf
+
+vpmovwb:F3)0F3830 Vxyz v/ > {kzf
+
+vpmovsdb:F3)0F3821 Vxyz vX > {kzf
+
+vpmovsdw:F3)0F3823 Vxyz v/ > {kzf
+
+vpmovsqb:F3)0F3822 Vxyz vX > {kzf
+
+vpmovsqd:F3)0F3825 Vxyz v/ > {kzf
+
+vpmovsqw:F3)0F3824 Vxyz vX > {kzf
+
+vpmovswb:F3)0F3820 Vxyz v/ > {kzf
+
+vpmovusdb:F3)0F3811 Vxyz vX > {kzf
+
+vpmovusdw:F3)0F3813 Vxyz v/ > {kzf
+
+vpmovusqb:F3)0F3812 Vxyz vX > {kzf
+
+vpmovusqd:F3)0F3815 Vxyz v/ > {kzf
+
+vpmovusqw:F3)0F3814 Vxyz vX > {kzf
+
+vpmovuswb:F3)0F3810 Vxyz v/ > {kzf
+
+vpmovm2b:F3)0F3828 ^*KB Vxyz > {f
+
+vpmovm2d:F3)0F3838 ^*KB Vxyz > {f
+
+vpmovm2q:F3)0F3838 ^*KB Vxyz > {fw
+
+vpmovm2w:F3)0F3828 ^*KB Vxyz > {fw
+
 wait:9B
 
 wbinvd:0F09
