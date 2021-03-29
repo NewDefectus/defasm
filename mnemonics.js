@@ -241,7 +241,8 @@ function Operation(format)
 
     // Interpreting the opcode
     this.vexOnly = format[0][0] === 'v';
-    if(this.vexOnly)
+    this.forceVex = format[0][0] === 'V';
+    if(this.vexOnly || this.forceVex)
     {
         if(format[0].includes('w')) this.vexBase |= 0x8000;
         if(format[0].includes('l')) this.vexBase |= 0x400;
@@ -285,11 +286,10 @@ function Operation(format)
 
     // What follows is a list of operand specifiers
     this.opCatchers = [];
-    this.vexOpCatchers = [];
-    this.allowVex = format.some(op => op.includes('>'));
+    this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
+    this.vexOpCatchers = this.allowVex ? [] : null;
     this.checkableSizes = null;
     this.defaultCheckableSize = null;
-    this.forceVex = false;
     this.maxSize = 0;
 
     let opCatcher;
@@ -309,15 +309,10 @@ function Operation(format)
             continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-        if(!opCatcher.vexOp) this.opCatchers.push(opCatcher);
-        if(!this.forceVex && ((opCatcher.vexOp && opCatcher.type === OPT.REG) || opCatcher.type === OPT.MASK))
-        {
-            this.forceVex = true;
-            this.vexOnly = false;
-            if(opCatcher.type === OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
-        }
+        if(!opCatcher.vexOp || this.forceVex) this.opCatchers.push(opCatcher);
+        if(opCatcher.type === OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
         if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
-        if(this.allowVex) this.vexOpCatchers.push(opCatcher);
+        if(this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
 
         if(Array.isArray(opCatcher.sizes))
         {
@@ -332,17 +327,11 @@ function Operation(format)
     }
 
     // Generate the necessary vex info
-    if(this.allowVex)
+    if(this.allowVex || this.forceVex)
     {
         this.vexBase |= 0x7800 |
             ([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1)
             | ([null, 0x66, 0xF3, 0xF2].indexOf(this.prefix) << 8);
-    }
-
-    if(this.forceVex)
-    {
-        this.opCatchers = this.vexOpCatchers;
-        if(!(this.evexPermits & EVEXPERM_FORCE)) this.allowVex = false; // This is to prevent erroneous syntax like "vandn"
     }
 }
 

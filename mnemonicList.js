@@ -29,7 +29,7 @@ aesimc:66)0F38DB v Vx >
 
 aeskeygenassist:66)0F3ADF ib v Vx >
 
-andn:0F38F2 r >Rlq R
+andn:V 0F38F2 r >Rlq R
 
 andpd:66)0F54 v >V Vxyz {kzBw
 
@@ -39,7 +39,7 @@ andnpd:66)0F55 v >V Vxyz {kzBw
 
 andnps:0F55 v >V Vxyz {kzb
 
-bextr:0F38F7 >Rlq r R
+bextr:V 0F38F7 >Rlq r R
 
 blendpd:66)0F3A0D ib v >V Vxy
 
@@ -53,13 +53,13 @@ blendvps
 66)0F3814 V_0x v V
 v 66)0F3A4A <Vxy v >V V
 
-blsi:0F38F3.3 r >Rlq
+blsi:V 0F38F3.3 r >Rlq
 
-blsmsk:0F38F3.2 r >Rlq
+blsmsk:V 0F38F3.2 r >Rlq
 
-blsr:0F38F3.1 r >Rlq
+blsr:V 0F38F3.1 r >Rlq
 
-bndcl:F3)0F1A rQ B
+bndcl:V F3)0F1A rQ B
 
 bndcn:F2)0F1B rQ B
 
@@ -97,7 +97,7 @@ bts
 0FAB Rwlq r
 0FBA.5 ib rwlq
 
-bzhi:0F38F5 Rlq r >R
+bzhi:V 0F38F5 Rlq r >R
 
 call
 E8 Il
@@ -501,7 +501,7 @@ invlpg:0F01.7 mB
 
 invpcid:66)0F3882 mQ RQ
 
-iret:CF -Lq
+iret:CF -wLq
 
 jecxz:67)E3 Ib
 
@@ -511,41 +511,41 @@ FF.4 rQ
 
 jrcxz:E3 Ib
 
-kadd:vl 0F4A ^Kbwlq >K K
+kadd:Vl 0F4A ^Kbwlq >K K
 
-kand:vl 0F41 ^Kbwlq >K K
+kand:Vl 0F41 ^Kbwlq >K K
 
-kandn:vl 0F42 ^Kbwlq >K K
+kandn:Vl 0F42 ^Kbwlq >K K
 
 kmov
-0F90 k Kbwlq >
-0F91 Kbwlq m >
-0F92 ^Rl Kbwl >
-0F92 ^Rq Kq >
-0F93 ^Kbwl Rl >
-0F93 ^Kq Rq >
+V 0F90 k Kbwlq >
+V 0F91 Kbwlq m >
+V 0F92 ^Rl Kbwl >
+V 0F92 ^Rq Kq >
+V 0F93 ^Kbwl Rl >
+V 0F93 ^Kq Rq >
 
-knot:0F44 ^Kbwlq K >
+knot:V 0F44 ^Kbwlq K >
 
-kor:vl 0F45 ^Kbwlq >K K
+kor:Vl 0F45 ^Kbwlq >K K
 
-kortest:0F98 ^Kbwlq K >
+kortest:V 0F98 ^Kbwlq K >
 
-kshiftl:66)0F3A32 iB ^Kbwlq K >
+kshiftl:V 66)0F3A32 iB ^Kbwlq K >
 
-kshiftr:66)0F3A30 iB ^Kbwlq K >
+kshiftr:V 66)0F3A30 iB ^Kbwlq K >
 
-ktest:0F99 ^Kbwlq K >
+ktest:V 0F99 ^Kbwlq K >
 
-kunpckbw:vl 0F4B ^K#b >K K
+kunpckbw:Vl 0F4B ^K#b >K K
 
-kunpckdq:vl 0F4B ^K#q >K K
+kunpckdq:Vl 0F4B ^K#q >K K
 
-kunpckwd:vl 0F4B ^K#w >K K
+kunpckwd:Vl 0F4B ^K#w >K K
 
-kxnor:vl 0F46 ^Kbwlq >K K
+kxnor:Vl 0F46 ^Kbwlq >K K
 
-kxor:vl 0F47 ^Kbwlq >K K
+kxor:Vl 0F47 ^Kbwlq >K K
 
 lahf:9F
 
@@ -565,6 +565,8 @@ lgdt:0F01.2 mL
 
 lidt:0F01.3 mL
 
+ljmp:FF.5 mL
+
 lfs:0FB4 m Rwlq
 
 lgs:0FB5 m Rwlq
@@ -580,6 +582,10 @@ loop:E2 Ib
 loope:E1 Ib
 
 loopne:E0 Ib
+
+lret
+CB
+CA i$w
 
 lsl:0F03 rW Rwlq
 
@@ -771,7 +777,7 @@ mulsd:F2)0F59 v >V Vx {kzrw
 
 mulss:F3)0F59 v >V Vx {kzr
 
-mulx:F2)0F38F6 r >Rlq R
+mulx:V F2)0F38F6 r >Rlq R
 
 mwait:0F01C9
 
@@ -893,9 +899,9 @@ pcmpistri:66)0F3A63 ib v Vx >
 
 pcmpistrm:66)0F3A62 ib v Vx >
 
-pdep:F2)0F38F5 r >Rlq R
+pdep:V F2)0F38F5 r >Rlq R
 
-pext:F3)0F38F5 r >Rlq R
+pext:V F3)0F38F5 r >Rlq R
 
 pextrb:66)0F3A14 ib Vx r! > {
 
@@ -1166,9 +1172,35 @@ rcpps:0F53 v Vxy >
 
 rcpss:F3)0F53 v >V Vx
 
+rdfsbase:F3)0FAE.0 Rlq
+
+rdgsbase:F3)0FAE.1 Rlq
+
+rdmsr:0F32
+
+rdpid:F3)0FC7.7 RQ
+
+rdpkru:0F01EE
+
+rdpmc:0F33
+
+rdrand:0FC7.6 Rwlq
+
+rdseed:0FC7.7 Rwlq
+
+rdsspd:F3)0F1E.1 Rl
+
+rdsspq:F3)0F1E.1 Rq
+
+rdtsc:0F31
+
+rdtscp:0F01F9
+
 ret
 C3
-C2 IW
+C2 i$w
+
+rorx:V 0F3AF0 ib r Rlq 
 
 sahf:9E
 
