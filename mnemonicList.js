@@ -1200,7 +1200,11 @@ ret
 C3
 C2 i$w
 
-rorx:V 0F3AF0 ib r Rlq 
+rorx:V F2)0F3AF0 ib r Rlq
+
+roundpd:66)0F3A09 ib v Vxy >
+
+roundps:66)0F3A08 ib v Vxy >
 
 sahf:9E
 

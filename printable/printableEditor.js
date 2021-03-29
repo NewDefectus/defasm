@@ -22,9 +22,12 @@ var uniSeq = new Uint8Array(8), uniDepth = 0, expectedDepth = 0;
 var hexOutput = "", printableOutput = "", tempHexOutput = "";
 var justEscaped = false;
 
+editor.setValue(document.cookie);
+
 // Input receiving
 editor.on("change", function()
 {
+    document.cookie = editor.getValue();
     let instructions = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex;
     printableOutput = tempHexOutput = hexOutput = ""; uniDepth = expectedDepth = 0;
     

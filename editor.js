@@ -14,10 +14,16 @@ var download = document.getElementById("downloadButtonLink");
 const elfHeader1 = "%7F%45%4C%46%02%01%01%00%00%00%00%00%00%00%00%00%02%00%3E%00%01%00%00%00%78%80%04%08%00%00%00%00%40%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%00%40%00%38%00%01%00%00%00%00%00%00%00%01%00%00%00%07%00%00%00%00%00%00%00%00%00%00%00%00%80%04%08%00%00%00%00%00%80%04%08%00%00%00%00";
 const elfHeader2 = "%00%10%00%00%00%00%00%00";
 
+// Load the previously stored code
+let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
+if(prevCode) editor.setValue(decodeURIComponent(prevCode.slice(5))), compileEditorCode();
+
 
 // Input receiving
-editor.on("change", function()
+editor.on("change", compileEditorCode);
+function compileEditorCode()
 {
+    document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
     let instructions = compileAsm(editor.getValue()), hexOutput = "", firstOnLine = true;
     for(let instr of instructions)
     {
@@ -31,7 +37,7 @@ editor.on("change", function()
     }
     makeELF(hexOutput.replace(/\s+/g, '%'));
     asmTextOutput.textContent = hexOutput;
-})
+}
 
 function makeELF(bytes)
 {
