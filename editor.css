@@ -1,4 +1,4 @@
-.CodeMirror { font-size: 1.5em}
+.CodeMirror, .asmTextData { font-size: 2em}
 .cm-s-editor.CodeMirror { background: inherit; color: white; height:100% }
 .cm-s-editor div.CodeMirror-selected { background: #b36539; }
 .cm-s-editor .CodeMirror-line::selection, .cm-s-editor .CodeMirror-line > span::selection, .cm-s-editor .CodeMirror-line > span > span::selection { background: rgba(179, 101, 57, .99); }

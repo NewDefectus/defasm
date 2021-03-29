@@ -1162,6 +1162,8 @@ pxord:66)0FEF v >Vxyz V {kzbf
 
 pxorq:66)0FEF v >Vxyz V {kzBfw
 
+rcpps:0F53 v Vxy >
+
 ret
 C3
 C2 IW
