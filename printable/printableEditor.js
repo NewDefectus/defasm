@@ -25,24 +25,25 @@ var justEscaped = false;
 // Input receiving
 editor.on("change", function()
 {
-    let instructions = compileAsm(editor.getValue()), thisDepth = 0, hex;
+    let instructions = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex;
     printableOutput = tempHexOutput = hexOutput = ""; uniDepth = expectedDepth = 0;
     
     for(let instr of instructions)
     {
         if(instr === "")
-            tempHexOutput += '\n';
+            tempHexOutput += '\n', firstOnLine = true;
         else for(i = 0; i < instr.length; i++)
         {
             byte = instr.bytes[i]; thisDepth = getByteDepth(byte);
-            hex = byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
+            hex = (firstOnLine ? "" : ' ') + byte.toString(16).toUpperCase().padStart(2, '0');
+            firstOnLine = false;
             if(byte === 0)
             {
                 tempHexOutput += hex;
                 uniSeq[uniDepth++] = 0;
                 dumpBadSeq();
             }
-            else if(thisDepth == 0)
+            else if(thisDepth === 0)
             {
                 if(expectedDepth) dumpBadSeq();
                 hexOutput += tempHexOutput + hex;
@@ -57,9 +58,9 @@ editor.on("change", function()
             }
             else
             {
-                if(expectedDepth == 0)
+                if(expectedDepth === 0)
                 {
-                    if(thisDepth == 1)
+                    if(thisDepth === 1)
                     {
                         uniSeq[uniDepth++] = byte;
                         tempHexOutput += hex;
@@ -69,7 +70,7 @@ editor.on("change", function()
                 }
                 else
                 {
-                    if(thisDepth != 1)
+                    if(thisDepth !== 1)
                     {
                         dumpBadSeq();
                         expectedDepth = thisDepth;
@@ -80,10 +81,7 @@ editor.on("change", function()
                     {
                         uniSeq[uniDepth++] = byte;
                         tempHexOutput += hex
-                        if(expectedDepth === uniDepth)
-                        {
-                            dumpUniSeq();
-                        }
+                        if(expectedDepth === uniDepth) dumpUniSeq();
                     }
                 }
             }
@@ -99,7 +97,7 @@ function getByteDepth(x)
     let i = 8;
     while(i--)
     {
-        if((x & (1 << i)) == 0)
+        if((x & (1 << i)) === 0)
             return 7 - i;
     }
     return 8;

@@ -18,14 +18,15 @@ const elfHeader2 = "%00%10%00%00%00%00%00%00";
 // Input receiving
 editor.on("change", function()
 {
-    let instructions = compileAsm(editor.getValue()), hexOutput = "";
+    let instructions = compileAsm(editor.getValue()), hexOutput = "", firstOnLine = true;
     for(let instr of instructions)
     {
         if(instr === "")
-            hexOutput += '\n';
+            hexOutput += '\n', firstOnLine = true;
         else for(i = 0; i < instr.length; i++)
         {
-            hexOutput += instr.bytes[i].toString(16).toUpperCase().padStart(2, '0') + ' ';
+            hexOutput += (firstOnLine ? "" : ' ') + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
+            firstOnLine = false;
         }
     }
     makeELF(hexOutput.replace(/\s+/g, '%'));
