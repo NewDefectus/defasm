@@ -1321,6 +1321,28 @@ unpcklpd:66)0F14 v >V Vxyz {kzBw
 
 unpcklps:0F14 v >V Vxyz {kzb
 
+valignd:66)0F3A03 ib v >Vxyz V {kzbf
+
+valignq:66)0F3A03 ib v >Vxyz V {kzBfw
+
+vblendmpd:66)0F3865 v >V Vxyz {kzBfw
+
+vblendmps:66)0F3865 v >V Vxyz {kzbf
+
+vbroadcastss:66)0F3818 vX Vxyz > {kz
+
+vbroadcastsd:66)0F3819 vX Vyz > {kzw
+
+vbroadcastf32x2:66)0F3819 vX Vyz > {kzf
+
+vbroadcastf32x4:66)0F381A m Vyz > {kzf
+
+vbroadcastf64x2:66)0F381A m Vyz > {kzwf
+
+vbroadcastf32x8:66)0F381B m Vz > {kzf
+
+vbroadcastf64x4:66)0F381B m Vz > {kzfw
+
 vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
 vgatherdps:66)0F3892 >Vxy G V
