@@ -1295,6 +1295,10 @@ F6.0 i rbwl
 F7.0 iL rq
 84 Rbwlq r
 
+tpause:66)0FAE.6 R_0l R_2 R
+
+tzcnt:F3)0FBC r Rwlq
+
 vgatherdpd:vw 66)0F3892 >Vxy Gx V
 
 vgatherdps:66)0F3892 >Vxy G V
