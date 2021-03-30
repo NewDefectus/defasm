@@ -23,7 +23,7 @@ const registers = Object.assign({}, ...[
 "st","rip","eip","spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
 
-const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64};
+const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
 
 const   PREFIX_REX = 1,
         PREFIX_NOREX = 2,

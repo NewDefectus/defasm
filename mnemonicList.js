@@ -213,6 +213,7 @@ DD.1 m$q
 fld
 D9.0 ml
 DD.0 m$q
+DB.5 mt
 D9.0 F
 
 fld1:D9E8
@@ -221,7 +222,6 @@ fldl2e:D9EA
 fldpi:D9EB
 fldlg2:D9EC
 fldln2:D9ED
-fldt:DB.5 m
 fldz:D9EE
 fldcw:D9.5 m
 fldenv:D9.4 m

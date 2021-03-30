@@ -29,7 +29,7 @@ var mnemonics = {};
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "x": 128, "y": 256, "z": 512};
+const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
 const SIZETYPE_EXPLICITSUF = 1;
 const SIZETYPE_IMPLICITENC = 2;
 
