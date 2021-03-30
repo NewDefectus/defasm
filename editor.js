@@ -35,21 +35,19 @@ function compileEditorCode()
             firstOnLine = false;
         }
     }
-    makeELF(hexOutput.replace(/\s+/g, '%'));
+    makeELF(hexOutput.trim().replace(/\s+/g, '%'));
     asmTextOutput.textContent = hexOutput;
 }
 
 function makeELF(bytes)
 {
+    if(bytes !== "") bytes = '%' + bytes;
+    console.log(bytes);
     let byteLength = bytes.length / 3 + 0x78, size = "";
-    if(bytes != "")
-    {
-        bytes = '%' + bytes.slice(0, -1);
-    }
 
     for(let i = 0; i < 8; i++)
     {
-        size += '%' + byteLength.toString(16).toUpperCase().padStart(2, '0');
+        size += '%' + (byteLength & 255).toString(16).padStart(2, '0');
         byteLength >>= 8;
     }
     
