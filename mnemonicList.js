@@ -1777,6 +1777,30 @@ vpscatterqd:66)0F38A1 V/ Gxyz > {kf
 
 vpscatterqq:66)0F38A1 Vxyz G > {kfw
 
+vpshldd:66)0F3A71 ib v >Vxyz V {kzbf
+
+vpshldq:66)0F3A71 ib v >Vxyz V {kzBfw
+
+vpshldw:66)0F3A70 ib v >Vxyz V {kzfw
+
+vpshldvd:66)0F3871 v >Vxyz V {kzbf
+
+vpshldvq:66)0F3871 v >Vxyz V {kzBfw
+
+vpshldvw:66)0F3870 v >Vxyz V {kzfw
+
+vpshrdd:66)0F3A73 ib v >Vxyz V {kzbf
+
+vpshrdq:66)0F3A73 ib v >Vxyz V {kzBfw
+
+vpshrdw:66)0F3A72 ib v >Vxyz V {kzfw
+
+vpshrdvd:66)0F3873 v >Vxyz V {kzbf
+
+vpshrdvq:66)0F3873 v >Vxyz V {kzBfw
+
+vpshrdvw:66)0F3872 v >Vxyz V {kzfw
+
 wait:9B
 
 wbinvd:0F09
