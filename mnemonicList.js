@@ -1841,6 +1841,78 @@ vptestnmq:F3)0F3827 v >Vxyz *KB {kBfw
 
 vptestnmw:F3)0F3826 v >Vxyz *KB {kfw
 
+vrangepd:66)0F3A50 ib v >Vxyz V {kzBsfw
+
+vrangeps:66)0F3A50 ib v >Vxyz V {kzbsf
+
+vrangesd:66)0F3A51 ib v >Vx V {kzsfw
+
+vrangess:66)0F3A51 ib v >Vx V {kzsf
+
+vrcp14pd:66)0F384C v Vxyz > {kzBfw
+
+vrcp14ps:66)0F384C v Vxyz > {kzbf
+
+vrcp14sd:66)0F384D v >Vx V {kzfw
+
+vrcp14ss:66)0F384D v >Vx V {kzf
+
+vreducepd:66)0F3A56 ib v Vxyz > {kzBsfw
+
+vreduceps:66)0F3A56 ib v Vxyz > {kzbsf
+
+vreducesd:66)0F3A57 ib v >Vx V {kzsfw
+
+vreducess:66)0F3A57 ib v >Vx V {kzsf
+
+vrndscalepd:66)0F3A09 ib v Vxyz > {kzBsfw
+
+vrndscaleps:66)0F3A08 ib v Vxyz > {kzbsf
+
+vrndscalesd:66)0F3A0B ib v >Vx V {kzsfw
+
+vrndscaless:66)0F3A0A ib v >Vx V {kzsf
+
+vrsqrt14pd:66)0F384E v Vxyz > {kzBfw
+
+vrsqrt14ps:66)0F384E v Vxyz > {kzbf
+
+vrsqrt14sd:66)0F384F v >Vx V {kzfw
+
+vrsqrt14ss:66)0F384F v >Vx V {kzf
+
+vscalefpd:66)0F382C v >Vxyz V {kzBrfw
+
+vscalefps:66)0F382C v >Vxyz V {kzbrf
+
+vscalefsd:66)0F382D v >Vx V {kzrfw
+
+vscalefss:66)0F382D v >Vx V {kzrf
+
+vscatterdpd:66)0F38A2 Vxyz G/ > {kfw
+
+vscatterdps:66)0F38A2 Vxyz G > {kf
+
+vscatterqpd:66)0F38A3 Vxyz G > {kfw
+
+vscatterqps:66)0F38A3 V/ Gxyz > {kf
+
+vshuff32x4:66)0F3A23 ib v >Vyz V {kzbf
+
+vshuff64x2:66)0F3A23 ib v >Vyz V {kzBfw
+
+vshufi32x4:66)0F3A43 ib v >Vyz V {kzbf
+
+vshufi64x2:66)0F3A43 ib v >Vyz V {kzBfw
+
+vtestpd:66)0F380F v Vxy >
+
+vtestps:66)0F380E v Vxy >
+
+vzeroall:vl 0F77 >
+
+vzeroupper:0F77 >
+
 wait:9B
 
 wbinvd:0F09
