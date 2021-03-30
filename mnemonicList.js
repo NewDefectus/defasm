@@ -1927,9 +1927,9 @@ wrmsr:0F30
 
 wrpkru:0F01EF
 
-wrss:0F38F6 Rlq r
+wrss:0F38F6 R~l~q r
 
-wruss:66)0F38F5 Rlq r
+wruss:66)0F38F5 R~l~q r
 
 xabort:C6F8 ib
 
@@ -1948,6 +1948,10 @@ xend:0F01D5
 xgetbv:0F01D0
 
 xlat:D7
+
+xorpd:66)0F57 v >V Vxyz {kzBw
+
+xorps:0F57 v >V Vxyz {kzb
 
 xrstor:0FAE.5 m
 
