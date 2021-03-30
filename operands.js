@@ -14,9 +14,6 @@ CTRL:   11, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
 DBG:    12  // Debug register (64-bit) - %dr0 / %dr7
 };
 
-
-var allowLabels = false; // Only allow labels on the "second pass"
-
 const registers = Object.assign({}, ...[
 "al","cl","dl","bl","ah","ch","dh","bh",
 "ax","cx","dx","bx","sp","bp","si","di",

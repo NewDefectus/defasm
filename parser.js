@@ -52,7 +52,7 @@ function compileAsm(source)
 
     next = defaultNext;
     labels.clear(); macros.clear();
-    currIndex = 0, allowLabels = false;
+    currIndex = 0;
 
     srcTokens = source.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
 
@@ -107,7 +107,6 @@ function compileAsm(source)
 
     /* I guess this would be the "second pass", although we don't actually go through
     the source code again; we're just resolving all the label references. */
-    allowLabels = true;
     currIndex = 0;
     for(i = 0; i < instructions.length; i++)
     {
