@@ -1801,6 +1801,46 @@ vpshrdvq:66)0F3873 v >Vxyz V {kzBfw
 
 vpshrdvw:66)0F3872 v >Vxyz V {kzfw
 
+vpshufbitqmb:66)0F388F v >Vxyz *KB {kf
+
+vpsllvd:66)0F3847 v >Vxyz V {kzb
+
+vpsllvq:vw 66)0F3847 v >Vxyz V {kzB
+
+vpsllvw:66)0F3812 v >Vxyz V {kzfw
+
+vpsravd:66)0F3846 v >Vxyz V {kzb
+
+vpsravq:66)0F3846 v >Vxyz V {kzBfw
+
+vpsravw:66)0F3811 v >Vxyz V {kzfw
+
+vpsrlvd:66)0F3845 v >Vxyz V {kzb
+
+vpsrlvq:vw 66)0F3845 v >Vxyz V {kzB
+
+vpsrlvw:66)0F3810 v >Vxyz V {kzfw
+
+vpternlogd:66)0F3A25 ib v >Vxyz V {kzbf
+
+vpternlogq:66)0F3A25 ib v >Vxyz V {kzBfw
+
+vptestmb:66)0F3826 v >Vxyz *KB {kf
+
+vptestmd:66)0F3827 v >Vxyz *KB {kbf
+
+vptestmq:66)0F3827 v >Vxyz *KB {kBfw
+
+vptestmw:66)0F3826 v >Vxyz *KB {kfw
+
+vptestnmb:F3)0F3826 v >Vxyz *KB {kf
+
+vptestnmd:F3)0F3827 v >Vxyz *KB {kbf
+
+vptestnmq:F3)0F3827 v >Vxyz *KB {kBfw
+
+vptestnmw:F3)0F3826 v >Vxyz *KB {kfw
+
 wait:9B
 
 wbinvd:0F09
