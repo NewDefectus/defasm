@@ -195,56 +195,64 @@ function Operand()
 
 
         let tempSize, tempType;
-        if(next() !== '%') // For addresses that look like (<number>)
+        if(next() !== '%')
         {
-            ungetToken(token);
-            this.value = parseImmediate();
-        }
-        else
-        {
-            [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
-            if(tempType === OPT.VEC)
+            if(token !== ',') // For addresses that look like (<number>)
             {
-                this.type = OPT.VMEM; this.size = tempSize;
-                if(tempSize < 128) throw "Invalid register size";
-                this.reg2 = this.reg;
-                this.reg = -1;
+                ungetToken(token);
+                this.value = parseImmediate();
+                if(token != ')') throw "Expected ')'";
+                next();
+                return;
             }
             else
             {
-                if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-                else if(tempSize !== 64) throw "Invalid register size";
-                if(tempType === OPT.IP) this.ripRelative = true;
-                else if(token === ',')
-                {
-                    if(next() !== '%') throw "Expected register";
-                    [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
-                    if(tempType === OPT.VEC)
-                    {
-                        this.type = OPT.VMEM; this.size = tempSize;
-                        if(tempSize < 128) throw "Invalid register size";
-                    }
-                    else
-                    {
-                        if(this.reg2 === 4) throw "Memory index cannot be RSP";
-                        if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-                        else if(tempSize !== 64) throw "Invalid register size";
-                    }
-
-                    if(token === ',')
-                    {
-                        this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
-                        if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
-                    }
-                }
-                else if(this.reg === 4) this.reg2 = 4;
+                this.reg = -1;
+                tempType = -1;
+                tempSize = 64;
             }
-            if((this.reg & 7) === 5) this.value ||= 0n; 
         }
+        else [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+        if(tempType === OPT.VEC)
+        {
+            this.type = OPT.VMEM; this.size = tempSize;
+            if(tempSize < 128) throw "Invalid register size";
+            this.reg2 = this.reg;
+            this.reg = -1;
+        }
+        else
+        {
+            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+            else if(tempSize !== 64) throw "Invalid register size";
+            if(tempType === OPT.IP) this.ripRelative = true;
+            else if(token === ',')
+            {
+                if(next() !== '%') throw "Expected register";
+                [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
+                if(tempType === OPT.VEC)
+                {
+                    this.type = OPT.VMEM; this.size = tempSize;
+                    if(tempSize < 128) throw "Invalid register size";
+                }
+                else
+                {
+                    if(this.reg2 === 4) throw "Memory index cannot be RSP";
+                    if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                    else if(tempSize !== 64) throw "Invalid register size";
+                }
+
+                if(token === ',')
+                {
+                    this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
+                    if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
+                }
+            }
+            else if(this.reg === 4) this.reg2 = 4;
+        }
+        if((this.reg & 7) === 5) this.value ||= 0n; 
         if(token != ')') throw "Expected ')'";
         next();
     }
-    if(typeof this.value === "string") this.labelDependency = this.value;
 }
 
 // Infer the size of an immediate from its value
