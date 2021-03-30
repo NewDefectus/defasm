@@ -121,7 +121,7 @@ function compileAsm(source)
                     if(op.labelDependency !== undefined)
                     {
                         op.value = BigInt(labels.get(op.labelDependency) - currIndex);
-                        if(op.type === OPT.IMM && instr.outline[1] < 0) // For immediates, re-adjust the size
+                        if(op.type === OPT.IMM && instr.outline[1] === 0) // For immediates, re-adjust the size
                         {
                             op.size = inferImmSize(op.value);
                             op.unsignedSize = inferUnsignedImmSize(op.value);
