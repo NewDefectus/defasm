@@ -1,5 +1,5 @@
 import { token, next } from "./parser.js";
-import { clearLabelDependency, labelDependency, parseImmediate } from "./operands.js";
+import { clearLabelDependency, floatToInt, labelDependency, parseImmediate } from "./operands.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -12,6 +12,7 @@ export function Directive(dir)
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
     this.outline = null;
+    this.floatPrec = 0;
 
     let appendNullByte = 0;
 
@@ -23,6 +24,9 @@ export function Directive(dir)
             case "short": this.compileValues(2); break;
             case "int": this.compileValues(4); break;
             case "long": this.compileValues(8); break;
+
+            case "float": this.floatPrec = 1; this.compileValues(4); break;
+            case "double": this.floatPrec = 2; this.compileValues(8); break;
 
             case "asciz":
                 appendNullByte = 1;
@@ -63,7 +67,7 @@ Directive.prototype.compileValues = function(valSize)
     do
     {
         clearLabelDependency();
-        value = parseImmediate();
+        value = parseImmediate(this.floatPrec);
         if(labelDependency !== null)
         {
             value = labelDependency;
@@ -100,7 +104,8 @@ Directive.prototype.resolveLabels = function(labels, index)
                 this.length = 0;
                 continue;
             }
-            this.genValue(BigInt(labels.get(value) - index - i * this.valSize));
+            value = BigInt(labels.get(value) - index - i * this.valSize);
+            this.genValue(floatToInt(value, this.floatPrec));
         }
         else this.genValue(value);
     }

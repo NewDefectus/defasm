@@ -36,6 +36,14 @@ export const    PREFIX_REX = 1,
                 PREFIX_ADDRSIZE = 4,
                 PREFIX_SEG = 8;
 
+export function floatToInt(value, precision)
+{
+    if(precision === 0) return value;
+    let floatVal = precision === 1 ? new Float32Array(1) : new Float64Array(1);
+    floatVal[0] = Number(value);
+    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
+}
+
 function parseRegister(expectedType = null)
 {
     let reg = registers[next()];
@@ -127,7 +135,7 @@ function parseRegister(expectedType = null)
     return [reg, type, size, prefs];
 }
 
-export function parseImmediate()
+export function parseImmediate(floatPrec = 0)
 {
     let value = 0n;
     next();
@@ -146,15 +154,24 @@ export function parseImmediate()
                 value += BigInt(string.charCodeAt(i));
             }
         }
-        else if(isNaN(token)) // Maybe it's a label?
+        else if(isNaN(token))
         {
-            labelDependency = token;
-            value = 1n; // Default to 1 on first pass
+            if(token.endsWith('d')) floatPrec = 2, value = parseFloat(token);
+            else if(token.endsWith('f')) floatPrec = 1, value = parseFloat(token);
+            else // Label
+            {
+                labelDependency = token;
+                next();
+                return 1n; // Default to 1 on first pass
+            }
         }
+        else if(token.includes('.') || floatPrec) floatPrec ||= 1, value = parseFloat(token);
         else value = BigInt(token);
-    
-        next();
-        return value;
+
+        if(next() === 'f') floatPrec = 1;
+        else if(token === 'd') floatPrec = 2;
+
+        return floatToInt(value, floatPrec);
     }
     catch(e)
     {

@@ -104,6 +104,13 @@
   var PREFIX_CLASHREX = 3;
   var PREFIX_ADDRSIZE = 4;
   var PREFIX_SEG = 8;
+  function floatToInt(value, precision) {
+    if (precision === 0)
+      return value;
+    let floatVal = precision === 1 ? new Float32Array(1) : new Float64Array(1);
+    floatVal[0] = Number(value);
+    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
+  }
   function parseRegister2(expectedType = null) {
     let reg = registers[next()];
     let size = 0, type = -1, prefs = 0;
@@ -182,7 +189,7 @@
     next();
     return [reg, type, size, prefs];
   }
-  function parseImmediate() {
+  function parseImmediate(floatPrec = 0) {
     let value = 0n;
     next();
     try {
@@ -195,12 +202,24 @@
           value += BigInt(string.charCodeAt(i2));
         }
       } else if (isNaN(token)) {
-        labelDependency = token;
-        value = 1n;
-      } else
+        if (token.endsWith("d"))
+          floatPrec = 2, value = parseFloat(token);
+        else if (token.endsWith("f"))
+          floatPrec = 1, value = parseFloat(token);
+        else {
+          labelDependency = token;
+          next();
+          return 1n;
+        }
+      } else if (token.includes(".") || floatPrec)
+        floatPrec ||= 1, value = parseFloat(token);
+      else
         value = BigInt(token);
-      next();
-      return value;
+      if (next() === "f")
+        floatPrec = 1;
+      else if (token === "d")
+        floatPrec = 2;
+      return floatToInt(value, floatPrec);
     } catch (e) {
       throw "Couldn't parse immediate: " + e;
     }
@@ -297,6 +316,7 @@
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
     this.outline = null;
+    this.floatPrec = 0;
     let appendNullByte = 0;
     try {
       switch (dir) {
@@ -310,6 +330,14 @@
           this.compileValues(4);
           break;
         case "long":
+          this.compileValues(8);
+          break;
+        case "float":
+          this.floatPrec = 1;
+          this.compileValues(4);
+          break;
+        case "double":
+          this.floatPrec = 2;
           this.compileValues(8);
           break;
         case "asciz":
@@ -344,7 +372,7 @@
     this.outline = [];
     do {
       clearLabelDependency();
-      value = parseImmediate();
+      value = parseImmediate(this.floatPrec);
       if (labelDependency !== null) {
         value = labelDependency;
         needsRecompilation = true;
@@ -373,7 +401,8 @@
           this.length = 0;
           continue;
         }
-        this.genValue(BigInt(labels2.get(value) - index - i2 * this.valSize));
+        value = BigInt(labels2.get(value) - index - i2 * this.valSize);
+        this.genValue(floatToInt(value, this.floatPrec));
       } else
         this.genValue(value);
     }

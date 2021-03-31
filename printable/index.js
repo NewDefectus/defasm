@@ -182,7 +182,7 @@
     next();
     return [reg, type, size, prefs];
   }
-  function parseImmediate() {
+  function parseImmediate(forceFloat = 0) {
     let value = 0n;
     next();
     try {
@@ -197,8 +197,23 @@
       } else if (isNaN(token)) {
         labelDependency = token;
         value = 1n;
-      } else
-        value = BigInt(token);
+      } else {
+        if (token.endsWith("d"))
+          forceFloat = 2, value = parseFloat(token);
+        else if (token.endsWith("f") || token.includes("."))
+          forceFloat = 1, value = parseFloat(token);
+        else
+          value = BigInt(token);
+      }
+      if (next() === "f")
+        forceFloat = 1;
+      else if (token === "d")
+        forceFloat = 2;
+      if (forceFloat > 0) {
+        let floatVal = forceFloat === 1 ? new Float32Array(1) : new Float64Array(1);
+        floatVal[0] = Number(value);
+        value = new Uint8Array(floatVal.buffer).reduceRight((prev, val) => prev << 8n + BigInt(val), 0n);
+      }
       next();
       return value;
     } catch (e) {
@@ -310,6 +325,14 @@
           this.compileValues(4);
           break;
         case "long":
+          this.compileValues(8);
+          break;
+        case "float":
+          this.isFloat = true;
+          this.compileValues(4);
+          break;
+        case "double":
+          this.isFloat = true;
           this.compileValues(8);
           break;
         case "asciz":
