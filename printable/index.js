@@ -1,4 +1,295 @@
 (() => {
+  // parser.js
+  var srcTokens;
+  var match;
+  var token;
+  var macros = new Map();
+  function loadCode(code) {
+    srcTokens = code.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
+    next = defaultNext;
+  }
+  function lowerCase(str) {
+    if (str[0] == '"' || str[0] == "'")
+      return str;
+    return str.toLowerCase();
+  }
+  var next = defaultNext = () => token = (match = srcTokens.next()).done ? "\n" : macros.has(match.value[0]) ? (insertTokens(macros.get(match.value[0])), next()) : match.value[0][0] === "#" ? next() : lowerCase(match.value[0]);
+  function insertTokens(tokens) {
+    let tokensCopy = [...tokens];
+    next = () => token = tokensCopy.shift() || (next = defaultNext)();
+  }
+  function ungetToken(t) {
+    let oldNext = next;
+    next = () => token = (next = oldNext, t);
+  }
+  function peekNext() {
+    let oldToken = token, nextToken = next();
+    ungetToken(nextToken);
+    token = oldToken;
+    return nextToken;
+  }
+  function setToken(tok) {
+    token = tok;
+  }
+
+  // operands.js
+  var labelDependency = null;
+  function clearLabelDependency() {
+    labelDependency = null;
+  }
+  var OPT = {
+    REG: 1,
+    VEC: 2,
+    VMEM: 3,
+    IMM: 4,
+    MASK: 5,
+    MEM: 6,
+    ST: 7,
+    SEG: 8,
+    IP: 9,
+    BND: 10,
+    CTRL: 11,
+    DBG: 12
+  };
+  var registers = Object.assign({}, ...[
+    "al",
+    "cl",
+    "dl",
+    "bl",
+    "ah",
+    "ch",
+    "dh",
+    "bh",
+    "ax",
+    "cx",
+    "dx",
+    "bx",
+    "sp",
+    "bp",
+    "si",
+    "di",
+    "eax",
+    "ecx",
+    "edx",
+    "ebx",
+    "esp",
+    "ebp",
+    "esi",
+    "edi",
+    "rax",
+    "rcx",
+    "rdx",
+    "rbx",
+    "rsp",
+    "rbp",
+    "rsi",
+    "rdi",
+    "es",
+    "cs",
+    "ss",
+    "ds",
+    "fs",
+    "gs",
+    "st",
+    "rip",
+    "eip",
+    "spl",
+    "bpl",
+    "sil",
+    "dil"
+  ].map((x, i2) => ({[x]: i2})));
+  var suffixes = {b: 8, w: 16, l: 32, d: 32, q: 64, t: 80};
+  var PREFIX_REX = 1;
+  var PREFIX_NOREX = 2;
+  var PREFIX_CLASHREX = 3;
+  var PREFIX_ADDRSIZE = 4;
+  var PREFIX_SEG = 8;
+  function parseRegister2(expectedType = null) {
+    let reg = registers[next()];
+    let size = 0, type = -1, prefs = 0;
+    if (reg >= registers.al && reg <= registers.rdi) {
+      type = OPT.REG;
+      size = 8 << (reg >> 3);
+      if (size == 8 && reg >= registers.ah && reg <= registers.bh)
+        prefs |= PREFIX_NOREX;
+      reg &= 7;
+    } else if (reg >= registers.mm0 && reg <= registers.mm7) {
+      type = OPT.MMX;
+      size = 64;
+      reg -= registers.mm0;
+    } else if (reg >= registers.xmm0 && reg <= registers.xmm7) {
+      type = OPT.SSE;
+      size = 128;
+      reg -= registers.xmm0;
+    } else if (reg >= registers.es && reg <= registers.gs) {
+      type = OPT.SEG;
+      size = 32;
+      reg -= registers.es;
+    } else if (reg === registers.st) {
+      type = OPT.ST;
+      reg = 0;
+      if (next() == "(") {
+        reg = parseInt(next());
+        if (isNaN(reg) || reg >= 8 || reg < 0 || next() != ")")
+          throw "Unknown register";
+      } else
+        ungetToken(token);
+    } else if (reg === registers.rip || reg === registers.eip) {
+      if (expectedType == null || !expectedType.includes(OPT.IP))
+        throw "Can't use RIP here";
+      type = OPT.IP;
+      size = reg == registers.eip ? 32 : 64;
+      reg = 0;
+    } else if (reg >= registers.spl && reg <= registers.dil) {
+      type = OPT.REG;
+      size = 8;
+      prefs |= PREFIX_REX;
+      reg -= registers.spl - 4;
+    } else if (token[0] === "r") {
+      reg = parseInt(token.slice(1));
+      if (isNaN(reg) || reg <= 0 || reg >= 16)
+        throw "Unknown register";
+      type = OPT.REG;
+      size = suffixes[token[token.length - 1]] || 64;
+    } else {
+      let max = 32;
+      if (token.startsWith("bnd"))
+        reg = token.slice(3), type = OPT.BND, max = 4;
+      else if (token[0] == "k")
+        reg = token.slice(1), type = OPT.MASK, max = 8, size = NaN;
+      else if (token.startsWith("dr"))
+        reg = token.slice(2), type = OPT.DBG, max = 8;
+      else if (token.startsWith("cr"))
+        reg = token.slice(2), type = OPT.CTRL, max = 9;
+      else {
+        type = OPT.VEC;
+        if (token.startsWith("mm"))
+          reg = token.slice(2), size = 64, max = 8;
+        else if (token.startsWith("xmm"))
+          reg = token.slice(3), size = 128;
+        else if (token.startsWith("ymm"))
+          reg = token.slice(3), size = 256;
+        else if (token.startsWith("zmm"))
+          reg = token.slice(3), size = 512;
+        else
+          throw "Unknown register";
+      }
+      if (isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max))
+        throw "Unknown register";
+    }
+    if (expectedType !== null && expectedType.indexOf(type) < 0)
+      throw "Invalid register";
+    next();
+    return [reg, type, size, prefs];
+  }
+  function parseImmediate() {
+    let value = 0n;
+    next();
+    try {
+      if (token === "\n")
+        throw "Expected value, got none";
+      if (token[0] === "'" && token[token.length - 1] === "'") {
+        let string = eval(token);
+        for (let i2 = 0; i2 < string.length; i2++) {
+          value <<= 8n;
+          value += BigInt(string.charCodeAt(i2));
+        }
+      } else if (isNaN(token)) {
+        labelDependency = token;
+        value = 1n;
+      } else
+        value = BigInt(token);
+      next();
+      return value;
+    } catch (e) {
+      throw "Couldn't parse immediate: " + e;
+    }
+  }
+  function Operand() {
+    this.reg = this.reg2 = -1;
+    this.shift = 0;
+    this.value = null;
+    this.type = null;
+    this.size = NaN;
+    this.prefs = 0;
+    if (token === "%") {
+      [this.reg, this.type, this.size, this.prefs] = parseRegister2();
+    } else if (token === "$" || isNaN(token) && token !== "(" && peekNext() !== "(") {
+      if (token !== "$")
+        ungetToken(token);
+      this.value = parseImmediate();
+      this.type = OPT.IMM;
+    } else {
+      this.type = OPT.MEM;
+      if (token !== "(") {
+        ungetToken(token);
+        this.value = parseImmediate();
+      }
+      if (token !== "(")
+        throw "Invalid operand";
+      let tempSize, tempType;
+      if (next() !== "%") {
+        if (token !== ",") {
+          ungetToken(token);
+          this.value = parseImmediate();
+          if (token != ")")
+            throw "Expected ')'";
+          next();
+          return;
+        } else {
+          this.reg = -1;
+          tempType = -1;
+          tempSize = 64;
+        }
+      } else
+        [this.reg, tempType, tempSize] = parseRegister2([OPT.REG, OPT.IP, OPT.VEC]);
+      if (tempType === OPT.VEC) {
+        this.type = OPT.VMEM;
+        this.size = tempSize;
+        if (tempSize < 128)
+          throw "Invalid register size";
+        this.reg2 = this.reg;
+        this.reg = -1;
+      } else {
+        if (tempSize === 32)
+          this.prefs |= PREFIX_ADDRSIZE;
+        else if (tempSize !== 64)
+          throw "Invalid register size";
+        if (tempType === OPT.IP)
+          this.ripRelative = true;
+        else if (token === ",") {
+          if (next() !== "%")
+            throw "Expected register";
+          [this.reg2, tempType, tempSize] = parseRegister2([OPT.REG, OPT.VEC]);
+          if (tempType === OPT.VEC) {
+            this.type = OPT.VMEM;
+            this.size = tempSize;
+            if (tempSize < 128)
+              throw "Invalid register size";
+          } else {
+            if (this.reg2 === 4)
+              throw "Memory index cannot be RSP";
+            if (tempSize === 32)
+              this.prefs |= PREFIX_ADDRSIZE;
+            else if (tempSize !== 64)
+              throw "Invalid register size";
+          }
+          if (token === ",") {
+            this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
+            if (this.shift < 0)
+              throw "Scale must be 1, 2, 4, or 8";
+          }
+        } else if (this.reg === 4)
+          this.reg2 = 4;
+      }
+      if ((this.reg & 7) === 5)
+        this.value ||= 0n;
+      if (token != ")")
+        throw "Expected ')'";
+      next();
+    }
+  }
+
   // directives.js
   var DIRECTIVE_BUFFER_SIZE = 15;
   function Directive() {
@@ -1568,260 +1859,6 @@ g nle`.split("\n");
     }
   })));
 
-  // operands.js
-  var OPT = {
-    REG: 1,
-    VEC: 2,
-    VMEM: 3,
-    IMM: 4,
-    MASK: 5,
-    MEM: 6,
-    ST: 7,
-    SEG: 8,
-    IP: 9,
-    BND: 10,
-    CTRL: 11,
-    DBG: 12
-  };
-  var registers = Object.assign({}, ...[
-    "al",
-    "cl",
-    "dl",
-    "bl",
-    "ah",
-    "ch",
-    "dh",
-    "bh",
-    "ax",
-    "cx",
-    "dx",
-    "bx",
-    "sp",
-    "bp",
-    "si",
-    "di",
-    "eax",
-    "ecx",
-    "edx",
-    "ebx",
-    "esp",
-    "ebp",
-    "esi",
-    "edi",
-    "rax",
-    "rcx",
-    "rdx",
-    "rbx",
-    "rsp",
-    "rbp",
-    "rsi",
-    "rdi",
-    "es",
-    "cs",
-    "ss",
-    "ds",
-    "fs",
-    "gs",
-    "st",
-    "rip",
-    "eip",
-    "spl",
-    "bpl",
-    "sil",
-    "dil"
-  ].map((x, i2) => ({[x]: i2})));
-  var suffixes = {b: 8, w: 16, l: 32, d: 32, q: 64, t: 80};
-  var PREFIX_REX = 1;
-  var PREFIX_NOREX = 2;
-  var PREFIX_CLASHREX = 3;
-  var PREFIX_ADDRSIZE = 4;
-  var PREFIX_SEG = 8;
-  function parseRegister2(expectedType = null) {
-    let reg = registers[next()];
-    let size = 0, type = -1, prefs = 0;
-    if (reg >= registers.al && reg <= registers.rdi) {
-      type = OPT.REG;
-      size = 8 << (reg >> 3);
-      if (size == 8 && reg >= registers.ah && reg <= registers.bh)
-        prefs |= PREFIX_NOREX;
-      reg &= 7;
-    } else if (reg >= registers.mm0 && reg <= registers.mm7) {
-      type = OPT.MMX;
-      size = 64;
-      reg -= registers.mm0;
-    } else if (reg >= registers.xmm0 && reg <= registers.xmm7) {
-      type = OPT.SSE;
-      size = 128;
-      reg -= registers.xmm0;
-    } else if (reg >= registers.es && reg <= registers.gs) {
-      type = OPT.SEG;
-      size = 32;
-      reg -= registers.es;
-    } else if (reg === registers.st) {
-      type = OPT.ST;
-      reg = 0;
-      if (next() == "(") {
-        reg = parseInt(next());
-        if (isNaN(reg) || reg >= 8 || reg < 0 || next() != ")")
-          throw "Unknown register";
-      } else
-        ungetToken(token);
-    } else if (reg === registers.rip || reg === registers.eip) {
-      if (expectedType == null || !expectedType.includes(OPT.IP))
-        throw "Can't use RIP here";
-      type = OPT.IP;
-      size = reg == registers.eip ? 32 : 64;
-      reg = 0;
-    } else if (reg >= registers.spl && reg <= registers.dil) {
-      type = OPT.REG;
-      size = 8;
-      prefs |= PREFIX_REX;
-      reg -= registers.spl - 4;
-    } else if (token[0] === "r") {
-      reg = parseInt(token.slice(1));
-      if (isNaN(reg) || reg <= 0 || reg >= 16)
-        throw "Unknown register";
-      type = OPT.REG;
-      size = suffixes[token[token.length - 1]] || 64;
-    } else {
-      let max = 32;
-      if (token.startsWith("bnd"))
-        reg = token.slice(3), type = OPT.BND, max = 4;
-      else if (token[0] == "k")
-        reg = token.slice(1), type = OPT.MASK, max = 8, size = NaN;
-      else if (token.startsWith("dr"))
-        reg = token.slice(2), type = OPT.DBG, max = 8;
-      else if (token.startsWith("cr"))
-        reg = token.slice(2), type = OPT.CTRL, max = 9;
-      else {
-        type = OPT.VEC;
-        if (token.startsWith("mm"))
-          reg = token.slice(2), size = 64, max = 8;
-        else if (token.startsWith("xmm"))
-          reg = token.slice(3), size = 128;
-        else if (token.startsWith("ymm"))
-          reg = token.slice(3), size = 256;
-        else if (token.startsWith("zmm"))
-          reg = token.slice(3), size = 512;
-        else
-          throw "Unknown register";
-      }
-      if (isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max))
-        throw "Unknown register";
-    }
-    if (expectedType !== null && expectedType.indexOf(type) < 0)
-      throw "Invalid register";
-    next();
-    return [reg, type, size, prefs];
-  }
-  function parseImmediate2() {
-    let value = 0n;
-    next();
-    try {
-      if (token === "\n")
-        throw "Expected value, got none";
-      if (token[0] === "'" && token[token.length - 1] === "'") {
-        let string = eval(token);
-        for (let i2 = 0; i2 < string.length; i2++) {
-          value <<= 8n;
-          value += BigInt(string.charCodeAt(i2));
-        }
-      } else if (isNaN(token)) {
-        reportLabelDependency(token);
-        value = 1n;
-      } else
-        value = BigInt(token);
-      next();
-      return value;
-    } catch (e) {
-      throw "Couldn't parse immediate: " + e;
-    }
-  }
-  function Operand() {
-    this.reg = this.reg2 = -1;
-    this.shift = 0;
-    this.value = null;
-    this.type = null;
-    this.size = NaN;
-    this.prefs = 0;
-    if (token === "%") {
-      [this.reg, this.type, this.size, this.prefs] = parseRegister2();
-    } else if (token === "$" || isNaN(token) && token !== "(" && peekNext() !== "(") {
-      if (token !== "$")
-        ungetToken(token);
-      this.value = parseImmediate2();
-      this.type = OPT.IMM;
-    } else {
-      this.type = OPT.MEM;
-      if (token !== "(") {
-        ungetToken(token);
-        this.value = parseImmediate2();
-      }
-      if (token !== "(")
-        throw "Invalid operand";
-      let tempSize, tempType;
-      if (next() !== "%") {
-        if (token !== ",") {
-          ungetToken(token);
-          this.value = parseImmediate2();
-          if (token != ")")
-            throw "Expected ')'";
-          next();
-          return;
-        } else {
-          this.reg = -1;
-          tempType = -1;
-          tempSize = 64;
-        }
-      } else
-        [this.reg, tempType, tempSize] = parseRegister2([OPT.REG, OPT.IP, OPT.VEC]);
-      if (tempType === OPT.VEC) {
-        this.type = OPT.VMEM;
-        this.size = tempSize;
-        if (tempSize < 128)
-          throw "Invalid register size";
-        this.reg2 = this.reg;
-        this.reg = -1;
-      } else {
-        if (tempSize === 32)
-          this.prefs |= PREFIX_ADDRSIZE;
-        else if (tempSize !== 64)
-          throw "Invalid register size";
-        if (tempType === OPT.IP)
-          this.ripRelative = true;
-        else if (token === ",") {
-          if (next() !== "%")
-            throw "Expected register";
-          [this.reg2, tempType, tempSize] = parseRegister2([OPT.REG, OPT.VEC]);
-          if (tempType === OPT.VEC) {
-            this.type = OPT.VMEM;
-            this.size = tempSize;
-            if (tempSize < 128)
-              throw "Invalid register size";
-          } else {
-            if (this.reg2 === 4)
-              throw "Memory index cannot be RSP";
-            if (tempSize === 32)
-              this.prefs |= PREFIX_ADDRSIZE;
-            else if (tempSize !== 64)
-              throw "Invalid register size";
-          }
-          if (token === ",") {
-            this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate2()));
-            if (this.shift < 0)
-              throw "Scale must be 1, 2, 4, or 8";
-          }
-        } else if (this.reg === 4)
-          this.reg2 = 4;
-      }
-      if ((this.reg & 7) === 5)
-        this.value ||= 0n;
-      if (token != ")")
-        throw "Expected ')'";
-      next();
-    }
-  }
-
   // mnemonics.js
   var REG_MOD = -1;
   var REG_OP = -2;
@@ -2289,10 +2326,6 @@ g nle`.split("\n");
 
   // instructions.js
   var MAX_INSTR_SIZE = 15;
-  var labelDependency = null;
-  function reportLabelDependency(dependency) {
-    labelDependency = dependency;
-  }
   var prefixes = {
     lock: 240,
     repne: 242,
@@ -2327,7 +2360,7 @@ g nle`.split("\n");
       broadcast: null
     };
     let needsRecompilation = false, usesMemory = false;
-    labelDependency = null;
+    clearLabelDependency();
     if (prefixes.hasOwnProperty(opcode2)) {
       this.genByte(prefixes[opcode2]);
       ungetToken(token);
@@ -2382,7 +2415,7 @@ g nle`.split("\n");
       if (labelDependency !== null) {
         needsRecompilation = true;
         operand.labelDependency = labelDependency;
-        labelDependency = null;
+        clearLabelDependency();
       }
       operands.push(operand);
       prefsToGen |= operand.prefs;
@@ -2564,43 +2597,14 @@ g nle`.split("\n");
   }
 
   // compiler.js
-  var srcTokens;
-  var match;
-  var currIndex = 0;
-  var token;
   var labels = new Map();
-  var macros = new Map();
-  function lowerCase(str) {
-    if (str[0] == '"' || str[0] == "'")
-      return str;
-    return str.toLowerCase();
-  }
-  var next = defaultNext = () => token = (match = srcTokens.next()).done ? "\n" : macros.has(match.value[0]) ? (insertTokens(macros.get(match.value[0])), next()) : match.value[0][0] === "#" ? next() : lowerCase(match.value[0]);
-  function insertTokens(tokens) {
-    let tokensCopy = [...tokens];
-    next = () => token = tokensCopy.shift() || (next = defaultNext)();
-  }
-  function ungetToken(t) {
-    let oldNext = next;
-    next = () => token = (next = oldNext, t);
-  }
-  function peekNext() {
-    let oldToken = token, nextToken = next();
-    ungetToken(nextToken);
-    token = oldToken;
-    return nextToken;
-  }
-  function setToken(tok) {
-    token = tok;
-  }
   function compileAsm(source) {
     let instructions = [];
     let opcode2, resizeChange, instr, i2;
-    next = defaultNext;
     labels.clear();
     macros.clear();
     currIndex = 0;
-    srcTokens = source.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
+    loadCode(source);
     while (next(), !match.done) {
       try {
         if (token !== "\n" && token !== ";") {

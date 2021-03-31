@@ -1,51 +1,8 @@
+import { token, next, match, loadCode, macros } from "./parser.js";
 import { parseDirective } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
-var srcTokens, match;
-export var currIndex = 0;
-export var token;
-var labels = new Map(), macros = new Map();
-
-function lowerCase(str)
-{
-    if(str[0] == '"' || str[0] == "'")
-        return str;
-    return str.toLowerCase();
-}
-
-export var next = defaultNext = () => 
-    token = (match = srcTokens.next()).done ? '\n' :
-    macros.has(match.value[0]) ?
-        (insertTokens(macros.get(match.value[0])), next())
-    :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]);
-
-function insertTokens(tokens)
-{
-    let tokensCopy = [...tokens];
-    next = () => token = tokensCopy.shift() || (next = defaultNext)();
-}
-
-// Highly unhygienic. You shouldn't put the token back on the stack after you touched it.
-// I recommend washing your hands after you use this thing.
-export function ungetToken(t)
-{
-    let oldNext = next;
-    next = () => token = (next = oldNext, t);
-}
-
-// Just a wee peek at the next token
-export function peekNext()
-{
-    let oldToken = token, nextToken = next();
-    ungetToken(nextToken);
-    token = oldToken;
-    return nextToken;
-}
-
-export function setToken(tok)
-{
-    token = tok;
-}
+var labels = new Map();
 
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
@@ -56,11 +13,10 @@ export function compileAsm(source)
     let instructions = [];
     let opcode, resizeChange, instr, i;
 
-    next = defaultNext;
     labels.clear(); macros.clear();
     currIndex = 0;
 
-    srcTokens = source.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
+    loadCode(source);
 
     while(next(), !match.done)
     {

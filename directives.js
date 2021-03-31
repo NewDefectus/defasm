@@ -1,4 +1,5 @@
-import { token, next } from "./compiler.js";
+import { token, next } from "./parser.js";
+import { parseImmediate } from "./operands.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.

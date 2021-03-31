@@ -1,5 +1,7 @@
-import { reportLabelDependency } from "./instructions.js";
-import { token, next, ungetToken, peekNext } from "./compiler.js";
+import { token, next, ungetToken, peekNext } from "./parser.js";
+
+export var labelDependency = null;
+export function clearLabelDependency() { labelDependency = null };
 
 // Operand types
 export const OPT = {
@@ -146,7 +148,7 @@ export function parseImmediate()
         }
         else if(isNaN(token)) // Maybe it's a label?
         {
-            reportLabelDependency(token);
+            labelDependency = token;
             value = 1n; // Default to 1 on first pass
         }
         else value = BigInt(token);

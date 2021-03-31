@@ -1,11 +1,9 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
-var labelDependency = null;
-export function reportLabelDependency(dependency) { labelDependency = dependency; }
 
+import { Operand, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency } from "./operands.js";
+import { token, next, ungetToken, setToken } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
-import { Operand, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG } from "./operands.js";
-import { token, next, ungetToken, setToken } from "./compiler.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -55,7 +53,7 @@ Instruction.prototype.interpret = function()
     };
 
     let needsRecompilation = false, usesMemory = false;
-    labelDependency = null;
+    clearLabelDependency();
 
     // Prefix opcodes are interpreted as instructions that end with a semicolon
     if(prefixes.hasOwnProperty(opcode))
@@ -126,7 +124,7 @@ Instruction.prototype.interpret = function()
         {
             needsRecompilation = true;
             operand.labelDependency = labelDependency;
-            labelDependency = null;
+            clearLabelDependency();
         }
 
         operands.push(operand);
