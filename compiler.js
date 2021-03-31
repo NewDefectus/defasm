@@ -1,8 +1,7 @@
 import { token, next, match, loadCode, macros } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
-
-var labels = new Map();
+import { labels, Label } from "./labels.js";
 
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
@@ -36,7 +35,7 @@ export function compileAsm(source)
                     switch(next())
                     {
                         case ':': // Label definition
-                            labels.set(opcode, currIndex);
+                            instructions.push(new Label(opcode, currIndex));
                             continue;
                         
                         case '=': // Macro definition
