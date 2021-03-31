@@ -1,3 +1,5 @@
+import { compileAsm } from "../compiler.js";
+
 var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "theme": "editor",
     "mode": "gas",
@@ -22,13 +24,17 @@ var uniSeq = new Uint8Array(8), uniDepth = 0, expectedDepth = 0;
 var hexOutput = "", printableOutput = "", tempHexOutput = "";
 var justEscaped = false;
 
-editor.setValue(document.cookie);
+// Load the previously stored code
+let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
+if(prevCode) editor.setValue(decodeURIComponent(prevCode.slice(5))), compileEditorCode();
 
 // Input receiving
-editor.on("change", function()
+editor.on("change", compileEditorCode);
+function compileEditorCode()
 {
-    document.cookie = editor.getValue();
+    document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
     let instructions = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex;
+    justEscaped = false;
     printableOutput = tempHexOutput = hexOutput = ""; uniDepth = expectedDepth = 0;
     
     for(let instr of instructions)
@@ -51,9 +57,9 @@ editor.on("change", function()
                 if(expectedDepth) dumpBadSeq();
                 hexOutput += tempHexOutput + hex;
                 if(justEscaped && byte >= 48 && byte < 56) printableOutput += '""'; // Make sure escape codes don't merge into digits
-                if(byte == 13) printableOutput += "\\r";
-                else if(byte == 34) printableOutput += "\\\"";
-                else if(byte == 92) printableOutput += "\\\\";
+                if(byte === 13) printableOutput += "\\r";
+                else if(byte === 34) printableOutput += "\\\"";
+                else if(byte === 92) printableOutput += "\\\\";
                 else printableOutput += String.fromCharCode(byte);
                 tempHexOutput = "";
                 expectedDepth = uniDepth = 0;
@@ -93,7 +99,7 @@ editor.on("change", function()
     if(expectedDepth) dumpBadSeq();
     asmTextOutput.innerHTML = hexOutput;
     printableOutputArea.innerHTML = '"' + printableOutput + '"'
-})
+}
 
 function getByteDepth(x)
 {

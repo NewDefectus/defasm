@@ -1,3 +1,5 @@
+import { OPT } from "./operands.js";
+
 const REG_MOD = -1, REG_OP = -2;
 const OPC = {
     r: OPT.REG,
@@ -12,19 +14,6 @@ const OPC = {
     d: OPT.DBG,
     g: OPT.VMEM
 };
-
-const prefixes = {
-    lock: 0xF0n,
-    repne: 0xF2n,
-    repnz: 0xF2n,
-    rep: 0xF3n,
-    repe: 0xF3n,
-    repz: 0xF3n
-};
-
-/** Mnemonic set (loaded in mnemonicList.js)
-* @type {Object.<string,(string[]|Operation[])} */
-var mnemonics = {};
 
 
 // To reduce memory use, operand catchers are cached and reused in the future
@@ -229,7 +218,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 /** An operation (or "mnemonic variation") can be thought of as an overloaded instance of a mnemonic
  * @param {string[]} format
  */
-function Operation(format)
+export function Operation(format)
 {
     this.vexBase = 0;
     this.maskSizing = 0;

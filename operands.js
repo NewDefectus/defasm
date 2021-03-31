@@ -1,5 +1,8 @@
+import { reportLabelDependency } from "./instructions.js";
+import { token, next, ungetToken, peekNext } from "./compiler.js";
+
 // Operand types
-const OPT = {
+export const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
 VEC:    2,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
 VMEM:   3,  // Vector memory - e.g. (%xmm0)
@@ -23,13 +26,13 @@ const registers = Object.assign({}, ...[
 "st","rip","eip","spl","bpl","sil","dil"
 ].map((x, i) => ({[x]: i})));
 
-const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
+export const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
 
-const   PREFIX_REX = 1,
-        PREFIX_NOREX = 2,
-        PREFIX_CLASHREX = 3,
-        PREFIX_ADDRSIZE = 4,
-        PREFIX_SEG = 8;
+export const    PREFIX_REX = 1,
+                PREFIX_NOREX = 2,
+                PREFIX_CLASHREX = 3,
+                PREFIX_ADDRSIZE = 4,
+                PREFIX_SEG = 8;
 
 function parseRegister(expectedType = null)
 {
@@ -122,7 +125,7 @@ function parseRegister(expectedType = null)
     return [reg, type, size, prefs];
 }
 
-function parseImmediate()
+export function parseImmediate()
 {
     let value = 0n;
     next();
@@ -133,17 +136,17 @@ function parseImmediate()
             throw "";
         if(token[0] === "'" && token[token.length - 1] === "'")
         {
-            token = eval(token); // Decode escape sequences
+            let string = eval(token); // Decode escape sequences
             // Parse as character constant
-            for(let i = 0; i < token.length; i++)
+            for(let i = 0; i < string.length; i++)
             {
                 value <<= 8n;
-                value += BigInt(token.charCodeAt(i));
+                value += BigInt(string.charCodeAt(i));
             }
         }
         else if(isNaN(token)) // Maybe it's a label?
         {
-            labelDependency = token;
+            reportLabelDependency(token);
             value = 1n; // Default to 1 on first pass
         }
         else value = BigInt(token);
@@ -158,7 +161,7 @@ function parseImmediate()
 }
 
 
-function Operand()
+export function Operand()
 {
     this.reg = this.reg2 = -1;
     this.shift = 0;
@@ -176,11 +179,6 @@ function Operand()
         if(token !== '$') ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
-        if(typeof this.value !== "string")
-        {
-            this.size = inferImmSize(this.value);
-            this.unsignedSize = inferUnsignedImmSize(this.value);
-        }
     }
     else // Address
     {
@@ -253,29 +251,4 @@ function Operand()
         if(token != ')') throw "Expected ')'";
         next();
     }
-}
-
-// Infer the size of an immediate from its value
-function inferImmSize(value)
-{
-    if(value < 0n) // Correct for negative values
-    {
-        value = -value - 1n
-    }
-
-    return value < 0x80n ? 8 :
-            value < 0x8000n ? 16 :
-            value < 0x80000000n ? 32 : 64;
-}
-
-// Ditto, but for unsigned values
-function inferUnsignedImmSize(value)
-{
-    if(value < 0n) // Technically this doesn't make sense, but we'll allow it
-    {
-        value = -2n * value - 1n
-    }
-    return value < 0x100n ? 8 :
-            value < 0x10000n ? 16 :
-            value < 0x100000000n ? 32 : 64;
 }

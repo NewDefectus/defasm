@@ -1,7 +1,22 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 var labelDependency = null;
+export function reportLabelDependency(dependency) { labelDependency = dependency; }
 
-function Instruction(opcode)
+import { mnemonics } from "./mnemonicList.js";
+import { Operation } from "./mnemonics.js";
+import { Operand, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG } from "./operands.js";
+import { token, next, ungetToken, setToken } from "./compiler.js";
+
+export const prefixes = {
+    lock: 0xF0,
+    repne: 0xF2,
+    repnz: 0xF2,
+    rep: 0xF3,
+    repe: 0xF3,
+    repz: 0xF3
+};
+
+export function Instruction(opcode)
 {
     this.opcode = opcode;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
@@ -47,7 +62,7 @@ Instruction.prototype.interpret = function()
     {
         this.genByte(prefixes[opcode]);
         ungetToken(token);
-        token = ';';
+        setToken(';');
         return;
     }
 
@@ -156,6 +171,16 @@ Instruction.prototype.compile = function()
 {
     let [operands, enforcedSize, variations, prefsToGen, vexInfo] = this.outline;
     this.length = 0;
+
+    // Before we compile, we'll get the immediates' sizes
+    for(let op of operands)
+    {
+        if(op.type === OPT.IMM && enforcedSize === 0)
+        {
+            op.size = inferImmSize(op.value);
+            op.unsignedSize = inferUnsignedImmSize(op.value);
+        }
+    }
 
     // Now, we'll find the matching operation for this operand list
     let op, found = false, rexVal = 0x40;
@@ -293,4 +318,32 @@ function makeVexPrefix(vex, rex, isEvex)
         return [0xC5, vex2 | (vex1 & 0x80)];
     }
     return [0xC4, vex1, vex2];
+}
+
+
+
+
+// Infer the size of an immediate from its value
+function inferImmSize(value)
+{
+    if(value < 0n) // Correct for negative values
+    {
+        value = -value - 1n
+    }
+
+    return value < 0x80n ? 8 :
+            value < 0x8000n ? 16 :
+            value < 0x80000000n ? 32 : 64;
+}
+
+// Ditto, but for unsigned values
+function inferUnsignedImmSize(value)
+{
+    if(value < 0n) // Technically this doesn't make sense, but we'll allow it
+    {
+        value = -2n * value - 1n
+    }
+    return value < 0x100n ? 8 :
+            value < 0x10000n ? 16 :
+            value < 0x100000000n ? 32 : 64;
 }

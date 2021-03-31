@@ -1,9 +1,13 @@
+import { token, next } from "./compiler.js";
+
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
 
+const DIRECTIVE_BUFFER_SIZE = 15;
+
 function Directive()
 {
-    this.bytes = new Uint8Array(MAX_INSTR_SIZE);
+    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
 }
 
@@ -12,13 +16,15 @@ Directive.prototype.genByte = function(byte)
     this.bytes[this.length++] = Number(byte & 0xffn);
 
     // Resize the array if necessary
-    if(this.length == this.bytes.length)
+    if(this.length === this.bytes.length)
     {
-        let temp = new Uint8Array(this.bytes.length + MAX_INSTR_SIZE);
+        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
         temp.set(this.bytes);
         this.bytes = temp;
     }
 }
+
+const encoder = new TextEncoder();
 
 const directives = {
 byte: result => {
@@ -31,20 +37,20 @@ string: result => {
         result.length = result.bytes.length;
     }
     else throw "Expected string";
-    if(next() != ';' && token != '\n') throw "Expected end of line";
+    if(next() !== ';' && token !== '\n') throw "Expected end of line";
 }
 }
 
 
-function parseDirective()
+export function parseDirective()
 {
     let result = new Directive();
-    token = token.slice(1); // Drop the .
-    if(directives.hasOwnProperty(token))
+    let dir = token.slice(1); // Drop the .
+    if(directives.hasOwnProperty(dir))
     {
         try
         {
-            directives[token](result);
+            directives[dir](result);
         }
         catch(e)
         {

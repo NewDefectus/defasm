@@ -1,9 +1,10 @@
-var srcTokens, token, match;
-var currIndex = 0;
-var labels = new Map(), macros = new Map();
+import { parseDirective } from "./directives.js";
+import { Instruction } from "./instructions.js";
 
-var encoder = new TextEncoder();
-var decoder = new TextDecoder();
+var srcTokens, match;
+export var currIndex = 0;
+export var token;
+var labels = new Map(), macros = new Map();
 
 function lowerCase(str)
 {
@@ -12,7 +13,7 @@ function lowerCase(str)
     return str.toLowerCase();
 }
 
-var next = defaultNext = () => 
+export var next = defaultNext = () => 
     token = (match = srcTokens.next()).done ? '\n' :
     macros.has(match.value[0]) ?
         (insertTokens(macros.get(match.value[0])), next())
@@ -26,14 +27,14 @@ function insertTokens(tokens)
 
 // Highly unhygienic. You shouldn't put the token back on the stack after you touched it.
 // I recommend washing your hands after you use this thing.
-function ungetToken(t)
+export function ungetToken(t)
 {
     let oldNext = next;
     next = () => token = (next = oldNext, t);
 }
 
 // Just a wee peek at the next token
-function peekNext()
+export function peekNext()
 {
     let oldToken = token, nextToken = next();
     ungetToken(nextToken);
@@ -41,8 +42,13 @@ function peekNext()
     return nextToken;
 }
 
+export function setToken(tok)
+{
+    token = tok;
+}
+
 // Compile Assembly from source code into machine code
-function compileAsm(source)
+export function compileAsm(source)
 {
     /**
      * @type {Instruction[]}
@@ -121,11 +127,6 @@ function compileAsm(source)
                     if(op.labelDependency !== undefined)
                     {
                         op.value = BigInt(labels.get(op.labelDependency) - currIndex);
-                        if(op.type === OPT.IMM && instr.outline[1] === 0) // For immediates, re-adjust the size
-                        {
-                            op.size = inferImmSize(op.value);
-                            op.unsignedSize = inferUnsignedImmSize(op.value);
-                        }
                     }
                 }
                 resizeChange = instr.length;

@@ -1,3 +1,5 @@
+import { compileAsm } from "./compiler.js";
+
 var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "theme": "editor",
     "mode": "gas",
@@ -42,7 +44,6 @@ function compileEditorCode()
 function makeELF(bytes)
 {
     if(bytes !== "") bytes = '%' + bytes;
-    console.log(bytes);
     let byteLength = bytes.length / 3 + 0x78, size = "";
 
     for(let i = 0; i < 8; i++)

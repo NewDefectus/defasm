@@ -1430,6 +1430,10 @@ xsaves64:0FC7.5 m#q
 xsetbv:0F01D1
 xtest:0F01D6
 `;
+
+/** Mnemonic set (loaded in mnemonicList.js)
+* @type {Object.<string,(string[]|Operation[])} */
+export var mnemonics = {};
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
 
 
