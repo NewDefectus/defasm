@@ -116,7 +116,7 @@ function dumpUniSeq()
 {
     try
     {
-        printableOutput += '<span class="codeChar">' + decodeURIComponent((' ' + tempHexOutput).slice(0, -1).replace(/\s+/g, '%')) + '</span>';
+        printableOutput += '<span class="codeChar">' + decodeURIComponent((' ' + tempHexOutput).replace(/\s+/g, '%')) + '</span>';
         hexOutput += '<span class="codeChar">' + tempHexOutput + '</span>';
         tempHexOutput = "";
         expectedDepth = uniDepth = 0;

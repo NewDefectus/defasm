@@ -2751,14 +2751,14 @@ g nle`.split("\n");
   function getByteDepth(x) {
     let i2 = 8;
     while (i2--) {
-      if ((x & 1 << i2) == 0)
+      if ((x & 1 << i2) === 0)
         return 7 - i2;
     }
     return 8;
   }
   function dumpUniSeq() {
     try {
-      printableOutput += '<span class="codeChar">' + decodeURIComponent((" " + tempHexOutput).slice(0, -1).replace(/\s+/g, "%")) + "</span>";
+      printableOutput += '<span class="codeChar">' + decodeURIComponent((" " + tempHexOutput).replace(/\s+/g, "%")) + "</span>";
       hexOutput += '<span class="codeChar">' + tempHexOutput + "</span>";
       tempHexOutput = "";
       expectedDepth = uniDepth = 0;
