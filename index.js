@@ -1718,8 +1718,8 @@ g nle`.split("\n");
     let value = 0n;
     next();
     try {
-      if (token == "\n")
-        throw "";
+      if (token === "\n")
+        throw "Expected value, got none";
       if (token[0] === "'" && token[token.length - 1] === "'") {
         let string = eval(token);
         for (let i2 = 0; i2 < string.length; i2++) {
@@ -2534,6 +2534,22 @@ g nle`.split("\n");
     }
     return [196, vex1, vex2];
   }
+  Instruction.prototype.resolveLabels = function(labels2, currIndex2) {
+    let initialLength = this.length;
+    for (let op of this.outline[0]) {
+      if (op.labelDependency !== void 0) {
+        if (!labels2.has(op.labelDependency))
+          return null;
+        op.value = BigInt(labels2.get(op.labelDependency) - currIndex2);
+      }
+    }
+    try {
+      this.compile();
+    } catch (e) {
+      return null;
+    }
+    return this.length - initialLength;
+  };
   function inferImmSize(value) {
     if (value < 0n) {
       value = -value - 1n;
@@ -2629,26 +2645,17 @@ g nle`.split("\n");
       instr = instructions[i2];
       currIndex += instr.length;
       if (instr.outline) {
-        try {
-          for (let op of instr.outline[0]) {
-            if (op.labelDependency !== void 0) {
-              op.value = BigInt(labels.get(op.labelDependency) - currIndex);
-            }
-          }
-          resizeChange = instr.length;
-          instr.compile();
-          resizeChange -= instr.length;
-          if (resizeChange) {
-            labels.forEach((index, label) => {
-              if (index >= currIndex)
-                labels.set(label, labels.get(label) - resizeChange);
-            });
-            i2 = -1, currIndex = 0;
-          }
-        } catch (e) {
+        resizeChange = instr.resolveLabels(labels, currIndex);
+        if (resizeChange === null) {
           instructions.splice(i2, 1);
           i2 = -1;
           currIndex = 0;
+        } else if (resizeChange !== 0) {
+          labels.forEach((index, label) => {
+            if (index >= currIndex)
+              labels.set(label, labels.get(label) + resizeChange);
+          });
+          i2 = -1, currIndex = 0;
         }
       }
     }

@@ -120,34 +120,21 @@ export function compileAsm(source)
         currIndex += instr.length;
         if(instr.outline)
         {
-            try
-            {
-                for(let op of instr.outline[0]) // Resolve label dependencies
-                {
-                    if(op.labelDependency !== undefined)
-                    {
-                        op.value = BigInt(labels.get(op.labelDependency) - currIndex);
-                    }
-                }
-                resizeChange = instr.length;
-                instr.compile();
-                resizeChange -= instr.length;
-
-                if(resizeChange) // If the label resolve caused the instruction to resize
-                {
-                    // Correct all labels following this index
-                    labels.forEach((index, label) => {
-                        if(index >= currIndex)
-                            labels.set(label, labels.get(label) - resizeChange);
-                    })
-                    // Redo the adjustments from the start
-                    i = -1, currIndex = 0;
-                }
-            }
-            catch(e) // Remove instructions that create exceptions
+            resizeChange = instr.resolveLabels(labels, currIndex);
+            if(resizeChange === null) // Remove instructions that fail to recompile
             {
                 instructions.splice(i, 1);
                 i = -1; currIndex = 0;
+            }
+            else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
+            {
+                // Correct all labels following this index
+                labels.forEach((index, label) => {
+                    if(index >= currIndex)
+                        labels.set(label, labels.get(label) + resizeChange);
+                })
+                // Redo the adjustments from the start
+                i = -1, currIndex = 0;
             }
         }
     }

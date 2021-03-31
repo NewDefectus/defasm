@@ -320,6 +320,23 @@ function makeVexPrefix(vex, rex, isEvex)
     return [0xC4, vex1, vex2];
 }
 
+// Resolve label dependencies
+Instruction.prototype.resolveLabels = function(labels, currIndex)
+{
+    let initialLength = this.length;
+    for(let op of this.outline[0])
+    {
+        if(op.labelDependency !== undefined)
+        {
+            if(!labels.has(op.labelDependency)) return null;
+            op.value = BigInt(labels.get(op.labelDependency) - currIndex);
+        }
+    }
+    try { this.compile(); }
+    catch(e) { return null; }
+    
+    return this.length - initialLength;
+}
 
 
 

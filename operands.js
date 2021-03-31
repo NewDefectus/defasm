@@ -132,8 +132,8 @@ export function parseImmediate()
     
     try
     {
-        if(token == '\n')
-            throw "";
+        if(token === '\n')
+            throw "Expected value, got none";
         if(token[0] === "'" && token[token.length - 1] === "'")
         {
             let string = eval(token); // Decode escape sequences
