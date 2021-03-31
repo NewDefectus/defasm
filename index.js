@@ -292,10 +292,71 @@
 
   // directives.js
   var DIRECTIVE_BUFFER_SIZE = 15;
-  function Directive() {
+  var encoder = new TextEncoder();
+  function Directive(dir) {
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
+    this.outline = null;
+    let value, needsRecompilation = false;
+    try {
+      switch (dir) {
+        case "byte":
+          this.outline = [];
+          do {
+            clearLabelDependency();
+            value = parseImmediate();
+            if (labelDependency !== null) {
+              value = labelDependency;
+              needsRecompilation = true;
+              this.genByte(1n);
+            } else {
+              this.genByte(value);
+            }
+            this.outline.push(value);
+          } while (token === ",");
+          if (!needsRecompilation)
+            this.outline = null;
+          break;
+        case "string":
+        case "ascii":
+          if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
+            this.bytes = encoder.encode(eval(token));
+            this.length = this.bytes.length;
+          } else
+            throw "Expected string";
+          if (next() !== ";" && token !== "\n")
+            throw "Expected end of line";
+          break;
+        default:
+          throw "Unknown directive";
+      }
+    } catch (e) {
+      if (this.length === 0)
+        throw e;
+    }
   }
+  Directive.prototype.resolveLabels = function(labels2, index) {
+    let initialLength = this.length;
+    index -= initialLength;
+    this.length = 0;
+    let value;
+    for (let i2 = 0; i2 < this.outline.length; i2++) {
+      value = this.outline[i2];
+      if (typeof value === "string") {
+        if (!labels2.has(value)) {
+          if (i2 === 0)
+            return null;
+          this.outline = this.outline.slice(0, i2);
+          i2 = -1;
+          this.length = 0;
+          continue;
+        }
+        this.genByte(BigInt(labels2.get(value) - index - i2));
+      } else
+        this.genByte(value);
+    }
+    return this.length - initialLength;
+  };
   Directive.prototype.genByte = function(byte) {
     this.bytes[this.length++] = Number(byte & 0xffn);
     if (this.length === this.bytes.length) {
@@ -304,37 +365,6 @@
       this.bytes = temp;
     }
   };
-  var encoder = new TextEncoder();
-  var directives = {
-    byte: (result) => {
-      do {
-        result.genByte(parseImmediate());
-      } while (token === ",");
-    },
-    string: (result) => {
-      if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
-        result.bytes = encoder.encode(eval(token));
-        result.length = result.bytes.length;
-      } else
-        throw "Expected string";
-      if (next() !== ";" && token !== "\n")
-        throw "Expected end of line";
-    }
-  };
-  function parseDirective() {
-    let result = new Directive();
-    let dir = token.slice(1);
-    if (directives.hasOwnProperty(dir)) {
-      try {
-        directives[dir](result);
-      } catch (e) {
-        if (result.length == 0)
-          throw e;
-        console.warn(e);
-      }
-    }
-    return result;
-  }
 
   // mnemonicList.js
   var lines;
@@ -2609,7 +2639,7 @@ g nle`.split("\n");
       try {
         if (token !== "\n" && token !== ";") {
           if (token[0] === ".") {
-            instr = parseDirective();
+            instr = new Directive(token.slice(1));
             currIndex += instr.length;
             instructions.push(instr);
           } else {

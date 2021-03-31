@@ -1,5 +1,5 @@
 import { token, next, match, loadCode, macros } from "./parser.js";
-import { parseDirective } from "./directives.js";
+import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
 var labels = new Map();
@@ -26,7 +26,7 @@ export function compileAsm(source)
             {
                 if(token[0] === '.') // Assembly directive
                 {
-                    instr = parseDirective();
+                    instr = new Directive(token.slice(1));
                     currIndex += instr.length;
                     instructions.push(instr);
                 }
