@@ -297,7 +297,7 @@
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
     this.outline = null;
-    let value, needsRecompilation = false;
+    let value, needsRecompilation = false, appendNullByte = 0;
     try {
       switch (dir) {
         case "byte":
@@ -317,15 +317,23 @@
           if (!needsRecompilation)
             this.outline = null;
           break;
+        case "asciz":
+          appendNullByte = 1;
         case "string":
         case "ascii":
-          if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
-            this.bytes = encoder.encode(eval(token));
-            this.length = this.bytes.length;
-          } else
-            throw "Expected string";
-          if (next() !== ";" && token !== "\n")
-            throw "Expected end of line";
+          let strBytes, temp;
+          this.bytes = new Uint8Array();
+          do {
+            if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
+              strBytes = encoder.encode(eval(token));
+              temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+              temp.set(this.bytes);
+              temp.set(strBytes, this.length);
+              this.bytes = temp;
+              this.length = temp.length;
+            } else
+              throw "Expected string";
+          } while (next() === ",");
           break;
         default:
           throw "Unknown directive";
