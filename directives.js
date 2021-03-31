@@ -13,33 +13,16 @@ export function Directive(dir)
     this.length = 0;
     this.outline = null;
 
-    let value, needsRecompilation = false, appendNullByte = 0;
+    let appendNullByte = 0;
 
     try
     {
         switch(dir)
         {
-            case "byte":
-                this.outline = [];
-                do
-                {
-                    clearLabelDependency();
-                    value = parseImmediate();
-                    if(labelDependency !== null)
-                    {
-                        value = labelDependency;
-                        needsRecompilation = true;
-                        this.genByte(1n);
-                    }
-                    else
-                    {
-                        this.genByte(value);
-                    }
-                    this.outline.push(value);
-                } while(token === ',');
-
-                if(!needsRecompilation) this.outline = null;
-                break;
+            case "byte": this.compileValues(1); break;
+            case "short": this.compileValues(2); break;
+            case "int": this.compileValues(4); break;
+            case "long": this.compileValues(8); break;
 
             case "asciz":
                 appendNullByte = 1;
@@ -72,6 +55,31 @@ export function Directive(dir)
     }
 }
 
+Directive.prototype.compileValues = function(valSize)
+{
+    this.valSize = valSize;
+    let value, needsRecompilation = false;
+    this.outline = [];
+    do
+    {
+        clearLabelDependency();
+        value = parseImmediate();
+        if(labelDependency !== null)
+        {
+            value = labelDependency;
+            needsRecompilation = true;
+            this.genValue(1n);
+        }
+        else
+        {
+            this.genValue(value);
+        }
+        this.outline.push(value);
+    } while(token === ',');
+
+    if(!needsRecompilation) this.outline = null;
+}
+
 Directive.prototype.resolveLabels = function(labels, index)
 {
     let initialLength = this.length;
@@ -92,22 +100,26 @@ Directive.prototype.resolveLabels = function(labels, index)
                 this.length = 0;
                 continue;
             }
-            this.genByte(BigInt(labels.get(value) - index - i));
+            this.genValue(BigInt(labels.get(value) - index - i * this.valSize));
         }
-        else this.genByte(value);
+        else this.genValue(value);
     }
     return this.length - initialLength;
 }
 
-Directive.prototype.genByte = function(byte)
+Directive.prototype.genValue = function(value)
 {
-    this.bytes[this.length++] = Number(byte & 0xffn);
-
-    // Resize the array if necessary
-    if(this.length === this.bytes.length)
+    for(let i = 0; i < this.valSize; i++)
     {
-        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
-        temp.set(this.bytes);
-        this.bytes = temp;
+        this.bytes[this.length++] = Number(value & 0xffn);
+        value >>= 8n;
+
+        // Resize the array if necessary
+        if(this.length === this.bytes.length)
+        {
+            let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
+            temp.set(this.bytes);
+            this.bytes = temp;
+        }
     }
 }

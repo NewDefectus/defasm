@@ -3,6 +3,7 @@ import { compileAsm } from "../compiler.js";
 var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "theme": "editor",
     "mode": "gas",
+    "architecture": "x86",
     "lineNumbers": true
 });
 var asmTextOutput = document.getElementById("outputArea");
