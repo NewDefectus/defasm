@@ -2732,10 +2732,10 @@ g nle`.split("\n");
     for (i2 = 0; i2 < instructions.length; i2++) {
       instr = instructions[i2];
       currIndex += instr.length;
-      if (instr.outline) {
+      if (instr.outline && !instr.skip) {
         resizeChange = instr.resolveLabels(labels, currIndex);
         if (resizeChange === null) {
-          instructions.splice(i2, 1);
+          instr.skip = true;
           i2 = -1;
           currIndex = 0;
         } else if (resizeChange !== 0) {
@@ -2777,6 +2777,8 @@ g nle`.split("\n");
         hexOutput += "\n", firstOnLine = true;
       else
         for (i = 0; i < instr.length; i++) {
+          if (instr.skip)
+            continue;
           hexOutput += (firstOnLine ? "" : " ") + instr.bytes[i].toString(16).toUpperCase().padStart(2, "0");
           firstOnLine = false;
         }

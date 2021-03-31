@@ -40,6 +40,7 @@ function compileEditorCode()
     
     for(let instr of instructions)
     {
+        if(instr.skip) continue;
         if(instr === "")
             tempHexOutput += '\n', firstOnLine = true;
         else for(i = 0; i < instr.length; i++)

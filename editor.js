@@ -34,6 +34,7 @@ function compileEditorCode()
             hexOutput += '\n', firstOnLine = true;
         else for(i = 0; i < instr.length; i++)
         {
+            if(instr.skip) continue;
             hexOutput += (firstOnLine ? "" : ' ') + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
             firstOnLine = false;
         }

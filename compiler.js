@@ -74,12 +74,12 @@ export function compileAsm(source)
     {
         instr = instructions[i];
         currIndex += instr.length;
-        if(instr.outline)
+        if(instr.outline && !instr.skip)
         {
             resizeChange = instr.resolveLabels(labels, currIndex);
             if(resizeChange === null) // Remove instructions that fail to recompile
             {
-                instructions.splice(i, 1);
+                instr.skip = true;
                 i = -1; currIndex = 0;
             }
             else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
