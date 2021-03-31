@@ -27,17 +27,20 @@ editor.on("change", compileEditorCode);
 function compileEditorCode()
 {
     document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
-    let instructions = compileAsm(editor.getValue()), hexOutput = "", firstOnLine = true;
-    for(let instr of instructions)
+    let instrHead = compileAsm(editor.getValue()), hexOutput = "\n".repeat(instrHead.newlines);
+    let firstOnLine = true, instr = instrHead;
+    while(instr = instr.next)
     {
-        if(instr === "")
-            hexOutput += '\n', firstOnLine = true;
-        else for(i = 0; i < instr.length; i++)
+        if(!instr.skip)
         {
-            if(instr.skip) continue;
-            hexOutput += (firstOnLine ? "" : ' ') + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
-            firstOnLine = false;
+            for(i = 0; i < instr.length; i++)
+            {
+                hexOutput += (firstOnLine ? "" : ' ') + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
+                firstOnLine = false;
+            }
         }
+        if(instr.newlines > 0)
+            hexOutput += "\n".repeat(instr.newlines), firstOnLine = true;
     }
     makeELF(hexOutput.trim().replace(/\s+/g, '%'));
     asmTextOutput.textContent = hexOutput;

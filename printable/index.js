@@ -315,6 +315,7 @@
   function Directive(dir) {
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
+    this.newlines = 0;
     this.outline = null;
     this.floatPrec = 0;
     let appendNullByte = 0;
@@ -2422,6 +2423,7 @@ g nle`.split("\n");
     this.opcode = opcode2;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
+    this.newlines = 0;
     this.interpret();
   }
   Instruction.prototype.genByte = function(byte2) {
@@ -2684,13 +2686,14 @@ g nle`.split("\n");
   var labels = new Map();
   function Label(name, index) {
     this.length = 0;
+    this.newlines = 0;
     labels.set(name, index);
   }
 
   // compiler.js
   function compileAsm(source) {
-    let instructions = [];
-    let opcode2, resizeChange, instr, i2;
+    let instrHead = {length: 0, newlines: 0};
+    let opcode2, resizeChange, i2, instr, instrTail = instrHead;
     labels.clear();
     macros.clear();
     currIndex = 0;
@@ -2701,12 +2704,12 @@ g nle`.split("\n");
           if (token[0] === ".") {
             instr = new Directive(token.slice(1));
             currIndex += instr.length;
-            instructions.push(instr);
+            instrTail.next = instrTail = instr;
           } else {
             opcode2 = token;
             switch (next()) {
               case ":":
-                instructions.push(new Label(opcode2, currIndex));
+                instrTail.next = instrTail = new Label(opcode2, currIndex);
                 continue;
               case "=":
                 let macroTokens = [];
@@ -2717,13 +2720,13 @@ g nle`.split("\n");
               default:
                 instr = new Instruction(opcode2);
                 currIndex += instr.length;
-                instructions.push(instr);
+                instrTail.next = instrTail = instr;
                 break;
             }
           }
         }
         if (token === "\n")
-          instructions.push("");
+          instrTail.newlines++;
         else if (token !== ";")
           throw "Expected end of line";
       } catch (e) {
@@ -2731,12 +2734,12 @@ g nle`.split("\n");
         while (token !== "\n" && token !== ";")
           next();
         if (token === "\n")
-          instructions.push("");
+          instrTail.newlines++;
       }
     }
     currIndex = 0;
-    for (i2 = 0; i2 < instructions.length; i2++) {
-      instr = instructions[i2];
+    instr = instrHead;
+    while (instr = instr.next) {
       currIndex += instr.length;
       if (instr.outline && !instr.skip) {
         resizeChange = instr.resolveLabels(labels, currIndex);
@@ -2753,7 +2756,7 @@ g nle`.split("\n");
         }
       }
     }
-    return instructions;
+    return instrHead;
   }
 
   // printable/printableEditor.js
@@ -2787,16 +2790,14 @@ g nle`.split("\n");
   editor.on("change", compileEditorCode);
   function compileEditorCode() {
     document.cookie = "code=" + encodeURIComponent(editor.getValue());
-    let instructions = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex2;
+    let instrHead = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex2;
+    let instr = instrHead;
     justEscaped = false;
-    printableOutput = tempHexOutput = hexOutput = "";
+    hexOutput = "\n".repeat(instrHead.newlines);
     uniDepth = expectedDepth = 0;
-    for (let instr of instructions) {
-      if (instr.skip)
-        continue;
-      if (instr === "")
-        tempHexOutput += "\n", firstOnLine = true;
-      else
+    printableOutput = tempHexOutput = "";
+    while (instr = instr.next) {
+      if (!instr.skip) {
         for (i = 0; i < instr.length; i++) {
           byte = instr.bytes[i];
           thisDepth = getByteDepth(byte);
@@ -2846,6 +2847,9 @@ g nle`.split("\n");
             }
           }
         }
+      }
+      if (instr.newlines > 0)
+        tempHexOutput += "\n".repeat(instr.newlines), firstOnLine = true;
     }
     if (expectedDepth)
       dumpBadSeq();

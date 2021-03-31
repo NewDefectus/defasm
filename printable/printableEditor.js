@@ -34,69 +34,73 @@ editor.on("change", compileEditorCode);
 function compileEditorCode()
 {
     document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
-    let instructions = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex;
+    let instrHead = compileAsm(editor.getValue()), firstOnLine = true, thisDepth = 0, hex;
+    let instr = instrHead;
     justEscaped = false;
-    printableOutput = tempHexOutput = hexOutput = ""; uniDepth = expectedDepth = 0;
+    hexOutput = "\n".repeat(instrHead.newlines); uniDepth = expectedDepth = 0;
+    printableOutput = tempHexOutput = "";
     
-    for(let instr of instructions)
+    while(instr = instr.next)
     {
-        if(instr.skip) continue;
-        if(instr === "")
-            tempHexOutput += '\n', firstOnLine = true;
-        else for(i = 0; i < instr.length; i++)
+        if(!instr.skip)
         {
-            byte = instr.bytes[i]; thisDepth = getByteDepth(byte);
-            hex = (firstOnLine ? "" : ' ') + byte.toString(16).toUpperCase().padStart(2, '0');
-            firstOnLine = false;
-            if(byte === 0)
+            for(i = 0; i < instr.length; i++)
             {
-                tempHexOutput += hex;
-                uniSeq[uniDepth++] = 0;
-                dumpBadSeq();
-            }
-            else if(thisDepth === 0)
-            {
-                if(expectedDepth) dumpBadSeq();
-                hexOutput += tempHexOutput + hex;
-                if(justEscaped && byte >= 48 && byte < 56) printableOutput += '""'; // Make sure escape codes don't merge into digits
-                if(byte === 13) printableOutput += "\\r";
-                else if(byte === 34) printableOutput += "\\\"";
-                else if(byte === 92) printableOutput += "\\\\";
-                else printableOutput += String.fromCharCode(byte);
-                tempHexOutput = "";
-                expectedDepth = uniDepth = 0;
-                justEscaped = false;
-            }
-            else
-            {
-                if(expectedDepth === 0)
+                byte = instr.bytes[i]; thisDepth = getByteDepth(byte);
+                hex = (firstOnLine ? "" : ' ') + byte.toString(16).toUpperCase().padStart(2, '0');
+                firstOnLine = false;
+                if(byte === 0)
                 {
-                    if(thisDepth === 1)
-                    {
-                        uniSeq[uniDepth++] = byte;
-                        tempHexOutput += hex;
-                        dumpBadSeq();
-                    }
-                    else expectedDepth = thisDepth, uniSeq[uniDepth++] = byte, tempHexOutput += hex;
+                    tempHexOutput += hex;
+                    uniSeq[uniDepth++] = 0;
+                    dumpBadSeq();
+                }
+                else if(thisDepth === 0)
+                {
+                    if(expectedDepth) dumpBadSeq();
+                    hexOutput += tempHexOutput + hex;
+                    if(justEscaped && byte >= 48 && byte < 56) printableOutput += '""'; // Make sure escape codes don't merge into digits
+                    if(byte === 13) printableOutput += "\\r";
+                    else if(byte === 34) printableOutput += "\\\"";
+                    else if(byte === 92) printableOutput += "\\\\";
+                    else printableOutput += String.fromCharCode(byte);
+                    tempHexOutput = "";
+                    expectedDepth = uniDepth = 0;
+                    justEscaped = false;
                 }
                 else
                 {
-                    if(thisDepth !== 1)
+                    if(expectedDepth === 0)
                     {
-                        dumpBadSeq();
-                        expectedDepth = thisDepth;
-                        uniSeq[uniDepth++] = byte;
-                        tempHexOutput += hex
+                        if(thisDepth === 1)
+                        {
+                            uniSeq[uniDepth++] = byte;
+                            tempHexOutput += hex;
+                            dumpBadSeq();
+                        }
+                        else expectedDepth = thisDepth, uniSeq[uniDepth++] = byte, tempHexOutput += hex;
                     }
                     else
                     {
-                        uniSeq[uniDepth++] = byte;
-                        tempHexOutput += hex
-                        if(expectedDepth === uniDepth) dumpUniSeq();
+                        if(thisDepth !== 1)
+                        {
+                            dumpBadSeq();
+                            expectedDepth = thisDepth;
+                            uniSeq[uniDepth++] = byte;
+                            tempHexOutput += hex
+                        }
+                        else
+                        {
+                            uniSeq[uniDepth++] = byte;
+                            tempHexOutput += hex
+                            if(expectedDepth === uniDepth) dumpUniSeq();
+                        }
                     }
                 }
             }
         }
+        if(instr.newlines > 0)
+            tempHexOutput += '\n'.repeat(instr.newlines), firstOnLine = true;
     }
     if(expectedDepth) dumpBadSeq();
     asmTextOutput.innerHTML = hexOutput;

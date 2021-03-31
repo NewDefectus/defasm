@@ -6,11 +6,8 @@ import { labels, Label } from "./labels.js";
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
 {
-    /**
-     * @type {Instruction[]}
-     */
-    let instructions = [];
-    let opcode, resizeChange, instr, i;
+    let instrHead = { length: 0, newlines: 0 };
+    let opcode, resizeChange, i, instr, instrTail = instrHead;
 
     labels.clear(); macros.clear();
     currIndex = 0;
@@ -27,7 +24,7 @@ export function compileAsm(source)
                 {
                     instr = new Directive(token.slice(1));
                     currIndex += instr.length;
-                    instructions.push(instr);
+                    instrTail.next = instrTail = instr;
                 }
                 else // Instruction, label or macro
                 {
@@ -35,7 +32,7 @@ export function compileAsm(source)
                     switch(next())
                     {
                         case ':': // Label definition
-                            instructions.push(new Label(opcode, currIndex));
+                            instrTail.next = instrTail = new Label(opcode, currIndex);
                             continue;
                         
                         case '=': // Macro definition
@@ -47,13 +44,13 @@ export function compileAsm(source)
                         default: // Instruction
                             instr = new Instruction(opcode);
                             currIndex += instr.length;
-                            instructions.push(instr);
+                            instrTail.next = instrTail = instr;
                             break;
                     }
                 }
             }
 
-            if(token === '\n') instructions.push("");
+            if(token === '\n') instrTail.newlines++;
             else if(token !== ';') throw "Expected end of line";
         }
         catch(e)
@@ -62,16 +59,16 @@ export function compileAsm(source)
             Remove this try/catch block if you want the entire code to compile */
             console.warn(e);
             while(token !== '\n' && token !== ';') next();
-            if(token === '\n') instructions.push("");
+            if(token === '\n') instrTail.newlines++;
         }
     }
 
     /* I guess this would be the "second pass", although we don't actually go through
     the source code again; we're just resolving all the label references. */
     currIndex = 0;
-    for(i = 0; i < instructions.length; i++)
+    instr = instrHead;
+    while(instr = instr.next)
     {
-        instr = instructions[i];
         currIndex += instr.length;
         if(instr.outline && !instr.skip)
         {
@@ -87,12 +84,12 @@ export function compileAsm(source)
                 labels.forEach((index, label) => {
                     if(index >= currIndex)
                         labels.set(label, labels.get(label) + resizeChange);
-                })
+                });
                 // Redo the adjustments from the start
                 i = -1, currIndex = 0;
             }
         }
     }
 
-    return instructions;
+    return instrHead;
 }

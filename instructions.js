@@ -19,6 +19,7 @@ export function Instruction(opcode)
     this.opcode = opcode;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
+    this.newlines = 0;
 
     this.interpret();
 }
