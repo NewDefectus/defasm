@@ -3,10 +3,12 @@ import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { labels, Label } from "./labels.js";
 
+export var instrHead;
+
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
 {
-    let instrHead = { length: 0, newlines: 0 };
+    instrHead = { length: 0, newlines: 0 };
     let opcode, resizeChange, i, instr, instrTail = instrHead;
 
     labels.clear(); macros.clear();
@@ -90,6 +92,4 @@ export function compileAsm(source)
             }
         }
     }
-
-    return instrHead;
 }

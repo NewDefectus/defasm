@@ -1,4 +1,4 @@
-import { compileAsm } from "./compiler.js";
+import { instrHead, compileAsm } from "./compiler.js";
 
 var editor = CodeMirror(document.getElementById("inputAreaContainer"), {
     "theme": "editor",
@@ -27,7 +27,8 @@ editor.on("change", compileEditorCode);
 function compileEditorCode()
 {
     document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
-    let instrHead = compileAsm(editor.getValue()), hexOutput = "\n".repeat(instrHead.newlines);
+    compileAsm(editor.getValue());
+    hexOutput = "\n".repeat(instrHead.newlines);
     let firstOnLine = true, instr = instrHead;
     while(instr = instr.next)
     {

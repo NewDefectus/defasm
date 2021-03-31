@@ -2691,8 +2691,9 @@ g nle`.split("\n");
   }
 
   // compiler.js
+  var instrHead;
   function compileAsm(source) {
-    let instrHead = {length: 0, newlines: 0};
+    instrHead = {length: 0, newlines: 0};
     let opcode2, resizeChange, i2, instr, instrTail = instrHead;
     labels.clear();
     macros.clear();
@@ -2756,7 +2757,6 @@ g nle`.split("\n");
         }
       }
     }
-    return instrHead;
   }
 
   // editor.js
@@ -2780,7 +2780,8 @@ g nle`.split("\n");
   editor.on("change", compileEditorCode);
   function compileEditorCode() {
     document.cookie = "code=" + encodeURIComponent(editor.getValue());
-    let instrHead = compileAsm(editor.getValue()), hexOutput = "\n".repeat(instrHead.newlines);
+    compileAsm(editor.getValue());
+    hexOutput = "\n".repeat(instrHead.newlines);
     let firstOnLine = true, instr = instrHead;
     while (instr = instr.next) {
       if (!instr.skip) {
