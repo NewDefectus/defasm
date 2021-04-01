@@ -2682,16 +2682,9 @@ g nle`.split("\n");
     return value < 0x100n ? 8 : value < 0x10000n ? 16 : value < 0x100000000n ? 32 : 64;
   }
 
-  // labels.js
-  var labels = new Map();
-  function Label(name, index) {
-    this.length = 0;
-    this.newlines = 0;
-    labels.set(name, index);
-  }
-
   // compiler.js
   var instrHead;
+  var labels = new Map();
   function compileAsm(source) {
     instrHead = {length: 0, newlines: 0};
     let opcode2, resizeChange, i2, instr, instrTail = instrHead;
@@ -2710,7 +2703,7 @@ g nle`.split("\n");
             opcode2 = token;
             switch (next()) {
               case ":":
-                instrTail.next = instrTail = new Label(opcode2, currIndex);
+                labels.set(opcode2, currIndex);
                 continue;
               case "=":
                 let macroTokens = [];
