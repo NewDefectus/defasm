@@ -3,7 +3,7 @@ import child_process from "child_process";
 import { compileAsm, instrHead } from "./compiler.js";
 
 let args = process.argv;
-if(args.length < 2)
+if(args.length < 3)
 {
     console.error("Not enough arguments");
     process.exit(1);
@@ -11,7 +11,7 @@ if(args.length < 2)
 
 let code = args[2];
 let totalBytes;
-let outputFileName = "output.exe";
+let outputFileName = "/temp/code.exe";
 
 try
 {
@@ -23,7 +23,7 @@ catch(e)
     process.exit(1);
 }
 
-let outputStream = fs.createWriteStream(outputFileName);
+let outputStream = fs.createWriteStream(outputFileName, {mode: 0o0755});
 
 
 // Construct the ELF header
