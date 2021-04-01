@@ -2,7 +2,7 @@
   "name": "defasm",
   "version": "1.0.0",
   "description": "Fast, lightweight JavaScript x64 assembler",
-  "main": "compiler.js",
+  "main": "execute.js",
   "type": "module",
   "directories": {
     "lib": "lib"

@@ -6,10 +6,10 @@ export var instrHead;
 export var labels = new Map();
 
 // Compile Assembly from source code into machine code
-export function compileAsm(source)
+export function compileAsm(source, haltOnError = false)
 {
     instrHead = { length: 0, newlines: 0 };
-    let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0;
+    let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0, line = 1;
 
     labels.clear(); macros.clear();
     loadCode(source);
@@ -50,22 +50,23 @@ export function compileAsm(source)
                 }
             }
 
-            if(token === '\n') instrTail.newlines++;
+            if(token === '\n') instrTail.newlines++, line++;
             else if(token !== ';') throw "Expected end of line";
         }
         catch(e)
         {
-            /* In case of an error, just skip the current instruction and go on.
-            Remove this try/catch block if you want the entire code to compile */
+            // In case of an error, just skip the current instruction and go on.
+            e = `Error on line ${line}: ${e}`;
+            if(haltOnError) throw e;
             console.warn(e);
             while(token !== '\n' && token !== ';') next();
-            if(token === '\n') instrTail.newlines++;
+            if(token === '\n') instrTail.newlines++, line++;
         }
     }
 
     /* I guess this would be the "second pass", although we don't actually go through
     the source code again; we're just resolving all the label references. */
-    currIndex = 0;
+    currIndex = 0; line = instr.newlines + 1;
     instr = instrHead;
     while(instr = instr.next)
     {
@@ -75,8 +76,9 @@ export function compileAsm(source)
             resizeChange = instr.resolveLabels(labels, currIndex);
             if(resizeChange === null) // Remove instructions that fail to recompile
             {
+                if(haltOnError) throw `Error on line ${line}: Unknown label`;
                 instr.skip = true;
-                currIndex = 0; instr = instrHead;
+                currIndex = 0; line = instrHead.newlines + 1; instr = instrHead;
             }
             else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
             {
@@ -86,8 +88,11 @@ export function compileAsm(source)
                         labels.set(label, labels.get(label) + resizeChange);
                 });
                 // Redo the adjustments from the start
-                currIndex = 0; instr = instrHead;
+                currIndex = 0; line = instrHead.newlines + 1; instr = instrHead;
             }
         }
+        line += instr.newlines;
     }
+
+    return currIndex; // Return the total number of bytes generated
 }
