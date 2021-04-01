@@ -8,8 +8,6 @@
     "lib": "lib"
   },
   "scripts": {
-    "build": "esbuild editor.js --bundle --outfile=index.js",
-    "build-printable": "esbuild printable/printableEditor.js --bundle --outfile=printable/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -26,8 +24,5 @@
   "bugs": {
     "url": "https://github.com/NewDefectus/defAsm/issues"
   },
-  "homepage": "https://github.com/NewDefectus/defAsm#readme",
-  "dependencies": {
-    "codemirror": "^5.60.0"
-  }
+  "homepage": "https://github.com/NewDefectus/defAsm#readme"
 }
