@@ -7,6 +7,18 @@ import { clearLabelDependency, floatToInt, labelDependency, parseImmediate } fro
 const DIRECTIVE_BUFFER_SIZE = 15;
 const encoder = new TextEncoder();
 
+export const dirs = {
+    byte:   1,
+    short:  2,
+    int:    3,
+    long:   4,
+    float:  5,
+    double: 6,
+    asciz:  7,
+    ascii:  8,
+    string: 8 // .string and .ascii are identical
+}
+
 export function Directive(dir)
 {
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
@@ -19,20 +31,20 @@ export function Directive(dir)
 
     try
     {
-        switch(dir)
+        if(!dirs.hasOwnProperty(dir)) throw "Unknown directive";
+        switch(dirs[dir])
         {
-            case "byte": this.compileValues(1); break;
-            case "short": this.compileValues(2); break;
-            case "int": this.compileValues(4); break;
-            case "long": this.compileValues(8); break;
+            case dirs.byte:     this.compileValues(1); break;
+            case dirs.short:    this.compileValues(2); break;
+            case dirs.int:      this.compileValues(4); break;
+            case dirs.long:     this.compileValues(8); break;
 
-            case "float": this.floatPrec = 1; this.compileValues(4); break;
-            case "double": this.floatPrec = 2; this.compileValues(8); break;
+            case dirs.float:    this.floatPrec = 1; this.compileValues(4); break;
+            case dirs.double:   this.floatPrec = 2; this.compileValues(8); break;
 
-            case "asciz":
+            case dirs.asciz:
                 appendNullByte = 1;
-            case "string":
-            case "ascii":
+            case dirs.ascii:
                 let strBytes, temp;
                 this.bytes = new Uint8Array();
                 do
@@ -49,9 +61,6 @@ export function Directive(dir)
                     else throw "Expected string";
                 } while(next() === ',');
                 break;
-            
-            default:
-                throw "Unknown directive";
         }
     }
     catch(e)

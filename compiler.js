@@ -3,7 +3,7 @@ import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
 export var instrHead;
-var labels = new Map();
+export var labels = new Map();
 
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
