@@ -28,13 +28,13 @@ function compileEditorCode()
 {
     document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
     compileAsm(editor.getValue());
-    hexOutput = "\n".repeat(instrHead.newlines);
+    let hexOutput = "\n".repeat(instrHead.newlines);
     let firstOnLine = true, instr = instrHead;
     while(instr = instr.next)
     {
         if(!instr.skip)
         {
-            for(i = 0; i < instr.length; i++)
+            for(let i = 0; i < instr.length; i++)
             {
                 hexOutput += (firstOnLine ? "" : ' ') + instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
                 firstOnLine = false;

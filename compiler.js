@@ -9,10 +9,9 @@ var labels = new Map();
 export function compileAsm(source)
 {
     instrHead = { length: 0, newlines: 0 };
-    let opcode, resizeChange, instr, instrTail = instrHead;
+    let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0;
 
     labels.clear(); macros.clear();
-    currIndex = 0;
 
     loadCode(source);
 
@@ -78,7 +77,7 @@ export function compileAsm(source)
             if(resizeChange === null) // Remove instructions that fail to recompile
             {
                 instr.skip = true;
-                i = -1; currIndex = 0;
+                currIndex = 0; instr = instrHead;
             }
             else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
             {
@@ -88,7 +87,7 @@ export function compileAsm(source)
                         labels.set(label, labels.get(label) + resizeChange);
                 });
                 // Redo the adjustments from the start
-                i = -1, currIndex = 0;
+                currIndex = 0; instr = instrHead;
             }
         }
     }

@@ -2,7 +2,8 @@
   "name": "defasm",
   "version": "1.0.0",
   "description": "Fast, lightweight JavaScript x64 assembler",
-  "main": "index.js",
+  "main": "compiler.js",
+  "type": "module",
   "directories": {
     "lib": "lib"
   },
@@ -27,7 +28,6 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm#readme",
   "dependencies": {
-    "codemirror": "^5.60.0",
-    "esbuild": "^0.11.2"
+    "codemirror": "^5.60.0"
   }
 }

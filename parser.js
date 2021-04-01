@@ -1,6 +1,5 @@
 var srcTokens;
 export var match;
-export var currIndex = 0;
 export var token;
 export var macros = new Map();
 
@@ -17,11 +16,13 @@ function lowerCase(str)
     return str.toLowerCase();
 }
 
-export var next = defaultNext = () => 
+var defaultNext = () => 
     token = (match = srcTokens.next()).done ? '\n' :
     macros.has(match.value[0]) ?
         (insertTokens(macros.get(match.value[0])), next())
     :  match.value[0][0] === '#' ? next() : lowerCase(match.value[0]);
+
+export var next = defaultNext;
 
 function insertTokens(tokens)
 {

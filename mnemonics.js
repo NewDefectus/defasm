@@ -54,7 +54,7 @@ function parseEvexPermits(string)
 
 function getSizes(format, defaultCatcher = null)
 {
-    let sizes = [], size, defaultSize;
+    let sizes = [], size, defaultSize, sizeChar;
     for(let i = 0; i < format.length; i++)
     {
         defaultSize = false;

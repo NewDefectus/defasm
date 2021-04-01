@@ -35,7 +35,7 @@ function compileEditorCode()
 {
     document.cookie = "code=" + encodeURIComponent(editor.getValue()); // Save the code
     compileAsm(editor.getValue())
-    let firstOnLine = true, thisDepth = 0, hex, instr = instrHead;
+    let firstOnLine = true, thisDepth = 0, hex, instr = instrHead, i, byte;
     justEscaped = false;
     hexOutput = "\n".repeat(instrHead.newlines); uniDepth = expectedDepth = 0;
     printableOutput = tempHexOutput = "";

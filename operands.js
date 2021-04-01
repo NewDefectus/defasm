@@ -44,7 +44,7 @@ export function floatToInt(value, precision)
     return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
 }
 
-function parseRegister(expectedType = null)
+export function parseRegister(expectedType = null)
 {
     let reg = registers[next()];
     let size = 0, type = -1, prefs = 0;

@@ -1,6 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency } from "./operands.js";
 import { token, next, ungetToken, setToken } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
@@ -209,7 +209,7 @@ Instruction.prototype.compile = function()
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
     if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw "Can't encode high 8-bit register";
-    opcode = op.opcode;
+    let opcode = op.opcode;
 
     // Time to generate!
     if(prefsToGen >= PREFIX_SEG) this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
