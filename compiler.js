@@ -8,11 +8,10 @@ var labels = new Map();
 // Compile Assembly from source code into machine code
 export function compileAsm(source)
 {
-    instrHead = { length: 0, newlines: 0 };
     let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0;
+    instrHead = { length: 0, newlines: 0 };
 
     labels.clear(); macros.clear();
-
     loadCode(source);
 
     while(next(), !match.done)
