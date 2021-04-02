@@ -11,7 +11,7 @@ if(args.length < 3)
 
 let code = args[2];
 let totalBytes;
-let outputFileName = "/temp/code.exe";
+let outputFileName = "/tmp/code.exe";
 
 try
 {

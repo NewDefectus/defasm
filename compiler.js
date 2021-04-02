@@ -66,8 +66,8 @@ export function compileAsm(source, haltOnError = false)
 
     /* I guess this would be the "second pass", although we don't actually go through
     the source code again; we're just resolving all the label references. */
-    currIndex = 0; line = instr.newlines + 1;
     instr = instrHead;
+    currIndex = 0; line = instrHead.newlines + 1;
     while(instr = instr.next)
     {
         currIndex += instr.length;
