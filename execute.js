@@ -51,8 +51,10 @@ while(instr = instr.next)
     outputStream.write(instr.bytes.slice(0, instr.length));
 }
 
-outputStream.on('finish', () => {
-    child_process.execFile(outputFileName, args.slice(3));
+outputStream.on('close', () => {
+    let proc = child_process.execFile(outputFileName, args.slice(3));
+    proc.stderr.pipe(process.stderr);
+    proc.stdout.pipe(process.stdout);
 });
 
 outputStream.close();
