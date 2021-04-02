@@ -55,6 +55,11 @@ outputStream.on('close', () => {
     let proc = child_process.execFile(outputFileName, args.slice(3));
     proc.stderr.pipe(process.stderr);
     proc.stdout.pipe(process.stdout);
+
+    proc.on('close', (code, signal) => {
+        if(signal) process.kill(process.pid, signal);
+        process.exit(code);
+    });
 });
 
 outputStream.close();
