@@ -14,6 +14,7 @@ export var labels = new Map();
 export function compileAsm(source, haltOnError = false)
 {
     let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0, line = 1;
+    instrHead.newlines = 0;
 
     labels.clear(); macros.clear();
     loadCode(source);
