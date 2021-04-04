@@ -249,7 +249,7 @@ function makeModRM(rm, r)
     // Special case for RIP-relative addressing
     if(rm.ripRelative)
     {
-        rm.value ||= 0n;
+        rm.value = rm.value || 0n;
         // mod = 00, reg = (reg), rm = 101
         return [rex, modrm | 5, null];
     }
@@ -273,7 +273,7 @@ function makeModRM(rm, r)
         // These are the respective "none" type registers
         rm.reg = 5;
         if(rm.reg2 < 0) rm.reg2 = 4;
-        rm.value ||= 0n;
+        rm.value = rm.value || 0n;
     }
     
     // Encoding the "rm" field

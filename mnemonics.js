@@ -97,12 +97,12 @@ function OpCatcher(format)
     if(!this.carrySizeInference) format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbk".includes(opType);
-    this.forceRM ||= this.acceptsMemory;
+    this.forceRM = this.forceRM || this.acceptsMemory;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
-    this.carrySizeInference &&= this.type !== OPT.IMM && this.type !== OPT.MEM;
-    this.forceRM ||= this.type === OPT.VMEM || this.type === OPT.MEM;
+    this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
+    this.forceRM = this.forceRM || this.type === OPT.VMEM || this.type === OPT.MEM;
     
 
 
@@ -475,7 +475,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         // Overall size represents the highest non-implicitly encoded size
         if(overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC)) overallSize = size & ~7;
 
-        if(size >= 16) adjustByteOp ||= catcher.hasByteSize;
+        if(size >= 16) adjustByteOp = adjustByteOp || catcher.hasByteSize;
     }
 
     if(this.extension === REG_OP)
@@ -494,7 +494,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         reg = {reg: this.extension};
     }
 
-    vexInfo.needed ||= this.forceVex;
+    vexInfo.needed = vexInfo.needed || this.forceVex;
 
     switch(this.maskSizing)
     {

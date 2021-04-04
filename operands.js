@@ -165,7 +165,7 @@ export function parseImmediate(floatPrec = 0)
                 return 1n; // Default to 1 on first pass
             }
         }
-        else if(token.includes('.') || floatPrec) floatPrec ||= 1, value = parseFloat(token);
+        else if(token.includes('.') || floatPrec) floatPrec = floatPrec || 1, value = parseFloat(token);
         else value = BigInt(token);
 
         if(next() === 'f') floatPrec = 1;
@@ -266,7 +266,7 @@ export function Operand()
             }
             else if(this.reg === 4) this.reg2 = 4;
         }
-        if((this.reg & 7) === 5) this.value ||= 0n; 
+        if((this.reg & 7) === 5) this.value = this.value || 0n; 
         if(token != ')') throw "Expected ')'";
         next();
     }
