@@ -2,13 +2,17 @@ import { token, next, match, loadCode, macros } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
-export var instrHead;
+var updateHandler = byteCount => null;
+
+export var instrHead = { length: 0, newlines: 0,
+    attachUpdateHandler: function(handler) {
+        updateHandler = handler;
+    } };
 export var labels = new Map();
 
 // Compile Assembly from source code into machine code
 export function compileAsm(source, haltOnError = false)
 {
-    instrHead = { length: 0, newlines: 0 };
     let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0, line = 1;
 
     labels.clear(); macros.clear();
@@ -93,6 +97,8 @@ export function compileAsm(source, haltOnError = false)
         }
         line += instr.newlines;
     }
+
+    updateHandler(currIndex);
 
     return currIndex; // Return the total number of bytes generated
 }

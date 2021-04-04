@@ -3,6 +3,8 @@ import { token, next, ungetToken, peekNext } from "./parser.js";
 export var labelDependency = null;
 export function clearLabelDependency() { labelDependency = null };
 
+export var unescapeString = string => string.slice(1, -1).replace("\\n", "\n").replace("\\0", "\0");
+
 // Operand types
 export const OPT = {
 REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
@@ -146,7 +148,7 @@ export function parseImmediate(floatPrec = 0)
             throw "Expected value, got none";
         if(token[0] === "'" && token[token.length - 1] === "'")
         {
-            let string = eval(token); // Decode escape sequences
+            let string = unescapeString(token); // Decode escape sequences
             // Parse as character constant
             for(let i = 0; i < string.length; i++)
             {

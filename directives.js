@@ -1,5 +1,5 @@
 import { token, next } from "./parser.js";
-import { clearLabelDependency, floatToInt, labelDependency, parseImmediate } from "./operands.js";
+import { clearLabelDependency, floatToInt, labelDependency, parseImmediate, unescapeString } from "./operands.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -51,7 +51,7 @@ export function Directive(dir)
                 {
                     if(next().length > 1 && token[0] === '"' && token[token.length - 1] === '"')
                     {
-                        strBytes = encoder.encode(eval(token));
+                        strBytes = encoder.encode(unescapeString(token));
                         temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                         temp.set(this.bytes);
                         temp.set(strBytes, this.length);
