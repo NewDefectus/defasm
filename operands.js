@@ -205,6 +205,7 @@ export function Operand()
     else // Address
     {
         this.type = OPT.MEM;
+        this.absLabel = true;
         if(token !== '(')
         {
             ungetToken(token);
@@ -221,8 +222,7 @@ export function Operand()
             {
                 ungetToken(token);
                 this.value = parseImmediate();
-                this.absLabel = true;
-                if(token != ')') throw "Expected ')'";
+                if(token !== ')') throw "Expected ')'";
                 next();
                 return;
             }
@@ -245,7 +245,7 @@ export function Operand()
         {
             if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
             else if(tempSize !== 64) throw "Invalid register size";
-            if(tempType === OPT.IP) this.ripRelative = true;
+            if(tempType === OPT.IP) this.ripRelative = true, this.absLabel = false;
             else if(token === ',')
             {
                 if(next() !== '%') throw "Expected register";
@@ -271,7 +271,7 @@ export function Operand()
             else if(this.reg === 4) this.reg2 = 4;
         }
         if((this.reg & 7) === 5) this.value = this.value || 0n; 
-        if(token != ')') throw "Expected ')'";
+        if(token !== ')') throw "Expected ')'";
         next();
     }
 }
