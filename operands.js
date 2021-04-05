@@ -197,7 +197,8 @@ export function Operand()
     }
     else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
-        if(token !== '$') ungetToken(token);
+        if(token === '$') this.absLabel = true;
+        else ungetToken(token);
         this.value = parseImmediate();
         this.type = OPT.IMM;
     }
@@ -220,6 +221,7 @@ export function Operand()
             {
                 ungetToken(token);
                 this.value = parseImmediate();
+                this.absLabel = true;
                 if(token != ')') throw "Expected ')'";
                 next();
                 return;

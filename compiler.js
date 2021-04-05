@@ -11,9 +11,9 @@ export var instrHead = { length: 0, newlines: 0,
 export var labels = new Map();
 
 // Compile Assembly from source code into machine code
-export function compileAsm(source, haltOnError = false)
+export function compileAsm(source, haltOnError = false, baseAddr = 0x8048078)
 {
-    let opcode, resizeChange, instr, instrTail = instrHead, currIndex = 0, line = 1;
+    let opcode, resizeChange, instr, instrTail = instrHead, currIndex = baseAddr, line = 1;
     instrHead.newlines = 0;
 
     labels.clear(); macros.clear();
@@ -72,7 +72,7 @@ export function compileAsm(source, haltOnError = false)
     /* I guess this would be the "second pass", although we don't actually go through
     the source code again; we're just resolving all the label references. */
     instr = instrHead;
-    currIndex = 0; line = instrHead.newlines + 1;
+    currIndex = baseAddr; line = instrHead.newlines + 1;
     while(instr = instr.next)
     {
         currIndex += instr.length;
@@ -83,7 +83,7 @@ export function compileAsm(source, haltOnError = false)
             {
                 if(haltOnError) throw `Error on line ${line}: Unknown label`;
                 instr.skip = true;
-                currIndex = 0; line = instrHead.newlines + 1; instr = instrHead;
+                currIndex = baseAddr; line = instrHead.newlines + 1; instr = instrHead;
             }
             else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
             {
@@ -93,12 +93,13 @@ export function compileAsm(source, haltOnError = false)
                         labels.set(label, labels.get(label) + resizeChange);
                 });
                 // Redo the adjustments from the start
-                currIndex = 0; line = instrHead.newlines + 1; instr = instrHead;
+                currIndex = baseAddr; line = instrHead.newlines + 1; instr = instrHead;
             }
         }
         line += instr.newlines;
     }
 
+    currIndex -= baseAddr;
     updateHandler(currIndex);
 
     return currIndex; // Return the total number of bytes generated

@@ -328,7 +328,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         if(op.labelDependency !== undefined)
         {
             if(!labels.has(op.labelDependency)) return null;
-            op.value = BigInt(labels.get(op.labelDependency) - currIndex);
+            op.value = BigInt(labels.get(op.labelDependency) - (op.absLabel ? 0 : currIndex));
         }
     }
     try { this.compile(); }
