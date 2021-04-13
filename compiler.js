@@ -75,7 +75,9 @@ export function compileAsm(source, haltOnError = false, baseAddr = 0x8048078)
             resizeChange = instr.resolveLabels(labels, currIndex);
             if(resizeChange === null) // Remove instructions that fail to recompile
             {
-                if(haltOnError) throw `Error on line ${line}: Unknown label`;
+                let e = `Error on line ${line}: Unknown label`;
+                if(haltOnError) throw e;
+                console.warn(e);
                 instr.skip = true;
                 currIndex = baseAddr; line = instrHead.newlines + 1; instr = instrHead;
             }

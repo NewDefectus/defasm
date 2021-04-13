@@ -1,4 +1,4 @@
-import { token, next } from "./parser.js";
+import { token, next, ungetToken } from "./parser.js";
 import { clearLabelDependency, floatToInt, labelDependency, parseImmediate, unescapeString } from "./operands.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
@@ -74,42 +74,45 @@ Directive.prototype.compileValues = function(valSize)
     this.valSize = valSize;
     let value, needsRecompilation = false, absLabel = false;
     this.outline = [];
-    do
+    try {
+        do
+        {
+            absLabel = false;
+            clearLabelDependency();
+            if(next() === '$') absLabel = true;
+            else ungetToken(token);
+            value = parseImmediate(this.floatPrec);
+            if(labelDependency !== null)
+            {
+                value = { name: labelDependency, absLabel: absLabel };
+                needsRecompilation = true;
+                this.genValue(1n);
+            }
+            else
+            {
+                this.genValue(value);
+            }
+            this.outline.push(value);
+        } while(token === ',');
+    }
+    finally
     {
-        absLabel = false;
-        clearLabelDependency();
-        if(token === '$') absLabel = true; 
-        value = parseImmediate(this.floatPrec);
-        if(labelDependency !== null)
-        {
-            value = { name: labelDependency, abs: absLabel };
-            needsRecompilation = true;
-            this.genValue(1n);
-        }
-        else
-        {
-            this.genValue(value);
-        }
-        this.outline.push(value);
-    } while(token === ',');
-
-    if(!needsRecompilation) this.outline = null;
+        if(!needsRecompilation) this.outline = null;
+    }
 }
 
 Directive.prototype.resolveLabels = function(labels, index)
 {
-    let initialLength = this.length;
+    let initialLength = this.length, op;
     index -= initialLength;
     this.length = 0;
-    let op, value;
 
     for(let i = 0; i < this.outline.length; i++)
     {
         op = this.outline[i];
         if(typeof op === "object")
         {
-            value = op.name;
-            if(!labels.has(value))
+            if(!labels.has(op.name))
             {
                 if(i === 0) return null;
                 this.outline = this.outline.slice(0, i);
@@ -117,10 +120,11 @@ Directive.prototype.resolveLabels = function(labels, index)
                 this.length = 0;
                 continue;
             }
-            value = BigInt(labels.get(value) - (op.absLabel ? 0 : index + i * this.valSize));
-            this.genValue(floatToInt(value, this.floatPrec));
+            this.genValue(floatToInt(
+                BigInt(labels.get(op.name) - (op.absLabel ? 0 : index + i * this.valSize)),
+                this.floatPrec));
         }
-        else this.genValue(value);
+        else this.genValue(op);
     }
     return this.length - initialLength;
 }
