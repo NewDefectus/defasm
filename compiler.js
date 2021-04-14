@@ -24,9 +24,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
 
     if(line <= instructions.length)
         for(let instr of instructions[line - 1])
-        {
             if(instr.macroName) throw "Macro edited, must recompile";
-        }
 
     loadCode(source);
 
