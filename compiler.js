@@ -9,8 +9,7 @@ export var labels = new Map();
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, haltOnError = false, line = 1, doSecondPass = true)
 {
-    let opcode, instr, currIndex = baseAddr, currLineArr;
-    instructions[line - 1] = currLineArr = [];
+    let opcode, instr, currIndex = baseAddr, currLineArr = [];
 
     // Reset the macro list and add only the macros that have been defined prior to this line
     macros.clear();
@@ -22,8 +21,10 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
         }
     }
 
-    if(line <= instructions.length)
-        for(let instr of instructions[line - 1])
+    // Remove instructions that were replaced
+    let removedInstrs = instructions.splice(line - 1, (source.match(/\n/g) || []).length + 1, currLineArr);
+    for(let removed of removedInstrs)
+        for(let instr of removed)
             if(instr.macroName) throw "Macro edited, must recompile";
 
     loadCode(source);
@@ -65,7 +66,10 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
                 }
             }
 
-            if(token === '\n') instructions[line++] = currLineArr = [];
+            if(token === '\n')
+            {
+                if(!match.done) instructions.splice(line++, 0, currLineArr = []);
+            }
             else if(token !== ';') throw "Expected end of line";
         }
         catch(e)
@@ -75,7 +79,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
             if(haltOnError) throw e;
             console.warn(e);
             while(token !== '\n' && token !== ';') next();
-            if(token === '\n') instructions[line++] = currLineArr = [];
+            if(token === '\n' && !match.done) instructions.splice(line++, 0, currLineArr = []);
         }
     }
 
