@@ -2,9 +2,9 @@ import { token, next, match, loadCode, macros } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
-export var labels = new Map();
-
 const baseAddr = 0x8048078;
+
+export var labels = new Map();
 
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, haltOnError = false, line = 1, doSecondPass = true)
@@ -12,7 +12,22 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
     let opcode, instr, currIndex = baseAddr, currLineArr;
     instructions[line - 1] = currLineArr = [];
 
-    labels.clear(); macros.clear();
+    // Reset the macro list and add only the macros that have been defined prior to this line
+    macros.clear();
+    for(let i = 1; i < line && i <= instructions.length; i++)
+    {
+        for(let instr of instructions[i - 1])
+        {
+            if(instr.macroName) macros.set(instr.macroName, instr.macro);
+        }
+    }
+
+    if(line <= instructions.length)
+        for(let instr of instructions[line - 1])
+        {
+            if(instr.macroName) throw "Macro edited, must recompile";
+        }
+
     loadCode(source);
 
     while(next(), !match.done)
@@ -33,13 +48,14 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
                     switch(next())
                     {
                         case ':': // Label definition
-                            labels.set(opcode, currIndex);
+                            currLineArr.push({length: 0, bytes: new Uint8Array(), labelName: opcode})
                             continue;
                         
                         case '=': // Macro definition
                             let macroTokens = [];
                             while(next() !== '\n') macroTokens.push(token);
                             macros.set(opcode, macroTokens);
+                            currLineArr.push({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens})
                             break;
                         
                         default: // Instruction
@@ -74,6 +90,19 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
 export function secondPass(instructions, haltOnError = false)
 {
     let currIndex = baseAddr, resizeChange;
+    labels.clear();
+
+    for(let instrLine of instructions)
+    {
+        for(let instr of instrLine)
+        {
+            currIndex += instr.length;
+            if(instr.labelName !== undefined) labels.set(instr.labelName, currIndex);
+            instr.skip = false;
+        }
+    }
+
+    currIndex = baseAddr;
 
     for(let i = 0; i < instructions.length; i++)
     {
