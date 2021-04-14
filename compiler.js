@@ -4,10 +4,12 @@ import { Instruction } from "./instructions.js";
 
 export var labels = new Map();
 
+const baseAddr = 0x8048078;
+
 // Compile Assembly from source code into machine code
-export function compileAsm(source, haltOnError = false, baseAddr = 0x8048078)
+export function compileAsm(source, haltOnError = false)
 {
-    let opcode, resizeChange, instr, currIndex = baseAddr, line = 1;
+    let opcode, instr, currIndex = baseAddr, line = 1;
     let instrHead = { length: 0, newlines: 0, next: null, total: 0 }, instrTail = instrHead;
 
     labels.clear(); macros.clear();
@@ -63,10 +65,15 @@ export function compileAsm(source, haltOnError = false, baseAddr = 0x8048078)
         }
     }
 
-    /* I guess this would be the "second pass", although we don't actually go through
-    the source code again; we're just resolving all the label references. */
-    instr = instrHead;
-    currIndex = baseAddr; line = instrHead.newlines + 1;
+    secondPass(instrHead);
+    return instrHead;
+}
+
+/* Run the second pass (label resolution) on the instruction list */
+export function secondPass(instrHead)
+{
+    let instr = instrHead, currIndex = baseAddr, line = instrHead.newlines + 1, resizeChange;
+
     while(instr = instr.next)
     {
         currIndex += instr.length;
@@ -94,7 +101,5 @@ export function compileAsm(source, haltOnError = false, baseAddr = 0x8048078)
         }
         line += instr.newlines;
     }
-
     instrHead.total = currIndex - baseAddr;
-    return instrHead;
 }
