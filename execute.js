@@ -3,6 +3,8 @@ import child_process from "child_process";
 import { compileAsm } from "./compiler.js";
 
 let args = process.argv;
+let printSize = args[2] === "--size";
+if(printSize) args.splice(2, 1);
 if(args.length < 3)
 {
     console.error("Not enough arguments");
@@ -10,17 +12,19 @@ if(args.length < 3)
 }
 
 let code = args[2];
-let instrLines, bytes;
+let instrLines, bytes = 0;
 let outputFileName = "/tmp/code.exe";
 
 try
 {
     let results = compileAsm(code, [], true);
     bytes = results.bytes;
+    if(printSize) console.log(bytes.toString());
     instrLines = results.instructions;
 }
 catch(e)
 {
+    if(printSize) console.log('0');
     console.error(e);
     process.exit(1);
 }
