@@ -10,12 +10,14 @@ if(args.length < 3)
 }
 
 let code = args[2];
-let instr;
+let instrLines, bytes;
 let outputFileName = "/tmp/code.exe";
 
 try
 {
-    instr = compileAsm(code, true);
+    let results = compileAsm(code, [], true);
+    bytes = results.bytes;
+    instrLines = results.instructions;
 }
 catch(e)
 {
@@ -36,7 +38,7 @@ outputStream.write(Buffer.from([
       0,128,  4,  8,  0,  0,  0,  0,        0,128,  4,  8,  0,  0,  0,  0
 ]));
 
-let size = instr.total + 0x78;
+let size = bytes + 0x78;
 let sizeBuf = Buffer.from([size, size >> 8, size >> 16, size >> 24, 0, 0, 0, 0]);
 outputStream.write(sizeBuf); outputStream.write(sizeBuf); // Write the size twice
 
@@ -44,9 +46,10 @@ outputStream.write(Buffer.from([0, 16, 0, 0, 0, 0, 0, 0]))
 
 
 // Write the code
-while(instr = instr.next)
+for(let line of instrLines)
 {
-    outputStream.write(instr.bytes.slice(0, instr.length));
+    for(let instr of line)
+        outputStream.write(instr.bytes.slice(0, instr.length));
 }
 
 outputStream.on('close', () => {

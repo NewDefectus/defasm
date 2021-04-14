@@ -7,10 +7,10 @@ export var labels = new Map();
 const baseAddr = 0x8048078;
 
 // Compile Assembly from source code into machine code
-export function compileAsm(source, haltOnError = false)
+export function compileAsm(source, instructions, haltOnError = false, line = 1, doSecondPass = true)
 {
-    let opcode, instr, currIndex = baseAddr, line = 1;
-    let instrHead = { length: 0, newlines: 0, next: null, total: 0 }, instrTail = instrHead;
+    let opcode, instr, currIndex = baseAddr, currLineArr;
+    instructions[line - 1] = currLineArr = [];
 
     labels.clear(); macros.clear();
     loadCode(source);
@@ -25,7 +25,7 @@ export function compileAsm(source, haltOnError = false)
                 {
                     instr = new Directive(token.slice(1));
                     currIndex += instr.length;
-                    instrTail.next = instrTail = instr;
+                    currLineArr.push(instr);
                 }
                 else // Instruction, label or macro
                 {
@@ -45,13 +45,13 @@ export function compileAsm(source, haltOnError = false)
                         default: // Instruction
                             instr = new Instruction(opcode);
                             currIndex += instr.length;
-                            instrTail.next = instrTail = instr;
+                            currLineArr.push(instr);
                             break;
                     }
                 }
             }
 
-            if(token === '\n') instrTail.newlines++, line++;
+            if(token === '\n') instructions[line++] = currLineArr = [];
             else if(token !== ';') throw "Expected end of line";
         }
         catch(e)
@@ -61,45 +61,48 @@ export function compileAsm(source, haltOnError = false)
             if(haltOnError) throw e;
             console.warn(e);
             while(token !== '\n' && token !== ';') next();
-            if(token === '\n') instrTail.newlines++, line++;
+            if(token === '\n') instructions[line++] = currLineArr = [];
         }
     }
 
-    secondPass(instrHead);
-    return instrHead;
+    let bytes = 0;
+    if(doSecondPass) bytes = secondPass(instructions, haltOnError);
+    return { instructions, bytes };
 }
 
-/* Run the second pass (label resolution) on the instruction list */
-export function secondPass(instrHead)
+// Run the second pass (label resolution) on the instruction list
+export function secondPass(instructions, haltOnError = false)
 {
-    let instr = instrHead, currIndex = baseAddr, line = instrHead.newlines + 1, resizeChange;
+    let currIndex = baseAddr, resizeChange;
 
-    while(instr = instr.next)
+    for(let i = 0; i < instructions.length; i++)
     {
-        currIndex += instr.length;
-        if(instr.outline && !instr.skip)
+        for(let instr of instructions[i])
         {
-            resizeChange = instr.resolveLabels(labels, currIndex);
-            if(resizeChange === null) // Remove instructions that fail to recompile
+            currIndex += instr.length;
+            if(instr.outline && !instr.skip)
             {
-                let e = `Error on line ${line}: Unknown label`;
-                if(haltOnError) throw e;
-                console.warn(e);
-                instr.skip = true;
-                currIndex = baseAddr; line = instrHead.newlines + 1; instr = instrHead;
-            }
-            else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
-            {
-                // Correct all labels following this index
-                labels.forEach((index, label) => {
-                    if(index >= currIndex)
-                        labels.set(label, labels.get(label) + resizeChange);
-                });
-                // Redo the adjustments from the start
-                currIndex = baseAddr; line = instrHead.newlines + 1; instr = instrHead;
+                resizeChange = instr.resolveLabels(labels, currIndex);
+                if(resizeChange === null) // Remove instructions that fail to recompile
+                {
+                    let e = `Error on line ${i + 1}: Unknown label`;
+                    if(haltOnError) throw e;
+                    console.warn(e);
+                    instr.skip = true;
+                    currIndex = baseAddr; i = -1; break;
+                }
+                else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
+                {
+                    // Correct all labels following this index
+                    labels.forEach((index, label) => {
+                        if(index >= currIndex)
+                            labels.set(label, labels.get(label) + resizeChange);
+                    });
+                    // Redo the adjustments from the start
+                    currIndex = baseAddr; i = -1; break;
+                }
             }
         }
-        line += instr.newlines;
     }
-    instrHead.total = currIndex - baseAddr;
+    return currIndex - baseAddr;
 }

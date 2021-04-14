@@ -23,7 +23,6 @@ export function Directive(dir)
 {
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
-    this.newlines = 0;
     this.outline = null;
     this.floatPrec = 0;
 
