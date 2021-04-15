@@ -9,7 +9,7 @@ export var labels = new Map();
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true)
 {
-    let opcode, instr, currIndex = baseAddr, currLineArr = [];
+    let opcode, currLineArr = [];
 
     // Reset the macro list and add only the macros that have been defined prior to this line
     macros.clear();
@@ -36,11 +36,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
             if(token !== '\n' && token !== ';')
             {
                 if(token[0] === '.') // Assembly directive
-                {
-                    instr = new Directive(token.slice(1));
-                    currIndex += instr.length;
-                    currLineArr.push(instr);
-                }
+                    currLineArr.push(new Directive(token.slice(1)));
                 else // Instruction, label or macro
                 {
                     opcode = token;
@@ -58,9 +54,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
                             break;
                         
                         default: // Instruction
-                            instr = new Instruction(opcode);
-                            currIndex += instr.length;
-                            currLineArr.push(instr);
+                            currLineArr.push(new Instruction(opcode));
                             break;
                     }
                 }
