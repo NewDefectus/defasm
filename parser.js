@@ -5,7 +5,7 @@ export var macros = new Map();
 
 export function loadCode(code)
 {
-    srcTokens = code.matchAll(/(["'])(\\.|[^\\])*?\1|[\w.-]+|#.*|[\S\n]/g);
+    srcTokens = code.matchAll(/(["'])(\\.|[^\\\n])*?\1|[\w.-]+|#.*|[\S\n]/g);
     next = defaultNext;
 }
 
