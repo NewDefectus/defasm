@@ -85,7 +85,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
 // Run the second pass (label resolution) on the instruction list
 export function secondPass(instructions, haltOnError = false)
 {
-    let currIndex = baseAddr, resizeChange;
+    let currIndex = baseAddr, resizeChange, instrLen;
     labels.clear();
 
     for(let instrLine of instructions)
@@ -104,8 +104,11 @@ export function secondPass(instructions, haltOnError = false)
     {
         for(let instr of instructions[i])
         {
-            currIndex += instr.length;
-            if(instr.outline && !instr.skip)
+            if(instr.skip) continue;
+
+            instrLen = instr.length;
+            currIndex += instrLen;
+            if(instr.outline)
             {
                 resizeChange = instr.resolveLabels(labels, currIndex);
                 if(resizeChange === null) // Remove instructions that fail to recompile
@@ -114,9 +117,9 @@ export function secondPass(instructions, haltOnError = false)
                     if(haltOnError) throw e;
                     console.warn(e);
                     instr.skip = true;
-                    currIndex = baseAddr; i = -1; break;
+                    resizeChange = -instrLen; // The entire instruction is removed
                 }
-                else if(resizeChange !== 0) // If the label resolve caused the instruction to resize
+                if(resizeChange !== 0) // If the label resolve caused the instruction to resize
                 {
                     // Correct all labels following this index
                     labels.forEach((index, label) => {
