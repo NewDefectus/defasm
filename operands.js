@@ -163,6 +163,7 @@ export function parseImmediate(floatPrec = 0)
         {
             if(token.endsWith('d')) floatPrec = 2, value = parseFloat(token);
             else if(token.endsWith('f')) floatPrec = 1, value = parseFloat(token);
+            else if(registers[token] !== undefined) throw new ParserError("Registers must be prefixed with %");
             else // Label
             {
                 labelDependency = {name: token, pos: codePos.start};
@@ -181,7 +182,6 @@ export function parseImmediate(floatPrec = 0)
     catch(e)
     {
         if(e.pos === undefined) throw new ParserError("Couldn't parse immediate: " + e);
-        e.message = "Couldn't parse immediate: " + e.message;
         throw e;
     }
 }
