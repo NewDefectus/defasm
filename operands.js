@@ -1,4 +1,4 @@
-import { token, next, ungetToken, peekNext } from "./parser.js";
+import { token, next, ungetToken, peekNext, ParserError, codePos } from "./parser.js";
 
 export var labelDependency = null;
 export function clearLabelDependency() { labelDependency = null };
@@ -37,6 +37,8 @@ export const    PREFIX_REX = 1,
                 PREFIX_CLASHREX = 3,
                 PREFIX_ADDRSIZE = 4,
                 PREFIX_SEG = 8;
+
+var regParsePos;
 
 export function floatToInt(value, precision)
 {
@@ -84,13 +86,13 @@ export function parseRegister(expectedType = null)
         {
             reg = parseInt(next());
             if(isNaN(reg) || reg >= 8 || reg < 0 || next() != ')')
-                throw "Unknown register";
+                throw new ParserError("Unknown register");
         }
-        else ungetToken(token);
+        else ungetToken();
     }
     else if(reg === registers.rip || reg === registers.eip)
     {
-        if(expectedType == null || !expectedType.includes(OPT.IP)) throw "Can't use RIP here";
+        if(expectedType == null || !expectedType.includes(OPT.IP)) throw new ParserError("Can't use RIP here");
         type = OPT.IP;
         size = reg == registers.eip ? 32 : 64;
         reg = 0;
@@ -106,7 +108,7 @@ export function parseRegister(expectedType = null)
     {
         reg = parseInt(token.slice(1));
         if(isNaN(reg) || reg <= 0 || reg >= 16)
-            throw "Unknown register";
+            throw new ParserError("Unknown register");
         type = OPT.REG;
 
         size = suffixes[token[token.length - 1]] || 64;
@@ -125,14 +127,15 @@ export function parseRegister(expectedType = null)
             else if(token.startsWith("xmm")) reg = token.slice(3), size = 128;
             else if(token.startsWith("ymm")) reg = token.slice(3), size = 256;
             else if(token.startsWith("zmm")) reg = token.slice(3), size = 512;
-            else throw "Unknown register";
+            else throw new ParserError("Unknown register");
         }
 
-        if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max)) throw "Unknown register";
+        if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max)) throw new ParserError("Unknown register");
     }
     
-    if(expectedType !== null && expectedType.indexOf(type) < 0) throw "Invalid register";
+    if(expectedType !== null && expectedType.indexOf(type) < 0) throw new ParserError("Invalid register");
     
+    regParsePos = codePos;
     next();
     return [reg, type, size, prefs];
 }
@@ -145,7 +148,7 @@ export function parseImmediate(floatPrec = 0)
     try
     {
         if(token === '\n')
-            throw "Expected value, got none";
+            throw new ParserError("Expected value, got none");
         if(token[0] === "'" && token[token.length - 1] === "'")
         {
             let string = unescapeString(token); // Decode escape sequences
@@ -162,7 +165,7 @@ export function parseImmediate(floatPrec = 0)
             else if(token.endsWith('f')) floatPrec = 1, value = parseFloat(token);
             else // Label
             {
-                labelDependency = token;
+                labelDependency = {name: token, pos: codePos.start};
                 next();
                 return 1n; // Default to 1 on first pass
             }
@@ -177,7 +180,9 @@ export function parseImmediate(floatPrec = 0)
     }
     catch(e)
     {
-        throw "Couldn't parse immediate: " + e;
+        if(e.pos === undefined) throw new ParserError("Couldn't parse immediate: " + e);
+        e.message = "Couldn't parse immediate: " + e.message;
+        throw e;
     }
 }
 
@@ -191,6 +196,8 @@ export function Operand()
     this.size = NaN;
     this.prefs = 0;
 
+    this.startPos = codePos;
+
     if(token === '%') // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
@@ -198,7 +205,7 @@ export function Operand()
     else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
         if(token === '$') this.absLabel = true;
-        else ungetToken(token);
+        else ungetToken();
         this.value = parseImmediate();
         this.type = OPT.IMM;
     }
@@ -208,11 +215,11 @@ export function Operand()
         this.absLabel = true;
         if(token !== '(')
         {
-            ungetToken(token);
+            ungetToken();
             this.value = parseImmediate();
         }
 
-        if(token !== '(') throw "Invalid operand";
+        if(token !== '(') throw new ParserError("Immediates must be prefixed with $", this.startPos);
 
 
         let tempSize, tempType;
@@ -220,9 +227,9 @@ export function Operand()
         {
             if(token !== ',') // For addresses that look like (<number>)
             {
-                ungetToken(token);
+                ungetToken();
                 this.value = parseImmediate();
-                if(token !== ')') throw "Expected ')'";
+                if(token !== ')') throw new ParserError("Expected ')'");
                 next();
                 return;
             }
@@ -237,41 +244,42 @@ export function Operand()
         if(tempType === OPT.VEC)
         {
             this.type = OPT.VMEM; this.size = tempSize;
-            if(tempSize < 128) throw "Invalid register size";
+            if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
             this.reg2 = this.reg;
             this.reg = -1;
         }
         else
         {
             if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-            else if(tempSize !== 64) throw "Invalid register size";
+            else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
             if(tempType === OPT.IP) this.ripRelative = true, this.absLabel = false;
             else if(token === ',')
             {
-                if(next() !== '%') throw "Expected register";
+                if(next() !== '%') throw new ParserError("Expected register");
                 [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
                 if(tempType === OPT.VEC)
                 {
                     this.type = OPT.VMEM; this.size = tempSize;
-                    if(tempSize < 128) throw "Invalid register size";
+                    if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
                 }
                 else
                 {
-                    if(this.reg2 === 4) throw "Memory index cannot be RSP";
+                    if(this.reg2 === 4) throw new ParserError("Memory index cannot be RSP", regParsePos);
                     if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-                    else if(tempSize !== 64) throw "Invalid register size";
+                    else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
                 }
 
                 if(token === ',')
                 {
-                    this.shift = [1, 2, 4, 8].indexOf(Number(parseImmediate()));
-                    if(this.shift < 0) throw "Scale must be 1, 2, 4, or 8";
+                    this.shift = "1248".indexOf(next());
+                    if(this.shift < 0) throw new ParserError("Scale must be 1, 2, 4, or 8");
+                    next();
                 }
             }
             else if(this.reg === 4) this.reg2 = 4;
         }
         if((this.reg & 7) === 5) this.value = this.value || 0n; 
-        if(token !== ')') throw "Expected ')'";
+        if(token !== ')') throw new ParserError("Expected ')'");
         next();
     }
 }

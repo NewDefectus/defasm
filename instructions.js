@@ -1,7 +1,7 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency } from "./operands.js";
-import { token, next, ungetToken, setToken } from "./parser.js";
+import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
 
@@ -14,9 +14,10 @@ export const prefixes = {
     repz: 0xF3
 };
 
-export function Instruction(opcode)
+export function Instruction(opcode, opcodePos)
 {
     this.opcode = opcode;
+    this.opcodePos = opcodePos;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
 
@@ -59,7 +60,7 @@ Instruction.prototype.interpret = function()
     if(prefixes.hasOwnProperty(opcode))
     {
         this.genByte(prefixes[opcode]);
-        ungetToken(token);
+        ungetToken();
         setToken(';');
         return;
     }
@@ -75,8 +76,13 @@ Instruction.prototype.interpret = function()
         {
             enforcedSize = suffixes[opcode[opcode.length - 1]];
             opcode = opcode.slice(0, -1);
-            if(!mnemonics.hasOwnProperty(opcode)) throw "Unknown opcode";
-            if(enforcedSize === undefined) throw "Invalid opcode suffix";
+            if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
+            if(enforcedSize === undefined)
+            {
+                this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
+                this.opcodePos.length = 1;
+                throw new ParserError("Invalid opcode suffix", this.opcodePos);
+            }
         }
     }
 
@@ -100,8 +106,8 @@ Instruction.prototype.interpret = function()
     {
         vexInfo.evex = true;
         vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
-        if(vexInfo.round < 0) throw "Invalid rounding mode";
-        if(next() !== '}') throw "Expected '}'";
+        if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode");
+        if(next() !== '}') throw new ParserError("Expected '}'");
         if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
     }
 
@@ -112,12 +118,12 @@ Instruction.prototype.interpret = function()
         if(token === ':') // Segment specification for addressing
         {
             if(operand.type !== OPT.SEG)
-                throw "Incorrect prefix";
+                throw new ParserError("Incorrect prefix");
             prefsToGen |= (operand.reg + 1) << 3;
             next();
             operand = new Operand();
             if(operand.type !== OPT.MEM)
-                throw "Segment prefix must be followed by memory reference";
+                throw new ParserError("Segment prefix must be followed by memory reference");
         }
 
         if(labelDependency !== null)
@@ -139,18 +145,18 @@ Instruction.prototype.interpret = function()
             if(next() === '%') // Opmask
             {
                 vexInfo.mask = parseRegister([OPT.MASK])[0];
-                if((vexInfo.mask & 7) === 0) throw "Can't use %k0 as writemask";
+                if((vexInfo.mask & 7) === 0) throw new ParserError("Can't use %k0 as writemask");
             }
             else if(token === 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
             else if(operand.type === OPT.MEM)
             {
                 vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
-                if(vexInfo.broadcast < 0) throw "Invalid broadcast mode";
+                if(vexInfo.broadcast < 0) throw new ParserError("Invalid broadcast mode");
                 next();
             }
-            else throw "Invalid decorator";
+            else throw new ParserError("Invalid decorator");
             
-            if(token !== '}') throw "Expected '}'";
+            if(token !== '}') throw new ParserError("Expected '}'");
             next();
         }
 
@@ -158,9 +164,10 @@ Instruction.prototype.interpret = function()
         next();
     }
 
-    if(usesMemory && vexInfo.round !== null) throw "Embedded rounding can only be used on reg-reg";
+    if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg");
 
     this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
+    this.endPos = codePos;
     this.compile();
     if(!needsRecompilation) this.outline = undefined;
 }
@@ -193,7 +200,10 @@ Instruction.prototype.compile = function()
         }
     }
 
-    if(!found) throw "Invalid operands";
+    if(!found)
+    {
+        throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, codePos);
+    }
 
     if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
@@ -207,7 +217,7 @@ Instruction.prototype.compile = function()
     }
 
     // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-    if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw "Can't encode high 8-bit register";
+    if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
     let opcode = op.opcode;
 
     // Time to generate!
@@ -330,14 +340,31 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
     {
         if(op.labelDependency !== undefined)
         {
-            if(!labels.has(op.labelDependency)) return null;
-            op.value = BigInt(labels.get(op.labelDependency) - (op.absLabel ? 0 : currIndex));
+            if(!labels.has(op.labelDependency.name))
+                return {
+                    succcess: false,
+                    error: {
+                        message: `Unknown label "${op.labelDependency.name}"`,
+                        pos: op.labelDependency.pos,
+                        length: op.labelDependency.name.length
+                    }
+                };
+            op.value = BigInt(labels.get(op.labelDependency.name) - (op.absLabel ? 0 : currIndex));
         }
     }
     try { this.compile(); }
-    catch(e) { return null; }
+    catch(e)
+    {
+        return {
+            succcess: false,
+            error: e
+        };
+    }
     
-    return this.length - initialLength;
+    return {
+        success: true,
+        length: this.length - initialLength
+    };
 }
 
 

@@ -1,4 +1,4 @@
-import { token, next, ungetToken } from "./parser.js";
+import { token, next, ungetToken, ParserError } from "./parser.js";
 import { clearLabelDependency, floatToInt, labelDependency, parseImmediate, unescapeString } from "./operands.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
@@ -30,7 +30,7 @@ export function Directive(dir)
 
     try
     {
-        if(!dirs.hasOwnProperty(dir)) throw "Unknown directive";
+        if(!dirs.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
         switch(dirs[dir])
         {
             case dirs.byte:     this.compileValues(1); break;
@@ -57,7 +57,7 @@ export function Directive(dir)
                         this.bytes = temp;
                         this.length = temp.length;
                     }
-                    else throw "Expected string";
+                    else throw new ParserError("Expected string");
                 } while(next() === ',');
                 break;
         }
@@ -79,11 +79,11 @@ Directive.prototype.compileValues = function(valSize)
             absLabel = false;
             clearLabelDependency();
             if(next() === '$') absLabel = true;
-            else ungetToken(token);
+            else ungetToken();
             value = parseImmediate(this.floatPrec);
             if(labelDependency !== null)
             {
-                value = { name: labelDependency, absLabel: absLabel };
+                value = { labelDependency: labelDependency, absLabel: absLabel };
                 needsRecompilation = true;
                 this.genValue(1n);
             }
@@ -111,21 +111,32 @@ Directive.prototype.resolveLabels = function(labels, index)
         op = this.outline[i];
         if(typeof op === "object")
         {
-            if(!labels.has(op.name))
+            if(!labels.has(op.labelDependency.name))
             {
-                if(i === 0) return null;
+                if(i === 0)
+                    return {
+                        succcess: false,
+                        error: {
+                            message: `Unknown label "${op.labelDependency.name}"`,
+                            pos: op.labelDependency.pos,
+                            length: op.labelDependency.name.length
+                        }
+                    };
                 this.outline = this.outline.slice(0, i);
                 i = -1;
                 this.length = 0;
                 continue;
             }
             this.genValue(floatToInt(
-                BigInt(labels.get(op.name) - (op.absLabel ? 0 : index + i * this.valSize)),
+                BigInt(labels.get(op.labelDependency.name) - (op.absLabel ? 0 : index + i * this.valSize)),
                 this.floatPrec));
         }
         else this.genValue(op);
     }
-    return this.length - initialLength;
+    return {
+        success: true,
+        length: this.length - initialLength
+    };
 }
 
 Directive.prototype.genValue = function(value)
