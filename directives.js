@@ -113,14 +113,15 @@ Directive.prototype.resolveLabels = function(labels, index)
         {
             if(!labels.has(op.labelDependency.name))
             {
+                this.error = {
+                    message: `Unknown label "${op.labelDependency.name}"`,
+                    pos: op.labelDependency.pos,
+                    length: op.labelDependency.name.length
+                };
                 if(i === 0)
                     return {
-                        succcess: false,
-                        error: {
-                            message: `Unknown label "${op.labelDependency.name}"`,
-                            pos: op.labelDependency.pos,
-                            length: op.labelDependency.name.length
-                        }
+                        success: false,
+                        error: this.error
                     };
                 this.outline = this.outline.slice(0, i);
                 i = -1;

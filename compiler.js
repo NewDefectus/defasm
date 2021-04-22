@@ -120,6 +120,7 @@ export function secondPass(instructions, haltOnError = false)
                     if(haltOnError) throw `Error on line ${i + 1}: Unknown label`;
                     instr.error = resizeChange.error;
                     instr.skip = true;
+                    instr.length = 0;
                     resizeChange.length = -instrLen; // The entire instruction is removed
                 }
                 if(resizeChange.length !== 0) // If the label resolve caused the instruction to resize

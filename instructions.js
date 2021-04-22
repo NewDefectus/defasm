@@ -342,7 +342,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         {
             if(!labels.has(op.labelDependency.name))
                 return {
-                    succcess: false,
+                    success: false,
                     error: {
                         message: `Unknown label "${op.labelDependency.name}"`,
                         pos: op.labelDependency.pos,
@@ -356,7 +356,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
     catch(e)
     {
         return {
-            succcess: false,
+            success: false,
             error: e
         };
     }
