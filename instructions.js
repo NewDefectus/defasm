@@ -1,6 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency, regParsePos } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
@@ -106,6 +106,7 @@ Instruction.prototype.interpret = function()
     {
         vexInfo.evex = true;
         vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
+        vexInfo.roundingPos = codePos;
         if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode");
         if(next() !== '}') throw new ParserError("Expected '}'");
         if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
@@ -145,13 +146,14 @@ Instruction.prototype.interpret = function()
             if(next() === '%') // Opmask
             {
                 vexInfo.mask = parseRegister([OPT.MASK])[0];
-                if((vexInfo.mask & 7) === 0) throw new ParserError("Can't use %k0 as writemask");
+                if((vexInfo.mask & 7) === 0) throw new ParserError("Can't use %k0 as writemask", regParsePos);
             }
             else if(token === 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
             else if(operand.type === OPT.MEM)
             {
                 vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
                 if(vexInfo.broadcast < 0) throw new ParserError("Invalid broadcast mode");
+                vexInfo.broadcastPos = codePos;
                 next();
             }
             else throw new ParserError("Invalid decorator");
@@ -164,7 +166,7 @@ Instruction.prototype.interpret = function()
         next();
     }
 
-    if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg");
+    if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
     this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
     this.endPos = codePos;

@@ -38,7 +38,7 @@ export const    PREFIX_REX = 1,
                 PREFIX_ADDRSIZE = 4,
                 PREFIX_SEG = 8;
 
-var regParsePos;
+export var regParsePos;
 
 export function floatToInt(value, precision)
 {
@@ -201,6 +201,7 @@ export function Operand()
     if(token === '%') // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
+        this.endPos = regParsePos;
     }
     else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
     {

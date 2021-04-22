@@ -470,7 +470,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
                 if(operand.reg >= 16) vex |= 0x80000; // EVEX.V'
             }
             else reg = operand;
-            if(operand.type === OPT.VEC && operand.size === 64 && vexInfo.needed) throw new ParserError("Can't encode MMX with VEX prefix");
+            if(operand.type === OPT.VEC && operand.size === 64 && vexInfo.needed) throw new ParserError("Can't encode MMX with VEX prefix", operand.endPos);
         }
 
         // Overall size represents the highest non-implicitly encoded size
@@ -529,7 +529,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
             if(vexInfo.zeroing) vex |= 0x800000; // EVEX.z
             if(vexInfo.round !== null)
             {
-                if(overallSize !== this.maxSize) throw new ParserError("Invalid vector size for embedded rounding");
+                if(overallSize !== this.maxSize) throw new ParserError("Invalid vector size for embedded rounding", vexInfo.roundingPos);
                 if(vexInfo.round > 0) vexInfo.round--;
                 vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
             }
@@ -541,7 +541,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
                 if(vexInfo.broadcast !== null)
                 {
                     if(this.evexPermits & EVEXPERM_BROADCAST_32) sizeId++;
-                    if(vexInfo.broadcast !== sizeId) throw new ParserError("Invalid broadcast");
+                    if(vexInfo.broadcast !== sizeId) throw new ParserError("Invalid broadcast", vexInfo.broadcastPos);
                     vex |= 0x100000; // EVEX.b
                 }
             }
@@ -552,7 +552,12 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         }
         else if(overallSize === 256) vex |= 0x400;
     }
-    else if(overallSize > 128) throw new ParserError("YMM/ZMM registers can't be encoded without VEX");
+    else if(overallSize > 128)
+    {
+        let reg;
+        for(reg of operands) if(reg.size > 128 && reg.endPos) break;
+        throw new ParserError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
+    }
 
     if(adjustByteOp) correctedOpcode += this.opDiff;
 
