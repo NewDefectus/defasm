@@ -2,7 +2,7 @@ import { token, next, match, loadCode, macros, ParserError, codePos } from "./pa
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
-const baseAddr = 0x8048078;
+export const baseAddr = 0x8048078;
 
 export var labels = new Map();
 
