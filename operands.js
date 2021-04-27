@@ -38,7 +38,7 @@ export var regParsePos;
 
 export function parseRegister(expectedType = null)
 {
-    let reg = registers[next()];
+    let reg = registers[next().toLowerCase()];
     let size = 0, type = -1, prefs = 0;
     if(reg >= registers.al && reg <= registers.rdi)
     {

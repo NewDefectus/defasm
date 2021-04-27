@@ -55,7 +55,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
                             break;
                         
                         default: // Instruction
-                            currLineArr.push(new Instruction(opcode, pos));
+                            currLineArr.push(new Instruction(opcode.toLowerCase(), pos));
                             break;
                     }
                 }
