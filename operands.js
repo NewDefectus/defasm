@@ -1,5 +1,5 @@
 import { token, next, ungetToken, peekNext, ParserError, codePos } from "./parser.js";
-import { evaluate, parseExpression } from "./shuntingYard.js";
+import { evaluate, parseExpression, unaries } from "./shuntingYard.js";
 
 // Operand types
 export const OPT = {
@@ -145,7 +145,7 @@ export function Operand()
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
         this.endPos = regParsePos;
     }
-    else if(token === '$' || (isNaN(token) && token !== '(' && peekNext() !== '('))// Immediate
+    else if(token === '$' || (isNaN(token) && !unaries.hasOwnProperty(token) && token !== '(' && peekNext() !== '('))// Immediate
     {
         if(token === '$') this.absLabel = true;
         else ungetToken();

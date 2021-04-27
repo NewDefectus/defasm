@@ -1,14 +1,14 @@
 import { registers } from "./operands.js";
 import { codePos, next, ParserError, token } from "./parser.js";
 
-var unaries = {
+export var unaries = {
     '+': a=>a, // BigInts don't like this operator, so we just ignore it
     '-': a=>-a,
     '!': a=>!a,
     '~': a=>~a
 };
 
-var operators = [
+export var operators = [
     {
         '*': (a,b)=>a*b,
         '/': (a,b)=>a/b,
