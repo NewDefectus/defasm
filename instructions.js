@@ -201,7 +201,7 @@ Instruction.prototype.compile = function()
 
     if(!found)
     {
-        throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, codePos);
+        throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
 
     if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
