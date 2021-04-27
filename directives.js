@@ -1,5 +1,5 @@
 import { token, next, ungetToken, ParserError } from "./parser.js";
-import { clearLabelDependency, floatToInt, labelDependency, parseImmediate, unescapeString } from "./operands.js";
+import { parseExpression, evaluate, unescapeString } from "./shuntingYard.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -71,27 +71,21 @@ export function Directive(dir)
 Directive.prototype.compileValues = function(valSize)
 {
     this.valSize = valSize;
-    let value, needsRecompilation = false, absLabel = false;
+    let value, expression, needsRecompilation = false, absLabel = false;
     this.outline = [];
     try {
         do
         {
             absLabel = false;
-            clearLabelDependency();
             if(next() === '$') absLabel = true;
             else ungetToken();
-            value = parseImmediate(this.floatPrec);
-            if(labelDependency !== null)
-            {
-                value = { labelDependency: labelDependency, absLabel: absLabel };
+            expression = parseExpression(this.floatPrec);
+            value = evaluate(expression, null, 0);
+            if(expression.hasLabelDependency)
                 needsRecompilation = true;
-                this.genValue(1n);
-            }
-            else
-            {
-                this.genValue(value);
-            }
-            this.outline.push(value);
+
+            this.outline.push({value: value, expression: expression});
+            this.genValue(value);
         } while(token === ',');
     }
     finally
@@ -109,30 +103,24 @@ Directive.prototype.resolveLabels = function(labels, index)
     for(let i = 0; i < this.outline.length; i++)
     {
         op = this.outline[i];
-        if(typeof op === "object")
+        try
         {
-            if(!labels.has(op.labelDependency.name))
-            {
-                this.error = {
-                    message: `Unknown label "${op.labelDependency.name}"`,
-                    pos: op.labelDependency.pos,
-                    length: op.labelDependency.name.length
-                };
-                if(i === 0)
-                    return {
-                        success: false,
-                        error: this.error
-                    };
-                this.outline = this.outline.slice(0, i);
-                i = -1;
-                this.length = 0;
-                continue;
-            }
-            this.genValue(floatToInt(
-                BigInt(labels.get(op.labelDependency.name) - (op.absLabel ? 0 : index + i * this.valSize)),
-                this.floatPrec));
+            if(op.expression.hasLabelDependency)
+                op.value = evaluate(op.expression, labels, op.absLabel ? 0 : index + i * this.valSize, this.floatPrec);
+            this.genValue(op.value);
         }
-        else this.genValue(op);
+        catch(e)
+        {
+            this.error = e;
+            if(i === 0)
+                return {
+                    success: false,
+                    error: this.error
+                };
+            this.outline = this.outline.slice(0, i);
+            i = -1;
+            this.length = 0;
+        }
     }
     return {
         success: true,

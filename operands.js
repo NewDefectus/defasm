@@ -1,9 +1,5 @@
 import { token, next, ungetToken, peekNext, ParserError, codePos } from "./parser.js";
-
-export var labelDependency = null;
-export function clearLabelDependency() { labelDependency = null };
-
-export var unescapeString = string => string.slice(1, -1).replace("\\n", "\n").replace("\\0", "\0");
+import { evaluate, parseExpression } from "./shuntingYard.js";
 
 // Operand types
 export const OPT = {
@@ -39,14 +35,6 @@ export const    PREFIX_REX = 1,
                 PREFIX_SEG = 8;
 
 export var regParsePos;
-
-export function floatToInt(value, precision)
-{
-    if(precision === 0) return value;
-    let floatVal = precision === 1 ? new Float32Array(1) : new Float64Array(1);
-    floatVal[0] = Number(value);
-    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
-}
 
 export function parseRegister(expectedType = null)
 {
@@ -140,52 +128,6 @@ export function parseRegister(expectedType = null)
     return [reg, type, size, prefs];
 }
 
-export function parseImmediate(floatPrec = 0)
-{
-    let value = 0n;
-    next();
-    
-    try
-    {
-        if(token === '\n')
-            throw new ParserError("Expected value, got none");
-        if(token[0] === "'" && token[token.length - 1] === "'")
-        {
-            let string = unescapeString(token); // Decode escape sequences
-            // Parse as character constant
-            for(let i = 0; i < string.length; i++)
-            {
-                value <<= 8n;
-                value += BigInt(string.charCodeAt(i));
-            }
-        }
-        else if(isNaN(token))
-        {
-            if(token.endsWith('d')) floatPrec = 2, value = parseFloat(token);
-            else if(token.endsWith('f')) floatPrec = 1, value = parseFloat(token);
-            else if(registers[token] !== undefined) throw new ParserError("Registers must be prefixed with %");
-            else // Label
-            {
-                labelDependency = {name: token, pos: codePos.start};
-                next();
-                return 1n; // Default to 1 on first pass
-            }
-        }
-        else if(token.includes('.') || floatPrec) floatPrec = floatPrec || 1, value = parseFloat(token);
-        else value = BigInt(token);
-
-        if(next() === 'f') floatPrec = 1;
-        else if(token === 'd') floatPrec = 2;
-
-        return floatToInt(value, floatPrec);
-    }
-    catch(e)
-    {
-        if(e.pos === undefined) throw new ParserError("Couldn't parse immediate: " + e);
-        throw e;
-    }
-}
-
 
 export function Operand()
 {
@@ -207,7 +149,8 @@ export function Operand()
     {
         if(token === '$') this.absLabel = true;
         else ungetToken();
-        this.value = parseImmediate();
+        this.expression = parseExpression();
+        this.value = evaluate(this.expression);
         this.type = OPT.IMM;
     }
     else // Address
@@ -217,7 +160,8 @@ export function Operand()
         if(token !== '(')
         {
             ungetToken();
-            this.value = parseImmediate();
+            this.expression = parseExpression();
+            this.value = evaluate(this.expression);
         }
 
         if(token !== '(') throw new ParserError("Immediates must be prefixed with $", this.startPos);
@@ -229,7 +173,8 @@ export function Operand()
             if(token !== ',') // For addresses that look like (<number>)
             {
                 ungetToken();
-                this.value = parseImmediate();
+                this.expression = parseExpression();
+                this.value = evaluate(this.expression);
                 if(token !== ')') throw new ParserError("Expected ')'");
                 next();
                 return;

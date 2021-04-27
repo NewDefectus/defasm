@@ -1,9 +1,11 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, labelDependency, clearLabelDependency, regParsePos } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
+
+import { evaluate } from "./shuntingYard.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -54,7 +56,6 @@ Instruction.prototype.interpret = function()
     };
 
     let needsRecompilation = false, usesMemory = false;
-    clearLabelDependency();
 
     // Prefix opcodes are interpreted as instructions that end with a semicolon
     if(prefixes.hasOwnProperty(opcode))
@@ -127,12 +128,8 @@ Instruction.prototype.interpret = function()
                 throw new ParserError("Segment prefix must be followed by memory reference");
         }
 
-        if(labelDependency !== null)
-        {
+        if(operand.expression && operand.expression.hasLabelDependency)
             needsRecompilation = true;
-            operand.labelDependency = labelDependency;
-            clearLabelDependency();
-        }
 
         operands.push(operand);
         prefsToGen |= operand.prefs;
@@ -338,23 +335,15 @@ function makeVexPrefix(vex, rex, isEvex)
 Instruction.prototype.resolveLabels = function(labels, currIndex)
 {
     let initialLength = this.length;
-    for(let op of this.outline[0])
+    try
     {
-        if(op.labelDependency !== undefined)
+        for(let op of this.outline[0])
         {
-            if(!labels.has(op.labelDependency.name))
-                return {
-                    success: false,
-                    error: {
-                        message: `Unknown label "${op.labelDependency.name}"`,
-                        pos: op.labelDependency.pos,
-                        length: op.labelDependency.name.length
-                    }
-                };
-            op.value = BigInt(labels.get(op.labelDependency.name) - (op.absLabel ? 0 : currIndex));
+            if(op.expression && op.expression.hasLabelDependency)
+                op.value = evaluate(op.expression, labels, op.absLabel ? 0 : currIndex);
         }
+        this.compile();
     }
-    try { this.compile(); }
     catch(e)
     {
         return {
