@@ -2,10 +2,10 @@ import { registers } from "./operands.js";
 import { codePos, next, ParserError, token } from "./parser.js";
 
 export var unaries = {
-    '+': a=>a, // BigInts don't like this operator, so we just ignore it
+    '+': a=>a,
     '-': a=>-a,
+    '~': a=>~a,
     '!': a=>!a,
-    '~': a=>~a
 };
 
 export var operators = [
@@ -13,20 +13,30 @@ export var operators = [
         '*': (a,b)=>a*b,
         '/': (a,b)=>a/b,
         '%': (a,b)=>a%b,
+        '<<':(a,b)=>a<<b,
+        '>>':(a,b)=>a>>b,
+    },
+    {
+        '|': (a,b)=>a|b,
+        '&': (a,b)=>a&b,
+        '^': (a,b)=>a^b,
+        '!': (a,b)=>a|~b,
     },
     {
         '+': (a,b)=>a+b,
         '-': (a,b)=>a-b,
     },
     {
-        '>>':(a,b)=>a>>b,
-        '<<':(a,b)=>a<<b,
+        '==':(a,b)=>a==b?-1:0,
+        '<>':(a,b)=>a!=b?-1:0,
+        '!=':(a,b)=>a!=b?-1:0,
+        '<': (a,b)=>a<b?-1:0,
+        '>': (a,b)=>a>b?-1:0,
+        '>=':(a,b)=>a>=b?-1:0,
+        '<=':(a,b)=>a<=b?-1:0,
     },
-    {   '&': (a,b)=>a&b  },
-    {   '^': (a,b)=>a^b  },
-    {   '|': (a,b)=>a|b  },
-    {   '&&':(a,b)=>a&&b },
-    {   '||':(a,b)=>a||b },
+    {   '&&':(a,b)=>a&&b?1:0 },
+    {   '||':(a,b)=>a||b?1:0 },
 ];
 
 for(let i = 0; i < operators.length; i++)
@@ -108,7 +118,7 @@ export function parseExpression(minFloatPrec = 0)
     {
         if(!lastWasNum && unaries.hasOwnProperty(token)) // Unary operator
         {
-            stack.push({pos: codePos, func: unaries[token]});
+            stack.push({pos: codePos, func: unaries[token], prec: -1});
             next();
         }
         else if(operators.hasOwnProperty(token)) // Operator
