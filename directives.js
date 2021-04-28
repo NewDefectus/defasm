@@ -10,13 +10,18 @@ const encoder = new TextEncoder();
 export const dirs = {
     byte:   1,
     short:  2,
+    word:   2, // .word = .short
+    hword:  2, // .hword = .short
     int:    3,
-    long:   4,
-    float:  5,
-    double: 6,
-    asciz:  7,
-    ascii:  8,
-    string: 8 // .string and .ascii are identical
+    long:   3, // .long = .int
+    quad:   4,
+    octa:   5,
+    float:  6,
+    single: 6, // .single = .float
+    double: 7,
+    asciz:  8,
+    ascii:  9,
+    string: 9 // .string = .ascii
 }
 
 export function Directive(dir)
@@ -34,9 +39,11 @@ export function Directive(dir)
         switch(dirs[dir])
         {
             case dirs.byte:     this.compileValues(1); break;
-            case dirs.short:    this.compileValues(2); break;
+            case dirs.word:     this.compileValues(2); break;
             case dirs.int:      this.compileValues(4); break;
-            case dirs.long:     this.compileValues(8); break;
+            case dirs.quad:     this.compileValues(8); break;
+            case dirs.octa:     this.compileValues(16); break;
+
 
             case dirs.float:    this.floatPrec = 1; this.compileValues(4); break;
             case dirs.double:   this.floatPrec = 2; this.compileValues(8); break;
