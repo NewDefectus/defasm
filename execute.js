@@ -2,9 +2,22 @@ import fs from "fs";
 import child_process from "child_process";
 import { compileAsm, baseAddr } from "./compiler.js";
 
+const sizeArgName = "--sizeOut=";
+
+
 let args = process.argv;
-let printSize = args[2] === "--size";
-if(printSize) args.splice(2, 1);
+let sizeOutFD = args[2].startsWith(sizeArgName) ? parseInt(args[2].slice(sizeArgName.length)) : null;
+if(sizeOutFD !== null) args.splice(2, 1);
+
+function writeSize(size)
+{
+    if(sizeOutFD !== null)
+    {
+        fs.write(sizeOutFD, size + '\n', err => err && console.warn("Error writing size:", err));
+        fs.close(sizeOutFD, err => err && console.warn("Error closing sizeOut:", err));
+    }
+}
+
 if(args.length < 3)
 {
     console.error("Not enough arguments");
@@ -19,12 +32,12 @@ try
 {
     let results = compileAsm(code, [], true);
     bytes = results.bytes;
-    if(printSize) console.log(bytes.toString());
+    writeSize(bytes);
     instrLines = results.instructions;
 }
 catch(e)
 {
-    if(printSize) console.log('0');
+    writeSize(0);
     console.error(e);
     process.exit(1);
 }
