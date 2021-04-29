@@ -1,12 +1,13 @@
 @top Program { statement }
 
 statement {
+  (
   InstructionStatement |
   DirectiveStatement |
   MacroDefinition |
   LabelDefinition |
-  Comment |
-  ";"
+  Comment
+  ) (';' | '\n')
 }
 
 
