@@ -1,9 +1,7 @@
-import { asmPlugin, asmBytes }            from "../codemirror/asmPlugin.js";
+import { asmPlugin }                      from "../codemirror/asmPlugin.js";
 import { parser }                         from "../codemirror/parser.js";
 import { LezerLanguage, LanguageSupport } from '@codemirror/language';
 import { styleTags, tags }                from '@codemirror/highlight';
-
-export { asmBytes };
 
 const assemblyLang = LezerLanguage.define({
     parser: parser.configure({

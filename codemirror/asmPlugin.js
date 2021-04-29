@@ -1,4 +1,4 @@
-import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 
 import { compileAsm, secondPass } from '../compiler.js';
 import { mnemonics }              from '../mnemonicList.js';
@@ -30,9 +30,8 @@ class AsmDumpWidget extends WidgetType {
     }
 }
 
-export var asmBytes = 0;
-
 export var asmPlugin = ViewPlugin.fromClass(class {
+    /** @param {EditorView} view */
     constructor(view) {
         this.ctx          = document.createElement('canvas').getContext('2d');
         this.ctx.font     = '16px monospace';
@@ -40,12 +39,13 @@ export var asmPlugin = ViewPlugin.fromClass(class {
         this.instrs       = [];
 
         let result = compileAsm(view.state.sliceDoc(), this.instrs);
-        asmBytes = result.bytes;
+        view['asm-bytes'] = result.bytes;
 
         this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
         this.makeAsmDecorations(view);
     }
 
+    /** @param {ViewUpdate} update */
     update(update) {
         if(!update.docChanged) return;
 
@@ -77,7 +77,7 @@ export var asmPlugin = ViewPlugin.fromClass(class {
                 }
             );
 
-            asmBytes = secondPass(this.instrs);
+            update.view['asm-bytes'] = secondPass(this.instrs);
         }
         catch(e)
         {
