@@ -1,10 +1,10 @@
 import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
 
-import { compileAsm, secondPass } from './defAsm/compiler.js';
-import { mnemonics }              from './defAsm/mnemonicList.js';
-import { registers, suffixes }    from './defAsm/operands.js';
-import { prefixes }               from './defAsm/instructions.js';
-import { dirs }                   from './defAsm/directives.js';
+import { compileAsm, secondPass } from '../compiler.js';
+import { mnemonics }              from '../mnemonicList.js';
+import { registers, suffixes }    from '../operands.js';
+import { prefixes }               from '../instructions.js';
+import { dirs }                   from '../directives.js';
 
 import * as Terms from './parser.terms.js';
 
