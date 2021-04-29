@@ -142,7 +142,7 @@ export function parseExpression(minFloatPrec = 0)
         else if(token === ')')
         {
             if(!lastWasNum)
-                throw new ParserError("Missing right operand", stack[stack.length - 1].pos);
+                throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
             while(lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
                 output.push(stack.pop());
             if(!lastOp || !lastOp.bracket) throw new ParserError("Mismatched parentheses");
@@ -165,7 +165,7 @@ export function parseExpression(minFloatPrec = 0)
     }
 
     if(!lastWasNum)
-        throw new ParserError("Missing right operand", stack[stack.length - 1].pos);
+        throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
 
     while(stack[0])
     {
