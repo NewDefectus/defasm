@@ -4,7 +4,7 @@
   "description": "Fast, lightweight JavaScript x64 assembler",
   "type": "module",
   "scripts": {
-    "build": "lezer-generator codemirror/assembly.grammar --output codemirror/parser",
+    "build": "lezer-generator codemirror/assembly.grammar --output codemirror/parser && esbuild --bundle --format=esm --outdir=. gh-pages/editor.js",
     "prepare": "npm run build"
   },
   "repository": {
@@ -22,6 +22,7 @@
     "@codemirror/language": "",
     "@codemirror/tooltip": "",
     "@codemirror/view": "",
+    "esbuild": "",
     "lezer-generator": ""
   }
 }
