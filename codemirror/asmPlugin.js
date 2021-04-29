@@ -34,15 +34,21 @@ export var asmPlugin = ViewPlugin.fromClass(class {
     /** @param {EditorView} view */
     constructor(view) {
         this.ctx          = document.createElement('canvas').getContext('2d');
-        this.ctx.font     = '16px monospace';
         this.lineWidths   = [];
         this.instrs       = [];
 
         let result = compileAsm(view.state.sliceDoc(), this.instrs);
         view['asm-bytes'] = result.bytes;
+        this.decorations = Decoration.set([]);
 
-        this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
-        this.makeAsmDecorations(view);
+        // This timeout is required to let the content DOM's style be calculated
+        setTimeout(() => {
+            this.ctx.font = window.getComputedStyle(view.contentDOM).getPropertyValue('font');
+            this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
+            this.makeAsmDecorations(view);
+            view.dispatch();
+        }, 1);
+        
     }
 
     /** @param {ViewUpdate} update */
