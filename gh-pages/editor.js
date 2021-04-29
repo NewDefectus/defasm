@@ -16,6 +16,8 @@ var editor = new EditorView({
     })
 });
 
+editor.contentDOM.setAttribute("data-gramm", "false"); // Disable Grammarly
+
 function getLastCode()
 {
     let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
