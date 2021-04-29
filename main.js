@@ -117,6 +117,7 @@ catch(e)
     console.error(e);
     process.exit(1);
 }
+if(sizeOutFD > 2) fs.close(sizeOutFD);
 
 let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
 
