@@ -1,62 +1,29 @@
-body {
-    background-color: rgb(28, 49, 49);
-    color:lightgrey
+main {
+    display: grid;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    grid-template-rows: 5em max-content;
 }
 
 h1 {
     font-family:monospace;
     font-weight:normal;
     font-size: 4.5em;
-    color:white;
+    margin: 0;
+    background-color: #eee;
 }
 
-#asmDataTable {
-    position:absolute;
-    top: 0;
-    padding-top: 5px;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    border-spacing: 0;
-    border-collapse:collapse;
-    border-style:hidden;
-    border-top: 5px solid black;
+body {
+    margin :0;
 }
 
 #inputAreaContainer {
-    background-color: rgb(0, 41, 41);
-}
-#outputArea {
-    background-color: rgb(0, 37, 37);
-}
-
-#downloadButton {
-    position:fixed;
-    right: 1%;
-    float:right;
-    fill: white
-}
-
-td {
-    border: 5px solid black;
-    width: 50%;
-    height: 100%;
-    padding: 0;
-    max-width:0;
-    font-family: monospace;
-}
-
-.asmTextData {
-    display: inline-block;
     width: 100%;
-    height: 100%;
-    outline:none;
-    border:none;
-    overflow-y:hidden;
-    white-space: pre;
-    resize: none;
+    padding: 0;
+    margin: 0;
+    font-size: 1.5em;
+    border-top: 3px solid black;
 }
 
-.asmError {
-    text-decoration: underline red;
-}
+.cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }

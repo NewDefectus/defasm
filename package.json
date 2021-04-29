@@ -18,6 +18,7 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm#readme",
   "dependencies": {
+    "@codemirror/gutter": "",
     "@codemirror/highlight": "",
     "@codemirror/language": "",
     "@codemirror/tooltip": "",
