@@ -1,5 +1,5 @@
-import { asmPlugin, asmBytes }            from "../asmPlugin.js";
-import { parser }                         from "../parser.js";
+import { asmPlugin, asmBytes }            from "../codemirror/asmPlugin.js";
+import { parser }                         from "../codemirror/parser.js";
 import { LezerLanguage, LanguageSupport } from '@codemirror/language';
 import { styleTags, tags }                from '@codemirror/highlight';
 
