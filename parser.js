@@ -3,22 +3,23 @@ export var match;
 export var token;
 export var macros = new Map();
 export var codePos;
-var startPos = 0;
+var lastLineIndex = 0;
 
 var prevCodePos;
 
-export function loadCode(code, pos = 0)
+export function loadCode(code)
 {
     srcTokens = code.matchAll(/(["'])(\\.|[^\\\n])*?\1|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
     next = defaultNext;
-    startPos = pos;
-    prevCodePos = codePos = {start: startPos, length: 0};
+    lastLineIndex = 0;
+    prevCodePos = codePos = {start: 0, length: 0};
 }
 
 var defaultNext = () =>
     token = (match = srcTokens.next()).done ? '\n' :
     (prevCodePos = codePos,
-    codePos = {start: match.value.index + startPos, length: match.value[0].length},
+    codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
+    match.value[0] === '\n' && (lastLineIndex = match.value.index + 1),
     macros.has(match.value[0])) ?
         (insertTokens(macros.get(match.value[0])), next())
     :  match.value[0][0] === '#' ? next() : match.value[0];

@@ -7,7 +7,7 @@ export const baseAddr = 0x8048078;
 export var labels = new Map();
 
 // Compile Assembly from source code into machine code
-export function compileAsm(source, instructions, haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true, startPos = 0)
+export function compileAsm(source, instructions, haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true)
 {
     let opcode, currLineArr = [], pos;
 
@@ -27,7 +27,7 @@ export function compileAsm(source, instructions, haltOnError = false, line = 1, 
         for(let instr of removed)
             if(instr.macroName) throw "Macro edited, must recompile";
 
-    loadCode(source, startPos);
+    loadCode(source);
 
     while(next(), !match.done)
     {
