@@ -10,12 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger GitHub pages rebuild
-      - uses: actions/checkout@v2
-      - uses: actions/setup-node@v2
-        with:
-          node-version: 12
-      - run: npm run build
-      - run: |
+        run: |
           curl --fail --request POST \
             --url https://api.github.com/repos/${{ github.repository }}/pages/builds \
             --header "Authorization: Bearer $USER_TOKEN"
