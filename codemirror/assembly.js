@@ -1,4 +1,4 @@
-import { asmPlugin }                      from "../codemirror/asmPlugin.js";
+import { asmHover, asmPlugin }            from "../codemirror/asmPlugin.js";
 import { parser }                         from "../codemirror/parser.js";
 import { LezerLanguage, LanguageSupport } from '@codemirror/language';
 import { styleTags, tags }                from '@codemirror/highlight';
@@ -30,9 +30,26 @@ const asmTheme = EditorView.baseTheme({
     },
     '.cm-asm-error': {
         textDecoration: "underline red"
+    },
+    '.cm-asm-error-tooltip': {
+        fontFamily: "monospace",
+        color: "#eee",
+        backgroundColor: "black",
+        borderRadius: ".25em",
+        padding: ".1em .25em",
+        "&:before": {
+            position: "absolute",
+            content: '""',
+            left: ".3em",
+            marginLeft: "-.1em",
+            bottom: "-.3em",
+            borderLeft: ".3em solid transparent",
+            borderRight: ".3em solid transparent",
+            borderTop: ".3em solid black"
+        }
     }
 });
 
 export function assembly() {
-    return new LanguageSupport(assemblyLang, [asmPlugin, asmTheme]);
+    return new LanguageSupport(assemblyLang, [asmPlugin, asmTheme, asmHover]);
 }

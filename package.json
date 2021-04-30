@@ -20,6 +20,7 @@
   "dependencies": {
     "@codemirror/highlight": "",
     "@codemirror/language": "",
+    "@codemirror/tooltip": "",
     "@codemirror/view": "",
     "lezer-generator": ""
   }

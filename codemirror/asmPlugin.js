@@ -1,4 +1,5 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
+import { hoverTooltip }                                               from '@codemirror/tooltip';
 
 import { compileAsm, secondPass } from '../compiler.js';
 import { mnemonics }              from '../mnemonicList.js';
@@ -30,7 +31,30 @@ class AsmDumpWidget extends WidgetType {
     }
 }
 
-export var asmPlugin = ViewPlugin.fromClass(class {
+export const asmHover = hoverTooltip((view, pos, side) => {
+    for(let err of view['asm-errors'])
+    {
+        if(err.from <= pos && err.to >= pos)
+        {
+            let text = err.value.message;
+            return {
+                pos: err.from,
+                end: err.to,
+                above: true,
+                create: view => {
+                    let dom = document.createElement('div');
+                    dom.textContent = text;
+                    dom.className = 'cm-asm-error-tooltip';
+                    return {dom: dom};
+                }
+            }
+        }
+    }
+
+    return null;
+});
+
+export const asmPlugin = ViewPlugin.fromClass(class {
     /** @param {EditorView} view */
     constructor(view) {
         this.ctx          = document.createElement('canvas').getContext('2d');
@@ -113,6 +137,8 @@ export var asmPlugin = ViewPlugin.fromClass(class {
         let widgets   = [];
         let hasData;
 
+        view['asm-errors'] = [];
+
         for(let i = 0; i < this.instrs.length; i++) {
             if(this.instrs[i].length == 0) continue;
 
@@ -122,11 +148,13 @@ export var asmPlugin = ViewPlugin.fromClass(class {
                 if(error)
                 {
                     let errorMark = Decoration.mark({
-                        attributes: { "data-tooltip": error.message },
-                        class: 'cm-asm-error',
+                        class: 'cm-asm-error'
                     });
+                    errorMark.message = error.message;
                     let errorPos = view.state.doc.line(i + 1).from + error.pos;
-                    widgets.push(errorMark.range(errorPos, errorPos + error.length));
+                    let errRange = errorMark.range(errorPos, errorPos + error.length);
+                    widgets.push(errRange);
+                    view['asm-errors'].push(errRange);
                 }
                 if(x.length > 0)
                     hasData = true;
