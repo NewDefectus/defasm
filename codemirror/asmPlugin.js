@@ -79,7 +79,7 @@ export var asmPlugin = ViewPlugin.fromClass(class {
                     let line = doc.lineAt(fromB);
                     fromB = line.from;
                     toB = doc.lineAt(toB).to;
-                    compileAsm(state.sliceDoc(fromB, toB), this.instrs, false, line.number, removedLines, false, fromB);
+                    compileAsm(state.sliceDoc(fromB, toB), this.instrs, false, line.number, removedLines, false);
                 }
             );
 
@@ -125,7 +125,8 @@ export var asmPlugin = ViewPlugin.fromClass(class {
                         attributes: { "data-tooltip": error.message },
                         class: 'cm-asm-error',
                     });
-                    widgets.push(errorMark.range(error.pos, error.pos + error.length));
+                    let errorPos = view.state.doc.line(i + 1).from + error.pos;
+                    widgets.push(errorMark.range(errorPos, errorPos + error.length));
                 }
                 if(x.length > 0)
                     hasData = true;
