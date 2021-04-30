@@ -125,7 +125,8 @@ export var asmPlugin = ViewPlugin.fromClass(class {
                         attributes: { "data-tooltip": error.message },
                         class: 'cm-asm-error',
                     });
-                    widgets.push(errorMark.range(error.pos, error.pos + error.length));
+                    let errorPos = view.state.doc.line(i + 1).from + error.pos;
+                    widgets.push(errorMark.range(errorPos, errorPos + error.length));
                 }
                 if(x.length > 0)
                     hasData = true;
