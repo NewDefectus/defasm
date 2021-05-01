@@ -110,7 +110,7 @@ function parseNumber(asFloat = false)
 
 
 
-export function parseExpression(minFloatPrec = 0)
+export function parseExpression(minFloatPrec = 0, inBrackets = false)
 {
     let output = [], stack = [], lastOp, lastWasNum = false, hasLabelDependency = false;
     next();
@@ -145,7 +145,11 @@ export function parseExpression(minFloatPrec = 0)
                 throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
             while(lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
                 output.push(stack.pop());
-            if(!lastOp || !lastOp.bracket) throw new ParserError("Mismatched parentheses");
+            if(!lastOp || !lastOp.bracket)
+            {
+                if(inBrackets) break;
+                throw new ParserError("Mismatched parentheses");
+            }
             stack.pop();
             lastWasNum = true;
             next();

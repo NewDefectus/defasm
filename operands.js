@@ -173,7 +173,7 @@ export function Operand()
             if(token !== ',') // For addresses that look like (<number>)
             {
                 ungetToken();
-                this.expression = parseExpression();
+                this.expression = parseExpression(0, true);
                 this.value = evaluate(this.expression);
                 if(token !== ')') throw new ParserError("Expected ')'");
                 next();
