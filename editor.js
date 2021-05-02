@@ -8339,7 +8339,7 @@ function parseExpression(minFloatPrec = 0, inBrackets = false) {
   if (!lastWasNum)
     throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
   while (stack[0]) {
-    if (stack[stack.length - 1].func === null)
+    if (stack[stack.length - 1].bracket)
       throw new ParserError("Mismatched parentheses", stack[stack.length - 1].pos);
     output.push(stack.pop());
   }
@@ -14479,3 +14479,4 @@ function getLastCode() {
     return decodeURIComponent(prevCode.slice(5));
   return "";
 }
+//# sourceMappingURL=editor.js.map
