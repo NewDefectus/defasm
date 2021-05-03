@@ -173,7 +173,7 @@ export function parseExpression(minFloatPrec = 0, inBrackets = false)
 
     while(stack[0])
     {
-        if(stack[stack.length - 1].func === null)
+        if(stack[stack.length - 1].bracket)
             throw new ParserError("Mismatched parentheses", stack[stack.length - 1].pos);
         output.push(stack.pop());
     }
