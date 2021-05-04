@@ -106,7 +106,7 @@ let instrLines, bytes = 0;
 
 try
 {
-    let results = compileAsm(code, [], true);
+    let results = compileAsm(code, [], { haltOnError: true });
     bytes = results.bytes;
     writeSize(bytes);
     instrLines = results.instructions;
