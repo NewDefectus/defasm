@@ -1,4 +1,4 @@
-import { assembly } from "../codemirror/assembly";
+import { assembly } from "@defasm/codemirror";
 import { EditorView } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { lineNumbers } from "@codemirror/gutter";

@@ -1,11 +1,11 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 import { hoverTooltip }                                               from '@codemirror/tooltip';
 
-import { compileAsm, secondPass } from '../compiler.js';
-import { mnemonics }              from '../mnemonicList.js';
-import { registers, suffixes }    from '../operands.js';
-import { prefixes }               from '../instructions.js';
-import { dirs }                   from '../directives.js';
+import { compileAsm, secondPass } from '@defasm/core/compiler.js';
+import { mnemonics }              from '@defasm/core/mnemonicList.js';
+import { registers, suffixes }    from '@defasm/core/operands.js';
+import { prefixes }               from '@defasm/core/instructions.js';
+import { dirs }                   from '@defasm/core/directives.js';
 
 import * as Terms from './parser.terms.js';
 

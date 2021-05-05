@@ -1,25 +1,12 @@
 {
-	"name": "defasm",
-	"version": "1.0.0",
-	"description": "Fast, lightweight JavaScript x64 assembler",
-	"main": "main.js",
-	"type": "module",
-	"repository": {
-		"type": "git",
-		"url": "git+https://github.com/NewDefectus/defAsm.git"
-	},
-	"keywords": [
-		"assembly",
-		"x86",
-		"x64"
-	],
-	"author": "Defectus",
-	"license": "ISC",
-	"bugs": {
-		"url": "https://github.com/NewDefectus/defAsm/issues"
-	},
-	"homepage": "https://github.com/NewDefectus/defAsm#readme",
-	"bin": {
-		"defasm": "./main.js"
-	}
+  "scripts": {
+    "build": "npm run build --prefix codemirror && esbuild --bundle --sourcemap --format=esm --outdir=. gh-pages/editor.js",
+    "prepare": "npm run build"
+  },
+  "dependencies": {
+    "@codemirror/gutter": "^0.18.2",
+    "@defasm/codemirror": "file:codemirror",
+    "@defasm/core": "file:core",
+    "esbuild": "^0.11.18"
+  }
 }

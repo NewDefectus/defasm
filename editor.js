@@ -1202,14 +1202,13 @@ var StateField = class {
   slot(addresses) {
     let idx = addresses[this.id] >> 1;
     return (state, tr) => {
-      if (!tr) {
+      if (!tr || tr.reconfigured && maybeIndex(tr.startState, this.id) == null) {
         state.values[idx] = this.create(state);
         return 1;
       }
       let oldVal, changed = 0;
       if (tr.reconfigured) {
-        let oldIdx = maybeIndex(tr.startState, this.id);
-        oldVal = oldIdx == null ? this.create(tr.startState) : tr.startState.values[oldIdx];
+        oldVal = tr.startState.values[maybeIndex(tr.startState, this.id)];
         changed = 1;
       } else {
         oldVal = tr.startState.values[idx];
@@ -2154,7 +2153,7 @@ var RangeSet = class {
     return build.finish();
   }
 };
-RangeSet.empty = new RangeSet([], [], null, -1);
+RangeSet.empty = /* @__PURE__ */ new RangeSet([], [], null, -1);
 RangeSet.empty.nextLayer = RangeSet.empty;
 var RangeSetBuilder = class {
   constructor() {
@@ -2431,7 +2430,7 @@ var SpanCursor = class {
     this.minActive = findMinIndex(this.active, this.activeTo);
   }
   next() {
-    let from = this.to;
+    let from = this.to, wasPoint = this.point;
     this.point = null;
     let trackOpen = this.openStart < 0 ? [] : null, trackExtra = 0;
     for (; ; ) {
@@ -2456,6 +2455,8 @@ var SpanCursor = class {
         let nextVal = this.cursor.value;
         if (!nextVal.point) {
           this.addActive(trackOpen);
+          this.cursor.next();
+        } else if (wasPoint && this.cursor.to == this.to && this.cursor.from < this.cursor.to && nextVal.endSide == this.endSide) {
           this.cursor.next();
         } else {
           this.point = nextVal;
@@ -4305,6 +4306,7 @@ var DocView = class extends ContentView {
           rawSel.addRange(range);
         }
       });
+      this.view.observer.setSelectionRange(anchor, head);
     }
     this.impreciseAnchor = anchor.precise ? null : new DOMPos(domSel.anchorNode, domSel.anchorOffset);
     this.impreciseHead = head.precise ? null : new DOMPos(domSel.focusNode, domSel.focusOffset);
@@ -6765,14 +6767,17 @@ var DOMObserver = class {
     this.ignoreSelection = new DOMSelection();
     this.delayedFlush = -1;
     this.queue = [];
+    this.lastFlush = 0;
     this.scrollTargets = [];
     this.intersection = null;
     this.intersecting = false;
+    this._selectionRange = null;
     this.parentCheck = -1;
     this.dom = view.contentDOM;
     this.observer = new MutationObserver((mutations) => {
       for (let mut of mutations)
         this.queue.push(mut);
+      this._selectionRange = null;
       if ((browser.ie && browser.ie_version <= 11 || browser.ios && view.composing) && mutations.some((m) => m.type == "childList" && m.removedNodes.length || m.type == "characterData" && m.oldValue.length > m.target.nodeValue.length))
         this.flushSoon();
       else
@@ -6787,7 +6792,6 @@ var DOMObserver = class {
         });
         this.flushSoon();
       };
-    this.updateSelectionRange();
     this.onSelectionChange = this.onSelectionChange.bind(this);
     this.start();
     this.onScroll = this.onScroll.bind(this);
@@ -6812,7 +6816,8 @@ var DOMObserver = class {
     this.onScrollChanged(e);
   }
   onSelectionChange(event) {
-    this.updateSelectionRange();
+    if (this.lastFlush < Date.now() - 50)
+      this._selectionRange = null;
     let {view} = this, sel = this.selectionRange;
     if (view.state.facet(editable) ? view.root.activeElement != this.dom : !hasSelection(view.dom, sel))
       return;
@@ -6824,11 +6829,24 @@ var DOMObserver = class {
     else
       this.flush();
   }
-  updateSelectionRange() {
-    let {root} = this.view, sel = getSelection(root);
-    if (browser.safari && root.nodeType == 11 && deepActiveElement() == this.view.contentDOM)
-      sel = safariSelectionRangeHack(this.view) || sel;
-    this.selectionRange = sel;
+  get selectionRange() {
+    if (!this._selectionRange) {
+      let {root} = this.view, sel = getSelection(root);
+      if (browser.safari && root.nodeType == 11 && deepActiveElement() == this.view.contentDOM)
+        sel = safariSelectionRangeHack(this.view) || sel;
+      this._selectionRange = sel;
+    }
+    return this._selectionRange;
+  }
+  setSelectionRange(anchor, head) {
+    var _a;
+    if (!((_a = this._selectionRange) === null || _a === void 0 ? void 0 : _a.type))
+      this._selectionRange = {
+        anchorNode: anchor.node,
+        anchorOffset: anchor.offset,
+        focusNode: head.node,
+        focusOffset: head.offset
+      };
   }
   listenForScroll() {
     this.parentCheck = -1;
@@ -6911,6 +6929,7 @@ var DOMObserver = class {
   flush() {
     if (this.delayedFlush >= 0)
       return;
+    this.lastFlush = Date.now();
     let records = this.queue;
     for (let mut of this.observer.takeRecords())
       records.push(mut);
@@ -6995,18 +7014,12 @@ function safariSelectionRangeHack(view) {
   view.contentDOM.removeEventListener("beforeinput", read, true);
   if (!found)
     return null;
+  let anchorNode = found.startContainer, anchorOffset = found.startOffset;
+  let focusNode = found.endContainer, focusOffset = found.endOffset;
   let curAnchor = view.docView.domAtPos(view.state.selection.main.anchor);
-  return isEquivalentPosition(curAnchor.node, curAnchor.offset, found.endContainer, found.endOffset) ? {
-    anchorNode: found.endContainer,
-    anchorOffset: found.endOffset,
-    focusNode: found.startContainer,
-    focusOffset: found.startOffset
-  } : {
-    anchorNode: found.startContainer,
-    anchorOffset: found.startOffset,
-    focusNode: found.endContainer,
-    focusOffset: found.endOffset
-  };
+  if (isEquivalentPosition(curAnchor.node, curAnchor.offset, focusNode, focusOffset))
+    [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
+  return {anchorNode, anchorOffset, focusNode, focusOffset};
 }
 function applyDOMChange(view, start, end, typeOver) {
   let change, newSel;
@@ -7416,6 +7429,7 @@ var EditorView = class {
       autocorrect: "off",
       autocapitalize: "off",
       contenteditable: String(this.state.facet(editable)),
+      "data-gramm": "false",
       class: "cm-content",
       style: `${browser.tabSize}: ${this.state.tabSize}`,
       role: "textbox",
@@ -7918,7 +7932,7 @@ function hoverTooltip(source, options = {}) {
   ];
 }
 
-// parser.js
+// core/parser.js
 var srcTokens;
 var match;
 var token;
@@ -7959,7 +7973,7 @@ function ParserError(message, startPos = codePos, endPos = startPos) {
   this.length = endPos.start + endPos.length - startPos.start;
 }
 
-// operands.js
+// core/operands.js
 var OPT = {
   REG: 1,
   VEC: 2,
@@ -8201,7 +8215,7 @@ function Operand() {
   }
 }
 
-// shuntingYard.js
+// core/shuntingYard.js
 var unaries = {
   "+": (a) => a,
   "-": (a) => -a,
@@ -8381,7 +8395,7 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
   return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
 }
 
-// directives.js
+// core/directives.js
 var DIRECTIVE_BUFFER_SIZE = 15;
 var encoder = new TextEncoder();
 var dirs = {
@@ -8518,7 +8532,7 @@ Directive.prototype.genValue = function(value) {
   }
 };
 
-// mnemonicList.js
+// core/mnemonicList.js
 var lines;
 var mnemonicStrings = `
 adcx:66)0F38F6 r Rlq
@@ -10041,7 +10055,7 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
   }
 })));
 
-// mnemonics.js
+// core/mnemonics.js
 var REG_MOD = -1;
 var REG_OP = -2;
 var OPC = {
@@ -10511,7 +10525,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo) {
   };
 };
 
-// instructions.js
+// core/instructions.js
 var MAX_INSTR_SIZE = 15;
 var prefixes = {
   lock: 240,
@@ -10792,10 +10806,10 @@ function inferUnsignedImmSize(value) {
   return value < 0x100n ? 8 : value < 0x10000n ? 16 : value < 0x100000000n ? 32 : 64;
 }
 
-// compiler.js
+// core/compiler.js
 var baseAddr = 134512760;
 var labels = new Map();
-function compileAsm(source, instructions, haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true) {
+function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
   let opcode, currLineArr = [], pos;
   macros.clear();
   for (let i = 1; i < line && i <= instructions.length; i++) {
@@ -10978,7 +10992,7 @@ var asmPlugin = ViewPlugin.fromClass(class {
         let line = doc2.lineAt(fromB);
         fromB = line.from;
         toB = doc2.lineAt(toB).to;
-        compileAsm(state.sliceDoc(fromB, toB), this.instrs, false, line.number, removedLines, false);
+        compileAsm(state.sliceDoc(fromB, toB), this.instrs, {line: line.number, linesRemoved: removedLines, doSecondPass: false});
       });
       update.view["asm-bytes"] = secondPass(this.instrs);
     } catch (e) {
