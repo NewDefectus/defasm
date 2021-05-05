@@ -4,8 +4,7 @@ A fast and lightweight JavaScript x86-64 assembler, for use both in browsers and
 DefAssembler is built from scratch without the use of any additional libraries, making it relatively lightweight (~100 KB) and fast.
 
 # Usage
-The main entry point of the package is `main.js` - this file provides a command-line program with which to assemble and (optionally) execute Assembly source code.
-Run `node defasm --help` for more information.
+This package exports a command-line program called `defasm`, with which you can assemble and (optionally) execute Assembly source code. Install the package globally with `npm install -g @defasm/core` and run `defasm --help` for more information.
 
 The assembler parses [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax).
 

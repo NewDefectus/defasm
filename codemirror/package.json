@@ -23,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/NewDefectus/defAsm/issues"
   },
-  "homepage": "https://github.com/NewDefectus/defAsm#readme",
+  "homepage": "https://github.com/NewDefectus/defAsm/tree/master/codemirror#readme",
   "dependencies": {
     "@codemirror/highlight": "^0.18.3",
     "@codemirror/language": "^0.18.1",

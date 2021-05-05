@@ -4,7 +4,7 @@ A [CodeMirror 6](https://codemirror.net/6/) extension which highlights Assembly 
 This package uses the [DefAssembler core package](https://www.npmjs.com/package/@defasm/core) to generate binary dumps from the Assembly code. Note that it only supports [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax).
 
 # Usage
-The package exposes the `assembly()` function, which returns a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport) object that can be added as an extension to the editor.
+The package exports the `assembly()` function, which returns a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport) object that can be added as an extension to the editor.
 
 # Live assembly
 A special feature of the assembler is the concept of "live assembly" - the ability to write code in an editor and have the binary dumps be generated and displayed in real time.
