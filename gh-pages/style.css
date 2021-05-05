@@ -1,0 +1,29 @@
+main {
+    display: grid;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    grid-template-rows: 5em max-content;
+}
+
+h1 {
+    font-family:monospace;
+    font-weight:normal;
+    font-size: 4.5em;
+    margin: 0;
+    background-color: #eee;
+}
+
+body {
+    margin :0;
+}
+
+#inputAreaContainer {
+    width: 100%;
+    padding: 0;
+    margin: 0;
+    font-size: 1.5em;
+    border-top: 3px solid black;
+}
+
+.cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }
