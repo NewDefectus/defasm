@@ -18,6 +18,7 @@
     "codemirror"
   ],
   "author": "Defectus",
+  "type": "module",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/NewDefectus/defAsm/issues"

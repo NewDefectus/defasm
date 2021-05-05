@@ -13,9 +13,13 @@
     "x64"
   ],
   "author": "Defectus",
+  "type": "module",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/NewDefectus/defAsm/issues"
   },
-  "homepage": "https://github.com/NewDefectus/defAsm#readme"
+  "homepage": "https://github.com/NewDefectus/defAsm#readme",
+  "bin": {
+    "defasm": "main.js"
+  }
 }
