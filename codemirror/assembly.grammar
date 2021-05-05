@@ -1,0 +1,49 @@
+@top Program { statement }
+
+statement {
+  (
+  InstructionStatement |
+  DirectiveStatement |
+  MacroDefinition |
+  LabelDefinition |
+  Comment
+  ) (';' | '\n')
+}
+
+
+InstructionStatement {
+  Prefix* (Opcode commaSep<Register | Immediate>)?
+}
+
+DirectiveStatement {
+  Directive commaSep<Expression | FullString>
+}
+
+@tokens {
+  word { (std.asciiLetter | std.digit)+ }
+
+  opcode { word }
+  register { '%' word }
+  directive { '.' word }
+  Comment { '#' ![\n]* }
+  LabelDefinition { word ':' }
+  MacroDefinition { word std.whitespace* "=" ![\n]* }
+  CharString { "'" (![\\\n'] | "\\" _)* "'"? }
+  FullString { '"' (![\\\n"] | "\\" _)* '"'? }
+  Number { ('0x' $[0-9a-fA-F]+) | std.digit+ | CharString }
+  Unary { '+' | '-' | '~' | '!' }
+  Operator { $[+-/*%|&^] | '||' | '&&' | '>>' | '<<' }
+  Expression { Unary* '('* (Number | word) (')'* | (Operator Expression)) }
+
+  Immediate { '$'? Expression }
+
+  @precedence { MacroDefinition, LabelDefinition, opcode }
+}
+
+commaSep<content> {
+  "" | content ("," content?)*
+}
+
+@external specialize {opcode} isOpcode from "./asmPlugin" { Opcode, Prefix }
+@external specialize {register} isRegister from "./asmPlugin" { Register }
+@external specialize {directive} isDirective from "./asmPlugin" { Directive }

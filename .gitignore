@@ -2,4 +2,3 @@
 node_modules
 codemirror/parser.js
 codemirror/parser.terms.js
-editor.js
