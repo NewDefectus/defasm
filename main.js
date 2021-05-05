@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import fs from "fs";
 import child_process from "child_process";
 import { compileAsm, baseAddr } from "./compiler.js";
