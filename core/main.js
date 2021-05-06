@@ -99,8 +99,8 @@ function writeSize(size)
 {
     if(sizeOutFD !== null)
     {
-        fs.write(sizeOutFD, size + '\n', err => err && console.warn("Error writing size:", err));
-        fs.close(sizeOutFD, err => err && console.warn("Error closing size-out:", err));
+        fs.write(sizeOutFD, size + '\n', err => err && console.warn("Failed writing to size-out"));
+        fs.close(sizeOutFD, err => err && console.warn("Failed closing size-out"));
     }
 }
 
@@ -119,8 +119,6 @@ catch(e)
     console.error(e);
     process.exit(1);
 }
-if(sizeOutFD > 2) fs.close(sizeOutFD);
-
 let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
 
 
