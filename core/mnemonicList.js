@@ -75,7 +75,7 @@ bts
 bzhi:V 0F38F5 Rlq r >R
 
 call
-E8 Il
+E8 jl
 FF.2 rQ
 
 cbtw:66)98
@@ -336,13 +336,13 @@ invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
 iret:CF -wLq
-jecxz:67)E3 Ib
+jecxz:67)E3 jb
 
 jmp
-EB-2 Ibl
+EB-2 jbl
 FF.4 rQ
 
-jrcxz:E3 Ib
+jrcxz:E3 jb
 
 kadd:Vl 0F4A ^Kbwlq >K K
 kand:Vl 0F41 ^Kbwlq >K K
@@ -383,9 +383,9 @@ lgs:0FB5 m Rwlq
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
 lods:AC -bwlq
-loop:E2 Ib
-loope:E1 Ib
-loopne:E0 Ib
+loop:E2 jb
+loope:E1 jb
+loopne:E0 jb
 
 lret
 CB
@@ -1400,7 +1400,7 @@ wrss:0F38F6 R~l~q r
 wruss:66)0F38F5 R~l~q r
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
-xbegin:C7F8 Iwl
+xbegin:C7F8 jwl
 
 xchg
 90.o R_0wlq R
@@ -1489,8 +1489,8 @@ conditionals.forEach((names, i) => {
 
     // jxx instructions
     mnemonics['j' + firstName] = [
-        hex(0x70 + i) + " Ib",
-        hex(0x0F80 + i) + " Il"
+        hex(0x70 + i) + " jb",
+        hex(0x0F80 + i) + " jl"
     ];
 
     // cmovxx instructions
