@@ -9,7 +9,7 @@ let args = process.argv.slice(2);
 let code = undefined;
 let sizeOutFD = null;
 let execute = false;
-let outputFile = 'a', inputFile = '/dev/stdin';
+let outputFile = 'a', inputFile = null;
 let coreDumpLocation = undefined;
 let runtimeArgs = [];
 
@@ -74,19 +74,23 @@ try
 
     if(!execute && coreDumpLocation !== undefined) throw "Can't use core dump without running";
 
-    try { code = fs.readFileSync(inputFile).toString(); }
-    catch(e) { throw "Couldn't read file " + inputFile; }
+    if(inputFile === null)
+    {
+        code = "";
+        process.stdin.on("data", x => code += x.toString());
+        process.stdin.on("end", assemble);
+    }
+    else
+    {
+        try { code = fs.readFileSync(inputFile).toString(); }
+        catch(e) { throw "Couldn't read file " + inputFile; }
+        assemble();
+    }
 }
 catch(e)
 {
     console.error(e);
     process.exit(1);
-}
-
-// Ensure the output path is correct
-if(outputFile[0] !== '/' && outputFile[0] !== '.')
-{
-    outputFile = './' + outputFile;
 }
 
 function writeSize(size)
@@ -98,115 +102,124 @@ function writeSize(size)
     }
 }
 
-let instrLines, bytes = 0;
-
-try
+function assemble()
 {
-    let results = compileAsm(code, [], { haltOnError: true });
-    bytes = results.bytes;
-    writeSize(bytes);
-    instrLines = results.instructions;
-}
-catch(e)
-{
-    writeSize(0);
-    console.error(e);
-    process.exit(1);
-}
-let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
+    // Ensure the output path is correct
+    if(outputFile[0] !== '/' && outputFile[0] !== '.')
+    {
+        outputFile = './' + outputFile;
+    }
+
+    let instrLines, bytes = 0;
+
+    try
+    {
+        let results = compileAsm(code, [], { haltOnError: true });
+        bytes = results.bytes;
+        writeSize(bytes);
+        instrLines = results.instructions;
+    }
+    catch(e)
+    {
+        writeSize(0);
+        console.error(e);
+        process.exit(1);
+    }
+    let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
 
 
-// Construct the ELF header
-let elfHeader = Buffer.from([
-    127, 69, 76, 70,  2,  1,  1,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-      2,  0, 62,  0,  1,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-     64,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-      0,  0,  0,  0, 64,  0, 56,  0,        1,  0,  0,  0,  0,  0,  0,  0,
-      1,  0,  0,  0,  7,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-      0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-      0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-      0, 16,  0,  0,  0,  0,  0,  0
-]);
+    // Construct the ELF header
+    let elfHeader = Buffer.from([
+        127, 69, 76, 70,  2,  1,  1,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        2,  0, 62,  0,  1,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        64,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0, 64,  0, 56,  0,        1,  0,  0,  0,  0,  0,  0,  0,
+        1,  0,  0,  0,  7,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+        0, 16,  0,  0,  0,  0,  0,  0
+    ]);
 
-elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18);
-elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x50);
-elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x58);
-let size = BigInt(bytes + 0x78);
-elfHeader.writeBigInt64LE(size, 0x60); elfHeader.writeBigInt64LE(size, 0x68); // Write the size twice
-outputStream.write(elfHeader);
-
-
-// Write the code
-for(let line of instrLines)
-{
-    for(let instr of line)
-        outputStream.write(instr.bytes.slice(0, instr.length));
-}
+    elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18);
+    elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x50);
+    elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x58);
+    let size = BigInt(bytes + 0x78);
+    elfHeader.writeBigInt64LE(size, 0x60); elfHeader.writeBigInt64LE(size, 0x68); // Write the size twice
+    outputStream.write(elfHeader);
 
 
-outputStream.on('close', () => {
-    if(!execute) process.exit();
-    let proc = child_process.execFile(outputFile, runtimeArgs);
-    process.stdin.pipe(proc.stdin);
-    proc.stderr.pipe(process.stderr);
-    proc.stdout.pipe(process.stdout);
+    // Write the code
+    for(let line of instrLines)
+    {
+        for(let instr of line)
+            outputStream.write(instr.bytes.slice(0, instr.length));
+    }
 
-    proc.on('close', (code, signal) => {
-        if(!signal)
-            process.exit(code);
-        
-        let errLine = null;
-        let pos = "on";
 
-        try
-        {
-            let data = fs.readFileSync(coreDumpLocation);
-            let lastIP = null;
+    outputStream.on('close', () => {
+        if(!execute) process.exit();
+        let proc = child_process.execFile(outputFile, runtimeArgs);
+        process.stdin.pipe(proc.stdin);
+        proc.stderr.pipe(process.stderr);
+        proc.stdout.pipe(process.stdout);
+
+        proc.on('close', (code, signal) => {
+            if(!signal)
+                process.exit(code);
             
-            let e_phoff = Number(data.readBigInt64LE(0x20));
-            let e_phentsize = data.readInt16LE(0x36);
+            let errLine = null;
+            let pos = "on";
 
-            for(let e_phnum = data.readInt16LE(0x38); e_phnum--; e_phoff += e_phentsize)
+            try
             {
-                if(data.readInt32LE(e_phoff) != 4) continue;
+                let data = fs.readFileSync(coreDumpLocation);
+                let lastIP = null;
                 
-                let p_offset = Number(data.readBigInt64LE(e_phoff + 8));
+                let e_phoff = Number(data.readBigInt64LE(0x20));
+                let e_phentsize = data.readInt16LE(0x36);
 
-                lastIP = Number(data.readBigInt64LE(252 + p_offset + Math.ceil(data.readInt32LE(p_offset) / 4) * 4));
-                break;
+                for(let e_phnum = data.readInt16LE(0x38); e_phnum--; e_phoff += e_phentsize)
+                {
+                    if(data.readInt32LE(e_phoff) != 4) continue;
+                    
+                    let p_offset = Number(data.readBigInt64LE(e_phoff + 8));
+
+                    lastIP = Number(data.readBigInt64LE(252 + p_offset + Math.ceil(data.readInt32LE(p_offset) / 4) * 4));
+                    break;
+                }
+
+                if(lastIP !== null)
+                {
+                    lastIP -= baseAddr;
+                    if(lastIP < 0) throw "";
+
+                    if(signal == "SIGTRAP") lastIP--; // Weird behavior with breakpoints
+
+                    for(errLine = 0; errLine < instrLines.length && lastIP >= 0; errLine++)
+                        instrLines[errLine].map(instr => lastIP -= instr.length);
+                    if(lastIP >= 0) pos = 'after';
+                }
             }
+            catch(e) {}
 
-            if(lastIP !== null)
-            {
-                lastIP -= baseAddr;
-                if(lastIP < 0) throw "";
-
-                if(signal == "SIGTRAP") lastIP--; // Weird behavior with breakpoints
-
-                for(errLine = 0; errLine < instrLines.length && lastIP >= 0; errLine++)
-                    instrLines[errLine].map(instr => lastIP -= instr.length);
-                if(lastIP >= 0) pos = 'after';
-            }
-        }
-        catch(e) {}
-
-        
-        signal = ({
-            SIGFPE:  'floating point error',
-            SIGILL:  'illegal instruction',
-            SIGSEGV: 'segmentation violation',
-            SIGBUS:  'bus error',
-            SIGABRT: 'abort',
-            SIGTRAP: 'breakpoint trap',
-            SIGEMT:  'emulator trap',
-            SIGSYS:  'bad system call'
-        })[signal] || signal;
-        console.warn(`Signal: ${signal}${errLine === null ? '' : ` ${pos} line ${errLine}`}`);
-        
+            
+            signal = ({
+                SIGFPE:  'floating point error',
+                SIGILL:  'illegal instruction',
+                SIGSEGV: 'segmentation violation',
+                SIGBUS:  'bus error',
+                SIGABRT: 'abort',
+                SIGTRAP: 'breakpoint trap',
+                SIGEMT:  'emulator trap',
+                SIGSYS:  'bad system call'
+            })[signal] || signal;
+            console.warn(`Signal: ${signal}${errLine === null ? '' : ` ${pos} line ${errLine}`}`);
+            
 
 
-        process.exit();
+            process.exit();
+        });
     });
-});
 
-outputStream.close();
+    outputStream.close();
+}
