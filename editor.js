@@ -10838,7 +10838,10 @@ function compileAsm(source, instructions, {haltOnError = false, line = 1, linesR
     } catch (e) {
       if (haltOnError)
         throw `Error on line ${line}: ${e.message}`;
-      currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
+      if (e.pos == null || e.length == null)
+        console.error("Error on line " + line + ":\n", e);
+      else
+        currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
       while (token !== "\n" && token !== ";")
         next();
       if (token === "\n" && !match.done)
@@ -10874,9 +10877,13 @@ function secondPass(instructions, haltOnError = false) {
       if (instr.outline) {
         resizeChange = instr.resolveLabels(labels, currIndex);
         if (!resizeChange.success) {
+          let e = resizeChange.error;
           if (haltOnError)
-            throw `Error on line ${i + 1}: Unknown label`;
-          instr.error = resizeChange.error;
+            throw `Error on line ${i + 1}: ${e}`;
+          if (e.pos == null || e.length == null)
+            console.error("Error on line " + (i + 1) + ":\n", e);
+          else
+            instr.error = e;
           instr.skip = true;
           instr.length = 0;
           resizeChange.length = -instrLen;

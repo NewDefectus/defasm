@@ -71,7 +71,10 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
         {
             // In case of an error, just skip the current instruction and go on.
             if(haltOnError) throw `Error on line ${line}: ${e.message}`;
-            currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
+            if(e.pos == null || e.length == null)
+                console.error("Error on line " + line + ":\n", e);
+            else
+                currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
             while(token !== '\n' && token !== ';') next();
             if(token === '\n' && !match.done) instructions.splice(line++, 0, currLineArr = []);
         }
@@ -117,8 +120,13 @@ export function secondPass(instructions, haltOnError = false)
                 resizeChange = instr.resolveLabels(labels, currIndex);
                 if(!resizeChange.success) // Remove instructions that fail to recompile
                 {
-                    if(haltOnError) throw `Error on line ${i + 1}: Unknown label`;
-                    instr.error = resizeChange.error;
+                    let e = resizeChange.error;
+                    if(haltOnError) throw `Error on line ${i + 1}: ${e}`;
+                    if(e.pos == null || e.length == null)
+                        console.error("Error on line " + (i + 1) + ":\n", e);
+                    else
+                        instr.error = e;
+                    
                     instr.skip = true;
                     instr.length = 0;
                     resizeChange.length = -instrLen; // The entire instruction is removed
