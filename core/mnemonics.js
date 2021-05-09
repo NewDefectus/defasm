@@ -99,7 +99,7 @@ function OpCatcher(format)
     this.carrySizeInference = format[0] !== '*';
     if(!this.carrySizeInference) format = format.slice(1);
     let opType = format[0];
-    this.acceptsMemory = "rvbkmj".includes(opType);
+    this.acceptsMemory = "rvbkm".includes(opType);
     this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];

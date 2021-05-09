@@ -140,6 +140,8 @@ export function Operand()
     this.prefs = 0;
 
     this.startPos = codePos;
+    let indirect = token === '*';
+    if(indirect) next();
 
     if(token === '%') // Register
     {
@@ -159,8 +161,11 @@ export function Operand()
         if(this.expression) this.value = evaluate(this.expression);
         if(token !== '(')
         {
-            this.type = OPT.REL;
-            this.virtualValue = this.value;
+            if(!indirect)
+            {
+                this.type = OPT.REL;
+                this.virtualValue = this.value;
+            }
             return;
         }
 

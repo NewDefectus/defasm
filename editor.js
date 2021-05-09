@@ -8123,6 +8123,9 @@ function Operand() {
   this.size = NaN;
   this.prefs = 0;
   this.startPos = codePos;
+  let indirect = token === "*";
+  if (indirect)
+    next();
   if (token === "%") {
     [this.reg, this.type, this.size, this.prefs] = parseRegister();
     this.endPos = regParsePos;
@@ -8136,8 +8139,10 @@ function Operand() {
     if (this.expression)
       this.value = evaluate(this.expression);
     if (token !== "(") {
-      this.type = OPT.REL;
-      this.virtualValue = this.value;
+      if (!indirect) {
+        this.type = OPT.REL;
+        this.virtualValue = this.value;
+      }
       return;
     }
     let tempSize, tempType;
@@ -10139,7 +10144,7 @@ function OpCatcher(format) {
   if (!this.carrySizeInference)
     format = format.slice(1);
   let opType = format[0];
-  this.acceptsMemory = "rvbkmj".includes(opType);
+  this.acceptsMemory = "rvbkm".includes(opType);
   this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
   this.unsigned = opType === "i";
   this.type = OPC[opType.toLowerCase()];
