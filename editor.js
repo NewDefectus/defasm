@@ -8369,7 +8369,7 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
         else if (!labels2.has(op.name))
           throw new ParserError(`Unknown label "${op.name}"`, op.pos);
         else
-          op = labels2.get(op.name);
+          op = labels2.get(op.name).address;
       }
       stack[len++] = op;
     }
@@ -10876,13 +10876,14 @@ function compileAsm(source, instructions, {haltOnError = false, line = 1, linesR
   return {instructions, bytes};
 }
 function secondPass(instructions, haltOnError = false) {
-  let currIndex = baseAddr, resizeChange, instrLen;
+  let currIndex = baseAddr, resizeChange, instrLen, redoChangeSize = 0;
   labels.clear();
   for (let instrLine of instructions) {
     for (let instr of instrLine) {
       currIndex += instr.length;
+      instr.address = currIndex;
       if (instr.labelName !== void 0)
-        labels.set(instr.labelName, currIndex);
+        labels.set(instr.labelName, instr);
       if (instr.skip) {
         instr.skip = false;
         instr.error = void 0;
@@ -10890,10 +10891,15 @@ function secondPass(instructions, haltOnError = false) {
     }
   }
   currIndex = baseAddr;
-  for (let i = 0; i < instructions.length; i++) {
-    for (let instr of instructions[i]) {
+  for (let i = 0; i < instructions.length || redoChangeSize && (i = redoChangeSize = 0, true); i++) {
+    for (let j = 0; j < instructions[i].length; j++) {
+      let instr = instructions[i][j];
       if (instr.skip)
         continue;
+      if (redoChangeSize !== 0) {
+        instr.address += redoChangeSize;
+        continue;
+      }
       instrLen = instr.length;
       currIndex += instrLen;
       if (instr.outline) {
@@ -10910,15 +10916,8 @@ function secondPass(instructions, haltOnError = false) {
           instr.length = 0;
           resizeChange.length = -instrLen;
         }
-        if (resizeChange.length !== 0) {
-          labels.forEach((index, label) => {
-            if (index >= currIndex)
-              labels.set(label, labels.get(label) + resizeChange.length);
-          });
-          currIndex = baseAddr;
-          i = -1;
-          break;
-        }
+        redoChangeSize = resizeChange.length;
+        instr.address += redoChangeSize;
       }
     }
   }

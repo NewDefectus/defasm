@@ -88,7 +88,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
 // Run the second pass (label resolution) on the instruction list
 export function secondPass(instructions, haltOnError = false)
 {
-    let currIndex = baseAddr, resizeChange, instrLen;
+    let currIndex = baseAddr, resizeChange, instrLen, redoChangeSize = 0;
     labels.clear();
 
     for(let instrLine of instructions)
@@ -96,7 +96,8 @@ export function secondPass(instructions, haltOnError = false)
         for(let instr of instrLine)
         {
             currIndex += instr.length;
-            if(instr.labelName !== undefined) labels.set(instr.labelName, currIndex);
+            instr.address = currIndex;
+            if(instr.labelName !== undefined) labels.set(instr.labelName, instr);
             if(instr.skip)
             {
                 instr.skip = false;
@@ -107,11 +108,18 @@ export function secondPass(instructions, haltOnError = false)
 
     currIndex = baseAddr;
 
-    for(let i = 0; i < instructions.length; i++)
+    for(let i = 0; i < instructions.length || (redoChangeSize && (i = redoChangeSize = 0, true)); i++)
     {
-        for(let instr of instructions[i])
+        for(let j = 0; j < instructions[i].length; j++)
         {
+            let instr = instructions[i][j];
             if(instr.skip) continue;
+
+            if(redoChangeSize !== 0)
+            {
+                instr.address += redoChangeSize;
+                continue;
+            }
 
             instrLen = instr.length;
             currIndex += instrLen;
@@ -131,16 +139,8 @@ export function secondPass(instructions, haltOnError = false)
                     instr.length = 0;
                     resizeChange.length = -instrLen; // The entire instruction is removed
                 }
-                if(resizeChange.length !== 0) // If the label resolve caused the instruction to resize
-                {
-                    // Correct all labels following this index
-                    labels.forEach((index, label) => {
-                        if(index >= currIndex)
-                            labels.set(label, index + resizeChange.length);
-                    });
-                    // Redo the adjustments from the start
-                    currIndex = baseAddr; i = -1; break;
-                }
+                redoChangeSize = resizeChange.length;
+                instr.address += redoChangeSize;
             }
         }
     }
