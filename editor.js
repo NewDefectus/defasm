@@ -8359,7 +8359,7 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
       if (func.length === 1)
         stack[len - 1] = func(stack[len - 1]);
       else {
-        stack.splice(len - 2, 2, op.func(stack[len - 2], stack[len - 1]));
+        stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
         len--;
       }
     } else {
@@ -8375,6 +8375,8 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
     }
     if (expression.floatPrec === 0)
       stack[len - 1] = BigInt(stack[len - 1]);
+    else
+      stack[len - 1] = Number(stack[len - 1]);
   }
   if (stack.length > 1)
     throw new ParserError("Invalid expression");
@@ -10778,7 +10780,8 @@ Instruction.prototype.resolveLabels = function(labels2, currIndex) {
     for (let op of this.outline[0]) {
       if (op.expression && op.expression.hasLabelDependency)
         op.value = evaluate(op.expression, labels2, currIndex);
-      op.virtualValue = op.value - BigInt(currIndex);
+      if (op.type === OPT.REL)
+        op.virtualValue = op.value - BigInt(currIndex);
     }
     this.compile();
   } catch (e) {

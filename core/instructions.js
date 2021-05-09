@@ -349,7 +349,8 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         {
             if(op.expression && op.expression.hasLabelDependency)
                 op.value = evaluate(op.expression, labels, currIndex);
-            op.virtualValue = op.value - BigInt(currIndex);
+            if(op.type === OPT.REL)
+                op.virtualValue = op.value - BigInt(currIndex);
         }
         this.compile();
     }

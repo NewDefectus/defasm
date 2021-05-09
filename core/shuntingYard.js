@@ -208,7 +208,7 @@ export function evaluate(expression, labels = null, currIndex = 0)
                 stack[len - 1] = func(stack[len - 1]);
             else
             {
-                stack.splice(len - 2, 2, op.func(stack[len - 2], stack[len - 1]));
+                stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
                 len--;
             }
         }
@@ -225,6 +225,8 @@ export function evaluate(expression, labels = null, currIndex = 0)
         
         if(expression.floatPrec === 0)
             stack[len - 1] = BigInt(stack[len - 1]);
+        else
+            stack[len - 1] = Number(stack[len - 1]);
     }
     if(stack.length > 1)
         throw new ParserError("Invalid expression");
