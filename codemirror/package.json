@@ -1,6 +1,6 @@
 {
   "name": "@defasm/codemirror",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "CodeMirror 6 extension utilizing DefAssembler",
   "main": "assembly.js",
   "scripts": {
@@ -25,11 +25,11 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm/tree/master/codemirror#readme",
   "dependencies": {
-    "@codemirror/highlight": "^0.18.3",
-    "@codemirror/language": "^0.18.1",
-    "@codemirror/tooltip": "^0.18.4",
-    "@codemirror/view": "^0.18.11",
-    "@defasm/core": "^1.0.0",
-    "lezer-generator": "^0.13.3"
+    "@codemirror/highlight": "",
+    "@codemirror/language": "",
+    "@codemirror/tooltip": "",
+    "@codemirror/view": "",
+    "@defasm/core": "",
+    "lezer-generator": ""
   }
 }
