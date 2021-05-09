@@ -10721,20 +10721,21 @@ Instruction.prototype.compile = function() {
 };
 function makeModRM(rm2, r) {
   let modrm = 0, rex = 0;
+  let rmReg = rm2.reg, rmReg2 = rm2.reg2, rmValue = rm2.value;
   if (r.reg >= 8) {
     rex |= 4;
     r.reg &= 7;
   }
   modrm |= r.reg << 3;
   if (rm2.ripRelative) {
-    rm2.value = rm2.value || 0n;
+    rmValue = rmValue || 0n;
     return [rex, modrm | 5, null];
   }
   if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM && rm2.type !== OPT.REL)
     modrm |= 192;
-  else if (rm2.reg >= 0) {
-    if (rm2.value !== null) {
-      if (inferImmSize(rm2.value) === 8) {
+  else if (rmReg >= 0) {
+    if (rmValue !== null) {
+      if (inferImmSize(rmValue) === 8) {
         rm2.dispSize = 8;
         modrm |= 64;
       } else {
@@ -10743,21 +10744,21 @@ function makeModRM(rm2, r) {
       }
     }
   } else {
-    rm2.reg = 5;
-    if (rm2.reg2 < 0)
-      rm2.reg2 = 4;
-    rm2.value = rm2.value || 0n;
+    rmReg = 5;
+    if (rmReg2 < 0)
+      rmReg2 = 4;
+    rmValue = rmValue || 0n;
   }
-  rex |= rm2.reg >> 3;
-  rm2.reg &= 7;
-  if (rm2.reg2 >= 0) {
-    if (rm2.reg2 >= 8) {
+  rex |= rmReg >> 3;
+  rmReg &= 7;
+  if (rmReg2 >= 0) {
+    if (rmReg2 >= 8) {
       rex |= 2;
-      rm2.reg2 &= 7;
+      rmReg2 &= 7;
     }
-    return [rex, modrm | 4, rm2.shift << 6 | rm2.reg2 << 3 | rm2.reg];
+    return [rex, modrm | 4, rm2.shift << 6 | rmReg2 << 3 | rmReg];
   }
-  return [rex, modrm | rm2.reg, null];
+  return [rex, modrm | rmReg, null];
 }
 function makeVexPrefix(vex, rex, isEvex) {
   if (isEvex) {

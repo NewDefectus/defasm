@@ -253,6 +253,8 @@ Instruction.prototype.compile = function()
 function makeModRM(rm, r)
 {
     let modrm = 0, rex = 0;
+    // rm's values may be edited, however the object itself shouldn't be changed
+    let rmReg = rm.reg, rmReg2 = rm.reg2, rmValue = rm.value;
 
     // Encoding the "reg" field
     if(r.reg >= 8)
@@ -265,18 +267,18 @@ function makeModRM(rm, r)
     // Special case for RIP-relative addressing
     if(rm.ripRelative)
     {
-        rm.value = rm.value || 0n;
+        rmValue = rmValue || 0n;
         // mod = 00, reg = (reg), rm = 101
         return [rex, modrm | 5, null];
     }
 
     // Encoding the "mod" (modifier) field
     if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
-    else if(rm.reg >= 0)
+    else if(rmReg >= 0)
     {
-        if(rm.value !== null)
+        if(rmValue !== null)
         {
-            if(inferImmSize(rm.value) === 8)
+            if(inferImmSize(rmValue) === 8)
             {
                 rm.dispSize = 8;
                 modrm |= 0x40; // mod=01
@@ -291,28 +293,28 @@ function makeModRM(rm, r)
     else // mod = 00
     {
         // These are the respective "none" type registers
-        rm.reg = 5;
-        if(rm.reg2 < 0) rm.reg2 = 4;
-        rm.value = rm.value || 0n;
+        rmReg = 5;
+        if(rmReg2 < 0) rmReg2 = 4;
+        rmValue = rmValue || 0n;
     }
     
     // Encoding the "rm" field
-    rex |= rm.reg >> 3; // rex.B extension
-    rm.reg &= 7;
+    rex |= rmReg >> 3; // rex.B extension
+    rmReg &= 7;
 
     // Encoding an SIB byte if necessary
-    if(rm.reg2 >= 0)
+    if(rmReg2 >= 0)
     {
-        if(rm.reg2 >= 8)
+        if(rmReg2 >= 8)
         {
             rex |= 2; // rex.X extension
-            rm.reg2 &= 7;
+            rmReg2 &= 7;
         }
         
         // rm=100 signifies an SIB byte
-        return [rex, modrm | 4, (rm.shift << 6) | (rm.reg2 << 3) | rm.reg];
+        return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
     }
-    return [rex, modrm | rm.reg, null];
+    return [rex, modrm | rmReg, null];
 }
 
 // Generate the VEX/EVEX prefix
