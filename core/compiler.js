@@ -136,7 +136,7 @@ export function secondPass(instructions, haltOnError = false)
                     // Correct all labels following this index
                     labels.forEach((index, label) => {
                         if(index >= currIndex)
-                            labels.set(label, labels.get(label) + resizeChange.length);
+                            labels.set(label, index + resizeChange.length);
                     });
                     // Redo the adjustments from the start
                     currIndex = baseAddr; i = -1; break;
