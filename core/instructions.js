@@ -340,7 +340,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         for(let op of this.outline[0])
         {
             if(op.expression && op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, op.absLabel ? 0 : currIndex);
+                op.value = evaluate(op.expression, labels, currIndex);
         }
         this.compile();
     }

@@ -8158,7 +8158,7 @@ function Operand() {
       else if (tempSize !== 64)
         throw new ParserError("Invalid register size", regParsePos);
       if (tempType === OPT.IP)
-        this.ripRelative = true, this.absLabel = false;
+        this.ripRelative = true;
       else if (token === ",") {
         if (next() !== "%")
           throw new ParserError("Expected register");
@@ -8365,7 +8365,7 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
         else if (!labels2.has(op.name))
           throw new ParserError(`Unknown label "${op.name}"`, op.pos);
         else
-          op = labels2.get(op.name) - currIndex;
+          op = labels2.get(op.name);
       }
       stack[len++] = op;
     }
@@ -10760,7 +10760,7 @@ Instruction.prototype.resolveLabels = function(labels2, currIndex) {
   try {
     for (let op of this.outline[0]) {
       if (op.expression && op.expression.hasLabelDependency)
-        op.value = evaluate(op.expression, labels2, op.absLabel ? 0 : currIndex);
+        op.value = evaluate(op.expression, labels2, currIndex);
     }
     this.compile();
   } catch (e) {

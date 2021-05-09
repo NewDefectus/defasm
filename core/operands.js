@@ -179,7 +179,7 @@ export function Operand()
         {
             if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
             else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
-            if(tempType === OPT.IP) this.ripRelative = true, this.absLabel = false;
+            if(tempType === OPT.IP) this.ripRelative = true;
             else if(token === ',')
             {
                 if(next() !== '%') throw new ParserError("Expected register");

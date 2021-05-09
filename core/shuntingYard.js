@@ -218,7 +218,7 @@ export function evaluate(expression, labels = null, currIndex = 0)
             {
                 if(labels === null) op = 1n;
                 else if(!labels.has(op.name)) throw new ParserError(`Unknown label "${op.name}"`, op.pos);
-                else op = labels.get(op.name) - currIndex;
+                else op = labels.get(op.name);
             }
             stack[len++] = op;
         }
