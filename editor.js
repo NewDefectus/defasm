@@ -7957,13 +7957,6 @@ function ungetToken() {
   codePos = prevCodePos;
   next = () => token = (next = oldNext, codePos = p, t2);
 }
-function peekNext() {
-  let oldToken = token, oldPos = codePos, nextToken = next();
-  ungetToken();
-  token = oldToken;
-  codePos = oldPos;
-  return nextToken;
-}
 function setToken(tok) {
   token = tok;
 }
@@ -8132,41 +8125,26 @@ function Operand() {
   if (token === "%") {
     [this.reg, this.type, this.size, this.prefs] = parseRegister();
     this.endPos = regParsePos;
-  } else if (token === "$" || isNaN(token) && !unaries.hasOwnProperty(token) && token !== "(" && peekNext() !== "(") {
-    if (token === "$")
-      this.absLabel = true;
-    else
-      ungetToken();
+  } else if (token === "$") {
     this.expression = parseExpression();
     this.value = evaluate(this.expression);
     this.type = OPT.IMM;
   } else {
     this.type = OPT.MEM;
-    this.absLabel = true;
-    if (token !== "(") {
-      ungetToken();
-      this.expression = parseExpression();
+    this.expression = parseExpression(0, true);
+    if (this.expression)
       this.value = evaluate(this.expression);
-    }
-    if (token !== "(")
-      throw new ParserError("Immediates must be prefixed with $", this.startPos);
     let tempSize, tempType;
-    if (next() !== "%") {
-      if (token !== ",") {
-        ungetToken();
-        this.expression = parseExpression(0, true);
-        this.value = evaluate(this.expression);
-        if (token !== ")")
-          throw new ParserError("Expected ')'");
-        next();
-        return;
-      } else {
-        this.reg = -1;
-        tempType = -1;
-        tempSize = 64;
-      }
-    } else
+    if (token !== "(")
+      return;
+    if (next() === "%")
       [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+    else if (token === ",") {
+      this.reg = -1;
+      tempType = -1;
+      tempSize = 64;
+    } else
+      throw new ParserError("Expected register");
     if (tempType === OPT.VEC) {
       this.type = OPT.VMEM;
       this.size = tempSize;
@@ -8303,16 +8281,20 @@ function parseNumber(asFloat = false) {
     throw e;
   }
 }
-function parseExpression(minFloatPrec = 0, inBrackets = false) {
+function parseExpression(minFloatPrec = 0, expectMemory = false) {
   let output = [], stack = [], lastOp, lastWasNum = false, hasLabelDependency = false;
-  next();
+  if (!expectMemory)
+    next();
   while (token !== "," && token !== "\n" && token !== ";") {
     if (!lastWasNum && unaries.hasOwnProperty(token)) {
       stack.push({pos: codePos, func: unaries[token], prec: -1});
       next();
     } else if (operators.hasOwnProperty(token)) {
-      if (!lastWasNum)
+      if (!lastWasNum) {
+        if (expectMemory && stack.length > 0 && stack[stack.length - 1].bracket)
+          break;
         throw new ParserError("Missing left operand");
+      }
       lastWasNum = false;
       let op = Object.assign({pos: codePos}, operators[token]);
       while (lastOp = stack[stack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
@@ -8322,8 +8304,11 @@ function parseExpression(minFloatPrec = 0, inBrackets = false) {
     } else if (unaries.hasOwnProperty(token))
       throw new ParserError("Unary operator can't be used here");
     else if (token === "(") {
-      if (lastWasNum)
-        break;
+      if (lastWasNum) {
+        if (expectMemory)
+          break;
+        throw new ParserError("Unexpected parenthesis");
+      }
       stack.push({pos: codePos, bracket: true});
       next();
     } else if (token === ")") {
@@ -8331,11 +8316,8 @@ function parseExpression(minFloatPrec = 0, inBrackets = false) {
         throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
       while (lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
         output.push(stack.pop());
-      if (!lastOp || !lastOp.bracket) {
-        if (inBrackets)
-          break;
+      if (!lastOp || !lastOp.bracket)
         throw new ParserError("Mismatched parentheses");
-      }
       stack.pop();
       lastWasNum = true;
       next();
@@ -8350,7 +8332,11 @@ function parseExpression(minFloatPrec = 0, inBrackets = false) {
       output.push(value);
     }
   }
-  if (!lastWasNum)
+  if (expectMemory && stack.length == 1 && stack[0].bracket) {
+    ungetToken();
+    setToken("(");
+    return null;
+  } else if (!lastWasNum)
     throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
   while (stack[0]) {
     if (stack[stack.length - 1].bracket)
@@ -8472,15 +8458,10 @@ function Directive(dir) {
 }
 Directive.prototype.compileValues = function(valSize) {
   this.valSize = valSize;
-  let value, expression, needsRecompilation = false, absLabel = false;
+  let value, expression, needsRecompilation = false;
   this.outline = [];
   try {
     do {
-      absLabel = false;
-      if (next() === "$")
-        absLabel = true;
-      else
-        ungetToken();
       expression = parseExpression(this.floatPrec);
       value = evaluate(expression, null, 0);
       if (expression.hasLabelDependency)
@@ -8501,7 +8482,7 @@ Directive.prototype.resolveLabels = function(labels2, index) {
     op = this.outline[i];
     try {
       if (op.expression.hasLabelDependency)
-        op.value = evaluate(op.expression, labels2, op.absLabel ? 0 : index + i * this.valSize, this.floatPrec);
+        op.value = evaluate(op.expression, labels2, index + i * this.valSize);
       this.genValue(op.value);
     } catch (e) {
       this.error = e;

@@ -1,5 +1,5 @@
 import { registers } from "./operands.js";
-import { codePos, next, ParserError, token } from "./parser.js";
+import { codePos, next, ParserError, setToken, token, ungetToken } from "./parser.js";
 
 export var unaries = {
     '+': a=>a,
@@ -110,10 +110,10 @@ function parseNumber(asFloat = false)
 
 
 
-export function parseExpression(minFloatPrec = 0, inBrackets = false)
+export function parseExpression(minFloatPrec = 0, expectMemory = false)
 {
     let output = [], stack = [], lastOp, lastWasNum = false, hasLabelDependency = false;
-    next();
+    if(!expectMemory) next();
     while(token !== ',' && token !== '\n' && token !== ';')
     {
         if(!lastWasNum && unaries.hasOwnProperty(token)) // Unary operator
@@ -123,7 +123,12 @@ export function parseExpression(minFloatPrec = 0, inBrackets = false)
         }
         else if(operators.hasOwnProperty(token)) // Operator
         {
-            if(!lastWasNum) throw new ParserError("Missing left operand");
+            if(!lastWasNum)
+            {
+                // If expecting memory e.g. (%rax) the '%' goes in here
+                if(expectMemory && stack.length > 0 && stack[stack.length - 1].bracket) break;
+                throw new ParserError("Missing left operand");
+            }
             lastWasNum = false;
 
             let op = Object.assign({pos: codePos}, operators[token]);
@@ -135,7 +140,11 @@ export function parseExpression(minFloatPrec = 0, inBrackets = false)
         else if(unaries.hasOwnProperty(token)) throw new ParserError("Unary operator can't be used here");
         else if(token === '(')
         {
-            if(lastWasNum) break;
+            if(lastWasNum)
+            {
+                if(expectMemory) break;
+                throw new ParserError("Unexpected parenthesis");
+            }
             stack.push({pos: codePos, bracket: true });
             next();
         }
@@ -146,10 +155,7 @@ export function parseExpression(minFloatPrec = 0, inBrackets = false)
             while(lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
                 output.push(stack.pop());
             if(!lastOp || !lastOp.bracket)
-            {
-                if(inBrackets) break;
                 throw new ParserError("Mismatched parentheses");
-            }
             stack.pop();
             lastWasNum = true;
             next();
@@ -168,7 +174,13 @@ export function parseExpression(minFloatPrec = 0, inBrackets = false)
         }
     }
 
-    if(!lastWasNum)
+    if(expectMemory && stack.length == 1 && stack[0].bracket)
+    {
+        ungetToken();
+        setToken('(');
+        return null;
+    }
+    else if(!lastWasNum)
         throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
 
     while(stack[0])

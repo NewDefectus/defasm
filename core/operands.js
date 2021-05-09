@@ -1,5 +1,5 @@
-import { token, next, ungetToken, peekNext, ParserError, codePos } from "./parser.js";
-import { evaluate, parseExpression, unaries } from "./shuntingYard.js";
+import { token, next, ungetToken, ParserError, codePos } from "./parser.js";
+import { evaluate, parseExpression } from "./shuntingYard.js";
 
 // Operand types
 export const OPT = {
@@ -145,10 +145,8 @@ export function Operand()
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
         this.endPos = regParsePos;
     }
-    else if(token === '$' || (isNaN(token) && !unaries.hasOwnProperty(token) && token !== '(' && peekNext() !== '('))// Immediate
+    else if(token === '$')// Immediate
     {
-        if(token === '$') this.absLabel = true;
-        else ungetToken();
         this.expression = parseExpression();
         this.value = evaluate(this.expression);
         this.type = OPT.IMM;
@@ -156,37 +154,20 @@ export function Operand()
     else // Address
     {
         this.type = OPT.MEM;
-        this.absLabel = true;
-        if(token !== '(')
-        {
-            ungetToken();
-            this.expression = parseExpression();
-            this.value = evaluate(this.expression);
-        }
-
-        if(token !== '(') throw new ParserError("Immediates must be prefixed with $", this.startPos);
-
+        this.expression = parseExpression(0, true);
+        if(this.expression) this.value = evaluate(this.expression);
 
         let tempSize, tempType;
-        if(next() !== '%')
+        if(token !== '(') return;
+        if(next() === '%') [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+        else if(token === ',')
         {
-            if(token !== ',') // For addresses that look like (<number>)
-            {
-                ungetToken();
-                this.expression = parseExpression(0, true);
-                this.value = evaluate(this.expression);
-                if(token !== ')') throw new ParserError("Expected ')'");
-                next();
-                return;
-            }
-            else
-            {
-                this.reg = -1;
-                tempType = -1;
-                tempSize = 64;
-            }
+            this.reg = -1;
+            tempType = -1;
+            tempSize = 64;
         }
-        else [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+        else throw new ParserError("Expected register");
+        
         if(tempType === OPT.VEC)
         {
             this.type = OPT.VMEM; this.size = tempSize;

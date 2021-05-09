@@ -78,14 +78,11 @@ export function Directive(dir)
 Directive.prototype.compileValues = function(valSize)
 {
     this.valSize = valSize;
-    let value, expression, needsRecompilation = false, absLabel = false;
+    let value, expression, needsRecompilation = false;
     this.outline = [];
     try {
         do
         {
-            absLabel = false;
-            if(next() === '$') absLabel = true;
-            else ungetToken();
             expression = parseExpression(this.floatPrec);
             value = evaluate(expression, null, 0);
             if(expression.hasLabelDependency)
@@ -113,7 +110,7 @@ Directive.prototype.resolveLabels = function(labels, index)
         try
         {
             if(op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, op.absLabel ? 0 : index + i * this.valSize, this.floatPrec);
+                op.value = evaluate(op.expression, labels, index + i * this.valSize);
             this.genValue(op.value);
         }
         catch(e)

@@ -41,16 +41,6 @@ export function ungetToken()
     next = () => token = (next = oldNext, codePos = p, t);
 }
 
-// Just a wee peek at the next token
-export function peekNext()
-{
-    let oldToken = token, oldPos = codePos, nextToken = next();
-    ungetToken();
-    token = oldToken;
-    codePos = oldPos;
-    return nextToken;
-}
-
 export function setToken(tok)
 {
     token = tok;
