@@ -7973,13 +7973,14 @@ var OPT = {
   VMEM: 3,
   IMM: 4,
   MASK: 5,
-  MEM: 6,
-  ST: 7,
-  SEG: 8,
-  IP: 9,
-  BND: 10,
-  CTRL: 11,
-  DBG: 12
+  REL: 6,
+  MEM: 7,
+  ST: 8,
+  SEG: 9,
+  IP: 10,
+  BND: 11,
+  CTRL: 12,
+  DBG: 13
 };
 var registers = Object.assign({}, ...[
   "al",
@@ -8134,9 +8135,12 @@ function Operand() {
     this.expression = parseExpression(0, true);
     if (this.expression)
       this.value = evaluate(this.expression);
-    let tempSize, tempType;
-    if (token !== "(")
+    if (token !== "(") {
+      this.type = OPT.REL;
+      this.virtualValue = this.value;
       return;
+    }
+    let tempSize, tempType;
     if (next() === "%")
       [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
     else if (token === ",") {
@@ -10043,6 +10047,7 @@ var OPC = {
   r: OPT.REG,
   v: OPT.VEC,
   i: OPT.IMM,
+  j: OPT.REL,
   m: OPT.MEM,
   s: OPT.SEG,
   f: OPT.ST,
@@ -10132,12 +10137,11 @@ function OpCatcher(format) {
   if (!this.carrySizeInference)
     format = format.slice(1);
   let opType = format[0];
-  this.acceptsMemory = "rvbk".includes(opType);
-  this.forceRM = this.forceRM || this.acceptsMemory;
+  this.acceptsMemory = "rvbkmj".includes(opType);
+  this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
   this.unsigned = opType === "i";
   this.type = OPC[opType.toLowerCase()];
   this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
-  this.forceRM = this.forceRM || this.type === OPT.VMEM || this.type === OPT.MEM;
   this.implicitValue = null;
   if (format[1] === "_") {
     this.implicitValue = parseInt(format[2]);
@@ -10162,9 +10166,9 @@ function OpCatcher(format) {
   }
 }
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
-  if (operand.type !== this.type && !(operand.type === OPT.MEM && this.acceptsMemory))
+  if (operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory))
     return null;
-  let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+  let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
   let rawSize, size = 0, found = false;
   if (enforcedSize > 0 && operand.type >= OPT.IMM)
     opSize = enforcedSize;
@@ -10198,7 +10202,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
   if (this.sizes !== 0) {
     for (size of this.sizes) {
       rawSize = size & ~7;
-      if (opSize === rawSize || operand.type === OPT.IMM && opSize < rawSize) {
+      if (opSize === rawSize || (this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize) {
         if (!(size & SIZETYPE_EXPLICITSUF) || enforcedSize === rawSize) {
           found = true;
           break;
@@ -10302,6 +10306,7 @@ function Operation(format) {
   }
 }
 Operation.prototype.fit = function(operands, enforcedSize, vexInfo) {
+  let needsRecompilation = false;
   if (vexInfo.needed) {
     if (this.actuallyNotVex)
       vexInfo.needed = false;
@@ -10395,7 +10400,13 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo) {
     if (catcher.implicitValue === null) {
       if (operand.type === OPT.IMM)
         imms.unshift(operand);
-      else if (catcher.forceRM)
+      else if (catcher.type === OPT.REL) {
+        imms.unshift({
+          value: operand.virtualValue,
+          size
+        });
+        needsRecompilation = true;
+      } else if (catcher.forceRM)
         rm2 = operand;
       else if (catcher.vexOp) {
         if (catcher.vexOpImm)
@@ -10502,7 +10513,8 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo) {
     reg,
     rm: rm2,
     vex: vexInfo.needed ? vex : null,
-    imms
+    imms,
+    needsRecompilation
   };
 };
 
@@ -10542,7 +10554,8 @@ Instruction.prototype.interpret = function() {
     round: null,
     broadcast: null
   };
-  let needsRecompilation = false, usesMemory = false;
+  let usesMemory = false;
+  this.needsRecompilation = false;
   if (prefixes.hasOwnProperty(opcode)) {
     this.genByte(prefixes[opcode]);
     ungetToken();
@@ -10599,7 +10612,7 @@ Instruction.prototype.interpret = function() {
         throw new ParserError("Segment prefix must be followed by memory reference");
     }
     if (operand.expression && operand.expression.hasLabelDependency)
-      needsRecompilation = true;
+      this.needsRecompilation = true;
     operands.push(operand);
     prefsToGen |= operand.prefs;
     if (operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512)
@@ -10635,16 +10648,19 @@ Instruction.prototype.interpret = function() {
   this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
   this.endPos = codePos;
   this.compile();
-  if (!needsRecompilation)
+  if (!this.needsRecompilation)
     this.outline = void 0;
 };
 Instruction.prototype.compile = function() {
   let [operands, enforcedSize, variations, prefsToGen, vexInfo] = this.outline;
   this.length = 0;
-  for (let op2 of operands) {
-    if (op2.type === OPT.IMM && enforcedSize === 0) {
-      op2.size = inferImmSize(op2.value);
-      op2.unsignedSize = inferUnsignedImmSize(op2.value);
+  if (enforcedSize === 0) {
+    for (let op2 of operands) {
+      if (op2.type === OPT.IMM) {
+        op2.size = inferImmSize(op2.value);
+        op2.unsignedSize = inferUnsignedImmSize(op2.value);
+      } else if (op2.type === OPT.REL)
+        op2.virtualSize = inferImmSize(op2.virtualValue);
     }
   }
   let op, found = false, rexVal = 64;
@@ -10658,6 +10674,7 @@ Instruction.prototype.compile = function() {
   if (!found) {
     throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
   }
+  this.needsRecompilation = this.needsRecompilation || op.needsRecompilation;
   if (op.rexw)
     rexVal |= 8, prefsToGen |= PREFIX_REX;
   let modRM = null, sib = null;
@@ -10711,7 +10728,7 @@ function makeModRM(rm2, r) {
     rm2.value = rm2.value || 0n;
     return [rex, modrm | 5, null];
   }
-  if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM)
+  if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM && rm2.type !== OPT.REL)
     modrm |= 192;
   else if (rm2.reg >= 0) {
     if (rm2.value !== null) {
@@ -10761,6 +10778,7 @@ Instruction.prototype.resolveLabels = function(labels2, currIndex) {
     for (let op of this.outline[0]) {
       if (op.expression && op.expression.hasLabelDependency)
         op.value = evaluate(op.expression, labels2, currIndex);
+      op.virtualValue = op.value - BigInt(currIndex);
     }
     this.compile();
   } catch (e) {

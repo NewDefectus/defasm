@@ -1,3 +1,4 @@
+import { inferImmSize } from "./instructions.js";
 import { OPT } from "./operands.js";
 import { ParserError } from "./parser.js";
 
@@ -6,6 +7,7 @@ const OPC = {
     r: OPT.REG,
     v: OPT.VEC,
     i: OPT.IMM,
+    j: OPT.REL,
     m: OPT.MEM,
     s: OPT.SEG,
     f: OPT.ST,
@@ -97,13 +99,12 @@ function OpCatcher(format)
     this.carrySizeInference = format[0] !== '*';
     if(!this.carrySizeInference) format = format.slice(1);
     let opType = format[0];
-    this.acceptsMemory = "rvbk".includes(opType);
-    this.forceRM = this.forceRM || this.acceptsMemory;
+    this.acceptsMemory = "rvbkmj".includes(opType);
+    this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
     this.unsigned = opType === 'i';
     this.type = OPC[opType.toLowerCase()];
 
     this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
-    this.forceRM = this.forceRM || this.type === OPT.VMEM || this.type === OPT.MEM;
     
 
 
@@ -150,10 +151,10 @@ function OpCatcher(format)
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 {
     // Check that the types match
-    if(operand.type !== this.type && !(operand.type === OPT.MEM && this.acceptsMemory)) return null;
+    if(operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory)) return null;
 
     // Check that the sizes match
-    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+    let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM) opSize = enforcedSize;
@@ -195,7 +196,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         for(size of this.sizes)
         {   
             rawSize = size & ~7;
-            if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) // Allow immediates to be upcast
+            if(opSize === rawSize || ((this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
             {
                 if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize === rawSize)
                 {
@@ -359,6 +360,7 @@ export function Operation(format)
  */
 Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
 {
+    let needsRecompilation = false;
     if(vexInfo.needed)
     {
         if(this.actuallyNotVex) vexInfo.needed = false;
@@ -461,6 +463,14 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         if(catcher.implicitValue === null)
         {
             if(operand.type === OPT.IMM) imms.unshift(operand);
+            else if(catcher.type === OPT.REL)
+            {
+                imms.unshift({
+                    value: operand.virtualValue,
+                    size: size
+                });
+                needsRecompilation = true;
+            }
             else if(catcher.forceRM) rm = operand;
             else if(catcher.vexOp)
             {
@@ -570,6 +580,7 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         reg: reg,
         rm: rm,
         vex: vexInfo.needed ? vex : null,
-        imms: imms
+        imms: imms,
+        needsRecompilation: needsRecompilation
     };
 }

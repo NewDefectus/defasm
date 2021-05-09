@@ -8,13 +8,14 @@ VEC:    2,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0
 VMEM:   3,  // Vector memory - e.g. (%xmm0)
 IMM:    4,  // Immediate value - e.g. $20
 MASK:   5,  // Mask register (64-bit) - %k0 / %k7
-MEM:    6,  // Memory operand - e.g. (%rax)
-ST:     7,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
-SEG:    8,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
-IP:     9,  // Instruction pointer register (only used in memory) - %eip or %rip
-BND:    10, // Bound register (128-bit) - %bnd0 / %bnd3
-CTRL:   11, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
-DBG:    12  // Debug register (64-bit) - %dr0 / %dr7
+REL:    6,  // Relative address - memory that consists of only an address (may be converted to MEM)
+MEM:    7,  // Memory operand - e.g. (%rax)
+ST:     8,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
+SEG:    9,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
+IP:     10, // Instruction pointer register (only used in memory) - %eip or %rip
+BND:    11, // Bound register (128-bit) - %bnd0 / %bnd3
+CTRL:   12, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
+DBG:    13  // Debug register (64-bit) - %dr0 / %dr7
 };
 
 export const registers = Object.assign({}, ...[
@@ -156,9 +157,14 @@ export function Operand()
         this.type = OPT.MEM;
         this.expression = parseExpression(0, true);
         if(this.expression) this.value = evaluate(this.expression);
+        if(token !== '(')
+        {
+            this.type = OPT.REL;
+            this.virtualValue = this.value;
+            return;
+        }
 
         let tempSize, tempType;
-        if(token !== '(') return;
         if(next() === '%') [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
         else if(token === ',')
         {

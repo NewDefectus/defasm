@@ -55,7 +55,8 @@ Instruction.prototype.interpret = function()
         broadcast: null
     };
 
-    let needsRecompilation = false, usesMemory = false;
+    let usesMemory = false;
+    this.needsRecompilation = false;
 
     // Prefix opcodes are interpreted as instructions that end with a semicolon
     if(prefixes.hasOwnProperty(opcode))
@@ -129,7 +130,7 @@ Instruction.prototype.interpret = function()
         }
 
         if(operand.expression && operand.expression.hasLabelDependency)
-            needsRecompilation = true;
+            this.needsRecompilation = true;
 
         operands.push(operand);
         prefsToGen |= operand.prefs;
@@ -168,7 +169,7 @@ Instruction.prototype.interpret = function()
     this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
     this.endPos = codePos;
     this.compile();
-    if(!needsRecompilation) this.outline = undefined;
+    if(!this.needsRecompilation) this.outline = undefined;
 }
 
 Instruction.prototype.compile = function()
@@ -177,12 +178,17 @@ Instruction.prototype.compile = function()
     this.length = 0;
 
     // Before we compile, we'll get the immediates' sizes
-    for(let op of operands)
+    if(enforcedSize === 0)
     {
-        if(op.type === OPT.IMM && enforcedSize === 0)
+        for(let op of operands)
         {
-            op.size = inferImmSize(op.value);
-            op.unsignedSize = inferUnsignedImmSize(op.value);
+            if(op.type === OPT.IMM)
+            {
+                op.size = inferImmSize(op.value);
+                op.unsignedSize = inferUnsignedImmSize(op.value);
+            }
+            else if(op.type === OPT.REL)
+                op.virtualSize = inferImmSize(op.virtualValue);
         }
     }
 
@@ -204,6 +210,8 @@ Instruction.prototype.compile = function()
         throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
 
+    // Operation may require recompilation (e.g. "call 5" needs the current IP)
+    this.needsRecompilation = this.needsRecompilation || op.needsRecompilation;
     if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
@@ -263,7 +271,7 @@ function makeModRM(rm, r)
     }
 
     // Encoding the "mod" (modifier) field
-    if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM) modrm |= 0xC0; // mod=11
+    if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
     else if(rm.reg >= 0)
     {
         if(rm.value !== null)
@@ -341,6 +349,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         {
             if(op.expression && op.expression.hasLabelDependency)
                 op.value = evaluate(op.expression, labels, currIndex);
+            op.virtualValue = op.value - BigInt(currIndex);
         }
         this.compile();
     }
@@ -361,7 +370,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
 
 
 // Infer the size of an immediate from its value
-function inferImmSize(value)
+export function inferImmSize(value)
 {
     if(value < 0n) // Correct for negative values
     {
