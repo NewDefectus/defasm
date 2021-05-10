@@ -67,7 +67,19 @@ export const asmPlugin = ViewPlugin.fromClass(class {
 
         // This timeout is required to let the content DOM's style be calculated
         setTimeout(() => {
-            this.ctx.font = window.getComputedStyle(view.contentDOM).getPropertyValue('font');
+            let style = window.getComputedStyle(view.contentDOM);
+
+            this.ctx.font = `${
+                style.getPropertyValue('font-style')
+            } ${
+                style.getPropertyValue('font-variant')
+            } ${
+                style.getPropertyValue('font-weight')
+            } ${
+                style.getPropertyValue('font-size')
+            } ${
+                style.getPropertyValue('font-family')
+            }`;
             this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
             this.makeAsmDecorations(view);
             view.dispatch();
