@@ -1,7 +1,8 @@
 import { assembly } from "@defasm/codemirror";
-import { EditorView } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import { lineNumbers } from "@codemirror/gutter";
+import { standardKeymap } from "@codemirror/commands";
 import { defaultHighlightStyle }              from '@codemirror/highlight';
 
 var editor = new EditorView({
@@ -12,7 +13,12 @@ var editor = new EditorView({
     parent: document.getElementById("inputAreaContainer"),
     state: EditorState.create({
         doc: getLastCode(),
-        extensions: [assembly(), lineNumbers(), defaultHighlightStyle]
+        extensions: [
+            defaultHighlightStyle,
+            keymap.of(standardKeymap),
+            lineNumbers(),
+            assembly()
+        ]
     })
 });
 

@@ -4,6 +4,7 @@
     "prepare": "npm run build"
   },
   "dependencies": {
+    "@codemirror/commands": "^0.18.2",
     "@codemirror/gutter": "^0.18.2",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",

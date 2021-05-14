@@ -2651,6 +2651,23 @@ for (var i = 65; i <= 90; i++) {
 for (var code in base)
   if (!shift.hasOwnProperty(code))
     shift[code] = base[code];
+function keyName(event) {
+  var ignoreKey = brokenModifierNames && (event.ctrlKey || event.altKey || event.metaKey) || (safari || ie) && event.shiftKey && event.key && event.key.length == 1;
+  var name2 = !ignoreKey && event.key || (event.shiftKey ? shift : base)[event.keyCode] || event.key || "Unidentified";
+  if (name2 == "Esc")
+    name2 = "Escape";
+  if (name2 == "Del")
+    name2 = "Delete";
+  if (name2 == "Left")
+    name2 = "ArrowLeft";
+  if (name2 == "Up")
+    name2 = "ArrowUp";
+  if (name2 == "Right")
+    name2 = "ArrowRight";
+  if (name2 == "Down")
+    name2 = "ArrowDown";
+  return name2;
+}
 
 // node_modules/@codemirror/view/dist/index.js
 function getSelection(root) {
@@ -7649,6 +7666,147 @@ var CachedOrder = class {
   }
 };
 var currentPlatform = typeof navigator == "undefined" ? "key" : /* @__PURE__ */ /Mac/.test(navigator.platform) ? "mac" : /* @__PURE__ */ /Win/.test(navigator.platform) ? "win" : /* @__PURE__ */ /Linux|X11/.test(navigator.platform) ? "linux" : "key";
+function normalizeKeyName(name2, platform) {
+  const parts = name2.split(/-(?!$)/);
+  let result = parts[parts.length - 1];
+  if (result == "Space")
+    result = " ";
+  let alt, ctrl, shift2, meta2;
+  for (let i = 0; i < parts.length - 1; ++i) {
+    const mod = parts[i];
+    if (/^(cmd|meta|m)$/i.test(mod))
+      meta2 = true;
+    else if (/^a(lt)?$/i.test(mod))
+      alt = true;
+    else if (/^(c|ctrl|control)$/i.test(mod))
+      ctrl = true;
+    else if (/^s(hift)?$/i.test(mod))
+      shift2 = true;
+    else if (/^mod$/i.test(mod)) {
+      if (platform == "mac")
+        meta2 = true;
+      else
+        ctrl = true;
+    } else
+      throw new Error("Unrecognized modifier name: " + mod);
+  }
+  if (alt)
+    result = "Alt-" + result;
+  if (ctrl)
+    result = "Ctrl-" + result;
+  if (meta2)
+    result = "Meta-" + result;
+  if (shift2)
+    result = "Shift-" + result;
+  return result;
+}
+function modifiers(name2, event, shift2) {
+  if (event.altKey)
+    name2 = "Alt-" + name2;
+  if (event.ctrlKey)
+    name2 = "Ctrl-" + name2;
+  if (event.metaKey)
+    name2 = "Meta-" + name2;
+  if (shift2 !== false && event.shiftKey)
+    name2 = "Shift-" + name2;
+  return name2;
+}
+var handleKeyEvents = /* @__PURE__ */ EditorView.domEventHandlers({
+  keydown(event, view) {
+    return runHandlers(getKeymap(view.state), event, view, "editor");
+  }
+});
+var keymap = /* @__PURE__ */ Facet.define({enables: handleKeyEvents});
+var Keymaps = /* @__PURE__ */ new WeakMap();
+function getKeymap(state) {
+  let bindings = state.facet(keymap);
+  let map = Keymaps.get(bindings);
+  if (!map)
+    Keymaps.set(bindings, map = buildKeymap(bindings.reduce((a, b) => a.concat(b), [])));
+  return map;
+}
+var storedPrefix = null;
+var PrefixTimeout = 4e3;
+function buildKeymap(bindings, platform = currentPlatform) {
+  let bound = Object.create(null);
+  let isPrefix = Object.create(null);
+  let checkPrefix = (name2, is) => {
+    let current = isPrefix[name2];
+    if (current == null)
+      isPrefix[name2] = is;
+    else if (current != is)
+      throw new Error("Key binding " + name2 + " is used both as a regular binding and as a multi-stroke prefix");
+  };
+  let add = (scope, key, command, preventDefault) => {
+    let scopeObj = bound[scope] || (bound[scope] = Object.create(null));
+    let parts = key.split(/ (?!$)/).map((k) => normalizeKeyName(k, platform));
+    for (let i = 1; i < parts.length; i++) {
+      let prefix = parts.slice(0, i).join(" ");
+      checkPrefix(prefix, true);
+      if (!scopeObj[prefix])
+        scopeObj[prefix] = {
+          preventDefault: true,
+          commands: [(view) => {
+            let ourObj = storedPrefix = {view, prefix, scope};
+            setTimeout(() => {
+              if (storedPrefix == ourObj)
+                storedPrefix = null;
+            }, PrefixTimeout);
+            return true;
+          }]
+        };
+    }
+    let full = parts.join(" ");
+    checkPrefix(full, false);
+    let binding = scopeObj[full] || (scopeObj[full] = {preventDefault: false, commands: []});
+    binding.commands.push(command);
+    if (preventDefault)
+      binding.preventDefault = true;
+  };
+  for (let b of bindings) {
+    let name2 = b[platform] || b.key;
+    if (!name2)
+      continue;
+    for (let scope of b.scope ? b.scope.split(" ") : ["editor"]) {
+      add(scope, name2, b.run, b.preventDefault);
+      if (b.shift)
+        add(scope, "Shift-" + name2, b.shift, b.preventDefault);
+    }
+  }
+  return bound;
+}
+function runHandlers(map, event, view, scope) {
+  let name2 = keyName(event), isChar = name2.length == 1 && name2 != " ";
+  let prefix = "", fallthrough = false;
+  if (storedPrefix && storedPrefix.view == view && storedPrefix.scope == scope) {
+    prefix = storedPrefix.prefix + " ";
+    if (fallthrough = modifierCodes.indexOf(event.keyCode) < 0)
+      storedPrefix = null;
+  }
+  let runFor = (binding) => {
+    if (binding) {
+      for (let cmd of binding.commands)
+        if (cmd(view))
+          return true;
+      if (binding.preventDefault)
+        fallthrough = true;
+    }
+    return false;
+  };
+  let scopeObj = map[scope], baseName;
+  if (scopeObj) {
+    if (runFor(scopeObj[prefix + modifiers(name2, event, !isChar)]))
+      return true;
+    if (isChar && (event.shiftKey || event.altKey || event.metaKey) && (baseName = base[event.keyCode]) && baseName != name2) {
+      if (runFor(scopeObj[prefix + modifiers(baseName, event, true)]))
+        return true;
+    } else if (isChar && event.shiftKey) {
+      if (runFor(scopeObj[prefix + modifiers(name2, event, true)]))
+        return true;
+    }
+  }
+  return fallthrough;
+}
 var CanHidePrimary = !browser.ios;
 var themeSpec = {
   ".cm-line": {
@@ -13600,7 +13758,170 @@ var indentUnit = Facet.define({
     return values[0];
   }
 });
+function getIndentUnit(state) {
+  let unit = state.facet(indentUnit);
+  return unit.charCodeAt(0) == 9 ? state.tabSize * unit.length : unit.length;
+}
+function indentString(state, cols) {
+  let result = "", ts = state.tabSize;
+  if (state.facet(indentUnit).charCodeAt(0) == 9)
+    while (cols >= ts) {
+      result += "	";
+      cols -= ts;
+    }
+  for (let i = 0; i < cols; i++)
+    result += " ";
+  return result;
+}
+function getIndentation(context, pos) {
+  if (context instanceof EditorState)
+    context = new IndentContext(context);
+  for (let service of context.state.facet(indentService)) {
+    let result = service(context, pos);
+    if (result != null)
+      return result;
+  }
+  let tree = syntaxTree(context.state);
+  return tree ? syntaxIndentation(context, tree, pos) : null;
+}
+var IndentContext = class {
+  constructor(state, options = {}) {
+    this.state = state;
+    this.options = options;
+    this.unit = getIndentUnit(state);
+  }
+  textAfterPos(pos) {
+    var _a, _b;
+    let sim = (_a = this.options) === null || _a === void 0 ? void 0 : _a.simulateBreak;
+    if (pos == sim && ((_b = this.options) === null || _b === void 0 ? void 0 : _b.simulateDoubleBreak))
+      return "";
+    return this.state.sliceDoc(pos, Math.min(pos + 100, sim != null && sim > pos ? sim : 1e9, this.state.doc.lineAt(pos).to));
+  }
+  column(pos) {
+    var _a;
+    let line = this.state.doc.lineAt(pos), text = line.text.slice(0, pos - line.from);
+    let result = this.countColumn(text, pos - line.from);
+    let override = ((_a = this.options) === null || _a === void 0 ? void 0 : _a.overrideIndentation) ? this.options.overrideIndentation(line.from) : -1;
+    if (override > -1)
+      result += override - this.countColumn(text, text.search(/\S/));
+    return result;
+  }
+  countColumn(line, pos) {
+    return countColumn(pos < 0 ? line : line.slice(0, pos), 0, this.state.tabSize);
+  }
+  lineIndent(line) {
+    var _a;
+    let override = (_a = this.options) === null || _a === void 0 ? void 0 : _a.overrideIndentation;
+    if (override) {
+      let overriden = override(line.from);
+      if (overriden > -1)
+        return overriden;
+    }
+    return this.countColumn(line.text, line.text.search(/\S/));
+  }
+};
 var indentNodeProp = new NodeProp();
+function syntaxIndentation(cx, ast, pos) {
+  let tree = ast.resolve(pos);
+  for (let scan = tree, scanPos = pos; ; ) {
+    let last = scan.childBefore(scanPos);
+    if (!last)
+      break;
+    if (last.type.isError && last.from == last.to) {
+      tree = scan;
+      scanPos = last.from;
+    } else {
+      scan = last;
+      scanPos = scan.to + 1;
+    }
+  }
+  return indentFrom(tree, pos, cx);
+}
+function ignoreClosed(cx) {
+  var _a, _b;
+  return cx.pos == ((_a = cx.options) === null || _a === void 0 ? void 0 : _a.simulateBreak) && ((_b = cx.options) === null || _b === void 0 ? void 0 : _b.simulateDoubleBreak);
+}
+function indentStrategy(tree) {
+  let strategy = tree.type.prop(indentNodeProp);
+  if (strategy)
+    return strategy;
+  let first = tree.firstChild, close;
+  if (first && (close = first.type.prop(NodeProp.closedBy))) {
+    let last = tree.lastChild, closed = last && close.indexOf(last.name) > -1;
+    return (cx) => delimitedStrategy(cx, true, 1, void 0, closed && !ignoreClosed(cx) ? last.from : void 0);
+  }
+  return tree.parent == null ? topIndent : null;
+}
+function indentFrom(node, pos, base2) {
+  for (; node; node = node.parent) {
+    let strategy = indentStrategy(node);
+    if (strategy)
+      return strategy(new TreeIndentContext(base2, pos, node));
+  }
+  return null;
+}
+function topIndent() {
+  return 0;
+}
+var TreeIndentContext = class extends IndentContext {
+  constructor(base2, pos, node) {
+    super(base2.state, base2.options);
+    this.base = base2;
+    this.pos = pos;
+    this.node = node;
+  }
+  get textAfter() {
+    return this.textAfterPos(this.pos);
+  }
+  get baseIndent() {
+    let line = this.state.doc.lineAt(this.node.from);
+    for (; ; ) {
+      let atBreak = this.node.resolve(line.from);
+      while (atBreak.parent && atBreak.parent.from == atBreak.from)
+        atBreak = atBreak.parent;
+      if (isParent(atBreak, this.node))
+        break;
+      line = this.state.doc.lineAt(atBreak.from);
+    }
+    return this.lineIndent(line);
+  }
+  continue() {
+    let parent = this.node.parent;
+    return parent ? indentFrom(parent, this.pos, this.base) : 0;
+  }
+};
+function isParent(parent, of) {
+  for (let cur = of; cur; cur = cur.parent)
+    if (parent == cur)
+      return true;
+  return false;
+}
+function bracketedAligned(context) {
+  var _a;
+  let tree = context.node;
+  let openToken = tree.childAfter(tree.from), last = tree.lastChild;
+  if (!openToken)
+    return null;
+  let sim = (_a = context.options) === null || _a === void 0 ? void 0 : _a.simulateBreak;
+  let openLine = context.state.doc.lineAt(openToken.from);
+  let lineEnd = sim == null || sim <= openLine.from ? openLine.to : Math.min(openLine.to, sim);
+  for (let pos = openToken.to; ; ) {
+    let next2 = tree.childAfter(pos);
+    if (!next2 || next2 == last)
+      return null;
+    if (!next2.type.isSkipped)
+      return next2.from < lineEnd ? openToken : null;
+    pos = next2.to;
+  }
+}
+function delimitedStrategy(context, align, units, closing, closedAt) {
+  let after = context.textAfter, space = after.match(/^\s*/)[0].length;
+  let closed = closing && after.slice(space, space + closing.length) == closing || closedAt == context.pos + space;
+  let aligned = align ? bracketedAligned(context) : null;
+  if (aligned)
+    return closed ? context.column(aligned.from) : context.column(aligned.to);
+  return context.baseIndent + (closed ? 0 : context.unit * units);
+}
 var foldService = Facet.define();
 var foldNodeProp = new NodeProp();
 
@@ -14489,6 +14810,301 @@ function maxLineNumber(lines2) {
   return last;
 }
 
+// node_modules/@codemirror/commands/dist/index.js
+function updateSel(sel, by) {
+  return EditorSelection.create(sel.ranges.map(by), sel.mainIndex);
+}
+function setSel(state, selection) {
+  return state.update({selection, scrollIntoView: true, annotations: Transaction.userEvent.of("keyboardselection")});
+}
+function moveSel({state, dispatch}, how) {
+  let selection = updateSel(state.selection, how);
+  if (selection.eq(state.selection))
+    return false;
+  dispatch(setSel(state, selection));
+  return true;
+}
+function rangeEnd(range, forward) {
+  return EditorSelection.cursor(forward ? range.to : range.from);
+}
+function cursorByChar(view, forward) {
+  return moveSel(view, (range) => range.empty ? view.moveByChar(range, forward) : rangeEnd(range, forward));
+}
+var cursorCharLeft = (view) => cursorByChar(view, view.textDirection != Direction.LTR);
+var cursorCharRight = (view) => cursorByChar(view, view.textDirection == Direction.LTR);
+function cursorByGroup(view, forward) {
+  return moveSel(view, (range) => range.empty ? view.moveByGroup(range, forward) : rangeEnd(range, forward));
+}
+var cursorGroupLeft = (view) => cursorByGroup(view, view.textDirection != Direction.LTR);
+var cursorGroupRight = (view) => cursorByGroup(view, view.textDirection == Direction.LTR);
+var cursorGroupForward = (view) => cursorByGroup(view, true);
+var cursorGroupBackward = (view) => cursorByGroup(view, false);
+function cursorByLine(view, forward) {
+  return moveSel(view, (range) => range.empty ? view.moveVertically(range, forward) : rangeEnd(range, forward));
+}
+var cursorLineUp = (view) => cursorByLine(view, false);
+var cursorLineDown = (view) => cursorByLine(view, true);
+function cursorByPage(view, forward) {
+  return moveSel(view, (range) => range.empty ? view.moveVertically(range, forward, view.dom.clientHeight) : rangeEnd(range, forward));
+}
+var cursorPageUp = (view) => cursorByPage(view, false);
+var cursorPageDown = (view) => cursorByPage(view, true);
+function moveByLineBoundary(view, start, forward) {
+  let line = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
+  if (moved.head == start.head && moved.head != (forward ? line.to : line.from))
+    moved = view.moveToLineBoundary(start, forward, false);
+  if (!forward && moved.head == line.from && line.length) {
+    let space = /^\s*/.exec(view.state.sliceDoc(line.from, Math.min(line.from + 100, line.to)))[0].length;
+    if (space && start.head != line.from + space)
+      moved = EditorSelection.cursor(line.from + space);
+  }
+  return moved;
+}
+var cursorLineBoundaryForward = (view) => moveSel(view, (range) => moveByLineBoundary(view, range, true));
+var cursorLineBoundaryBackward = (view) => moveSel(view, (range) => moveByLineBoundary(view, range, false));
+var cursorLineStart = (view) => moveSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).from, 1));
+var cursorLineEnd = (view) => moveSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).to, -1));
+function extendSel(view, how) {
+  let selection = updateSel(view.state.selection, (range) => {
+    let head = how(range);
+    return EditorSelection.range(range.anchor, head.head, head.goalColumn);
+  });
+  if (selection.eq(view.state.selection))
+    return false;
+  view.dispatch(setSel(view.state, selection));
+  return true;
+}
+function selectByChar(view, forward) {
+  return extendSel(view, (range) => view.moveByChar(range, forward));
+}
+var selectCharLeft = (view) => selectByChar(view, view.textDirection != Direction.LTR);
+var selectCharRight = (view) => selectByChar(view, view.textDirection == Direction.LTR);
+function selectByGroup(view, forward) {
+  return extendSel(view, (range) => view.moveByGroup(range, forward));
+}
+var selectGroupLeft = (view) => selectByGroup(view, view.textDirection != Direction.LTR);
+var selectGroupRight = (view) => selectByGroup(view, view.textDirection == Direction.LTR);
+var selectGroupForward = (view) => selectByGroup(view, true);
+var selectGroupBackward = (view) => selectByGroup(view, false);
+function selectByLine(view, forward) {
+  return extendSel(view, (range) => view.moveVertically(range, forward));
+}
+var selectLineUp = (view) => selectByLine(view, false);
+var selectLineDown = (view) => selectByLine(view, true);
+function selectByPage(view, forward) {
+  return extendSel(view, (range) => view.moveVertically(range, forward, view.dom.clientHeight));
+}
+var selectPageUp = (view) => selectByPage(view, false);
+var selectPageDown = (view) => selectByPage(view, true);
+var selectLineBoundaryForward = (view) => extendSel(view, (range) => moveByLineBoundary(view, range, true));
+var selectLineBoundaryBackward = (view) => extendSel(view, (range) => moveByLineBoundary(view, range, false));
+var selectLineStart = (view) => extendSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).from));
+var selectLineEnd = (view) => extendSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).to));
+var cursorDocStart = ({state, dispatch}) => {
+  dispatch(setSel(state, {anchor: 0}));
+  return true;
+};
+var cursorDocEnd = ({state, dispatch}) => {
+  dispatch(setSel(state, {anchor: state.doc.length}));
+  return true;
+};
+var selectDocStart = ({state, dispatch}) => {
+  dispatch(setSel(state, {anchor: state.selection.main.anchor, head: 0}));
+  return true;
+};
+var selectDocEnd = ({state, dispatch}) => {
+  dispatch(setSel(state, {anchor: state.selection.main.anchor, head: state.doc.length}));
+  return true;
+};
+var selectAll = ({state, dispatch}) => {
+  dispatch(state.update({selection: {anchor: 0, head: state.doc.length}, annotations: Transaction.userEvent.of("keyboardselection")}));
+  return true;
+};
+function deleteBy({state, dispatch}, by) {
+  let changes = state.changeByRange((range) => {
+    let {from, to} = range;
+    if (from == to) {
+      let towards = by(from);
+      from = Math.min(from, towards);
+      to = Math.max(to, towards);
+    }
+    return from == to ? {range} : {changes: {from, to}, range: EditorSelection.cursor(from)};
+  });
+  if (changes.changes.empty)
+    return false;
+  dispatch(state.update(changes, {scrollIntoView: true, annotations: Transaction.userEvent.of("delete")}));
+  return true;
+}
+var deleteByChar = (target, forward, codePoint) => deleteBy(target, (pos) => {
+  let {state} = target, line = state.doc.lineAt(pos), before;
+  if (!forward && pos > line.from && pos < line.from + 200 && !/[^ \t]/.test(before = line.text.slice(0, pos - line.from))) {
+    if (before[before.length - 1] == "	")
+      return pos - 1;
+    let col = countColumn(before, 0, state.tabSize), drop = col % getIndentUnit(state) || getIndentUnit(state);
+    for (let i = 0; i < drop && before[before.length - 1 - i] == " "; i++)
+      pos--;
+    return pos;
+  }
+  let targetPos;
+  if (codePoint) {
+    let next2 = line.text.slice(pos - line.from + (forward ? 0 : -2), pos - line.from + (forward ? 2 : 0));
+    let size = next2 ? codePointSize(codePointAt(next2, 0)) : 1;
+    targetPos = forward ? Math.min(state.doc.length, pos + size) : Math.max(0, pos - size);
+  } else {
+    targetPos = findClusterBreak(line.text, pos - line.from, forward) + line.from;
+  }
+  if (targetPos == pos && line.number != (forward ? state.doc.lines : 1))
+    targetPos += forward ? 1 : -1;
+  return targetPos;
+});
+var deleteCodePointBackward = (view) => deleteByChar(view, false, true);
+var deleteCharBackward = (view) => deleteByChar(view, false, false);
+var deleteCharForward = (view) => deleteByChar(view, true, false);
+var deleteByGroup = (target, forward) => deleteBy(target, (start) => {
+  let pos = start, {state} = target, line = state.doc.lineAt(pos);
+  let categorize = state.charCategorizer(pos);
+  for (let cat = null; ; ) {
+    if (pos == (forward ? line.to : line.from)) {
+      if (pos == start && line.number != (forward ? state.doc.lines : 1))
+        pos += forward ? 1 : -1;
+      break;
+    }
+    let next2 = findClusterBreak(line.text, pos - line.from, forward) + line.from;
+    let nextChar = line.text.slice(Math.min(pos, next2) - line.from, Math.max(pos, next2) - line.from);
+    let nextCat = categorize(nextChar);
+    if (cat != null && nextCat != cat)
+      break;
+    if (nextChar != " " || pos != start)
+      cat = nextCat;
+    pos = next2;
+  }
+  return pos;
+});
+var deleteGroupBackward = (target) => deleteByGroup(target, false);
+var deleteGroupForward = (target) => deleteByGroup(target, true);
+var deleteToLineEnd = (view) => deleteBy(view, (pos) => {
+  let lineEnd = view.visualLineAt(pos).to;
+  if (pos < lineEnd)
+    return lineEnd;
+  return Math.min(view.state.doc.length, pos + 1);
+});
+var deleteToLineStart = (view) => deleteBy(view, (pos) => {
+  let lineStart = view.visualLineAt(pos).from;
+  if (pos > lineStart)
+    return lineStart;
+  return Math.max(0, pos - 1);
+});
+var splitLine = ({state, dispatch}) => {
+  let changes = state.changeByRange((range) => {
+    return {
+      changes: {from: range.from, to: range.to, insert: Text.of(["", ""])},
+      range: EditorSelection.cursor(range.from)
+    };
+  });
+  dispatch(state.update(changes, {scrollIntoView: true, annotations: Transaction.userEvent.of("input")}));
+  return true;
+};
+var transposeChars = ({state, dispatch}) => {
+  let changes = state.changeByRange((range) => {
+    if (!range.empty || range.from == 0 || range.from == state.doc.length)
+      return {range};
+    let pos = range.from, line = state.doc.lineAt(pos);
+    let from = pos == line.from ? pos - 1 : findClusterBreak(line.text, pos - line.from, false) + line.from;
+    let to = pos == line.to ? pos + 1 : findClusterBreak(line.text, pos - line.from, true) + line.from;
+    return {
+      changes: {from, to, insert: state.doc.slice(pos, to).append(state.doc.slice(from, pos))},
+      range: EditorSelection.cursor(to)
+    };
+  });
+  if (changes.changes.empty)
+    return false;
+  dispatch(state.update(changes, {scrollIntoView: true}));
+  return true;
+};
+function isBetweenBrackets(state, pos) {
+  if (/\(\)|\[\]|\{\}/.test(state.sliceDoc(pos - 1, pos + 1)))
+    return {from: pos, to: pos};
+  let context = syntaxTree(state).resolve(pos);
+  let before = context.childBefore(pos), after = context.childAfter(pos), closedBy;
+  if (before && after && before.to <= pos && after.from >= pos && (closedBy = before.type.prop(NodeProp.closedBy)) && closedBy.indexOf(after.name) > -1 && state.doc.lineAt(before.to).from == state.doc.lineAt(after.from).from)
+    return {from: before.to, to: after.from};
+  return null;
+}
+var insertNewlineAndIndent = ({state, dispatch}) => {
+  let changes = state.changeByRange(({from, to}) => {
+    let explode = from == to && isBetweenBrackets(state, from);
+    let cx = new IndentContext(state, {simulateBreak: from, simulateDoubleBreak: !!explode});
+    let indent = getIndentation(cx, from);
+    if (indent == null)
+      indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
+    let line = state.doc.lineAt(from);
+    while (to < line.to && /\s/.test(line.text.slice(to - line.from, to + 1 - line.from)))
+      to++;
+    if (explode)
+      ({from, to} = explode);
+    else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
+      from = line.from;
+    let insert2 = ["", indentString(state, indent)];
+    if (explode)
+      insert2.push(indentString(state, cx.lineIndent(line)));
+    return {
+      changes: {from, to, insert: Text.of(insert2)},
+      range: EditorSelection.cursor(from + 1 + insert2[1].length)
+    };
+  });
+  dispatch(state.update(changes, {scrollIntoView: true}));
+  return true;
+};
+var emacsStyleKeymap = [
+  {key: "Ctrl-b", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true},
+  {key: "Ctrl-f", run: cursorCharRight, shift: selectCharRight},
+  {key: "Ctrl-p", run: cursorLineUp, shift: selectLineUp},
+  {key: "Ctrl-n", run: cursorLineDown, shift: selectLineDown},
+  {key: "Ctrl-a", run: cursorLineStart, shift: selectLineStart},
+  {key: "Ctrl-e", run: cursorLineEnd, shift: selectLineEnd},
+  {key: "Ctrl-d", run: deleteCharForward},
+  {key: "Ctrl-h", run: deleteCharBackward},
+  {key: "Ctrl-k", run: deleteToLineEnd},
+  {key: "Alt-d", run: deleteGroupForward},
+  {key: "Ctrl-Alt-h", run: deleteGroupBackward},
+  {key: "Ctrl-o", run: splitLine},
+  {key: "Ctrl-t", run: transposeChars},
+  {key: "Alt-f", run: cursorGroupForward, shift: selectGroupForward},
+  {key: "Alt-b", run: cursorGroupBackward, shift: selectGroupBackward},
+  {key: "Alt-<", run: cursorDocStart},
+  {key: "Alt->", run: cursorDocEnd},
+  {key: "Ctrl-v", run: cursorPageDown},
+  {key: "Alt-v", run: cursorPageUp}
+];
+var standardKeymap = /* @__PURE__ */ [
+  {key: "ArrowLeft", run: cursorCharLeft, shift: selectCharLeft},
+  {key: "Mod-ArrowLeft", mac: "Alt-ArrowLeft", run: cursorGroupLeft, shift: selectGroupLeft},
+  {mac: "Cmd-ArrowLeft", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward},
+  {key: "ArrowRight", run: cursorCharRight, shift: selectCharRight},
+  {key: "Mod-ArrowRight", mac: "Alt-ArrowRight", run: cursorGroupRight, shift: selectGroupRight},
+  {mac: "Cmd-ArrowRight", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward},
+  {key: "ArrowUp", run: cursorLineUp, shift: selectLineUp},
+  {mac: "Cmd-ArrowUp", run: cursorDocStart, shift: selectDocStart},
+  {mac: "Ctrl-ArrowUp", run: cursorPageUp, shift: selectPageUp},
+  {key: "ArrowDown", run: cursorLineDown, shift: selectLineDown},
+  {mac: "Cmd-ArrowDown", run: cursorDocEnd, shift: selectDocEnd},
+  {mac: "Ctrl-ArrowDown", run: cursorPageDown, shift: selectPageDown},
+  {key: "PageUp", run: cursorPageUp, shift: selectPageUp},
+  {key: "PageDown", run: cursorPageDown, shift: selectPageDown},
+  {key: "Home", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward},
+  {key: "Mod-Home", run: cursorDocStart, shift: selectDocStart},
+  {key: "End", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward},
+  {key: "Mod-End", run: cursorDocEnd, shift: selectDocEnd},
+  {key: "Enter", run: insertNewlineAndIndent},
+  {key: "Mod-a", run: selectAll},
+  {key: "Backspace", run: deleteCodePointBackward, shift: deleteCodePointBackward},
+  {key: "Delete", run: deleteCharForward, shift: deleteCharForward},
+  {key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward},
+  {key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward},
+  {mac: "Mod-Backspace", run: deleteToLineStart},
+  {mac: "Mod-Delete", run: deleteToLineEnd}
+].concat(/* @__PURE__ */ emacsStyleKeymap.map((b) => ({mac: b.key, run: b.run, shift: b.shift})));
+
 // gh-pages/editor.js
 var editor = new EditorView({
   dispatch: (tr) => {
@@ -14498,7 +15114,12 @@ var editor = new EditorView({
   parent: document.getElementById("inputAreaContainer"),
   state: EditorState.create({
     doc: getLastCode(),
-    extensions: [assembly(), lineNumbers(), defaultHighlightStyle]
+    extensions: [
+      defaultHighlightStyle,
+      keymap.of(standardKeymap),
+      lineNumbers(),
+      assembly()
+    ]
   })
 });
 editor.contentDOM.setAttribute("data-gramm", "false");
