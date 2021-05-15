@@ -4,8 +4,10 @@
     "prepare": "npm run build"
   },
   "dependencies": {
+    "@codemirror/closebrackets": "^0.18.0",
     "@codemirror/commands": "^0.18.2",
     "@codemirror/gutter": "^0.18.2",
+    "@codemirror/history": "^0.18.1",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",
     "esbuild": "^0.11.18"

@@ -1,9 +1,11 @@
-import { assembly } from "@defasm/codemirror";
-import { EditorView, keymap } from "@codemirror/view";
-import { EditorState } from "@codemirror/state";
-import { lineNumbers } from "@codemirror/gutter";
-import { standardKeymap } from "@codemirror/commands";
-import { defaultHighlightStyle }              from '@codemirror/highlight';
+import { closeBrackets, closeBracketsKeymap } from "@codemirror/closebrackets";
+import { standardKeymap, defaultTabBinding }  from "@codemirror/commands";
+import { lineNumbers }                        from "@codemirror/gutter";
+import { defaultHighlightStyle }              from "@codemirror/highlight";
+import { history, historyKeymap }             from "@codemirror/history";
+import { EditorState }                        from "@codemirror/state";
+import { EditorView, keymap }                 from "@codemirror/view";
+import { assembly }                           from "@defasm/codemirror";
 
 var editor = new EditorView({
     dispatch: tr => {
@@ -15,7 +17,9 @@ var editor = new EditorView({
         doc: getLastCode(),
         extensions: [
             defaultHighlightStyle,
-            keymap.of(standardKeymap),
+            closeBrackets(),
+            history(),
+            keymap.of([...closeBracketsKeymap, ...historyKeymap, defaultTabBinding, ...standardKeymap]),
             lineNumbers(),
             assembly()
         ]
