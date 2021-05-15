@@ -108,7 +108,7 @@ export function secondPass(instructions, haltOnError = false)
 
     currIndex = baseAddr;
 
-    for(let i = 0; i < instructions.length || (redoChangeSize && (i = redoChangeSize = 0, true)); i++)
+    for(let i = 0; i < instructions.length || (redoChangeSize && (i = redoChangeSize = 0, currIndex = baseAddr, true)); i++)
     {
         for(let j = 0; j < instructions[i].length; j++)
         {
