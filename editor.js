@@ -10884,21 +10884,21 @@ Instruction.prototype.compile = function() {
 };
 function makeModRM(rm2, r) {
   let modrm = 0, rex = 0;
-  let rmReg = rm2.reg, rmReg2 = rm2.reg2, rmValue = rm2.value;
+  let rmReg = rm2.reg, rmReg2 = rm2.reg2;
   if (r.reg >= 8) {
     rex |= 4;
     r.reg &= 7;
   }
   modrm |= r.reg << 3;
   if (rm2.ripRelative) {
-    rmValue = rmValue || 0n;
+    rm2.value = rm2.value || 0n;
     return [rex, modrm | 5, null];
   }
   if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM && rm2.type !== OPT.REL)
     modrm |= 192;
   else if (rmReg >= 0) {
-    if (rmValue !== null) {
-      if (inferImmSize(rmValue) === 8) {
+    if (rm2.value !== null) {
+      if (inferImmSize(rm2.value) === 8) {
         rm2.dispSize = 8;
         modrm |= 64;
       } else {
@@ -10910,7 +10910,7 @@ function makeModRM(rm2, r) {
     rmReg = 5;
     if (rmReg2 < 0)
       rmReg2 = 4;
-    rmValue = rmValue || 0n;
+    rm2.value = rm2.value || 0n;
   }
   rex |= rmReg >> 3;
   rmReg &= 7;
@@ -10960,15 +10960,13 @@ Instruction.prototype.resolveLabels = function(labels2, currIndex) {
   };
 };
 function inferImmSize(value) {
-  if (value < 0n) {
-    value = -value - 1n;
-  }
+  if (value < 0n)
+    value = ~value;
   return value < 0x80n ? 8 : value < 0x8000n ? 16 : value < 0x80000000n ? 32 : 64;
 }
 function inferUnsignedImmSize(value) {
-  if (value < 0n) {
+  if (value < 0n)
     value = -2n * value - 1n;
-  }
   return value < 0x100n ? 8 : value < 0x10000n ? 16 : value < 0x100000000n ? 32 : 64;
 }
 

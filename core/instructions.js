@@ -254,7 +254,7 @@ function makeModRM(rm, r)
 {
     let modrm = 0, rex = 0;
     // rm's values may be edited, however the object itself shouldn't be changed
-    let rmReg = rm.reg, rmReg2 = rm.reg2, rmValue = rm.value;
+    let rmReg = rm.reg, rmReg2 = rm.reg2;
 
     // Encoding the "reg" field
     if(r.reg >= 8)
@@ -267,7 +267,7 @@ function makeModRM(rm, r)
     // Special case for RIP-relative addressing
     if(rm.ripRelative)
     {
-        rmValue = rmValue || 0n;
+        rm.value = rm.value || 0n;
         // mod = 00, reg = (reg), rm = 101
         return [rex, modrm | 5, null];
     }
@@ -276,9 +276,9 @@ function makeModRM(rm, r)
     if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
     else if(rmReg >= 0)
     {
-        if(rmValue !== null)
+        if(rm.value !== null)
         {
-            if(inferImmSize(rmValue) === 8)
+            if(inferImmSize(rm.value) === 8)
             {
                 rm.dispSize = 8;
                 modrm |= 0x40; // mod=01
@@ -295,7 +295,7 @@ function makeModRM(rm, r)
         // These are the respective "none" type registers
         rmReg = 5;
         if(rmReg2 < 0) rmReg2 = 4;
-        rmValue = rmValue || 0n;
+        rm.value = rm.value || 0n;
     }
     
     // Encoding the "rm" field
@@ -376,9 +376,7 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
 export function inferImmSize(value)
 {
     if(value < 0n) // Correct for negative values
-    {
-        value = -value - 1n
-    }
+        value = ~value;
 
     return value < 0x80n ? 8 :
             value < 0x8000n ? 16 :
@@ -389,9 +387,8 @@ export function inferImmSize(value)
 function inferUnsignedImmSize(value)
 {
     if(value < 0n) // Technically this doesn't make sense, but we'll allow it
-    {
-        value = -2n * value - 1n
-    }
+        value = -2n * value - 1n;
+
     return value < 0x100n ? 8 :
             value < 0x10000n ? 16 :
             value < 0x100000000n ? 32 : 64;
