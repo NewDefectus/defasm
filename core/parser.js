@@ -18,8 +18,9 @@ export function loadCode(code)
 var defaultNext = () =>
     token = (match = srcTokens.next()).done ? '\n' :
     (prevCodePos = codePos,
-    codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
-    match.value[0] === '\n' && (lastLineIndex = match.value.index + 1),
+    match.value[0] === '\n' ?
+        lastLineIndex = match.value.index + 1 :
+        codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
     macros.has(match.value[0])) ?
         (insertTokens(macros.get(match.value[0])), next())
     :  match.value[0][0] === '#' ? next() : match.value[0];
