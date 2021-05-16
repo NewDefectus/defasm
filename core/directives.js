@@ -1,4 +1,4 @@
-import { token, next, ungetToken, ParserError } from "./parser.js";
+import { token, next, ParserError }                  from "./parser.js";
 import { parseExpression, evaluate, unescapeString } from "./shuntingYard.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
@@ -100,7 +100,7 @@ Directive.prototype.compileValues = function(valSize)
 
 Directive.prototype.resolveLabels = function(labels)
 {
-    let initialLength = this.length, op, index = this.address - initialLength, outlineLength = this.outline.length;
+    let initialLength = this.length, op, outlineLength = this.outline.length;
     this.length = 0;
 
     for(let i = 0; i < outlineLength; i++)
@@ -109,7 +109,7 @@ Directive.prototype.resolveLabels = function(labels)
         try
         {
             if(op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, index + i * this.valSize);
+                op.value = evaluate(op.expression, labels, this.address + i * this.valSize);
             this.genValue(op.value);
         }
         catch(e)
@@ -123,7 +123,6 @@ Directive.prototype.resolveLabels = function(labels)
             outlineLength = i;
             i = -1;
             this.length = 0;
-            index = this.address - initialLength;
         }
     }
     return {

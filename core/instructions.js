@@ -352,7 +352,7 @@ Instruction.prototype.resolveLabels = function(labels)
             if(op.expression && op.expression.hasLabelDependency)
                 op.value = evaluate(op.expression, labels, this.address);
             if(op.type === OPT.REL)
-                op.virtualValue = op.value - BigInt(this.address);
+                op.virtualValue = op.value - BigInt(this.address + initialLength);
         }
         this.compile();
     }

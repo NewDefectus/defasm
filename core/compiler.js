@@ -112,8 +112,8 @@ export function secondPass(instructions, haltOnError = false)
     {
         for(instr of instrLine)
         {
-            currIndex += instr.length;
             instr.address = currIndex;
+            currIndex += instr.length;
             if(instr.labelName !== undefined) labels.set(instr.labelName, instr);
             if(instr.skip)
             {
@@ -150,11 +150,8 @@ export function secondPass(instructions, haltOnError = false)
                 if(resizeChange.length)
                 {
                     // Correct the addresses of all following instructions
-                    while(instr)
-                    {
+                    while(instr = instr.next)
                         instr.address += resizeChange.length;
-                        instr = instr.next;
-                    }
 
                     i = -1; break;
                 }
