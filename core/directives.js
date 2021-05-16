@@ -84,7 +84,7 @@ Directive.prototype.compileValues = function(valSize)
         do
         {
             expression = parseExpression(this.floatPrec);
-            value = evaluate(expression, null, 0);
+            value = evaluate(expression);
             if(expression.hasLabelDependency)
                 needsRecompilation = true;
 
@@ -100,10 +100,10 @@ Directive.prototype.compileValues = function(valSize)
 
 Directive.prototype.resolveLabels = function(labels)
 {
-    let initialLength = this.length, op, index = this.address - initialLength;
+    let initialLength = this.length, op, index = this.address - initialLength, outlineLength = this.outline.length;
     this.length = 0;
 
-    for(let i = 0; i < this.outline.length; i++)
+    for(let i = 0; i < outlineLength; i++)
     {
         op = this.outline[i];
         try
@@ -120,9 +120,10 @@ Directive.prototype.resolveLabels = function(labels)
                     success: false,
                     error: this.error
                 };
-            this.outline = this.outline.slice(0, i);
+            outlineLength = i;
             i = -1;
             this.length = 0;
+            index = this.address - initialLength;
         }
     }
     return {

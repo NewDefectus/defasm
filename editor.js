@@ -11598,7 +11598,9 @@ function evaluate(expression, labels2 = null, currIndex = 0) {
       }
     } else {
       if (op.name) {
-        if (labels2 === null)
+        if (op.name === ".")
+          op = BigInt(currIndex);
+        else if (labels2 === null)
           op = 1n;
         else if (!labels2.has(op.name))
           throw new ParserError(`Unknown label "${op.name}"`, op.pos);
@@ -11703,7 +11705,7 @@ Directive.prototype.compileValues = function(valSize) {
   try {
     do {
       expression = parseExpression(this.floatPrec);
-      value = evaluate(expression, null, 0);
+      value = evaluate(expression);
       if (expression.hasLabelDependency)
         needsRecompilation = true;
       this.outline.push({value, expression});
@@ -11715,9 +11717,9 @@ Directive.prototype.compileValues = function(valSize) {
   }
 };
 Directive.prototype.resolveLabels = function(labels2) {
-  let initialLength = this.length, op, index = this.address - initialLength;
+  let initialLength = this.length, op, index = this.address - initialLength, outlineLength = this.outline.length;
   this.length = 0;
-  for (let i = 0; i < this.outline.length; i++) {
+  for (let i = 0; i < outlineLength; i++) {
     op = this.outline[i];
     try {
       if (op.expression.hasLabelDependency)
@@ -11730,9 +11732,10 @@ Directive.prototype.resolveLabels = function(labels2) {
           success: false,
           error: this.error
         };
-      this.outline = this.outline.slice(0, i);
+      outlineLength = i;
       i = -1;
       this.length = 0;
+      index = this.address - initialLength;
     }
   }
   return {
@@ -14052,19 +14055,22 @@ function addInstruction(instr) {
   lastInstr = instr;
 }
 function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
-  let opcode, pos;
-  lastInstr = null, currLineArr = [];
+  let opcode, pos, tailInstr = null;
+  lastInstr = null;
+  currLineArr = [];
   macros.clear();
   for (let i = 1; i < line && i <= instructions.length; i++) {
-    for (let instr of instructions[i - 1]) {
-      if (instr.macroName)
-        macros.set(instr.macroName, instr.macro);
+    for (lastInstr of instructions[i - 1]) {
+      if (lastInstr.macroName)
+        macros.set(lastInstr.macroName, lastInstr.macro);
     }
   }
+  if (lastInstr)
+    tailInstr = lastInstr.next;
   let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
   for (let removed of removedInstrs)
-    for (let instr of removed)
-      if (instr.macroName)
+    for (tailInstr of removed)
+      if (tailInstr.macroName)
         throw "Macro edited, must recompile";
   loadCode(source);
   while (next(), !match.done) {
@@ -14111,7 +14117,7 @@ function compileAsm(source, instructions, {haltOnError = false, line = 1, linesR
     }
   }
   if (lastInstr)
-    lastInstr.next = instructions.length > line ? instructions[line][0] : null;
+    lastInstr.next = tailInstr;
   let bytes = 0;
   if (doSecondPass)
     bytes = secondPass(instructions, haltOnError);

@@ -216,7 +216,8 @@ export function evaluate(expression, labels = null, currIndex = 0)
         {
             if(op.name) // Labels
             {
-                if(labels === null) op = 1n;
+                if(op.name === '.') op = BigInt(currIndex);
+                else if(labels === null) op = 1n;
                 else if(!labels.has(op.name)) throw new ParserError(`Unknown label "${op.name}"`, op.pos);
                 else op = labels.get(op.name).address;
             }
