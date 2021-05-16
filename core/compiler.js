@@ -2,7 +2,7 @@ import { token, next, match, loadCode, macros, ParserError, codePos } from "./pa
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 
-export const baseAddr = 0x8048078;
+export const baseAddr = 0x400078;
 
 export var labels = new Map();
 
@@ -158,5 +158,5 @@ export function secondPass(instructions, haltOnError = false)
             }
         }
     }
-    return instr ? instr.address - baseAddr : 0;
+    return instr ? instr.address + instr.length - baseAddr : 0;
 }

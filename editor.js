@@ -14043,7 +14043,7 @@ function inferUnsignedImmSize(value) {
 }
 
 // core/compiler.js
-var baseAddr = 134512760;
+var baseAddr = 4194424;
 var labels = new Map();
 var lastInstr;
 var currLineArr;
@@ -14165,7 +14165,7 @@ function secondPass(instructions, haltOnError = false) {
       }
     }
   }
-  return instr ? instr.address - baseAddr : 0;
+  return instr ? instr.address + instr.length - baseAddr : 0;
 }
 
 // codemirror/parser.terms.js
