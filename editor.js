@@ -7629,7 +7629,7 @@ EditorView.clickAddsSelectionRange = clickAddsSelectionRange;
 EditorView.decorations = decorations;
 EditorView.contentAttributes = contentAttributes;
 EditorView.editorAttributes = editorAttributes;
-EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({"class": "cm-lineWrapping"});
+EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({class: "cm-lineWrapping"});
 EditorView.announce = /* @__PURE__ */ StateEffect.define();
 var MaxBidiLine = 4096;
 function ensureTop(given, dom) {
@@ -11258,7 +11258,7 @@ var registers = Object.assign({}, ...[
   "sil",
   "dil"
 ].map((x, i) => ({[x]: i})));
-var suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
+var suffixes = {b: 8, w: 16, l: 32, d: 32, q: 64, t: 80};
 var PREFIX_REX = 1;
 var PREFIX_NOREX = 2;
 var PREFIX_CLASHREX = 3;
@@ -11714,9 +11714,8 @@ Directive.prototype.compileValues = function(valSize) {
       this.outline = null;
   }
 };
-Directive.prototype.resolveLabels = function(labels2, index) {
-  let initialLength = this.length, op;
-  index -= initialLength;
+Directive.prototype.resolveLabels = function(labels2) {
+  let initialLength = this.length, op, index = this.address - initialLength;
   this.length = 0;
   for (let i = 0; i < this.outline.length; i++) {
     op = this.outline[i];
@@ -13294,7 +13293,7 @@ var OPC = {
   g: OPT.VMEM
 };
 var opCatcherCache = {};
-var sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
+var sizeIds = {b: 8, w: 16, l: 32, q: 64, t: 80, x: 128, y: 256, z: 512};
 var SIZETYPE_EXPLICITSUF = 1;
 var SIZETYPE_IMPLICITENC = 2;
 var EVEXPERM_MASK = 1;
@@ -14009,14 +14008,14 @@ function makeVexPrefix(vex, rex, isEvex) {
   }
   return [196, vex1, vex2];
 }
-Instruction.prototype.resolveLabels = function(labels2, currIndex) {
+Instruction.prototype.resolveLabels = function(labels2) {
   let initialLength = this.length;
   try {
     for (let op of this.outline[0]) {
       if (op.expression && op.expression.hasLabelDependency)
-        op.value = evaluate(op.expression, labels2, currIndex);
+        op.value = evaluate(op.expression, labels2, this.address);
       if (op.type === OPT.REL)
-        op.virtualValue = op.value - BigInt(currIndex);
+        op.virtualValue = op.value - BigInt(this.address);
     }
     this.compile();
   } catch (e) {
@@ -14044,8 +14043,17 @@ function inferUnsignedImmSize(value) {
 // core/compiler.js
 var baseAddr = 134512760;
 var labels = new Map();
+var lastInstr;
+var currLineArr;
+function addInstruction(instr) {
+  if (lastInstr)
+    lastInstr.next = instr;
+  currLineArr.push(instr);
+  lastInstr = instr;
+}
 function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
-  let opcode, currLineArr = [], pos;
+  let opcode, pos;
+  lastInstr = null, currLineArr = [];
   macros.clear();
   for (let i = 1; i < line && i <= instructions.length; i++) {
     for (let instr of instructions[i - 1]) {
@@ -14064,22 +14072,22 @@ function compileAsm(source, instructions, {haltOnError = false, line = 1, linesR
       pos = codePos;
       if (token !== "\n" && token !== ";") {
         if (token[0] === ".")
-          currLineArr.push(new Directive(token.slice(1), pos));
+          addInstruction(new Directive(token.slice(1), pos));
         else {
           opcode = token;
           switch (next()) {
             case ":":
-              currLineArr.push({length: 0, bytes: new Uint8Array(), labelName: opcode, pos});
+              addInstruction({length: 0, bytes: new Uint8Array(), labelName: opcode, pos});
               continue;
             case "=":
               let macroTokens = [];
               while (next() !== "\n")
                 macroTokens.push(token);
               macros.set(opcode, macroTokens);
-              currLineArr.push({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos});
+              addInstruction({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos});
               break;
             default:
-              currLineArr.push(new Instruction(opcode.toLowerCase(), pos));
+              addInstruction(new Instruction(opcode.toLowerCase(), pos));
               break;
           }
         }
@@ -14095,23 +14103,25 @@ function compileAsm(source, instructions, {haltOnError = false, line = 1, linesR
       if (e.pos == null || e.length == null)
         console.error("Error on line " + line + ":\n", e);
       else
-        currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
+        addInstruction({length: 0, bytes: new Uint8Array(), error: e});
       while (token !== "\n" && token !== ";")
         next();
       if (token === "\n" && !match.done)
         instructions.splice(line++, 0, currLineArr = []);
     }
   }
+  if (lastInstr)
+    lastInstr.next = instructions.length > line ? instructions[line][0] : null;
   let bytes = 0;
   if (doSecondPass)
     bytes = secondPass(instructions, haltOnError);
   return {instructions, bytes};
 }
 function secondPass(instructions, haltOnError = false) {
-  let currIndex = baseAddr, resizeChange, instrLen, redoChangeSize = 0;
+  let currIndex = baseAddr, resizeChange, instr, instrLen;
   labels.clear();
   for (let instrLine of instructions) {
-    for (let instr of instrLine) {
+    for (instr of instrLine) {
       currIndex += instr.length;
       instr.address = currIndex;
       if (instr.labelName !== void 0)
@@ -14122,20 +14132,13 @@ function secondPass(instructions, haltOnError = false) {
       }
     }
   }
-  currIndex = baseAddr;
-  for (let i = 0; i < instructions.length || redoChangeSize && (i = redoChangeSize = 0, currIndex = baseAddr, true); i++) {
-    for (let j = 0; j < instructions[i].length; j++) {
-      let instr = instructions[i][j];
+  for (let i = 0; i < instructions.length; i++) {
+    for (instr of instructions[i]) {
       if (instr.skip)
         continue;
-      if (redoChangeSize !== 0) {
-        instr.address += redoChangeSize;
-        continue;
-      }
       instrLen = instr.length;
-      currIndex += instrLen;
       if (instr.outline) {
-        resizeChange = instr.resolveLabels(labels, currIndex);
+        resizeChange = instr.resolveLabels(labels);
         if (!resizeChange.success) {
           let e = resizeChange.error;
           if (haltOnError)
@@ -14148,12 +14151,18 @@ function secondPass(instructions, haltOnError = false) {
           instr.length = 0;
           resizeChange.length = -instrLen;
         }
-        redoChangeSize = resizeChange.length;
-        instr.address += redoChangeSize;
+        if (resizeChange.length) {
+          while (instr) {
+            instr.address += resizeChange.length;
+            instr = instr.next;
+          }
+          i = -1;
+          break;
+        }
       }
     }
   }
-  return currIndex - baseAddr;
+  return instr ? instr.address - baseAddr : 0;
 }
 
 // codemirror/parser.terms.js
@@ -15572,7 +15581,7 @@ var parser = Parser.deserialize({
   repeatNodeCount: 3,
   tokenData: "!Hf~RbYZ!Zqr!`rsFistG]tuGhuv!<uwx#Rxy.c{|!`|}!=a}!O!`!O!P!=f!Q!R!>Q!R![!@|!]!^!Ha!c!}!Bv#T#o!Bv#r#s!`~!`Og~U!cYqr!`wx#Rxy.c{|!`}!O!`!Q!R.x!R![0V!c!}1`#T#o1`#r#s!`U#YdXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q!^#R!^!_6}!_!`#R!`!a:r!a#O#R#O#P@]#P#Q#R#Q#R$h#R#p#R#p#q@c#q~#RU$oqXSVQOY#RZq#Rqr$hru#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{|$h|}$h}!O$h!O!Q$h!Q!R*}!R![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q#r#R#r#s$h#s~#RU&}qXSVQOY#RZq#Rqr$hru#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{|$h|}$h}!O$h!O!Q$h!Q!R*}!R![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q#r#R#r#s$h#s~#RU)]jXSVQOY#RZu#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{!Q$h!Q!R*}!R![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q~#RU+UkXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#l>g#l#mBq#m#o>g#o#p#R#p#q@c#q~#RU-QXXSVQuv!`vw-myz/{z{!`{!Q!`!^!_1S!`!a1Y#Q#R!`#p#q2]U-pZqr!`vw!`wx#Rxy.c{|!`}!O!`!Q!R.x!R![0V!c!}1`#T#o1`#r#s!`U.fUwx#Rxy.c!Q!R.x!R![0V!c!}1`#T#o1`U/P^XSVQuv!`vw-myz/{z{!`{!Q!`!Q![0V!^!_1S!`!a1Y!c!}1`#Q#R!`#T#l1`#l#m3R#m#o1`#p#q2]U0SPXSVQyz/{U0^[XSVQuv!`vw-myz/{z{!`{!Q!`!Q![0V!^!_1S!`!a1Y!c!}1`#Q#R!`#T#o1`#p#q2]U1VP!^!_!`U1]P!`!a!`U1g[XSVQuv!`vw-myz/{z{!`{!Q!`!Q![1`!^!_1S!`!a1Y!c!}1`#Q#R!`#T#o1`#p#q2]U2`Zqr!`wx#Rxy.c{|!`}!O!`!Q!R.x!R![0V!c!}1`#T#o1`#p#q!`#r#s!`U3Y^XSVQuv!`vw-myz/{z{!`{!Q!`!Q![4U!^!_1S!`!a1Y!c!i4U!i!}1`#Q#R!`#T#Z4U#Z#o1`#p#q2]U4]^XSVQuv!`vw-myz/{z{!`{!Q!`!Q![4U!^!_1S!`!a1Y!c!i4U!i!}1`#Q#R!`#T#Z4U#Z#o1`#p#q2]U5`iXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q~#RU7UdXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q!^#R!^!_8d!_!`#R!`!a:r!a#O#R#O#P@]#P#Q#R#Q#R$h#R#p#R#p#q@c#q~#RU8kqXSVQOY#RZq#Rqr$hru#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{|$h|}$h}!O$h!O!Q$h!Q!R*}!R![5X![!^#R!^!_8d!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q#r#R#r#s$h#s~#RU:ydXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q!^#R!^!_6}!_!`#R!`!a<X!a#O#R#O#P@]#P#Q#R#Q#R$h#R#p#R#p#q@c#q~#RU<`qXSVQOY#RZq#Rqr$hru#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{|$h|}$h}!O$h!O!Q$h!Q!R*}!R![5X![!^#R!^!_6}!_!`#R!`!a<X!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q#r#R#r#s$h#s~#RU>niXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q![>g![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q~#RU@`PO~#RU@jqXSVQOY#RZq#Rqr$hru#Ruv$hvw&vwx#Rxy)Uyz#Rz{$h{|$h|}$h}!O$h!O!Q$h!Q!R*}!R![5X![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#o>g#o#p#R#p#q@c#q#r#R#r#s$h#s~#RUBxkXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q![Dm![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!iDm!i!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#ZDm#Z#o>g#o#p#R#p#q@c#q~#RUDtkXSVQOY#RZu#Ruv$hvw&vwx,yxy#Ryz#Rz{$h{!Q$h!Q![Dm![!^#R!^!_6}!_!`#R!`!a:r!a!c#R!c!iDm!i!}>g!}#O#R#O#P@]#P#Q#R#Q#R$h#R#T#R#T#ZDm#Z#o>g#o#p#R#p#q@c#q~#R~FnUY~OYFiZrFirsGQs#OFi#O#PGV#P~Fi~GVOY~~GYPO~Fi~GbQ]~OYG]Z~G]QGkYqrGhwxHZxy!%_{|Gh}!OGh!Q!R!%t!R![!&}!c!}!(U#T#o!(U#r#sGhQH`dVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q!^HZ!^!_!-k!_!`HZ!`!a!1[!a#OHZ#O#P!6o#P#QHZ#Q#RIn#R#pHZ#p#q!6u#q~HZQIsqVQOYHZZqHZqrInruHZuvInvwKzwxHZxyNWyzHZz{In{|In|}In}!OIn!O!QIn!Q!R! }!R![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q#rHZ#r#sIn#s~HZQLPqVQOYHZZqHZqrInruHZuvInvwKzwxHZxyNWyzHZz{In{|In|}In}!OIn!O!QIn!Q!R! }!R![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q#rHZ#r#sIn#s~HZQN]jVQOYHZZuHZuvInvwKzwxHZxyNWyzHZz{In{!QIn!Q!R! }!R![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q~HZQ!!SkVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#l!4{#l#m!9R#m#o!4{#o#pHZ#p#q!6u#q~HZQ!#|XVQuvGhvw!$iyz!&uz{Gh{!QGh!^!_!'x!`!a!(O#Q#RGh#p#q!)PQ!$lZqrGhvwGhwxHZxy!%_{|Gh}!OGh!Q!R!%t!R![!&}!c!}!(U#T#o!(U#r#sGhQ!%bUwxHZxy!%_!Q!R!%t!R![!&}!c!}!(U#T#o!(UQ!%y^VQuvGhvw!$iyz!&uz{Gh{!QGh!Q![!&}!^!_!'x!`!a!(O!c!}!(U#Q#RGh#T#l!(U#l#m!)u#m#o!(U#p#q!)PQ!&zPVQyz!&uQ!'S[VQuvGhvw!$iyz!&uz{Gh{!QGh!Q![!&}!^!_!'x!`!a!(O!c!}!(U#Q#RGh#T#o!(U#p#q!)PQ!'{P!^!_GhQ!(RP!`!aGhQ!(Z[VQuvGhvw!$iyz!&uz{Gh{!QGh!Q![!(U!^!_!'x!`!a!(O!c!}!(U#Q#RGh#T#o!(U#p#q!)PQ!)SZqrGhwxHZxy!%_{|Gh}!OGh!Q!R!%t!R![!&}!c!}!(U#T#o!(U#p#qGh#r#sGhQ!)z^VQuvGhvw!$iyz!&uz{Gh{!QGh!Q![!*v!^!_!'x!`!a!(O!c!i!*v!i!}!(U#Q#RGh#T#Z!*v#Z#o!(U#p#q!)PQ!*{^VQuvGhvw!$iyz!&uz{Gh{!QGh!Q![!*v!^!_!'x!`!a!(O!c!i!*v!i!}!(U#Q#RGh#T#Z!*v#Z#o!(U#p#q!)PQ!+|iVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q~HZQ!-pdVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q!^HZ!^!_!/O!_!`HZ!`!a!1[!a#OHZ#O#P!6o#P#QHZ#Q#RIn#R#pHZ#p#q!6u#q~HZQ!/TqVQOYHZZqHZqrInruHZuvInvwKzwxHZxyNWyzHZz{In{|In|}In}!OIn!O!QIn!Q!R! }!R![!+w![!^HZ!^!_!/O!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q#rHZ#r#sIn#s~HZQ!1adVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q!^HZ!^!_!-k!_!`HZ!`!a!2o!a#OHZ#O#P!6o#P#QHZ#Q#RIn#R#pHZ#p#q!6u#q~HZQ!2tqVQOYHZZqHZqrInruHZuvInvwKzwxHZxyNWyzHZz{In{|In|}In}!OIn!O!QIn!Q!R! }!R![!+w![!^HZ!^!_!-k!_!`HZ!`!a!2o!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q#rHZ#r#sIn#s~HZQ!5QiVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q![!4{![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q~HZQ!6rPO~HZQ!6zqVQOYHZZqHZqrInruHZuvInvwKzwxHZxyNWyzHZz{In{|In|}In}!OIn!O!QIn!Q!R! }!R![!+w![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#o!4{#o#pHZ#p#q!6u#q#rHZ#r#sIn#s~HZQ!9WkVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q![!:{![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!i!:{!i!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#Z!:{#Z#o!4{#o#pHZ#p#q!6u#q~HZQ!;QkVQOYHZZuHZuvInvwKzwx!#wxyHZyzHZz{In{!QIn!Q![!:{![!^HZ!^!_!-k!_!`HZ!`!a!1[!a!cHZ!c!i!:{!i!}!4{!}#OHZ#O#P!6o#P#QHZ#Q#RIn#R#THZ#T#Z!:{#Z#o!4{#o#pHZ#p#q!6u#q~HZ~!<xR!Q![!=R!c!}!=R#T#o!=R~!=WRi~!Q![!=R!c!}!=R#T#o!=R~!=fOd~~!=iR!Q![!=r!c!}!=r#T#o!=r~!=wRj~!Q![!=r!c!}!=r#T#o!=rV!>ZjXSVQhPX^!?{pq!?{uv!`vw-myz/{z{!`{!Q!`!Q![!@|![!]!Bq!^!_1S!_!`!@q!`!a1Y!c!}!Bv#Q#R!`#T#l!Bv#l#m!Dk#m#o!Bv#p#q2]#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{P!@OZX^!?{pq!?{!_!`!@q#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{P!@vQZPOY!@qZ~!@qV!AVhXSVQhPX^!?{pq!?{uv!`vw-myz/{z{!`{!Q!`!Q![!@|![!]!Bq!^!_1S!_!`!@q!`!a1Y!c!}!Bv#Q#R!`#T#o!Bv#p#q2]#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{P!BvO[PV!CPhXSVQhPX^!?{pq!?{uv!`vw-myz/{z{!`{!Q!`!Q![!Bv![!]!Bq!^!_1S!_!`!@q!`!a1Y!c!}!Bv#Q#R!`#T#o!Bv#p#q2]#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{V!DtjXSVQhPX^!?{pq!?{uv!`vw-myz/{z{!`{!Q!`!Q![!Ff![!]!Bq!^!_1S!_!`!@q!`!a1Y!c!i!Ff!i!}!Bv#Q#R!`#T#Z!Ff#Z#o!Bv#p#q2]#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{V!FojXSVQhPX^!?{pq!?{uv!`vw-myz/{z{!`{!Q!`!Q![!Ff![!]!Bq!^!_1S!_!`!@q!`!a1Y!c!i!Ff!i!}!Bv#Q#R!`#T#Z!Ff#Z#o!Bv#p#q2]#y#z!?{$f$g!?{#BY#BZ!?{$IS$I_!?{$I|$JO!?{$JT$JU!?{$KV$KW!?{&FU&FV!?{~!HfOf~",
   tokenizers: [0, 1, 2],
-  topRules: {"Program": [0, 5]},
+  topRules: {Program: [0, 5]},
   specialized: [{term: 24, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 25, get: (value, stack) => isRegister(value, stack) << 1}, {term: 26, get: (value, stack) => isDirective(value, stack) << 1}],
   tokenPrec: 156
 });
@@ -15627,10 +15636,13 @@ function assembly() {
 }
 
 // gh-pages/editor.js
+var byteCount = document.getElementById("byteCount");
 var editor = new EditorView({
   dispatch: (tr) => {
     document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
-    return editor.update([tr]);
+    let result = editor.update([tr]);
+    byteCount.innerText = `${editor["asm-bytes"]} byte${editor["asm-bytes"] != 1 ? "s" : ""}`;
+    return result;
   },
   parent: document.getElementById("inputAreaContainer"),
   state: EditorState.create({

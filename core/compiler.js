@@ -6,10 +6,21 @@ export const baseAddr = 0x8048078;
 
 export var labels = new Map();
 
+var lastInstr, currLineArr;
+
+function addInstruction(instr)
+{
+    if(lastInstr)
+        lastInstr.next = instr;
+    currLineArr.push(instr);
+    lastInstr = instr;
+}
+
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
 {
-    let opcode, currLineArr = [], pos;
+    let opcode, pos;
+    lastInstr = null, currLineArr = [];
 
     // Reset the macro list and add only the macros that have been defined prior to this line
     macros.clear();
@@ -37,25 +48,25 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(token !== '\n' && token !== ';')
             {
                 if(token[0] === '.') // Assembly directive
-                    currLineArr.push(new Directive(token.slice(1), pos));
+                    addInstruction(new Directive(token.slice(1), pos));
                 else // Instruction, label or macro
                 {
                     opcode = token;
                     switch(next())
                     {
                         case ':': // Label definition
-                            currLineArr.push({length: 0, bytes: new Uint8Array(), labelName: opcode, pos: pos})
+                            addInstruction({length: 0, bytes: new Uint8Array(), labelName: opcode, pos: pos});
                             continue;
                         
                         case '=': // Macro definition
                             let macroTokens = [];
                             while(next() !== '\n') macroTokens.push(token);
                             macros.set(opcode, macroTokens);
-                            currLineArr.push({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos: pos})
+                            addInstruction({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos: pos});
                             break;
                         
                         default: // Instruction
-                            currLineArr.push(new Instruction(opcode.toLowerCase(), pos));
+                            addInstruction(new Instruction(opcode.toLowerCase(), pos));
                             break;
                     }
                 }
@@ -74,11 +85,14 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(e.pos == null || e.length == null)
                 console.error("Error on line " + line + ":\n", e);
             else
-                currLineArr.push({length: 0, bytes: new Uint8Array(), error: e});
+                addInstruction({length: 0, bytes: new Uint8Array(), error: e});
             while(token !== '\n' && token !== ';') next();
             if(token === '\n' && !match.done) instructions.splice(line++, 0, currLineArr = []);
         }
     }
+
+    if(lastInstr)
+        lastInstr.next = instructions.length > line ? instructions[line][0] : null;
 
     let bytes = 0;
     if(doSecondPass) bytes = secondPass(instructions, haltOnError);
@@ -88,12 +102,12 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
 // Run the second pass (label resolution) on the instruction list
 export function secondPass(instructions, haltOnError = false)
 {
-    let currIndex = baseAddr, resizeChange, instrLen, redoChangeSize = 0;
+    let currIndex = baseAddr, resizeChange, instr, instrLen;
     labels.clear();
 
     for(let instrLine of instructions)
     {
-        for(let instr of instrLine)
+        for(instr of instrLine)
         {
             currIndex += instr.length;
             instr.address = currIndex;
@@ -106,27 +120,17 @@ export function secondPass(instructions, haltOnError = false)
         }
     }
 
-    currIndex = baseAddr;
-
-    for(let i = 0; i < instructions.length || (redoChangeSize && (i = redoChangeSize = 0, currIndex = baseAddr, true)); i++)
+    for(let i = 0; i < instructions.length; i++)
     {
-        for(let j = 0; j < instructions[i].length; j++)
+        for(instr of instructions[i])
         {
-            let instr = instructions[i][j];
             if(instr.skip) continue;
 
-            if(redoChangeSize !== 0)
-            {
-                instr.address += redoChangeSize;
-                continue;
-            }
-
             instrLen = instr.length;
-            currIndex += instrLen;
             if(instr.outline)
             {
-                resizeChange = instr.resolveLabels(labels, currIndex);
-                if(!resizeChange.success) // Remove instructions that fail to recompile
+                resizeChange = instr.resolveLabels(labels);
+                if(!resizeChange.success) // Skip instructions that fail to recompile
                 {
                     let e = resizeChange.error;
                     if(haltOnError) throw `Error on line ${i + 1}: ${e}`;
@@ -137,12 +141,22 @@ export function secondPass(instructions, haltOnError = false)
                     
                     instr.skip = true;
                     instr.length = 0;
-                    resizeChange.length = -instrLen; // The entire instruction is removed
+                    resizeChange.length = -instrLen; // The entire instruction's length is removed
                 }
-                redoChangeSize = resizeChange.length;
-                instr.address += redoChangeSize;
+
+                if(resizeChange.length)
+                {
+                    // Correct the addresses of all following instructions
+                    while(instr)
+                    {
+                        instr.address += resizeChange.length;
+                        instr = instr.next;
+                    }
+
+                    i = -1; break;
+                }
             }
         }
     }
-    return currIndex - baseAddr;
+    return instr ? instr.address - baseAddr : 0;
 }

@@ -7,10 +7,14 @@ import { EditorState }                        from "@codemirror/state";
 import { EditorView, keymap }                 from "@codemirror/view";
 import { assembly }                           from "@defasm/codemirror";
 
+const byteCount = document.getElementById("byteCount");
+
 var editor = new EditorView({
     dispatch: tr => {
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
-        return editor.update([tr]);
+        let result = editor.update([tr]);
+        byteCount.innerText = `${editor['asm-bytes']} byte${editor['asm-bytes'] != 1 ? 's' : ''}`;
+        return result;
     },
     parent: document.getElementById("inputAreaContainer"),
     state: EditorState.create({

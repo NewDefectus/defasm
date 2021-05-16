@@ -26,4 +26,13 @@ body {
     border-top: 3px solid black;
 }
 
+#byteCount {
+    position: absolute;
+    right: 0.5em;
+    top: 2em;
+    font-family: monospace;
+    font-weight:bold;
+    font-size: 1.75em;
+}
+
 .cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }

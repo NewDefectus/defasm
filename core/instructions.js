@@ -342,7 +342,7 @@ function makeVexPrefix(vex, rex, isEvex)
 }
 
 // Resolve label dependencies
-Instruction.prototype.resolveLabels = function(labels, currIndex)
+Instruction.prototype.resolveLabels = function(labels)
 {
     let initialLength = this.length;
     try
@@ -350,9 +350,9 @@ Instruction.prototype.resolveLabels = function(labels, currIndex)
         for(let op of this.outline[0])
         {
             if(op.expression && op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, currIndex);
+                op.value = evaluate(op.expression, labels, this.address);
             if(op.type === OPT.REL)
-                op.virtualValue = op.value - BigInt(currIndex);
+                op.virtualValue = op.value - BigInt(this.address);
         }
         this.compile();
     }

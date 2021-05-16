@@ -98,10 +98,9 @@ Directive.prototype.compileValues = function(valSize)
     }
 }
 
-Directive.prototype.resolveLabels = function(labels, index)
+Directive.prototype.resolveLabels = function(labels)
 {
-    let initialLength = this.length, op;
-    index -= initialLength;
+    let initialLength = this.length, op, index = this.address - initialLength;
     this.length = 0;
 
     for(let i = 0; i < this.outline.length; i++)
