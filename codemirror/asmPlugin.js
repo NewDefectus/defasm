@@ -202,7 +202,7 @@ export function isOpcode(opcode) {
 }
 
 export function isRegister(reg) {
-    reg = reg.slice(1).toLowerCase();
+    reg = reg.slice(1).trim().toLowerCase();
     if(registers.hasOwnProperty(reg)) return Terms.Register;
     if(reg[0] === 'r')
     {

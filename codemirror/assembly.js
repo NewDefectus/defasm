@@ -16,8 +16,11 @@ const assemblyLang = LezerLanguage.define({
                 LabelDefinition: tags.definition(tags.labelName),
                 MacroDefinition: tags.definition(tags.macroName),
                 Immediate: tags.literal,
+                Memory: tags.regexp,
+                Relative: tags.regexp,
                 Expression: tags.literal,
-                FullString: tags.string
+                FullString: tags.string,
+                CharString: tags.string
             })
         ]
     })

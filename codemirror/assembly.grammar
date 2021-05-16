@@ -1,43 +1,51 @@
 @top Program { statement }
 
 statement {
+  LabelDefinition |
   (
   InstructionStatement |
   DirectiveStatement |
   MacroDefinition |
-  LabelDefinition |
   Comment
   ) (';' | '\n')
 }
 
 
 InstructionStatement {
-  Prefix* (Opcode commaSep<Register | Immediate>)?
+  Prefix* (Opcode commaSep<Register | Immediate | Memory>)?
 }
 
 DirectiveStatement {
   Directive commaSep<Expression | FullString>
 }
 
+Immediate {
+  '$' Expression
+}
+
+Memory {
+  Relative | Relative? '(' commaSep<()> ')'
+}
+
 @tokens {
-  word { (std.asciiLetter | std.digit)+ }
+  word { $[a-zA-Z_] $[a-zA-Z_0-9]* }
 
   opcode { word }
-  register { '%' word }
+  register { '%' std.whitespace* word }
   directive { '.' word }
   Comment { '#' ![\n]* }
-  LabelDefinition { word ':' }
+  LabelDefinition { word std.whitespace* ':' }
   MacroDefinition { word std.whitespace* "=" ![\n]* }
   CharString { "'" (![\\\n'] | "\\" _)* "'"? }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
-  Number { ('0x' $[0-9a-fA-F]+) | std.digit+ | CharString }
+  Number { ('0x' $[0-9a-fA-F]+) | std.digit+ }
   Unary { '+' | '-' | '~' | '!' }
-  Operator { $[+-/*%|&^] | '||' | '&&' | '>>' | '<<' }
-  Expression { Unary* '('* (Number | word) (')'* | (Operator Expression)) }
-
-  Immediate { '$'? Expression }
+  Operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
+  Expression { Unary* '('* (Number | CharString | word) (')'* | (Operator Expression)) }
+  Relative { Expression }
 
   @precedence { MacroDefinition, LabelDefinition, opcode }
+  @precedence { Relative, '(' }
 }
 
 commaSep<content> {
