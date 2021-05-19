@@ -428,10 +428,10 @@ C6.0 i rbwl
 0F7F V~$q v
 F3)0F7E -$q v Vx > {w
 66)0FD6 -$q Vx v > {w
-8C s Rwlq
-8C s m
-8E Rwlq s
-8E m s
+8C s ^Rwlq
+8C s mW
+8E ^RWlq s
+8E mW s
 0F20 C ^RQ
 0F21 D ^RQ
 0F22 ^RQ C
