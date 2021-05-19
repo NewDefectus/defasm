@@ -170,6 +170,7 @@ function assemble()
             
             let errLine = null;
             let pos = "on";
+            let registers = null;
 
             try
             {
@@ -184,8 +185,16 @@ function assemble()
                     if(data.readInt32LE(e_phoff) != 4) continue;
                     
                     let p_offset = Number(data.readBigInt64LE(e_phoff + 8));
+                    let pt_regs = 124 + p_offset + Math.ceil(data.readInt32LE(p_offset) / 4) * 4;
+                    registers = {};
 
-                    lastIP = Number(data.readBigInt64LE(252 + p_offset + Math.ceil(data.readInt32LE(p_offset) / 4) * 4));
+                    // Order taken from https://elixir.bootlin.com/linux/latest/source/arch/x86/include/asm/ptrace.h#L56
+                    for(let regName of "r15 r14 r13 r12 rbp rbx r11 r10 r9 r8 rax rcx rdx rsi rdi orig_rax rip cs rflags rsp ss".split(' '))
+                    {
+                        registers[regName] = data.readBigUInt64LE(pt_regs);
+                        pt_regs += 8;
+                    }
+                    lastIP = Number(registers['rip']);
                     break;
                 }
 
@@ -214,9 +223,22 @@ function assemble()
                 SIGEMT:  'emulator trap',
                 SIGSYS:  'bad system call'
             })[signal] || signal;
-            console.warn(`Signal: ${signal}${errLine === null ? '' : ` ${pos} line ${errLine}`}`);
+            console.warn(`Signal: ${signal}${
+                errLine === null ? '' : ` ${pos} line ${errLine}`
+            } ${
+                registers['rip'] === undefined ? '' : `(%rip was ${registers['rip'].toString(16).toUpperCase().padStart(16, '0')})`
+            }`);
             
-
+            if(registers !== null)
+            {
+                console.warn("Register dump:");
+                let regFormat = reg => `    %${reg.padEnd(4, ' ')}= ${registers[reg].toString(16).toUpperCase().padStart(16, '0')}`;
+                for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
+                {
+                    let [reg1, reg2] = regNames.split(' ');
+                    console.warn(regFormat(reg1) + regFormat(reg2));
+                }
+            }
 
             process.exit();
         });
