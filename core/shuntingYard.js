@@ -48,8 +48,39 @@ for(let i = 0; i < operators.length; i++)
 }
 operators = Object.assign({}, ...operators);
 
+const stringEscapeSeqs = {
+    'a': '\x07',
+    'b': '\x08',
+    'e': '\x1B',
+    'f': '\x0C',
+    'n': '\x0A',
+    'r': '\x0D',
+    't': '\x09',
+    'v': '\x0B',
+    '\\':'\x5C',
+    '\'':'\x27',
+    '"': '\x22',
+    '?': '\x3F'
+}
 
-export var unescapeString = string => string.slice(1, -1).replace("\\n", "\n").replace("\\0", "\0");
+
+export var unescapeString = string => string.slice(1, -1)
+.replace(/\\x[0-9a-f]{1,2}/ig, x => 
+    String.fromCharCode(parseInt(x.slice(2), 16))
+)
+.replace(/\\[0-7]{1,3}/g, x => 
+    String.fromCharCode(parseInt(x.slice(1), 8) & 255)
+)
+.replace(/\\u[0-9a-f]{1,8}/ig, x => {
+    try {
+        return String.fromCodePoint(parseInt(x.slice(2), 16))
+    } catch(e) {
+        return '';
+    }
+})
+.replace(/\\./g, x => 
+    stringEscapeSeqs[x.slice(1)] || ''
+);
 
 
 function parseNumber(asFloat = false)
