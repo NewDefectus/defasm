@@ -113,6 +113,7 @@ export function secondPass(instructions, haltOnError = false)
         for(instr of instrLine)
         {
             instr.address = currIndex;
+            if(instr.outline) instr.length = 0; // Ensure that the current length of the instruction won't matter
             currIndex += instr.length;
             if(instr.labelName !== undefined) labels.set(instr.labelName, instr);
             if(instr.skip)

@@ -13904,9 +13904,10 @@ Instruction.prototype.interpret = function() {
     throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
   this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
   this.endPos = codePos;
-  this.compile();
-  if (!this.needsRecompilation)
+  if (!this.needsRecompilation) {
+    this.compile();
     this.outline = void 0;
+  }
 };
 Instruction.prototype.compile = function() {
   let [operands, enforcedSize, variations, prefsToGen, vexInfo] = this.outline;
@@ -14148,6 +14149,8 @@ function secondPass(instructions, haltOnError = false) {
   for (let instrLine of instructions) {
     for (instr of instrLine) {
       instr.address = currIndex;
+      if (instr.outline)
+        instr.length = 0;
       currIndex += instr.length;
       if (instr.labelName !== void 0)
         labels.set(instr.labelName, instr);

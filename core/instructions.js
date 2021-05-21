@@ -168,8 +168,11 @@ Instruction.prototype.interpret = function()
 
     this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
     this.endPos = codePos;
-    this.compile();
-    if(!this.needsRecompilation) this.outline = undefined;
+    if(!this.needsRecompilation)
+    {
+        this.compile();
+        this.outline = undefined;
+    }
 }
 
 Instruction.prototype.compile = function()

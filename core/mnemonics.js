@@ -1,4 +1,3 @@
-import { inferImmSize } from "./instructions.js";
 import { OPT } from "./operands.js";
 import { ParserError } from "./parser.js";
 
