@@ -6,7 +6,8 @@ DefAssembler is built from scratch without the use of any additional libraries, 
 # Usage
 This package exports a command-line program called `defasm`, with which you can assemble and (optionally) execute Assembly source code. Install the package globally with `npm install -g @defasm/core` and run `defasm --help` for more information.
 
-The assembler parses [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax).
+The assembler parses [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax); the command-line utility is
+functional only on Linux.
 
 # Live assembly
 A special feature of the assembler is the concept of "live assembly" - the ability to write code in an editor and have the binary dumps be generated and displayed in real time.

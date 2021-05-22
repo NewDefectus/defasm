@@ -88,19 +88,19 @@ Instruction.prototype.interpret = function()
         }
     }
 
-    let variations = mnemonics[opcode], operands = [];
-    if(typeof variations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
+    let operations = mnemonics[opcode], operands = [];
+    if(typeof operations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
     {
-        if(variations[0][0] === '#') // References other variation
+        if(operations[0][0] === '#') // References other mnemonic
         {
-            let otherOpcode = variations[0].slice(1);
+            let otherOpcode = operations[0].slice(1);
             if(typeof mnemonics[otherOpcode][0] === "string")
             {
                 mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
             }
-            mnemonics[opcode] = variations = mnemonics[otherOpcode];
+            mnemonics[opcode] = operations = mnemonics[otherOpcode];
         }
-        else mnemonics[opcode] = variations = variations.map(line => new Operation(line.split(' ')));
+        else mnemonics[opcode] = operations = operations.map(line => new Operation(line.split(' ')));
     }
 
     // An optional "pseudo-operand" for rounding semantics may appear at the start
@@ -166,7 +166,7 @@ Instruction.prototype.interpret = function()
 
     if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
-    this.outline = [operands, enforcedSize, variations, prefsToGen, vexInfo];
+    this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
     this.endPos = codePos;
     if(!this.needsRecompilation)
     {
@@ -177,7 +177,7 @@ Instruction.prototype.interpret = function()
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, variations, prefsToGen, vexInfo] = this.outline;
+    let [operands, enforcedSize, operations, prefsToGen, vexInfo] = this.outline;
     this.length = 0;
 
     // Before we compile, we'll get the immediates' sizes
@@ -198,9 +198,9 @@ Instruction.prototype.compile = function()
     // Now, we'll find the matching operation for this operand list
     let op, found = false, rexVal = 0x40;
     
-    for(let variation of variations)
+    for(let operation of operations)
     {
-        op = variation.fit(operands, enforcedSize, vexInfo);
+        op = operation.fit(operands, enforcedSize, vexInfo);
         if(op !== null)
         {
             found = true;

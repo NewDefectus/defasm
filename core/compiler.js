@@ -19,7 +19,7 @@ function addInstruction(instr)
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
 {
-    let opcode, pos, tailInstr = null;
+    let opcode, pos;
     lastInstr = null; currLineArr = [];
 
     // Reset the macro list and add only the macros that have been defined prior to this line
@@ -32,14 +32,11 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
         }
     }
 
-    if(lastInstr)
-        tailInstr = lastInstr.next;
-
     // Remove instructions that were replaced
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for(let removed of removedInstrs)
-        for(tailInstr of removed)
-            if(tailInstr.macroName) throw "Macro edited, must recompile";
+        for(let instr of removed)
+            if(instr.macroName) throw "Macro edited, must recompile";
 
     loadCode(source);
 
@@ -95,7 +92,17 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
     }
 
     if(lastInstr)
-        lastInstr.next = tailInstr;
+    {
+        while(line < instructions.length)
+        {
+            if(instructions[line].length > 0)
+            {
+                lastInstr.next = instructions[line][0];
+                break;
+            }
+            line++;
+        }
+    }
 
     let bytes = 0;
     if(doSecondPass) bytes = secondPass(instructions, haltOnError);
