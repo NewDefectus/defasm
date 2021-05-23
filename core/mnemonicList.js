@@ -1437,7 +1437,7 @@ export var mnemonics = {};
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
 
 
-let hex = num => num.toString(16), dummy;
+let hex = num => num.toString(16);
 
 // Some extra mnemonics (these are easier to encode programatically as they're quite repetitive)
 let arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(' ');
@@ -1494,7 +1494,7 @@ conditionals.forEach((names, i) => {
     ];
 
     // cmovxx instructions
-    mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " Rwlq"];
+    mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r Rwlq"];
 
     // setxx instructions
     mnemonics['set' + firstName] = [hex(0x0F90 + i) + ".0 rB"]

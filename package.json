@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "build": "npm run build --prefix codemirror && esbuild --bundle --sourcemap --format=esm --outdir=. gh-pages/editor.js",
+    "build": "esbuild --bundle --sourcemap --servedir=. --outdir=. gh-pages/editor.js",
     "prepare": "npm run build"
   },
   "dependencies": {
