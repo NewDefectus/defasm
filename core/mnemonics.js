@@ -243,10 +243,12 @@ export function Operation(format)
     let [opcode, extension] = format.shift().split('.');
 
     // Op difference (the value to add to the opcode if the size isn't 8)
-    if(opcode[opcode.length - 2] === '+' || opcode[opcode.length - 2] === '-')
+    let adderSeparator = opcode.indexOf('+');
+    if(adderSeparator < 0) adderSeparator = opcode.indexOf('-');
+    if(adderSeparator >= 0)
     {
-        this.opDiff = parseInt(opcode.slice(-2));
-        opcode = opcode.slice(0, -2);
+        this.opDiff = parseInt(opcode.slice(adderSeparator));
+        opcode = opcode.slice(0, adderSeparator);
     }
     else this.opDiff = 1;
 

@@ -1488,10 +1488,7 @@ conditionals.forEach((names, i) => {
     let firstName = names.shift();
 
     // jxx instructions
-    mnemonics['j' + firstName] = [
-        hex(0x70 + i) + " jb",
-        hex(0x0F80 + i) + " jl"
-    ];
+    mnemonics['j' + firstName] = [hex(0x70 + i) + "+3856 jbl"];
 
     // cmovxx instructions
     mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r Rwlq"];

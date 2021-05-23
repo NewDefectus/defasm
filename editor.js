@@ -13257,10 +13257,7 @@ g nle`.split("\n");
   conditionals.forEach((names, i) => {
     names = names.split(" ");
     let firstName = names.shift();
-    mnemonics["j" + firstName] = [
-      hex(112 + i) + " jb",
-      hex(3968 + i) + " jl"
-    ];
+    mnemonics["j" + firstName] = [hex(112 + i) + "+3856 jbl"];
     mnemonics["cmov" + firstName] = [hex(3904 + i) + " r Rwlq"];
     mnemonics["set" + firstName] = [hex(3984 + i) + ".0 rB"];
     names.forEach((name2) => {
@@ -13497,9 +13494,12 @@ g nle`.split("\n");
       format.shift();
     }
     let [opcode, extension] = format.shift().split(".");
-    if (opcode[opcode.length - 2] === "+" || opcode[opcode.length - 2] === "-") {
-      this.opDiff = parseInt(opcode.slice(-2));
-      opcode = opcode.slice(0, -2);
+    let adderSeparator = opcode.indexOf("+");
+    if (adderSeparator < 0)
+      adderSeparator = opcode.indexOf("-");
+    if (adderSeparator >= 0) {
+      this.opDiff = parseInt(opcode.slice(adderSeparator));
+      opcode = opcode.slice(0, adderSeparator);
     } else
       this.opDiff = 1;
     if (opcode[2] === ")") {
