@@ -1,6 +1,7 @@
 {
   "scripts": {
-    "build": "esbuild --bundle --sourcemap --servedir=. --outdir=. gh-pages/editor.js",
+    "build": "esbuild --bundle --sourcemap --outdir=. gh-pages/editor.js",
+    "debug": "esbuild --bundle --sourcemap --servedir=. --outdir=. gh-pages/editor.js",
     "prepare": "npm run build"
   },
   "dependencies": {

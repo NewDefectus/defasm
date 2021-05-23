@@ -95,7 +95,8 @@ function parseNumber(asFloat = false)
         {
             let string = unescapeString(token); // Decode escape sequences
             // Parse as character constant
-            for(let i = 0; i < string.length; i++)
+            let i = string.length;
+            while(i--)
             {
                 value <<= asFloat ? 8 : 8n;
                 value += asFloat ? string.charCodeAt(i) : BigInt(string.charCodeAt(i));

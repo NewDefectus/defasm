@@ -11503,7 +11503,8 @@
         throw new ParserError("Expected value, got none");
       if (token[0] === "'" && token[token.length - 1] === "'") {
         let string2 = unescapeString(token);
-        for (let i = 0; i < string2.length; i++) {
+        let i = string2.length;
+        while (i--) {
           value <<= asFloat ? 8 : 8n;
           value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
         }
