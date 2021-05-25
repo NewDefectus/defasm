@@ -14226,7 +14226,7 @@ g nle`.split("\n");
       return node;
     }
   };
-  var asmHover = hoverTooltip((view, pos, side) => {
+  var asmHover = hoverTooltip((view, pos) => {
     for (let err of view["asm-errors"]) {
       if (err.from <= pos && err.to >= pos) {
         let text = err.value.message;
@@ -14245,6 +14245,19 @@ g nle`.split("\n");
     }
     return null;
   });
+  function expandTabs(text, tabSize) {
+    let result = "", i = tabSize;
+    for (let char of text) {
+      if (char == "	") {
+        result += " ".repeat(i);
+        i = tabSize;
+      } else {
+        result += char;
+        i = i - 1 || tabSize;
+      }
+    }
+    return result;
+  }
   var asmPlugin = ViewPlugin.fromClass(class {
     constructor(view) {
       this.ctx = document.createElement("canvas").getContext("2d");
@@ -14256,6 +14269,7 @@ g nle`.split("\n");
       setTimeout(() => {
         let style = window.getComputedStyle(view.contentDOM);
         this.ctx.font = `${style.getPropertyValue("font-style")} ${style.getPropertyValue("font-variant")} ${style.getPropertyValue("font-weight")} ${style.getPropertyValue("font-size")} ${style.getPropertyValue("font-family")}`;
+        this.tabSize = style.getPropertyValue("tab-size");
         this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
         this.makeAsmDecorations(view);
         view.dispatch();
@@ -14283,7 +14297,7 @@ g nle`.split("\n");
         if (e !== "Macro edited, must recompile")
           throw e;
         this.instrs = [];
-        compileAsm(state.sliceDoc(), this.instrs);
+        update.view["asm-bytes"] = compileAsm(state.sliceDoc(), this.instrs).bytes;
       }
       this.makeAsmDecorations(update.view);
     }
@@ -14292,7 +14306,7 @@ g nle`.split("\n");
       let end = doc2.lineAt(to).number;
       let newWidths = [];
       for (let i = start; i <= end; i++) {
-        newWidths.push(this.ctx.measureText(doc2.line(i).text).width);
+        newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, this.tabSize)).width);
       }
       this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
     }
@@ -14339,9 +14353,8 @@ g nle`.split("\n");
     if (!mnemonics.hasOwnProperty(opcode)) {
       if (opcode[0] === "v" && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
         opcode = opcode.slice(1);
-      if (!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) {
+      if (!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
         return -1;
-      }
     }
     return Opcode;
   }

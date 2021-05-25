@@ -9,10 +9,17 @@ import { dirs }                   from '@defasm/core/directives.js';
 
 import * as Terms from './parser.terms.js';
 
-class AsmDumpWidget extends WidgetType {
-    constructor(instrs, offset) { super(); this.instrs = instrs; this.offset = offset; };
+class AsmDumpWidget extends WidgetType
+{
+    constructor(instrs, offset)
+    {
+        super();
+        this.instrs = instrs;
+        this.offset = offset;
+    }
 
-    toDOM() {
+    toDOM()
+    {
         let node = document.createElement('span');
         let finalText = "";
         node.setAttribute('aria-hidden', 'true');
@@ -20,7 +27,8 @@ class AsmDumpWidget extends WidgetType {
         node.style.marginLeft = this.offset + 'px';
 
         for(let instr of this.instrs) {
-            for(let i = 0; i < instr.length; i++) {
+            for(let i = 0; i < instr.length; i++)
+            {
                 finalText += ' ' +
                     instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
             }
@@ -31,7 +39,7 @@ class AsmDumpWidget extends WidgetType {
     }
 }
 
-export const asmHover = hoverTooltip((view, pos, side) => {
+export const asmHover = hoverTooltip((view, pos) => {
     for(let err of view['asm-errors'])
     {
         if(err.from <= pos && err.to >= pos)
@@ -54,9 +62,30 @@ export const asmHover = hoverTooltip((view, pos, side) => {
     return null;
 });
 
+/* Convert tabs to spaces, for proper width measurement */
+function expandTabs(text, tabSize)
+{
+    let result = "", i = tabSize;
+    for(let char of text)
+    {
+        if(char == '\t')
+        {
+            result += ' '.repeat(i);
+            i = tabSize;
+        }
+        else
+        {
+            result += char;
+            i = i - 1 || tabSize;
+        }
+    }
+    return result;
+}
+
 export const asmPlugin = ViewPlugin.fromClass(class {
     /** @param {EditorView} view */
-    constructor(view) {
+    constructor(view)
+    {
         this.ctx          = document.createElement('canvas').getContext('2d');
         this.lineWidths   = [];
         this.instrs       = [];
@@ -80,6 +109,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
             } ${
                 style.getPropertyValue('font-family')
             }`;
+            this.tabSize = style.getPropertyValue('tab-size');
             this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
             this.makeAsmDecorations(view);
             view.dispatch();
@@ -88,7 +118,8 @@ export const asmPlugin = ViewPlugin.fromClass(class {
     }
 
     /** @param {ViewUpdate} update */
-    update(update) {
+    update(update)
+    {
         if(!update.docChanged) return;
 
         let state = update.view.state;
@@ -125,25 +156,28 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         {
             if(e !== "Macro edited, must recompile") throw e;
             this.instrs = [];
-            compileAsm(state.sliceDoc(), this.instrs);
+            update.view['asm-bytes'] = compileAsm(state.sliceDoc(), this.instrs).bytes;
         }
         
         this.makeAsmDecorations(update.view);
     }
 
-    updateWidths(from, to, removedLines, doc) {
+    updateWidths(from, to, removedLines, doc)
+    {
         let start = doc.lineAt(from).number;
         let end   = doc.lineAt(to).number;
         let newWidths = [];
         
-        for(let i = start; i <= end; i++) {
-             newWidths.push(this.ctx.measureText(doc.line(i).text).width);
+        for(let i = start; i <= end; i++)
+        {
+            newWidths.push(this.ctx.measureText(expandTabs(doc.line(i).text, this.tabSize)).width);
         }
         this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
     }
 
     /** @param {EditorView} view */
-    makeAsmDecorations(view) {
+    makeAsmDecorations(view)
+    {
         let doc       = view.state.doc;
         let maxOffset = Math.max(...this.lineWidths) + 50;
         let widgets   = [];
@@ -151,7 +185,8 @@ export const asmPlugin = ViewPlugin.fromClass(class {
 
         view['asm-errors'] = [];
 
-        for(let i = 0; i < this.instrs.length; i++) {
+        for(let i = 0; i < this.instrs.length; i++)
+        {
             if(this.instrs[i].length == 0) continue;
 
             hasData = false;
@@ -187,21 +222,23 @@ export const asmPlugin = ViewPlugin.fromClass(class {
 
 }, { decorations: view => view.decorations });
 
-export function isOpcode(opcode) {
+export function isOpcode(opcode)
+{
     opcode = opcode.toLowerCase();
     if(prefixes.hasOwnProperty(opcode))
         return Terms.Prefix;
-    if(!mnemonics.hasOwnProperty(opcode)) {
+    if(!mnemonics.hasOwnProperty(opcode))
+    {
         if(opcode[0] === 'v' && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
             opcode = opcode.slice(1);
-        if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) {
+        if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
             return -1;
-        }
     }
     return Terms.Opcode;
 }
 
-export function isRegister(reg) {
+export function isRegister(reg)
+{
     reg = reg.slice(1).trim().toLowerCase();
     if(registers.hasOwnProperty(reg)) return Terms.Register;
     if(reg[0] === 'r')
@@ -222,6 +259,7 @@ export function isRegister(reg) {
     return -1;
 }
 
-export function isDirective(dir) {
+export function isDirective(dir)
+{
     return dirs.hasOwnProperty(dir.slice(1)) ? Terms.Directive : -1;
 }
