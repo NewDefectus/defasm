@@ -38,7 +38,7 @@ Memory {
   MacroDefinition { word std.whitespace* "=" ![\n]* }
   CharString { "'" (![\\\n'] | "\\" _)* "'"? }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
-  Number { ('0x' $[0-9a-fA-F]+) | std.digit+ }
+  Number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
   Unary { '+' | '-' | '~' | '!' }
   Operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
   Expression { Unary* '('* (Number | CharString | word) (')'* | (Operator Expression)) }
