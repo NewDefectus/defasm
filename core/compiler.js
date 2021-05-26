@@ -6,7 +6,7 @@ export const baseAddr = 0x400078;
 
 export var labels = new Map();
 
-var lastInstr, currLineArr;
+var lastInstr, currLineArr, currAddr;
 
 function addInstruction(instr)
 {
@@ -14,6 +14,7 @@ function addInstruction(instr)
         lastInstr.next = instr;
     currLineArr.push(instr);
     lastInstr = instr;
+    currAddr += instr.length;
 }
 
 // Compile Assembly from source code into machine code
@@ -31,6 +32,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(lastInstr.macroName) macros.set(lastInstr.macroName, lastInstr.macro);
         }
     }
+    currAddr = lastInstr ? lastInstr.address : baseAddr;
 
     // Remove instructions that were replaced
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
@@ -66,7 +68,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
                             break;
                         
                         default: // Instruction
-                            addInstruction(new Instruction(opcode.toLowerCase(), pos));
+                            addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));
                             break;
                     }
                 }

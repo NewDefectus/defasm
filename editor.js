@@ -11345,7 +11345,7 @@
     next();
     return [reg, type, size, prefs];
   }
-  function Operand() {
+  function Operand(address) {
     this.reg = this.reg2 = -1;
     this.shift = 0;
     this.value = null;
@@ -11361,17 +11361,15 @@
       this.endPos = regParsePos;
     } else if (token === "$") {
       this.expression = new Expression();
-      this.value = this.expression.evaluate();
+      this.value = this.expression.evaluate(null, address);
       this.type = OPT.IMM;
     } else {
       this.type = OPT.MEM;
       this.expression = new Expression(0, true);
-      this.value = this.expression.evaluate();
+      this.value = this.expression.evaluate(null, address);
       if (token !== "(") {
-        if (!indirect) {
+        if (!indirect)
           this.type = OPT.REL;
-          this.virtualValue = this.value;
-        }
         return;
       }
       let tempSize, tempType;
@@ -13551,6 +13549,8 @@ g nle`.split("\n");
         this.maskSizing |= 2;
       if (this.vexOpCatchers !== null)
         this.vexOpCatchers.push(opCatcher);
+      if (opCatcher.type === OPT.REL)
+        this.relativeSizes = opCatcher.sizes;
       if (Array.isArray(opCatcher.sizes)) {
         let had64 = false;
         for (let size of opCatcher.sizes) {
@@ -13567,7 +13567,7 @@ g nle`.split("\n");
       this.vexBase |= 30720 | [15, 3896, 3898].indexOf(this.code >> 8) + 1 | [null, 102, 243, 242].indexOf(this.prefix) << 8;
     }
   }
-  Operation.prototype.fit = function(operands, enforcedSize, vexInfo) {
+  Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo) {
     let needsRecompilation = false;
     if (vexInfo.needed) {
       if (this.actuallyNotVex)
@@ -13596,6 +13596,11 @@ g nle`.split("\n");
     else if (this.evexPermits & EVEXPERM_FORCE)
       return null;
     let adjustByteOp = false, overallSize = 0, rexw = false;
+    if (this.relativeSizes) {
+      if (!(operands.length === 1 && operands[0].type === OPT.REL))
+        return null;
+      this.generateRelative(operands[0], address);
+    }
     if (this.checkableSizes) {
       if (enforcedSize === 0) {
         if (this.defaultCheckableSize === null)
@@ -13779,6 +13784,26 @@ g nle`.split("\n");
       needsRecompilation
     };
   };
+  var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
+  var absolute = (x) => x < 0n ? ~x : x;
+  Operation.prototype.generateRelative = function(operand, address) {
+    let target = operand.value - BigInt(address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    if (this.relativeSizes.length === 1) {
+      let size = this.relativeSizes[0];
+      operand.virtualSize = size;
+      operand.virtualValue = target - sizeLen(size);
+      return;
+    }
+    let [small, large] = this.relativeSizes;
+    let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
+    if (absolute(target - smallLen) >= 1 << small - 1) {
+      operand.virtualSize = large;
+      operand.virtualValue = target - largeLen;
+    } else {
+      operand.virtualSize = small;
+      operand.virtualValue = target - smallLen;
+    }
+  };
 
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
@@ -13790,11 +13815,12 @@ g nle`.split("\n");
     repe: 243,
     repz: 243
   };
-  function Instruction(opcode, opcodePos) {
+  function Instruction(address, opcode, opcodePos) {
     this.opcode = opcode;
     this.opcodePos = opcodePos;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
+    this.address = address;
     this.interpret();
   }
   Instruction.prototype.genByte = function(byte) {
@@ -13863,13 +13889,13 @@ g nle`.split("\n");
         next();
     }
     while (token !== ";" && token !== "\n") {
-      operand = new Operand();
+      operand = new Operand(this.address);
       if (token === ":") {
         if (operand.type !== OPT.SEG)
           throw new ParserError("Incorrect prefix");
         prefsToGen |= operand.reg + 1 << 3;
         next();
-        operand = new Operand();
+        operand = new Operand(this.address);
         if (operand.type !== OPT.MEM)
           throw new ParserError("Segment prefix must be followed by memory reference");
       }
@@ -13911,7 +13937,8 @@ g nle`.split("\n");
     this.endPos = codePos;
     if (!this.needsRecompilation) {
       this.compile();
-      this.outline = void 0;
+      if (!this.needsRecompilation)
+        this.outline = void 0;
     }
   };
   Instruction.prototype.compile = function() {
@@ -13922,13 +13949,12 @@ g nle`.split("\n");
         if (op2.type === OPT.IMM) {
           op2.size = inferImmSize(op2.value);
           op2.unsignedSize = inferUnsignedImmSize(op2.value);
-        } else if (op2.type === OPT.REL)
-          op2.virtualSize = inferImmSize(op2.virtualValue);
+        }
       }
     }
     let op, found = false, rexVal = 64;
     for (let operation of operations) {
-      op = operation.fit(operands, enforcedSize, vexInfo);
+      op = operation.fit(operands, this.address, enforcedSize, vexInfo);
       if (op !== null) {
         found = true;
         break;
@@ -14042,8 +14068,6 @@ g nle`.split("\n");
       for (let op of this.outline[0]) {
         if (op.expression && op.expression.hasLabelDependency)
           op.value = op.expression.evaluate(labels2, this.address);
-        if (op.type === OPT.REL)
-          op.virtualValue = op.value - BigInt(this.address + initialLength);
       }
       this.compile();
     } catch (e) {
@@ -14073,11 +14097,13 @@ g nle`.split("\n");
   var labels = new Map();
   var lastInstr;
   var currLineArr;
+  var currAddr;
   function addInstruction(instr) {
     if (lastInstr)
       lastInstr.next = instr;
     currLineArr.push(instr);
     lastInstr = instr;
+    currAddr += instr.length;
   }
   function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
     let opcode, pos;
@@ -14090,6 +14116,7 @@ g nle`.split("\n");
           macros.set(lastInstr.macroName, lastInstr.macro);
       }
     }
+    currAddr = lastInstr ? lastInstr.address : baseAddr;
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for (let removed of removedInstrs)
       for (let instr of removed)
@@ -14116,7 +14143,7 @@ g nle`.split("\n");
                 addInstruction({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos});
                 break;
               default:
-                addInstruction(new Instruction(opcode.toLowerCase(), pos));
+                addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));
                 break;
             }
           }

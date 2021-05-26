@@ -130,7 +130,7 @@ export function parseRegister(expectedType = null)
 }
 
 
-export function Operand()
+export function Operand(address)
 {
     this.reg = this.reg2 = -1;
     this.shift = 0;
@@ -151,21 +151,18 @@ export function Operand()
     else if(token === '$')// Immediate
     {
         this.expression = new Expression();
-        this.value = this.expression.evaluate();
+        this.value = this.expression.evaluate(null, address);
         this.type = OPT.IMM;
     }
     else // Address
     {
         this.type = OPT.MEM;
         this.expression = new Expression(0, true);
-        this.value = this.expression.evaluate();
+        this.value = this.expression.evaluate(null, address);
         if(token !== '(')
         {
             if(!indirect)
-            {
                 this.type = OPT.REL;
-                this.virtualValue = this.value;
-            }
             return;
         }
 

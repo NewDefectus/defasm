@@ -14,12 +14,13 @@ export const prefixes = {
     repz: 0xF3
 };
 
-export function Instruction(opcode, opcodePos)
+export function Instruction(address, opcode, opcodePos)
 {
     this.opcode = opcode;
     this.opcodePos = opcodePos;
     this.bytes = new Uint8Array(MAX_INSTR_SIZE);
     this.length = 0;
+    this.address = address;
 
     this.interpret();
 }
@@ -115,14 +116,14 @@ Instruction.prototype.interpret = function()
     // Collecting the operands
     while(token !== ';' && token !== '\n')
     {
-        operand = new Operand();
+        operand = new Operand(this.address);
         if(token === ':') // Segment specification for addressing
         {
             if(operand.type !== OPT.SEG)
                 throw new ParserError("Incorrect prefix");
             prefsToGen |= (operand.reg + 1) << 3;
             next();
-            operand = new Operand();
+            operand = new Operand(this.address);
             if(operand.type !== OPT.MEM)
                 throw new ParserError("Segment prefix must be followed by memory reference");
         }
@@ -169,7 +170,8 @@ Instruction.prototype.interpret = function()
     if(!this.needsRecompilation)
     {
         this.compile();
-        this.outline = undefined;
+        if(!this.needsRecompilation)
+            this.outline = undefined;
     }
 }
 
@@ -188,8 +190,6 @@ Instruction.prototype.compile = function()
                 op.size = inferImmSize(op.value);
                 op.unsignedSize = inferUnsignedImmSize(op.value);
             }
-            else if(op.type === OPT.REL)
-                op.virtualSize = inferImmSize(op.virtualValue);
         }
     }
 
@@ -198,7 +198,7 @@ Instruction.prototype.compile = function()
     
     for(let operation of operations)
     {
-        op = operation.fit(operands, enforcedSize, vexInfo);
+        op = operation.fit(operands, this.address, enforcedSize, vexInfo);
         if(op !== null)
         {
             found = true;
@@ -352,8 +352,6 @@ Instruction.prototype.resolveLabels = function(labels)
         {
             if(op.expression && op.expression.hasLabelDependency)
                 op.value = op.expression.evaluate(labels, this.address);
-            if(op.type === OPT.REL)
-                op.virtualValue = op.value - BigInt(this.address + initialLength);
         }
         this.compile();
     }

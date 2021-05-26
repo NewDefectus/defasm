@@ -142,9 +142,9 @@ function OpCatcher(format)
 }
 
 /** Attempt to "catch" a given operand.
- * @param {Operand} operand 
- * @param {number} prevSize 
- * @param {number} enforcedSize 
+ * @param {Operand} operand
+ * @param {number} prevSize
+ * @param {number} enforcedSize
  * @returns {number|null} The operand's corrected size on success, null on failure
  */
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
@@ -307,6 +307,7 @@ export function Operation(format)
         if(opCatcher.type === OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
         if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
         if(this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
+        if(opCatcher.type === OPT.REL) this.relativeSizes = opCatcher.sizes;
 
         if(Array.isArray(opCatcher.sizes))
         {
@@ -355,11 +356,12 @@ export function Operation(format)
 
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands The operand list to be fitted
+ * @param {Number} address The address of the instruction
  * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
  * @param {vexData|null} vexInfo Additional info needed to encode the instruction with a VEX/EVEX prefix
  * @returns {operationResults|null} The information needed to encode the instruction
  */
-Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
+Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
 {
     let needsRecompilation = false;
     if(vexInfo.needed)
@@ -382,6 +384,13 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
     else if(this.evexPermits & EVEXPERM_FORCE) return null;
 
     let adjustByteOp = false, overallSize = 0, rexw = false;
+
+    if(this.relativeSizes)
+    {
+        if(!(operands.length === 1 && operands[0].type === OPT.REL))
+            return null;
+        this.generateRelative(operands[0], address);
+    }
 
     // Special case for the '-' implicit op catcher
     if(this.checkableSizes)
@@ -584,4 +593,38 @@ Operation.prototype.fit = function(operands, enforcedSize, vexInfo)
         imms: imms,
         needsRecompilation: needsRecompilation
     };
+}
+
+const sizeLen = x => x == 32 ? 4n : x == 16 ? 2n : 1n;
+const absolute = x => x < 0n ? ~x : x;
+
+
+/* Predict a fitting value and size for a given relative operand */
+Operation.prototype.generateRelative = function(operand, address)
+{
+    let target = operand.value - BigInt(address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    
+    // In x86-64 there are always either 1 or 2 possible sizes for a relative
+    if(this.relativeSizes.length === 1)
+    {
+        let size = this.relativeSizes[0];
+        operand.virtualSize = size;
+        operand.virtualValue = target - sizeLen(size);
+        return;
+    }
+    
+    // Now we have the second, more complicated case. There's a threshold between the two sizes we must find
+    let [small, large] = this.relativeSizes;
+    let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
+
+    if(absolute(target - smallLen) >= (1 << (small - 1)))
+    {
+        operand.virtualSize = large;
+        operand.virtualValue = target - largeLen;
+    }
+    else
+    {
+        operand.virtualSize = small;
+        operand.virtualValue = target - smallLen;
+    }
 }
