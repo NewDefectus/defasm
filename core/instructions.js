@@ -5,8 +5,6 @@ import { token, next, ungetToken, setToken, ParserError, codePos } from "./parse
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
 
-import { evaluate } from "./shuntingYard.js";
-
 export const prefixes = {
     lock: 0xF0,
     repne: 0xF2,
@@ -353,7 +351,7 @@ Instruction.prototype.resolveLabels = function(labels)
         for(let op of this.outline[0])
         {
             if(op.expression && op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, this.address);
+                op.value = op.expression.evaluate(labels, this.address);
             if(op.type === OPT.REL)
                 op.virtualValue = op.value - BigInt(this.address + initialLength);
         }

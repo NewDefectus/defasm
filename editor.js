@@ -11360,14 +11360,13 @@
       [this.reg, this.type, this.size, this.prefs] = parseRegister();
       this.endPos = regParsePos;
     } else if (token === "$") {
-      this.expression = parseExpression();
-      this.value = evaluate(this.expression);
+      this.expression = new Expression();
+      this.value = this.expression.evaluate();
       this.type = OPT.IMM;
     } else {
       this.type = OPT.MEM;
-      this.expression = parseExpression(0, true);
-      if (this.expression)
-        this.value = evaluate(this.expression);
+      this.expression = new Expression(0, true);
+      this.value = this.expression.evaluate();
       if (token !== "(") {
         if (!indirect) {
           this.type = OPT.REL;
@@ -11541,25 +11540,28 @@
       throw e;
     }
   }
-  function parseExpression(minFloatPrec = 0, expectMemory = false) {
-    let output = [], stack = [], lastOp, lastWasNum = false, hasLabelDependency = false;
+  function Expression(minFloatPrec = 0, expectMemory = false) {
+    this.hasLabelDependency = false;
+    this.stack = [];
+    this.floatPrec = minFloatPrec;
+    let opStack = [], lastOp, lastWasNum = false;
     if (!expectMemory)
       next();
     while (token !== "," && token !== "\n" && token !== ";") {
       if (!lastWasNum && unaries.hasOwnProperty(token)) {
-        stack.push({pos: codePos, func: unaries[token], prec: -1});
+        opStack.push({pos: codePos, func: unaries[token], prec: -1});
         next();
       } else if (operators.hasOwnProperty(token)) {
         if (!lastWasNum) {
-          if (expectMemory && stack.length > 0 && stack[stack.length - 1].bracket)
+          if (expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
             break;
           throw new ParserError("Missing left operand");
         }
         lastWasNum = false;
         let op = Object.assign({pos: codePos}, operators[token]);
-        while (lastOp = stack[stack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
-          output.push(stack.pop());
-        stack.push(op);
+        while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
+          this.stack.push(opStack.pop());
+        opStack.push(op);
         next();
       } else if (unaries.hasOwnProperty(token))
         throw new ParserError("Unary operator can't be used here");
@@ -11569,47 +11571,48 @@
             break;
           throw new ParserError("Unexpected parenthesis");
         }
-        stack.push({pos: codePos, bracket: true});
+        opStack.push({pos: codePos, bracket: true});
         next();
       } else if (token === ")") {
         if (!lastWasNum)
-          throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
-        while (lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
-          output.push(stack.pop());
+          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+        while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
+          this.stack.push(opStack.pop());
         if (!lastOp || !lastOp.bracket)
           throw new ParserError("Mismatched parentheses");
-        stack.pop();
+        opStack.pop();
         lastWasNum = true;
         next();
       } else {
         lastWasNum = true;
-        let imm = parseNumber(minFloatPrec !== 0);
-        if (imm.floatPrec > minFloatPrec)
-          minFloatPrec = imm.floatPrec;
+        let imm = parseNumber(this.floatPrec !== 0);
+        if (imm.floatPrec > this.floatPrec)
+          this.floatPrec = imm.floatPrec;
         let value = imm.value;
         if (value.name)
-          hasLabelDependency = true;
-        output.push(value);
+          this.hasLabelDependency = true;
+        this.stack.push(value);
       }
     }
-    if (expectMemory && stack.length == 1 && stack[0].bracket) {
+    if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
       ungetToken();
       setToken("(");
       return null;
     } else if (!lastWasNum)
-      throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
-    while (stack[0]) {
-      if (stack[stack.length - 1].bracket)
-        throw new ParserError("Mismatched parentheses", stack[stack.length - 1].pos);
-      output.push(stack.pop());
+      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+    while (opStack[0]) {
+      if (opStack[opStack.length - 1].bracket)
+        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+      this.stack.push(opStack.pop());
     }
-    if (minFloatPrec !== 0)
-      output = output.map((num) => typeof num === "bigint" ? Number(num) : num);
-    return {hasLabelDependency, stack: output, floatPrec: minFloatPrec};
+    if (this.floatPrec !== 0)
+      this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
   }
-  function evaluate(expression, labels2 = null, currIndex = 0) {
+  Expression.prototype.evaluate = function(labels2 = null, currIndex = 0) {
+    if (this.stack.length === 0)
+      return null;
     let stack = [], len = 0;
-    for (let op of expression.stack) {
+    for (let op of this.stack) {
       let func = op.func;
       if (func) {
         if (func.length === 1)
@@ -11631,19 +11634,19 @@
         }
         stack[len++] = op;
       }
-      if (expression.floatPrec === 0)
+      if (this.floatPrec === 0)
         stack[len - 1] = BigInt(stack[len - 1]);
       else
         stack[len - 1] = Number(stack[len - 1]);
     }
     if (stack.length > 1)
       throw new ParserError("Invalid expression");
-    if (expression.floatPrec === 0)
+    if (this.floatPrec === 0)
       return stack[0];
-    let floatVal = expression.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
+    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
     floatVal[0] = Number(stack[0]);
     return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
-  }
+  };
 
   // core/directives.js
   var DIRECTIVE_BUFFER_SIZE = 15;
@@ -11726,8 +11729,8 @@
     this.outline = [];
     try {
       do {
-        expression = parseExpression(this.floatPrec);
-        value = evaluate(expression);
+        expression = new Expression(this.floatPrec);
+        value = expression.evaluate();
         if (expression.hasLabelDependency)
           needsRecompilation = true;
         this.outline.push({value, expression});
@@ -11745,7 +11748,7 @@
       op = this.outline[i];
       try {
         if (op.expression.hasLabelDependency)
-          op.value = evaluate(op.expression, labels2, this.address + i * this.valSize);
+          op.value = op.expression.evaluate(labels2, this.address + i * this.valSize);
         this.genValue(op.value);
       } catch (e) {
         this.error = e;
@@ -14038,7 +14041,7 @@ g nle`.split("\n");
     try {
       for (let op of this.outline[0]) {
         if (op.expression && op.expression.hasLabelDependency)
-          op.value = evaluate(op.expression, labels2, this.address);
+          op.value = op.expression.evaluate(labels2, this.address);
         if (op.type === OPT.REL)
           op.virtualValue = op.value - BigInt(this.address + initialLength);
       }

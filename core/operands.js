@@ -1,5 +1,5 @@
 import { token, next, ungetToken, ParserError, codePos } from "./parser.js";
-import { evaluate, parseExpression } from "./shuntingYard.js";
+import { Expression } from "./shuntingYard.js";
 
 // Operand types
 export const OPT = {
@@ -150,15 +150,15 @@ export function Operand()
     }
     else if(token === '$')// Immediate
     {
-        this.expression = parseExpression();
-        this.value = evaluate(this.expression);
+        this.expression = new Expression();
+        this.value = this.expression.evaluate();
         this.type = OPT.IMM;
     }
     else // Address
     {
         this.type = OPT.MEM;
-        this.expression = parseExpression(0, true);
-        if(this.expression) this.value = evaluate(this.expression);
+        this.expression = new Expression(0, true);
+        this.value = this.expression.evaluate();
         if(token !== '(')
         {
             if(!indirect)

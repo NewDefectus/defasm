@@ -1,5 +1,5 @@
-import { token, next, ParserError }                  from "./parser.js";
-import { parseExpression, evaluate, unescapeString } from "./shuntingYard.js";
+import { token, next, ParserError }   from "./parser.js";
+import { Expression, unescapeString } from "./shuntingYard.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -83,12 +83,12 @@ Directive.prototype.compileValues = function(valSize)
     try {
         do
         {
-            expression = parseExpression(this.floatPrec);
-            value = evaluate(expression);
+            expression = new Expression(this.floatPrec);
+            value = expression.evaluate();
             if(expression.hasLabelDependency)
                 needsRecompilation = true;
 
-            this.outline.push({value: value, expression: expression});
+            this.outline.push({ value, expression });
             this.genValue(value);
         } while(token === ',');
     }
@@ -109,7 +109,7 @@ Directive.prototype.resolveLabels = function(labels)
         try
         {
             if(op.expression.hasLabelDependency)
-                op.value = evaluate(op.expression, labels, this.address + i * this.valSize);
+                op.value = op.expression.evaluate(labels, this.address + i * this.valSize);
             this.genValue(op.value);
         }
         catch(e)

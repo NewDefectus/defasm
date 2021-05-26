@@ -142,15 +142,20 @@ function parseNumber(asFloat = false)
 
 
 
-export function parseExpression(minFloatPrec = 0, expectMemory = false)
+export function Expression(minFloatPrec = 0, expectMemory = false)
 {
-    let output = [], stack = [], lastOp, lastWasNum = false, hasLabelDependency = false;
+    this.hasLabelDependency = false;
+    this.stack = [];
+    this.floatPrec = minFloatPrec;
+
+    let opStack = [], lastOp, lastWasNum = false;
     if(!expectMemory) next();
+
     while(token !== ',' && token !== '\n' && token !== ';')
     {
         if(!lastWasNum && unaries.hasOwnProperty(token)) // Unary operator
         {
-            stack.push({pos: codePos, func: unaries[token], prec: -1});
+            opStack.push({pos: codePos, func: unaries[token], prec: -1});
             next();
         }
         else if(operators.hasOwnProperty(token)) // Operator
@@ -158,15 +163,15 @@ export function parseExpression(minFloatPrec = 0, expectMemory = false)
             if(!lastWasNum)
             {
                 // If expecting memory e.g. (%rax) the '%' goes in here
-                if(expectMemory && stack.length > 0 && stack[stack.length - 1].bracket) break;
+                if(expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket) break;
                 throw new ParserError("Missing left operand");
             }
             lastWasNum = false;
 
             let op = Object.assign({pos: codePos}, operators[token]);
-            while(lastOp = stack[stack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
-                output.push(stack.pop());
-            stack.push(op);
+            while(lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
+                this.stack.push(opStack.pop());
+            opStack.push(op);
             next();
         }
         else if(unaries.hasOwnProperty(token)) throw new ParserError("Unary operator can't be used here");
@@ -177,18 +182,18 @@ export function parseExpression(minFloatPrec = 0, expectMemory = false)
                 if(expectMemory) break;
                 throw new ParserError("Unexpected parenthesis");
             }
-            stack.push({pos: codePos, bracket: true });
+            opStack.push({pos: codePos, bracket: true });
             next();
         }
         else if(token === ')')
         {
             if(!lastWasNum)
-                throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
-            while(lastOp = stack[stack.length - 1], lastOp && !lastOp.bracket)
-                output.push(stack.pop());
+                throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+            while(lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
+                this.stack.push(opStack.pop());
             if(!lastOp || !lastOp.bracket)
                 throw new ParserError("Mismatched parentheses");
-            stack.pop();
+            opStack.pop();
             lastWasNum = true;
             next();
         }
@@ -196,42 +201,43 @@ export function parseExpression(minFloatPrec = 0, expectMemory = false)
         {
             lastWasNum = true;
 
-            let imm = parseNumber(minFloatPrec !== 0);
-            if(imm.floatPrec > minFloatPrec) minFloatPrec = imm.floatPrec;
+            let imm = parseNumber(this.floatPrec !== 0);
+            if(imm.floatPrec > this.floatPrec) this.floatPrec = imm.floatPrec;
             let value = imm.value;
             if(value.name)
-                hasLabelDependency = true;
+                this.hasLabelDependency = true;
 
-            output.push(value);
+            this.stack.push(value);
         }
     }
 
-    if(expectMemory && stack.length == 1 && stack[0].bracket)
+    if(expectMemory && opStack.length == 1 && opStack[0].bracket)
     {
         ungetToken();
         setToken('(');
         return null;
     }
     else if(!lastWasNum)
-        throw new ParserError("Missing right operand", stack.length ? stack[stack.length - 1].pos : codePos);
+        throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
 
-    while(stack[0])
+    while(opStack[0])
     {
-        if(stack[stack.length - 1].bracket)
-            throw new ParserError("Mismatched parentheses", stack[stack.length - 1].pos);
-        output.push(stack.pop());
+        if(opStack[opStack.length - 1].bracket)
+            throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+        this.stack.push(opStack.pop());
     }
 
-    if(minFloatPrec !== 0)
-        output = output.map(num => typeof num === "bigint" ? Number(num) : num);
-    
-    return { hasLabelDependency: hasLabelDependency, stack: output, floatPrec: minFloatPrec };
+    if(this.floatPrec !== 0)
+        this.stack = this.stack.map(num => typeof num === "bigint" ? Number(num) : num);
 }
 
-export function evaluate(expression, labels = null, currIndex = 0)
+Expression.prototype.evaluate = function(labels = null, currIndex = 0)
 {
+    if(this.stack.length === 0)
+        return null;
+    
     let stack = [], len = 0;
-    for(let op of expression.stack)
+    for(let op of this.stack)
     {
         let func = op.func;
         if(func)
@@ -256,7 +262,7 @@ export function evaluate(expression, labels = null, currIndex = 0)
             stack[len++] = op;
         }
         
-        if(expression.floatPrec === 0)
+        if(this.floatPrec === 0)
             stack[len - 1] = BigInt(stack[len - 1]);
         else
             stack[len - 1] = Number(stack[len - 1]);
@@ -266,8 +272,8 @@ export function evaluate(expression, labels = null, currIndex = 0)
 
 
 
-    if(expression.floatPrec === 0) return stack[0];
-    let floatVal = expression.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
+    if(this.floatPrec === 0) return stack[0];
+    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
     floatVal[0] = Number(stack[0]);
     return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
 }
