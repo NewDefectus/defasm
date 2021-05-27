@@ -146,7 +146,7 @@ export function secondPass(instructions, haltOnError = false)
                 if(!resizeChange.success) // Skip instructions that fail to recompile
                 {
                     let e = resizeChange.error;
-                    if(haltOnError) throw `Error on line ${i + 1}: ${e}`;
+                    if(haltOnError) throw `Error on line ${i + 1}: ${e.message}`;
                     if(e.pos == null || e.length == null)
                         console.error("Error on line " + (i + 1) + ":\n", e);
                     else
