@@ -610,6 +610,8 @@ Operation.prototype.generateRelative = function(operand, address)
         let size = this.relativeSizes[0];
         operand.virtualSize = size;
         operand.virtualValue = target - sizeLen(size);
+        if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
+            throw new ParserError(`Can't fit offset in ${size >> 3} byte${size != 8 ? 's' : ''}`, operand.startPos, operand.endPos);
         return;
     }
     
@@ -617,8 +619,10 @@ Operation.prototype.generateRelative = function(operand, address)
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
 
-    if(absolute(target - smallLen) >= (1 << (small - 1)))
+    if(absolute(target - smallLen) >= 1n << BigInt(small - 1))
     {
+        if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
+            throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
         operand.virtualSize = large;
         operand.virtualValue = target - largeLen;
     }

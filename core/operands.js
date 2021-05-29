@@ -162,7 +162,10 @@ export function Operand(instr)
         if(token !== '(')
         {
             if(!indirect)
+            {
                 this.type = OPT.REL;
+                this.endPos = codePos;
+            }
             return;
         }
 
