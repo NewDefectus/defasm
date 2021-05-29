@@ -1,5 +1,6 @@
 import { registers } from "./operands.js";
 import { codePos, next, ParserError, setToken, token, ungetToken } from "./parser.js";
+import { symbols } from "./symbols.js";
 
 export var unaries = {
     '+': a=>a,
@@ -116,11 +117,11 @@ function parseNumber(asFloat = false)
                 }
             }
             else if(registers[token] !== undefined) throw new ParserError("Registers must be prefixed with %");
-            else // Label
+            else // Symbol
             {
-                let labelDependency = {name: token, pos: codePos};
+                let symbol = { name: token, pos: codePos };
                 next();
-                return {value: labelDependency, floatPrec: floatPrec };
+                return { value: symbol, floatPrec };
             }
         }
         else if(token.includes('.') || asFloat) floatPrec = 1, value = parseFloat(token);
@@ -129,7 +130,7 @@ function parseNumber(asFloat = false)
         if(next() === 'f') floatPrec = 1, next();
         else if(token === 'd') floatPrec = 2, next();
 
-        return {value: value, floatPrec: floatPrec};
+        return { value, floatPrec };
     }
     catch(e)
     {
@@ -139,12 +140,20 @@ function parseNumber(asFloat = false)
 }
 
 
-
-
-
-export function Expression(minFloatPrec = 0, expectMemory = false)
+export function LabelExpression(instr)
 {
-    this.hasLabelDependency = false;
+    let result = Object.create(Expression.prototype);
+    result.hasSymbols = true;
+    result.stack = [{ name: '.', pos: null }];
+    result.floatPrec = 0;
+    instr.ipRelative = true;
+    return result;
+}
+
+
+export function Expression(instr, minFloatPrec = 0, expectMemory = false)
+{
+    this.hasSymbols = false;
     this.stack = [];
     this.floatPrec = minFloatPrec;
 
@@ -205,7 +214,18 @@ export function Expression(minFloatPrec = 0, expectMemory = false)
             if(imm.floatPrec > this.floatPrec) this.floatPrec = imm.floatPrec;
             let value = imm.value;
             if(value.name)
-                this.hasLabelDependency = true;
+            {
+                if(value.name === '.')
+                    instr.ipRelative = true;
+                else if(symbols.has(value.name))
+                    symbols.get(value.name).references.push(instr);
+                else
+                    symbols.set(value.name, {
+                        symbol: null,
+                        references: [instr]
+                    });
+                this.hasSymbols = true;
+            }
 
             this.stack.push(value);
         }
@@ -231,7 +251,7 @@ export function Expression(minFloatPrec = 0, expectMemory = false)
         this.stack = this.stack.map(num => typeof num === "bigint" ? Number(num) : num);
 }
 
-Expression.prototype.evaluate = function(labels = null, currIndex = 0)
+Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
 {
     if(this.stack.length === 0)
         return null;
@@ -252,12 +272,20 @@ Expression.prototype.evaluate = function(labels = null, currIndex = 0)
         }
         else
         {
-            if(op.name) // Labels
+            if(op.name) // Symbols
             {
-                if(op.name === '.') op = BigInt(currIndex);
-                else if(labels === null) op = 1n;
-                else if(!labels.has(op.name)) throw new ParserError(`Unknown label "${op.name}"`, op.pos);
-                else op = labels.get(op.name).address;
+                if(op.name === '.')
+                    op = BigInt(currIndex);
+                else
+                {
+                    let record = symbols.get(op.name);
+                    if(record.symbol !== null && !record.symbol.error)
+                        op = symbols.get(op.name).symbol.value;
+                    else if(!requireSymbols)
+                        op = 1n;
+                    else
+                        throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
+                }
             }
             stack[len++] = op;
         }
@@ -269,8 +297,6 @@ Expression.prototype.evaluate = function(labels = null, currIndex = 0)
     }
     if(stack.length > 1)
         throw new ParserError("Invalid expression");
-
-
 
     if(this.floatPrec === 0) return stack[0];
     let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);

@@ -56,6 +56,7 @@ Instruction.prototype.interpret = function()
 
     let usesMemory = false;
     this.needsRecompilation = false;
+    this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
 
     // Prefix opcodes are interpreted as instructions that end with a semicolon
     if(prefixes.hasOwnProperty(opcode))
@@ -116,19 +117,19 @@ Instruction.prototype.interpret = function()
     // Collecting the operands
     while(token !== ';' && token !== '\n')
     {
-        operand = new Operand(this.address);
+        operand = new Operand(this);
         if(token === ':') // Segment specification for addressing
         {
             if(operand.type !== OPT.SEG)
                 throw new ParserError("Incorrect prefix");
             prefsToGen |= (operand.reg + 1) << 3;
             next();
-            operand = new Operand(this.address);
+            operand = new Operand(this);
             if(operand.type !== OPT.MEM)
                 throw new ParserError("Segment prefix must be followed by memory reference");
         }
 
-        if(operand.expression && operand.expression.hasLabelDependency)
+        if(operand.expression && operand.expression.hasSymbols)
             this.needsRecompilation = true;
 
         operands.push(operand);
@@ -167,12 +168,11 @@ Instruction.prototype.interpret = function()
 
     this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
     this.endPos = codePos;
-    if(!this.needsRecompilation)
-    {
-        this.compile();
-        if(!this.needsRecompilation)
-            this.outline = undefined;
-    }
+
+    this.compile();
+    if(!this.needsRecompilation && !this.ipRelative)
+        this.outline = undefined;
+    this.removed = false;
 }
 
 Instruction.prototype.compile = function()
@@ -211,8 +211,8 @@ Instruction.prototype.compile = function()
         throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
 
-    // Operation may require recompilation (e.g. "call 5" needs the current IP)
-    this.needsRecompilation = this.needsRecompilation || op.needsRecompilation;
+    // Operation may be IP-relative (e.g. "call 5" needs the current IP)
+    this.ipRelative = this.ipRelative || op.ipRelative;
     if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
@@ -342,31 +342,23 @@ function makeVexPrefix(vex, rex, isEvex)
     return [0xC4, vex1, vex2];
 }
 
-// Resolve label dependencies
-Instruction.prototype.resolveLabels = function(labels)
+Instruction.prototype.recompile = function()
 {
-    let initialLength = this.length;
+    this.error = null;
     try
     {
         for(let op of this.outline[0])
         {
-            if(op.expression && op.expression.hasLabelDependency)
-                op.value = op.expression.evaluate(labels, this.address);
+            if(op.expression && op.expression.hasSymbols)
+                op.value = op.expression.evaluate(this.address, true);
         }
         this.compile();
     }
     catch(e)
     {
-        return {
-            success: false,
-            error: e
-        };
+        this.length = 0;
+        throw e;
     }
-    
-    return {
-        success: true,
-        length: this.length - initialLength
-    };
 }
 
 

@@ -1,12 +1,13 @@
 import { token, next, match, loadCode, macros, ParserError, codePos } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
+import { Symbol, symbols, recompQueue } from "./symbols.js";
 
 export const baseAddr = 0x400078;
 
-export var labels = new Map();
-
 var lastInstr, currLineArr, currAddr;
+var errorsHalt = false;
+var linkedInstrQueue = [];
 
 function addInstruction(instr)
 {
@@ -17,11 +18,36 @@ function addInstruction(instr)
     currAddr += instr.length;
 }
 
+function recompile(instr)
+{
+    instr.removed = false;
+    try
+    {
+        instr.recompile();
+        instr.wantsRecomp = false;
+    }
+    catch(e)
+    {
+        if(errorsHalt) throw `Error: ${e.message}`;
+        if(e.pos == null || e.length == null)
+            console.error("Error:\n", e);
+        else
+            instr.error = e;
+        if(instr.name)
+            for(let ref of symbols.get(instr.name).references)
+            {
+                ref.wantsRecomp = true;
+                recompQueue.push(ref);
+            }
+    }
+}
+
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
 {
     let opcode, pos;
     lastInstr = null; currLineArr = [];
+    errorsHalt = haltOnError;
 
     // Reset the macro list and add only the macros that have been defined prior to this line
     macros.clear();
@@ -32,13 +58,23 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(lastInstr.macroName) macros.set(lastInstr.macroName, lastInstr.macro);
         }
     }
-    currAddr = lastInstr ? lastInstr.address : baseAddr;
+    currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
 
     // Remove instructions that were replaced
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for(let removed of removedInstrs)
         for(let instr of removed)
-            if(instr.macroName) throw "Macro edited, must recompile";
+        {
+            if(instr.name)
+            {
+                let record = symbols.get(instr.name);
+                if(record.references.length > 0)
+                    record.symbol = null;
+                else
+                    symbols.delete(instr.name);
+            }
+            instr.removed = true;
+        }
 
     loadCode(source);
 
@@ -50,21 +86,18 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(token !== '\n' && token !== ';')
             {
                 if(token[0] === '.') // Assembly directive
-                    addInstruction(new Directive(token.slice(1), pos));
-                else // Instruction, label or macro
+                    addInstruction(new Directive(currAddr, token.slice(1)));
+                else // Instruction, label or symbol
                 {
                     opcode = token;
                     switch(next())
                     {
                         case ':': // Label definition
-                            addInstruction({length: 0, bytes: new Uint8Array(), labelName: opcode, pos: pos});
+                            addInstruction(new Symbol(currAddr, opcode, true));
                             continue;
                         
-                        case '=': // Macro definition
-                            let macroTokens = [];
-                            while(next() !== '\n') macroTokens.push(token);
-                            macros.set(opcode, macroTokens);
-                            addInstruction({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos: pos});
+                        case '=': // Symbol definition
+                            addInstruction(new Symbol(currAddr, opcode));
                             break;
                         
                         default: // Instruction
@@ -87,23 +120,31 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             if(e.pos == null || e.length == null)
                 console.error("Error on line " + line + ":\n", e);
             else
-                addInstruction({length: 0, bytes: new Uint8Array(), error: e});
+                addInstruction({length: 0, bytes: new Uint8Array(), error: e, address: currAddr });
             while(token !== '\n' && token !== ';') next();
             if(token === '\n' && !match.done) instructions.splice(line++, 0, currLineArr = []);
         }
     }
 
-    if(lastInstr)
+    while(line < instructions.length)
     {
-        while(line < instructions.length)
+        if(instructions[line].length > 0)
         {
-            if(instructions[line].length > 0)
+            let instr = instructions[line][0];
+            if(lastInstr)
             {
-                lastInstr.next = instructions[line][0];
-                break;
+                lastInstr.next = instr;
+                linkedInstrQueue.push(lastInstr);
             }
-            line++;
+            else
+            {
+                if(instr.address !== baseAddr)
+                    linkedInstrQueue.push(instr);
+                instr.address = baseAddr;
+            }
+            break;
         }
+        line++;
     }
 
     let bytes = 0;
@@ -111,62 +152,37 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
     return { instructions, bytes };
 }
 
-// Run the second pass (label resolution) on the instruction list
-export function secondPass(instructions, haltOnError = false)
+// Run the second pass on the instruction list
+export function secondPass(instructions)
 {
-    let currIndex = baseAddr, resizeChange, instr, instrLen;
-    labels.clear();
+    let currIndex = baseAddr, instr;
 
-    for(let instrLine of instructions)
+    symbols.forEach(record => {
+        record.references = record.references.filter(instr => !instr.removed);
+        if(record.symbol === null)
+            for(let ref of record.references)
+            {
+                ref.wantsRecomp = true;
+                recompQueue.push(ref);
+            }
+    });
+
+    while(instr = linkedInstrQueue.shift() || recompQueue.shift())
     {
-        for(instr of instrLine)
+        currIndex = instr.address;
+        do
         {
             instr.address = currIndex;
-            if(instr.outline) instr.length = 0; // Ensure that the current length of the instruction won't matter
-            currIndex += instr.length;
-            if(instr.labelName !== undefined) labels.set(instr.labelName, instr);
-            if(instr.skip)
-            {
-                instr.skip = false;
-                instr.error = undefined;
-            }
-        }
+            if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
+                recompile(instr);
+            currIndex = instr.address + instr.length;
+            instr = instr.next;
+        } while(instr && instr.address != currIndex);
     }
 
-    for(let i = 0; i < instructions.length; i++)
-    {
-        for(instr of instructions[i])
-        {
-            if(instr.skip) continue;
-
-            instrLen = instr.length;
-            if(instr.outline)
-            {
-                resizeChange = instr.resolveLabels(labels);
-                if(!resizeChange.success) // Skip instructions that fail to recompile
-                {
-                    let e = resizeChange.error;
-                    if(haltOnError) throw `Error on line ${i + 1}: ${e.message}`;
-                    if(e.pos == null || e.length == null)
-                        console.error("Error on line " + (i + 1) + ":\n", e);
-                    else
-                        instr.error = e;
-                    
-                    instr.skip = true;
-                    instr.length = 0;
-                    resizeChange.length = -instrLen; // The entire instruction's length is removed
-                }
-
-                if(resizeChange.length)
-                {
-                    // Correct the addresses of all following instructions
-                    while(instr = instr.next)
-                        instr.address += resizeChange.length;
-
-                    i = -1; break;
-                }
-            }
-        }
-    }
+    for(let instrLine of instructions)
+        if(instrLine.length > 0)
+            for(instr of instrLine);
+    
     return instr ? instr.address + instr.length - baseAddr : 0;
 }

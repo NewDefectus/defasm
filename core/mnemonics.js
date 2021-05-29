@@ -363,7 +363,7 @@ export function Operation(format)
  */
 Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
 {
-    let needsRecompilation = false;
+    let ipRelative = false;
     if(vexInfo.needed)
     {
         if(this.actuallyNotVex) vexInfo.needed = false;
@@ -479,7 +479,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
                     value: operand.virtualValue,
                     size: size
                 });
-                needsRecompilation = true;
+                ipRelative = true;
             }
             else if(catcher.forceRM) rm = operand;
             else if(catcher.vexOp)
@@ -584,14 +584,14 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
     return {
         opcode: correctedOpcode,
         size: overallSize,
-        rexw: rexw,
+        rexw,
         prefix: vexInfo.needed ? null : (this.allVectors && overallSize > 64 ? 0x66 : this.prefix),
-        extendOp: extendOp,
-        reg: reg,
-        rm: rm,
+        extendOp,
+        reg,
+        rm,
         vex: vexInfo.needed ? vex : null,
-        imms: imms,
-        needsRecompilation: needsRecompilation
+        imms,
+        ipRelative
     };
 }
 

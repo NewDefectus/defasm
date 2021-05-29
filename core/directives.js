@@ -24,12 +24,13 @@ export const dirs = {
     string: 9 // .string = .ascii
 }
 
-export function Directive(dir)
+export function Directive(address, dir)
 {
     this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
     this.length = 0;
     this.outline = null;
     this.floatPrec = 0;
+    this.address = address;
 
     let appendNullByte = 0;
 
@@ -83,9 +84,9 @@ Directive.prototype.compileValues = function(valSize)
     try {
         do
         {
-            expression = new Expression(this.floatPrec);
-            value = expression.evaluate();
-            if(expression.hasLabelDependency)
+            expression = new Expression(this, this.floatPrec);
+            value = expression.evaluate(this.address);
+            if(expression.hasSymbols)
                 needsRecompilation = true;
 
             this.outline.push({ value, expression });
@@ -98,37 +99,31 @@ Directive.prototype.compileValues = function(valSize)
     }
 }
 
-Directive.prototype.resolveLabels = function(labels)
+Directive.prototype.recompile = function()
 {
-    let initialLength = this.length, op, outlineLength = this.outline.length;
+    let op, outlineLength = this.outline.length;
     this.length = 0;
+    this.error = null;
 
     for(let i = 0; i < outlineLength; i++)
     {
         op = this.outline[i];
         try
         {
-            if(op.expression.hasLabelDependency)
-                op.value = op.expression.evaluate(labels, this.address + i * this.valSize);
+            if(op.expression.hasSymbols)
+                op.value = op.expression.evaluate(this.address + i * this.valSize, true);
             this.genValue(op.value);
         }
         catch(e)
         {
             this.error = e;
             if(i === 0)
-                return {
-                    success: false,
-                    error: this.error
-                };
+                return;
             outlineLength = i;
             i = -1;
             this.length = 0;
         }
     }
-    return {
-        success: true,
-        length: this.length - initialLength
-    };
 }
 
 Directive.prototype.genValue = function(value)

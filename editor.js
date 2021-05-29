@@ -7630,7 +7630,7 @@
   EditorView.decorations = decorations;
   EditorView.contentAttributes = contentAttributes;
   EditorView.editorAttributes = editorAttributes;
-  EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({"class": "cm-lineWrapping"});
+  EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({class: "cm-lineWrapping"});
   EditorView.announce = /* @__PURE__ */ StateEffect.define();
   var MaxBidiLine = 4096;
   function ensureTop(given, dom) {
@@ -11259,7 +11259,7 @@
     "sil",
     "dil"
   ].map((x, i) => ({[x]: i})));
-  var suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
+  var suffixes = {b: 8, w: 16, l: 32, d: 32, q: 64, t: 80};
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
@@ -11345,7 +11345,7 @@
     next();
     return [reg, type, size, prefs];
   }
-  function Operand(address) {
+  function Operand(instr) {
     this.reg = this.reg2 = -1;
     this.shift = 0;
     this.value = null;
@@ -11360,13 +11360,13 @@
       [this.reg, this.type, this.size, this.prefs] = parseRegister();
       this.endPos = regParsePos;
     } else if (token === "$") {
-      this.expression = new Expression();
-      this.value = this.expression.evaluate(null, address);
+      this.expression = new Expression(instr);
+      this.value = this.expression.evaluate(instr.address);
       this.type = OPT.IMM;
     } else {
       this.type = OPT.MEM;
-      this.expression = new Expression(0, true);
-      this.value = this.expression.evaluate(null, address);
+      this.expression = new Expression(instr, 0, true);
+      this.value = this.expression.evaluate(instr.address);
       if (token !== "(") {
         if (!indirect)
           this.type = OPT.REL;
@@ -11428,354 +11428,6 @@
       next();
     }
   }
-
-  // core/shuntingYard.js
-  var unaries = {
-    "+": (a) => a,
-    "-": (a) => -a,
-    "~": (a) => ~a,
-    "!": (a) => !a
-  };
-  var operators = [
-    {
-      "*": (a, b) => a * b,
-      "/": (a, b) => a / b,
-      "%": (a, b) => a % b,
-      "<<": (a, b) => a << b,
-      ">>": (a, b) => a >> b
-    },
-    {
-      "|": (a, b) => a | b,
-      "&": (a, b) => a & b,
-      "^": (a, b) => a ^ b,
-      "!": (a, b) => a | ~b
-    },
-    {
-      "+": (a, b) => a + b,
-      "-": (a, b) => a - b
-    },
-    {
-      "==": (a, b) => a == b ? -1 : 0,
-      "<>": (a, b) => a != b ? -1 : 0,
-      "!=": (a, b) => a != b ? -1 : 0,
-      "<": (a, b) => a < b ? -1 : 0,
-      ">": (a, b) => a > b ? -1 : 0,
-      ">=": (a, b) => a >= b ? -1 : 0,
-      "<=": (a, b) => a <= b ? -1 : 0
-    },
-    {"&&": (a, b) => a && b ? 1 : 0},
-    {"||": (a, b) => a || b ? 1 : 0}
-  ];
-  for (let i = 0; i < operators.length; i++) {
-    for (let op of Object.keys(operators[i])) {
-      operators[i][op] = {func: operators[i][op], prec: i};
-    }
-  }
-  operators = Object.assign({}, ...operators);
-  var stringEscapeSeqs = {
-    "a": "\x07",
-    "b": "\b",
-    "e": "",
-    "f": "\f",
-    "n": "\n",
-    "r": "\r",
-    "t": "	",
-    "v": "\v",
-    "\\": "\\",
-    "'": "'",
-    '"': '"',
-    "?": "?"
-  };
-  var unescapeString = (string2) => string2.slice(1, -1).replace(/\\x[0-9a-f]{1,2}/ig, (x) => String.fromCharCode(parseInt(x.slice(2), 16))).replace(/\\[0-7]{1,3}/g, (x) => String.fromCharCode(parseInt(x.slice(1), 8) & 255)).replace(/\\u[0-9a-f]{1,8}/ig, (x) => {
-    try {
-      return String.fromCodePoint(parseInt(x.slice(2), 16));
-    } catch (e) {
-      return "";
-    }
-  }).replace(/\\./g, (x) => stringEscapeSeqs[x.slice(1)] || "");
-  function parseNumber(asFloat = false) {
-    let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
-    try {
-      if (token === "\n")
-        throw new ParserError("Expected value, got none");
-      if (token[0] === "'" && token[token.length - 1] === "'") {
-        let string2 = unescapeString(token);
-        let i = string2.length;
-        while (i--) {
-          value <<= asFloat ? 8 : 8n;
-          value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
-        }
-      } else if (isNaN(token)) {
-        if (token.length > 1 && !isNaN(token.slice(0, -1))) {
-          if (token.endsWith("d"))
-            floatPrec = 2, value = parseFloat(token);
-          else if (token.endsWith("f"))
-            floatPrec = 1, value = parseFloat(token);
-          else {
-            codePos.start += codePos.length - 1;
-            codePos.length = 1;
-            throw new ParserError("Invalid number suffix");
-          }
-        } else if (registers[token] !== void 0)
-          throw new ParserError("Registers must be prefixed with %");
-        else {
-          let labelDependency = {name: token, pos: codePos};
-          next();
-          return {value: labelDependency, floatPrec};
-        }
-      } else if (token.includes(".") || asFloat)
-        floatPrec = 1, value = parseFloat(token);
-      else
-        value = asFloat ? Number(token) : BigInt(token);
-      if (next() === "f")
-        floatPrec = 1, next();
-      else if (token === "d")
-        floatPrec = 2, next();
-      return {value, floatPrec};
-    } catch (e) {
-      if (e.pos === void 0)
-        throw new ParserError("Couldn't parse immediate: " + e);
-      throw e;
-    }
-  }
-  function Expression(minFloatPrec = 0, expectMemory = false) {
-    this.hasLabelDependency = false;
-    this.stack = [];
-    this.floatPrec = minFloatPrec;
-    let opStack = [], lastOp, lastWasNum = false;
-    if (!expectMemory)
-      next();
-    while (token !== "," && token !== "\n" && token !== ";") {
-      if (!lastWasNum && unaries.hasOwnProperty(token)) {
-        opStack.push({pos: codePos, func: unaries[token], prec: -1});
-        next();
-      } else if (operators.hasOwnProperty(token)) {
-        if (!lastWasNum) {
-          if (expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
-            break;
-          throw new ParserError("Missing left operand");
-        }
-        lastWasNum = false;
-        let op = Object.assign({pos: codePos}, operators[token]);
-        while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
-          this.stack.push(opStack.pop());
-        opStack.push(op);
-        next();
-      } else if (unaries.hasOwnProperty(token))
-        throw new ParserError("Unary operator can't be used here");
-      else if (token === "(") {
-        if (lastWasNum) {
-          if (expectMemory)
-            break;
-          throw new ParserError("Unexpected parenthesis");
-        }
-        opStack.push({pos: codePos, bracket: true});
-        next();
-      } else if (token === ")") {
-        if (!lastWasNum)
-          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
-        while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
-          this.stack.push(opStack.pop());
-        if (!lastOp || !lastOp.bracket)
-          throw new ParserError("Mismatched parentheses");
-        opStack.pop();
-        lastWasNum = true;
-        next();
-      } else {
-        lastWasNum = true;
-        let imm = parseNumber(this.floatPrec !== 0);
-        if (imm.floatPrec > this.floatPrec)
-          this.floatPrec = imm.floatPrec;
-        let value = imm.value;
-        if (value.name)
-          this.hasLabelDependency = true;
-        this.stack.push(value);
-      }
-    }
-    if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
-      ungetToken();
-      setToken("(");
-      return null;
-    } else if (!lastWasNum)
-      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
-    while (opStack[0]) {
-      if (opStack[opStack.length - 1].bracket)
-        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
-      this.stack.push(opStack.pop());
-    }
-    if (this.floatPrec !== 0)
-      this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
-  }
-  Expression.prototype.evaluate = function(labels2 = null, currIndex = 0) {
-    if (this.stack.length === 0)
-      return null;
-    let stack = [], len = 0;
-    for (let op of this.stack) {
-      let func = op.func;
-      if (func) {
-        if (func.length === 1)
-          stack[len - 1] = func(stack[len - 1]);
-        else {
-          stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
-          len--;
-        }
-      } else {
-        if (op.name) {
-          if (op.name === ".")
-            op = BigInt(currIndex);
-          else if (labels2 === null)
-            op = 1n;
-          else if (!labels2.has(op.name))
-            throw new ParserError(`Unknown label "${op.name}"`, op.pos);
-          else
-            op = labels2.get(op.name).address;
-        }
-        stack[len++] = op;
-      }
-      if (this.floatPrec === 0)
-        stack[len - 1] = BigInt(stack[len - 1]);
-      else
-        stack[len - 1] = Number(stack[len - 1]);
-    }
-    if (stack.length > 1)
-      throw new ParserError("Invalid expression");
-    if (this.floatPrec === 0)
-      return stack[0];
-    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
-    floatVal[0] = Number(stack[0]);
-    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
-  };
-
-  // core/directives.js
-  var DIRECTIVE_BUFFER_SIZE = 15;
-  var encoder = new TextEncoder();
-  var dirs = {
-    byte: 1,
-    short: 2,
-    word: 2,
-    hword: 2,
-    int: 3,
-    long: 3,
-    quad: 4,
-    octa: 5,
-    float: 6,
-    single: 6,
-    double: 7,
-    asciz: 8,
-    ascii: 9,
-    string: 9
-  };
-  function Directive(dir) {
-    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
-    this.length = 0;
-    this.outline = null;
-    this.floatPrec = 0;
-    let appendNullByte = 0;
-    try {
-      if (!dirs.hasOwnProperty(dir))
-        throw new ParserError("Unknown directive");
-      switch (dirs[dir]) {
-        case dirs.byte:
-          this.compileValues(1);
-          break;
-        case dirs.word:
-          this.compileValues(2);
-          break;
-        case dirs.int:
-          this.compileValues(4);
-          break;
-        case dirs.quad:
-          this.compileValues(8);
-          break;
-        case dirs.octa:
-          this.compileValues(16);
-          break;
-        case dirs.float:
-          this.floatPrec = 1;
-          this.compileValues(4);
-          break;
-        case dirs.double:
-          this.floatPrec = 2;
-          this.compileValues(8);
-          break;
-        case dirs.asciz:
-          appendNullByte = 1;
-        case dirs.ascii:
-          let strBytes, temp;
-          this.bytes = new Uint8Array();
-          do {
-            if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
-              strBytes = encoder.encode(unescapeString(token));
-              temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
-              temp.set(this.bytes);
-              temp.set(strBytes, this.length);
-              this.bytes = temp;
-              this.length = temp.length;
-            } else
-              throw new ParserError("Expected string");
-          } while (next() === ",");
-          break;
-      }
-    } catch (e) {
-      if (this.length === 0)
-        throw e;
-    }
-  }
-  Directive.prototype.compileValues = function(valSize) {
-    this.valSize = valSize;
-    let value, expression, needsRecompilation = false;
-    this.outline = [];
-    try {
-      do {
-        expression = new Expression(this.floatPrec);
-        value = expression.evaluate();
-        if (expression.hasLabelDependency)
-          needsRecompilation = true;
-        this.outline.push({value, expression});
-        this.genValue(value);
-      } while (token === ",");
-    } finally {
-      if (!needsRecompilation)
-        this.outline = null;
-    }
-  };
-  Directive.prototype.resolveLabels = function(labels2) {
-    let initialLength = this.length, op, outlineLength = this.outline.length;
-    this.length = 0;
-    for (let i = 0; i < outlineLength; i++) {
-      op = this.outline[i];
-      try {
-        if (op.expression.hasLabelDependency)
-          op.value = op.expression.evaluate(labels2, this.address + i * this.valSize);
-        this.genValue(op.value);
-      } catch (e) {
-        this.error = e;
-        if (i === 0)
-          return {
-            success: false,
-            error: this.error
-          };
-        outlineLength = i;
-        i = -1;
-        this.length = 0;
-      }
-    }
-    return {
-      success: true,
-      length: this.length - initialLength
-    };
-  };
-  Directive.prototype.genValue = function(value) {
-    for (let i = 0; i < this.valSize; i++) {
-      this.bytes[this.length++] = Number(value & 0xffn);
-      value >>= 8n;
-      if (this.length === this.bytes.length) {
-        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
-        temp.set(this.bytes);
-        this.bytes = temp;
-      }
-    }
-  };
 
   // core/mnemonicList.js
   var lines;
@@ -13315,7 +12967,7 @@ g nle`.split("\n");
     g: OPT.VMEM
   };
   var opCatcherCache = {};
-  var sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
+  var sizeIds = {b: 8, w: 16, l: 32, q: 64, t: 80, x: 128, y: 256, z: 512};
   var SIZETYPE_EXPLICITSUF = 1;
   var SIZETYPE_IMPLICITENC = 2;
   var EVEXPERM_MASK = 1;
@@ -13568,7 +13220,7 @@ g nle`.split("\n");
     }
   }
   Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo) {
-    let needsRecompilation = false;
+    let ipRelative = false;
     if (vexInfo.needed) {
       if (this.actuallyNotVex)
         vexInfo.needed = false;
@@ -13672,7 +13324,7 @@ g nle`.split("\n");
             value: operand.virtualValue,
             size
           });
-          needsRecompilation = true;
+          ipRelative = true;
         } else if (catcher.forceRM)
           rm2 = operand;
         else if (catcher.vexOp) {
@@ -13781,7 +13433,7 @@ g nle`.split("\n");
       rm: rm2,
       vex: vexInfo.needed ? vex : null,
       imms,
-      needsRecompilation
+      ipRelative
     };
   };
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
@@ -13844,6 +13496,7 @@ g nle`.split("\n");
     };
     let usesMemory = false;
     this.needsRecompilation = false;
+    this.removed = true;
     if (prefixes.hasOwnProperty(opcode)) {
       this.genByte(prefixes[opcode]);
       ungetToken();
@@ -13889,17 +13542,17 @@ g nle`.split("\n");
         next();
     }
     while (token !== ";" && token !== "\n") {
-      operand = new Operand(this.address);
+      operand = new Operand(this);
       if (token === ":") {
         if (operand.type !== OPT.SEG)
           throw new ParserError("Incorrect prefix");
         prefsToGen |= operand.reg + 1 << 3;
         next();
-        operand = new Operand(this.address);
+        operand = new Operand(this);
         if (operand.type !== OPT.MEM)
           throw new ParserError("Segment prefix must be followed by memory reference");
       }
-      if (operand.expression && operand.expression.hasLabelDependency)
+      if (operand.expression && operand.expression.hasSymbols)
         this.needsRecompilation = true;
       operands.push(operand);
       prefsToGen |= operand.prefs;
@@ -13935,11 +13588,10 @@ g nle`.split("\n");
       throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
     this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
     this.endPos = codePos;
-    if (!this.needsRecompilation) {
-      this.compile();
-      if (!this.needsRecompilation)
-        this.outline = void 0;
-    }
+    this.compile();
+    if (!this.needsRecompilation && !this.ipRelative)
+      this.outline = void 0;
+    this.removed = false;
   };
   Instruction.prototype.compile = function() {
     let [operands, enforcedSize, operations, prefsToGen, vexInfo] = this.outline;
@@ -13963,7 +13615,7 @@ g nle`.split("\n");
     if (!found) {
       throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
-    this.needsRecompilation = this.needsRecompilation || op.needsRecompilation;
+    this.ipRelative = this.ipRelative || op.ipRelative;
     if (op.rexw)
       rexVal |= 8, prefsToGen |= PREFIX_REX;
     let modRM = null, sib = null;
@@ -14062,24 +13714,18 @@ g nle`.split("\n");
     }
     return [196, vex1, vex2];
   }
-  Instruction.prototype.resolveLabels = function(labels2) {
-    let initialLength = this.length;
+  Instruction.prototype.recompile = function() {
+    this.error = null;
     try {
       for (let op of this.outline[0]) {
-        if (op.expression && op.expression.hasLabelDependency)
-          op.value = op.expression.evaluate(labels2, this.address);
+        if (op.expression && op.expression.hasSymbols)
+          op.value = op.expression.evaluate(this.address, true);
       }
       this.compile();
     } catch (e) {
-      return {
-        success: false,
-        error: e
-      };
+      this.length = 0;
+      throw e;
     }
-    return {
-      success: true,
-      length: this.length - initialLength
-    };
   };
   function inferImmSize(value) {
     if (value < 0n)
@@ -14092,12 +13738,416 @@ g nle`.split("\n");
     return value < 0x100n ? 8 : value < 0x10000n ? 16 : value < 0x100000000n ? 32 : 64;
   }
 
+  // core/symbols.js
+  var recompQueue = [];
+  var symbols = new Map();
+  function Symbol2(address, name2, isLabel = false) {
+    this.address = address;
+    this.name = name2;
+    try {
+      this.expression = isLabel ? LabelExpression(this) : new Expression(this);
+      this.length = 0;
+      this.bytes = new Uint8Array();
+      this.value = this.expression.evaluate(address);
+    } catch (e) {
+      this.removed = true;
+      throw e;
+    }
+    if (symbols.has(name2)) {
+      let record = symbols.get(name2);
+      record.symbol = this;
+      for (let ref of record.references) {
+        recompQueue.push(ref);
+        ref.wantsRecomp = true;
+      }
+    } else
+      symbols.set(name2, {
+        symbol: this,
+        references: []
+      });
+  }
+  Symbol2.prototype.recompile = function() {
+    let originValue = this.error ? null : this.value;
+    this.error = null;
+    this.value = this.expression.evaluate(this.address, true);
+    if (originValue !== this.value)
+      for (let ref of symbols.get(this.name).references) {
+        recompQueue.push(ref);
+        ref.wantsRecomp = true;
+      }
+  };
+
+  // core/shuntingYard.js
+  var unaries = {
+    "+": (a) => a,
+    "-": (a) => -a,
+    "~": (a) => ~a,
+    "!": (a) => !a
+  };
+  var operators = [
+    {
+      "*": (a, b) => a * b,
+      "/": (a, b) => a / b,
+      "%": (a, b) => a % b,
+      "<<": (a, b) => a << b,
+      ">>": (a, b) => a >> b
+    },
+    {
+      "|": (a, b) => a | b,
+      "&": (a, b) => a & b,
+      "^": (a, b) => a ^ b,
+      "!": (a, b) => a | ~b
+    },
+    {
+      "+": (a, b) => a + b,
+      "-": (a, b) => a - b
+    },
+    {
+      "==": (a, b) => a == b ? -1 : 0,
+      "<>": (a, b) => a != b ? -1 : 0,
+      "!=": (a, b) => a != b ? -1 : 0,
+      "<": (a, b) => a < b ? -1 : 0,
+      ">": (a, b) => a > b ? -1 : 0,
+      ">=": (a, b) => a >= b ? -1 : 0,
+      "<=": (a, b) => a <= b ? -1 : 0
+    },
+    {"&&": (a, b) => a && b ? 1 : 0},
+    {"||": (a, b) => a || b ? 1 : 0}
+  ];
+  for (let i = 0; i < operators.length; i++) {
+    for (let op of Object.keys(operators[i])) {
+      operators[i][op] = {func: operators[i][op], prec: i};
+    }
+  }
+  operators = Object.assign({}, ...operators);
+  var stringEscapeSeqs = {
+    a: "\x07",
+    b: "\b",
+    e: "",
+    f: "\f",
+    n: "\n",
+    r: "\r",
+    t: "	",
+    v: "\v",
+    "\\": "\\",
+    "'": "'",
+    '"': '"',
+    "?": "?"
+  };
+  var unescapeString = (string2) => string2.slice(1, -1).replace(/\\x[0-9a-f]{1,2}/ig, (x) => String.fromCharCode(parseInt(x.slice(2), 16))).replace(/\\[0-7]{1,3}/g, (x) => String.fromCharCode(parseInt(x.slice(1), 8) & 255)).replace(/\\u[0-9a-f]{1,8}/ig, (x) => {
+    try {
+      return String.fromCodePoint(parseInt(x.slice(2), 16));
+    } catch (e) {
+      return "";
+    }
+  }).replace(/\\./g, (x) => stringEscapeSeqs[x.slice(1)] || "");
+  function parseNumber(asFloat = false) {
+    let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
+    try {
+      if (token === "\n")
+        throw new ParserError("Expected value, got none");
+      if (token[0] === "'" && token[token.length - 1] === "'") {
+        let string2 = unescapeString(token);
+        let i = string2.length;
+        while (i--) {
+          value <<= asFloat ? 8 : 8n;
+          value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
+        }
+      } else if (isNaN(token)) {
+        if (token.length > 1 && !isNaN(token.slice(0, -1))) {
+          if (token.endsWith("d"))
+            floatPrec = 2, value = parseFloat(token);
+          else if (token.endsWith("f"))
+            floatPrec = 1, value = parseFloat(token);
+          else {
+            codePos.start += codePos.length - 1;
+            codePos.length = 1;
+            throw new ParserError("Invalid number suffix");
+          }
+        } else if (registers[token] !== void 0)
+          throw new ParserError("Registers must be prefixed with %");
+        else {
+          let symbol = {name: token, pos: codePos};
+          next();
+          return {value: symbol, floatPrec};
+        }
+      } else if (token.includes(".") || asFloat)
+        floatPrec = 1, value = parseFloat(token);
+      else
+        value = asFloat ? Number(token) : BigInt(token);
+      if (next() === "f")
+        floatPrec = 1, next();
+      else if (token === "d")
+        floatPrec = 2, next();
+      return {value, floatPrec};
+    } catch (e) {
+      if (e.pos === void 0)
+        throw new ParserError("Couldn't parse immediate: " + e);
+      throw e;
+    }
+  }
+  function LabelExpression(instr) {
+    let result = Object.create(Expression.prototype);
+    result.hasSymbols = true;
+    result.stack = [{name: ".", pos: null}];
+    result.floatPrec = 0;
+    instr.ipRelative = true;
+    return result;
+  }
+  function Expression(instr, minFloatPrec = 0, expectMemory = false) {
+    this.hasSymbols = false;
+    this.stack = [];
+    this.floatPrec = minFloatPrec;
+    let opStack = [], lastOp, lastWasNum = false;
+    if (!expectMemory)
+      next();
+    while (token !== "," && token !== "\n" && token !== ";") {
+      if (!lastWasNum && unaries.hasOwnProperty(token)) {
+        opStack.push({pos: codePos, func: unaries[token], prec: -1});
+        next();
+      } else if (operators.hasOwnProperty(token)) {
+        if (!lastWasNum) {
+          if (expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
+            break;
+          throw new ParserError("Missing left operand");
+        }
+        lastWasNum = false;
+        let op = Object.assign({pos: codePos}, operators[token]);
+        while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
+          this.stack.push(opStack.pop());
+        opStack.push(op);
+        next();
+      } else if (unaries.hasOwnProperty(token))
+        throw new ParserError("Unary operator can't be used here");
+      else if (token === "(") {
+        if (lastWasNum) {
+          if (expectMemory)
+            break;
+          throw new ParserError("Unexpected parenthesis");
+        }
+        opStack.push({pos: codePos, bracket: true});
+        next();
+      } else if (token === ")") {
+        if (!lastWasNum)
+          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+        while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
+          this.stack.push(opStack.pop());
+        if (!lastOp || !lastOp.bracket)
+          throw new ParserError("Mismatched parentheses");
+        opStack.pop();
+        lastWasNum = true;
+        next();
+      } else {
+        lastWasNum = true;
+        let imm = parseNumber(this.floatPrec !== 0);
+        if (imm.floatPrec > this.floatPrec)
+          this.floatPrec = imm.floatPrec;
+        let value = imm.value;
+        if (value.name) {
+          if (value.name === ".")
+            instr.ipRelative = true;
+          else if (symbols.has(value.name))
+            symbols.get(value.name).references.push(instr);
+          else
+            symbols.set(value.name, {
+              symbol: null,
+              references: [instr]
+            });
+          this.hasSymbols = true;
+        }
+        this.stack.push(value);
+      }
+    }
+    if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
+      ungetToken();
+      setToken("(");
+      return null;
+    } else if (!lastWasNum)
+      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+    while (opStack[0]) {
+      if (opStack[opStack.length - 1].bracket)
+        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+      this.stack.push(opStack.pop());
+    }
+    if (this.floatPrec !== 0)
+      this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
+  }
+  Expression.prototype.evaluate = function(currIndex, requireSymbols = false) {
+    if (this.stack.length === 0)
+      return null;
+    let stack = [], len = 0;
+    for (let op of this.stack) {
+      let func = op.func;
+      if (func) {
+        if (func.length === 1)
+          stack[len - 1] = func(stack[len - 1]);
+        else {
+          stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
+          len--;
+        }
+      } else {
+        if (op.name) {
+          if (op.name === ".")
+            op = BigInt(currIndex);
+          else {
+            let record = symbols.get(op.name);
+            if (record.symbol !== null && !record.symbol.error)
+              op = symbols.get(op.name).symbol.value;
+            else if (!requireSymbols)
+              op = 1n;
+            else
+              throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
+          }
+        }
+        stack[len++] = op;
+      }
+      if (this.floatPrec === 0)
+        stack[len - 1] = BigInt(stack[len - 1]);
+      else
+        stack[len - 1] = Number(stack[len - 1]);
+    }
+    if (stack.length > 1)
+      throw new ParserError("Invalid expression");
+    if (this.floatPrec === 0)
+      return stack[0];
+    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
+    floatVal[0] = Number(stack[0]);
+    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
+  };
+
+  // core/directives.js
+  var DIRECTIVE_BUFFER_SIZE = 15;
+  var encoder = new TextEncoder();
+  var dirs = {
+    byte: 1,
+    short: 2,
+    word: 2,
+    hword: 2,
+    int: 3,
+    long: 3,
+    quad: 4,
+    octa: 5,
+    float: 6,
+    single: 6,
+    double: 7,
+    asciz: 8,
+    ascii: 9,
+    string: 9
+  };
+  function Directive(address, dir) {
+    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
+    this.length = 0;
+    this.outline = null;
+    this.floatPrec = 0;
+    this.address = address;
+    let appendNullByte = 0;
+    try {
+      if (!dirs.hasOwnProperty(dir))
+        throw new ParserError("Unknown directive");
+      switch (dirs[dir]) {
+        case dirs.byte:
+          this.compileValues(1);
+          break;
+        case dirs.word:
+          this.compileValues(2);
+          break;
+        case dirs.int:
+          this.compileValues(4);
+          break;
+        case dirs.quad:
+          this.compileValues(8);
+          break;
+        case dirs.octa:
+          this.compileValues(16);
+          break;
+        case dirs.float:
+          this.floatPrec = 1;
+          this.compileValues(4);
+          break;
+        case dirs.double:
+          this.floatPrec = 2;
+          this.compileValues(8);
+          break;
+        case dirs.asciz:
+          appendNullByte = 1;
+        case dirs.ascii:
+          let strBytes, temp;
+          this.bytes = new Uint8Array();
+          do {
+            if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
+              strBytes = encoder.encode(unescapeString(token));
+              temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+              temp.set(this.bytes);
+              temp.set(strBytes, this.length);
+              this.bytes = temp;
+              this.length = temp.length;
+            } else
+              throw new ParserError("Expected string");
+          } while (next() === ",");
+          break;
+      }
+    } catch (e) {
+      if (this.length === 0)
+        throw e;
+    }
+  }
+  Directive.prototype.compileValues = function(valSize) {
+    this.valSize = valSize;
+    let value, expression, needsRecompilation = false;
+    this.outline = [];
+    try {
+      do {
+        expression = new Expression(this, this.floatPrec);
+        value = expression.evaluate(this.address);
+        if (expression.hasSymbols)
+          needsRecompilation = true;
+        this.outline.push({value, expression});
+        this.genValue(value);
+      } while (token === ",");
+    } finally {
+      if (!needsRecompilation)
+        this.outline = null;
+    }
+  };
+  Directive.prototype.recompile = function() {
+    let op, outlineLength = this.outline.length;
+    this.length = 0;
+    this.error = null;
+    for (let i = 0; i < outlineLength; i++) {
+      op = this.outline[i];
+      try {
+        if (op.expression.hasSymbols)
+          op.value = op.expression.evaluate(this.address + i * this.valSize, true);
+        this.genValue(op.value);
+      } catch (e) {
+        this.error = e;
+        if (i === 0)
+          return;
+        outlineLength = i;
+        i = -1;
+        this.length = 0;
+      }
+    }
+  };
+  Directive.prototype.genValue = function(value) {
+    for (let i = 0; i < this.valSize; i++) {
+      this.bytes[this.length++] = Number(value & 0xffn);
+      value >>= 8n;
+      if (this.length === this.bytes.length) {
+        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
+        temp.set(this.bytes);
+        this.bytes = temp;
+      }
+    }
+  };
+
   // core/compiler.js
   var baseAddr = 4194424;
-  var labels = new Map();
   var lastInstr;
   var currLineArr;
   var currAddr;
+  var errorsHalt = false;
+  var linkedInstrQueue = [];
   function addInstruction(instr) {
     if (lastInstr)
       lastInstr.next = instr;
@@ -14105,10 +14155,30 @@ g nle`.split("\n");
     lastInstr = instr;
     currAddr += instr.length;
   }
+  function recompile(instr) {
+    instr.removed = false;
+    try {
+      instr.recompile();
+      instr.wantsRecomp = false;
+    } catch (e) {
+      if (errorsHalt)
+        throw `Error: ${e.message}`;
+      if (e.pos == null || e.length == null)
+        console.error("Error:\n", e);
+      else
+        instr.error = e;
+      if (instr.name)
+        for (let ref of symbols.get(instr.name).references) {
+          ref.wantsRecomp = true;
+          recompQueue.push(ref);
+        }
+    }
+  }
   function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
     let opcode, pos;
     lastInstr = null;
     currLineArr = [];
+    errorsHalt = haltOnError;
     macros.clear();
     for (let i = 1; i < line && i <= instructions.length; i++) {
       for (lastInstr of instructions[i - 1]) {
@@ -14116,31 +14186,34 @@ g nle`.split("\n");
           macros.set(lastInstr.macroName, lastInstr.macro);
       }
     }
-    currAddr = lastInstr ? lastInstr.address : baseAddr;
+    currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for (let removed of removedInstrs)
-      for (let instr of removed)
-        if (instr.macroName)
-          throw "Macro edited, must recompile";
+      for (let instr of removed) {
+        if (instr.name) {
+          let record = symbols.get(instr.name);
+          if (record.references.length > 0)
+            record.symbol = null;
+          else
+            symbols.delete(instr.name);
+        }
+        instr.removed = true;
+      }
     loadCode(source);
     while (next(), !match.done) {
       try {
         pos = codePos;
         if (token !== "\n" && token !== ";") {
           if (token[0] === ".")
-            addInstruction(new Directive(token.slice(1), pos));
+            addInstruction(new Directive(currAddr, token.slice(1)));
           else {
             opcode = token;
             switch (next()) {
               case ":":
-                addInstruction({length: 0, bytes: new Uint8Array(), labelName: opcode, pos});
+                addInstruction(new Symbol2(currAddr, opcode, true));
                 continue;
               case "=":
-                let macroTokens = [];
-                while (next() !== "\n")
-                  macroTokens.push(token);
-                macros.set(opcode, macroTokens);
-                addInstruction({length: 0, bytes: new Uint8Array(), macroName: opcode, macro: macroTokens, pos});
+                addInstruction(new Symbol2(currAddr, opcode));
                 break;
               default:
                 addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));
@@ -14159,72 +14232,57 @@ g nle`.split("\n");
         if (e.pos == null || e.length == null)
           console.error("Error on line " + line + ":\n", e);
         else
-          addInstruction({length: 0, bytes: new Uint8Array(), error: e});
+          addInstruction({length: 0, bytes: new Uint8Array(), error: e, address: currAddr});
         while (token !== "\n" && token !== ";")
           next();
         if (token === "\n" && !match.done)
           instructions.splice(line++, 0, currLineArr = []);
       }
     }
-    if (lastInstr) {
-      while (line < instructions.length) {
-        if (instructions[line].length > 0) {
-          lastInstr.next = instructions[line][0];
-          break;
+    while (line < instructions.length) {
+      if (instructions[line].length > 0) {
+        let instr = instructions[line][0];
+        if (lastInstr) {
+          lastInstr.next = instr;
+          linkedInstrQueue.push(lastInstr);
+        } else {
+          if (instr.address !== baseAddr)
+            linkedInstrQueue.push(instr);
+          instr.address = baseAddr;
         }
-        line++;
+        break;
       }
+      line++;
     }
     let bytes = 0;
     if (doSecondPass)
       bytes = secondPass(instructions, haltOnError);
     return {instructions, bytes};
   }
-  function secondPass(instructions, haltOnError = false) {
-    let currIndex = baseAddr, resizeChange, instr, instrLen;
-    labels.clear();
-    for (let instrLine of instructions) {
-      for (instr of instrLine) {
+  function secondPass(instructions) {
+    let currIndex = baseAddr, instr;
+    symbols.forEach((record) => {
+      record.references = record.references.filter((instr2) => !instr2.removed);
+      if (record.symbol === null)
+        for (let ref of record.references) {
+          ref.wantsRecomp = true;
+          recompQueue.push(ref);
+        }
+    });
+    while (instr = linkedInstrQueue.shift() || recompQueue.shift()) {
+      currIndex = instr.address;
+      do {
         instr.address = currIndex;
-        if (instr.outline)
-          instr.length = 0;
-        currIndex += instr.length;
-        if (instr.labelName !== void 0)
-          labels.set(instr.labelName, instr);
-        if (instr.skip) {
-          instr.skip = false;
-          instr.error = void 0;
-        }
-      }
+        if ((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
+          recompile(instr);
+        currIndex = instr.address + instr.length;
+        instr = instr.next;
+      } while (instr && instr.address != currIndex);
     }
-    for (let i = 0; i < instructions.length; i++) {
-      for (instr of instructions[i]) {
-        if (instr.skip)
-          continue;
-        instrLen = instr.length;
-        if (instr.outline) {
-          resizeChange = instr.resolveLabels(labels);
-          if (!resizeChange.success) {
-            let e = resizeChange.error;
-            if (haltOnError)
-              throw `Error on line ${i + 1}: ${e.message}`;
-            if (e.pos == null || e.length == null)
-              console.error("Error on line " + (i + 1) + ":\n", e);
-            else
-              instr.error = e;
-            instr.skip = true;
-            instr.length = 0;
-            resizeChange.length = -instrLen;
-          }
-          if (resizeChange.length) {
-            while (instr = instr.next)
-              instr.address += resizeChange.length;
-            i = -1;
-            break;
-          }
-        }
-      }
-    }
+    for (let instrLine of instructions)
+      if (instrLine.length > 0)
+        for (instr of instrLine)
+          ;
     return instr ? instr.address + instr.length - baseAddr : 0;
   }
 
@@ -15657,7 +15715,7 @@ g nle`.split("\n");
     repeatNodeCount: 4,
     tokenData: "#6R~RdYZ!aqr!frs!!tst!#htu!#suv!#xwx#_xy!%Vyz!%t{|!f|}!%y}!O!f!O!P!&O!Q!R5Z!R![3X!]!^!'p!c!}!'u#R#S!'u#T#o!'u#r#s!f~!fOn~U!i[qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#r#s!fU#fjXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_U%_sXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U'ssXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U*XsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U,mqXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q~#_U.{kXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q![.t![!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_U0w]XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!^!_6n!_!`8|!`!a9S#Q#R!f#p#q:RU1s]qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!_!`!f!c!}7p#R#S7p#T#o7p#r#s!fU2oWwx#_xy2l!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7pU3`_XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S#Q#R!f#p#q:RU4b]qr!fvw!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#r#s!fU5b`XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S#Q#R!f#l#m:}#p#q:RU6kPXSZQyz6dU6q_qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!^!_!f!_!`!f!`!a!f!c!}7p#R#S7p#T#o7p#r#s!fU7waXSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![7p!^!_6n!_!`8|!`!a9S!c!}7p#Q#R!f#R#S7p#T#o7p#p#q:RU9PP!_!`!fU9V^qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!_!`!f!`!a!f!c!}7p#R#S7p#T#o7p#r#s!fU:U]qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#p#q!f#r#s!fU;QR!Q![;Z!c!i;Z#T#Z;ZU;b`XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![;Z!^!_6n!_!`8|!`!a9S!c!i;Z#Q#R!f#T#Z;Z#p#q:RU<ksXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U?PmXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q![.t![!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#l#_#l#mLd#m#p#_#p#qJO#q~#_UARjXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_<d!_!`Bs!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_UBzsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_UE`sXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_UGtpXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Gm![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q~#_UI{PO~#_UJVsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_ULkoXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Nl![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!iNl!i#O#_#O#PIx#P#Q#_#Q#R'l#R#T#_#T#ZNl#Z#p#_#p#qJO#q~#_UNsoXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Nl![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!iNl!i#O#_#O#PIx#P#Q#_#Q#R'l#R#T#_#T#ZNl#Z#p#_#p#qJO#q~#_~!!yU]~OY!!tZr!!trs!#]s#O!!t#O#P!#b#P~!!t~!#bO]~~!#ePO~!!t~!#mQ_~OY!#hZ~!#h~!#xOg~~!#{]X^!#xpq!#x!c!}!$t#R#S!$t#T#o!$t#y#z!#x$f$g!#x#BY#BZ!#x$IS$I_!#x$I|$JO!#x$JT$JU!#x$KV$KW!#x&FU&FV!#x~!$ySp~!Q![!$t!c!}!$t#R#S!$t#T#o!$tV!%[WhRwx#_xy2l!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p~!%yOk~~!&OOj~V!&VbXSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S!c!}!'_#Q#R!f#R#S!'_#T#o!'_#p#q:RP!'dSqP!Q![!'_!c!}!'_#R#S!'_#T#o!'_~!'uOm~V!(OlXSZQoPX^!)vpq!)vqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![!'u![!]!*o!^!_6n!_!`!+P!`!a9S!c!}!'u#Q#R!f#R#S!'u#T#o!'u#p#q:R#y#z!)v$f$g!)v#BY#BZ!)v$IS$I_!)v$I|$JO!)v$JT$JU!)v$KV$KW!)v&FU&FV!)vP!)y[X^!)vpq!)v![!]!*o!_!`!*t#y#z!)v$f$g!)v#BY#BZ!)v$IS$I_!)v$I|$JO!)v$JT$JU!)v$KV$KW!)v&FU&FV!)vP!*tOUPP!*yQ^POY!*tZ~!*tV!+US^POY!*tZ!_!*t!_!`!+b!`~!*tV!+gg^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!-XjXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV!/SsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!1jsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!4QsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!6hqXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q~!-OV!8xkXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV!:vgXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#p!*t#p#q!Js#q~!*tV!<di^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!_!*t!_!`!+b!`!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!>W`^POY!*tZw!*twx!-Oxy!>Ry!O!*t!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o~!*tV!?chXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!+b!Q![!?Y![!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#p!*t#p#q!Js#q~!*tV!ASh^POY!*tZq!*tqr!+brv!*tvw!+bwx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!BwjXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!+b!Q![!?Y![!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#l!*t#l#m!Lg#m#p!*t#p#q!Js#q~!*tV!DrSXS^PZQOY!*tZy!*tyz!Diz~!*tV!ETk^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!^!*t!^!_!+b!_!`!+b!`!a!+b!a!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!GRmXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q![!Fx![!^!*t!^!_!EO!_!`!+P!`!a!H|!a!c!*t!c!}!Fx!}#Q!*t#Q#R!+b#R#S!Fx#S#T!*t#T#o!Fx#o#p!*t#p#q!Js#q~!*tV!IRj^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!_!*t!_!`!+b!`!a!+b!a!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!Jxi^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#p!*t#p#q!+b#q#r!*t#r#s!+b#s~!*tV!LlW^POY!*tZ!Q!*t!Q![!MU![!c!*t!c!i!MU!i#T!*t#T#Z!MU#Z~!*tV!M_lXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q![!MU![!^!*t!^!_!EO!_!`!+P!`!a!H|!a!c!*t!c!i!MU!i#Q!*t#Q#R!+b#R#T!*t#T#Z!MU#Z#p!*t#p#q!Js#q~!*tV# `sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV##vmXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#l!-O#l#m#1m#m#p!-O#p#q#/V#q~!-OV#%zjXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q!^!-O!^!_# V!_!`#'l!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV#'usXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#*]sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#,spXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#,j![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q~!-OV#.|R^POY!-OYZ#_Z~!-OV#/`sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#1voXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#3w![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!i#3w!i#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#T!-O#T#Z#3w#Z#p!-O#p#q#/V#q~!-OV#4QoXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#3w![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!i#3w!i#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#T!-O#T#Z#3w#Z#p!-O#p#q#/V#q~!-O",
     tokenizers: [0, 1, 2],
-    topRules: {"Program": [0, 5]},
+    topRules: {Program: [0, 5]},
     specialized: [{term: 31, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 32, get: (value, stack) => isRegister(value, stack) << 1}, {term: 33, get: (value, stack) => isDirective(value, stack) << 1}],
     tokenPrec: 213
   });
