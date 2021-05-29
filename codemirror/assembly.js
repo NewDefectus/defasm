@@ -35,10 +35,10 @@ const asmTheme = EditorView.baseTheme({
     },
     '.cm-asm-error-tooltip': {
         fontFamily: "monospace",
-        color: "#eee",
-        backgroundColor: "black",
         borderRadius: ".25em",
         padding: ".1em .25em",
+        color: "#eee",
+        backgroundColor: "black",
         "&:before": {
             position: "absolute",
             content: '""',
@@ -49,6 +49,16 @@ const asmTheme = EditorView.baseTheme({
             borderRight: ".3em solid transparent",
             borderTop: ".3em solid black"
         }
+    },
+    '&dark .cm-asm-error-tooltip': {
+        color: "black",
+        backgroundColor: "#eee",
+        "&:before": {
+            borderTop: ".3em solid #eee"
+        }
+    },
+    '&dark .cm-asm-dump': {
+        color: "#aaa"
     }
 });
 

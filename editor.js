@@ -2491,17 +2491,17 @@
       if (!this.active.length)
         return this.active;
       let active = [];
-      for (let i = 0; i < this.active.length; i++) {
-        if (this.activeRank[i] > this.pointRank)
+      for (let i = this.active.length - 1; i >= 0; i--) {
+        if (this.activeRank[i] < this.pointRank)
           break;
         if (this.activeTo[i] > to || this.activeTo[i] == to && this.active[i].endSide > this.point.endSide)
           active.push(this.active[i]);
       }
-      return active;
+      return active.reverse();
     }
     openEnd(to) {
       let open = 0;
-      while (open < this.activeTo.length && this.activeTo[open] > to)
+      for (let i = this.activeTo.length - 1; i >= 0 && this.activeTo[i] > to; i--)
         open++;
       return open;
     }
@@ -2730,6 +2730,8 @@
         node = parent;
       } else if (node.nodeType == 1) {
         node = node.childNodes[off + (dir < 0 ? -1 : 0)];
+        if (node.nodeType == 1 && node.contentEditable == "false")
+          return false;
         off = dir < 0 ? maxOffset(node) : 0;
       } else {
         return false;
@@ -2867,6 +2869,16 @@
     range.setStart(node, from);
     return range;
   }
+  function dispatchKey(elt, name2, code) {
+    let options = {key: name2, code: name2, keyCode: code, which: code, cancelable: true};
+    let down = new KeyboardEvent("keydown", options);
+    down.synthetic = true;
+    elt.dispatchEvent(down);
+    let up = new KeyboardEvent("keyup", options);
+    up.synthetic = true;
+    elt.dispatchEvent(up);
+    return down.defaultPrevented || up.defaultPrevented;
+  }
   var DOMPos = class {
     constructor(node, offset, precise = true) {
       this.node = node;
@@ -3003,7 +3015,12 @@
         prevEnd = end;
         pos = end + child.breakAfter;
       }
-      return {from: fromStart, to: toEnd < 0 ? offset + this.length : toEnd, startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild, endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null};
+      return {
+        from: fromStart,
+        to: toEnd < 0 ? offset + this.length : toEnd,
+        startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild,
+        endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null
+      };
     }
     markDirty(andParent = false) {
       if (this.dirty & 2)
@@ -3042,8 +3059,11 @@
     }
     replaceChildren(from, to, children = none$3) {
       this.markDirty();
-      for (let i = from; i < to; i++)
-        this.children[i].parent = null;
+      for (let i = from; i < to; i++) {
+        let child = this.children[i];
+        if (child.parent == this)
+          child.parent = null;
+      }
       this.children.splice(from, to - from, ...children);
       for (let i = 0; i < children.length; i++)
         children[i].setParent(this);
@@ -3730,7 +3750,7 @@
       }
       super.sync(track);
       let last = this.dom.lastChild;
-      if (!last || last.nodeName != "BR" && ContentView.get(last) instanceof WidgetView) {
+      if (!last || last.nodeName != "BR" && ContentView.get(last) instanceof WidgetView && (!browser.ios || !this.children.some((ch) => ch instanceof TextView))) {
         let hack = document.createElement("BR");
         hack.cmIgnore = true;
         this.dom.appendChild(hack);
@@ -3748,7 +3768,10 @@
           return null;
         totalWidth += rects[0].width;
       }
-      return {lineHeight: this.dom.getBoundingClientRect().height, charWidth: totalWidth / this.length};
+      return {
+        lineHeight: this.dom.getBoundingClientRect().height,
+        charWidth: totalWidth / this.length
+      };
     }
     coordsAt(pos, side) {
       return coordsInChildren(this, pos, side);
@@ -3863,8 +3886,8 @@
         this.getLine();
     }
     wrapMarks(view, active) {
-      for (let i = active.length - 1; i >= 0; i--)
-        view = new MarkView(active[i], [view], view.length);
+      for (let mark of active)
+        view = new MarkView(mark, [view], view.length);
       return view;
     }
     buildText(length, active, openStart) {
@@ -3988,6 +4011,7 @@
     }
   };
   PluginField.decorations = /* @__PURE__ */ PluginField.define();
+  PluginField.atomicRanges = /* @__PURE__ */ PluginField.define();
   PluginField.scrollMargins = /* @__PURE__ */ PluginField.define();
   var nextPluginID = 0;
   var viewPlugin = /* @__PURE__ */ Facet.define();
@@ -4219,13 +4243,14 @@
     }
     updateInner(changes, deco, oldLength, forceSelection = false, pointerSel = false) {
       this.updateChildren(changes, deco, oldLength);
-      this.view.observer.ignore(() => {
+      let {observer} = this.view;
+      observer.ignore(() => {
         this.dom.style.height = this.view.viewState.domHeight + "px";
         this.dom.style.minWidth = this.minWidth ? this.minWidth + "px" : "";
-        let track = browser.chrome ? {node: getSelection(this.view.root).focusNode, written: false} : void 0;
+        let track = browser.chrome || browser.ios ? {node: observer.selectionRange.focusNode, written: false} : void 0;
         this.sync(track);
         this.dirty = 0;
-        if (track === null || track === void 0 ? void 0 : track.written)
+        if (track && (track.written || observer.selectionRange.focusNode != track.node))
           forceSelection = true;
         this.updateSelection(forceSelection, pointerSel);
         this.dom.style.height = "";
@@ -4486,7 +4511,7 @@
     }
   };
   function betweenUneditable(pos) {
-    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset < pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
+    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
   }
   var BlockGapWidget = class extends WidgetType {
     constructor(height) {
@@ -4943,7 +4968,7 @@
         bias = block.top > y ? -1 : 1;
         y = Math.min(block.bottom - halfLine, Math.max(block.top + halfLine, y));
         if (bounced)
-          return -1;
+          return null;
         else
           bounced = true;
       }
@@ -5078,12 +5103,27 @@
     }
     return EditorSelection.cursor(result, void 0, void 0, goal);
   }
+  function skipAtoms(view, oldPos, pos) {
+    let atoms = view.pluginField(PluginField.atomicRanges);
+    for (; ; ) {
+      let moved = false;
+      for (let set of atoms) {
+        set.between(pos.from - 1, pos.from + 1, (from, to, value) => {
+          if (pos.from > from && pos.from < to) {
+            pos = oldPos.from > pos.from ? EditorSelection.cursor(from, 1) : EditorSelection.cursor(to, -1);
+            moved = true;
+          }
+        });
+      }
+      if (!moved)
+        return pos;
+    }
+  }
   var InputState = class {
     constructor(view) {
       this.lastKeyCode = 0;
       this.lastKeyTime = 0;
-      this.lastIOSEnter = 0;
-      this.lastIOSBackspace = 0;
+      this.pendingIOSKey = null;
       this.lastSelectionOrigin = null;
       this.lastSelectionTime = 0;
       this.lastEscPress = 0;
@@ -5112,6 +5152,8 @@
       }
       this.notifiedFocused = view.hasFocus;
       this.ensureHandlers(view);
+      if (browser.safari)
+        view.contentDOM.addEventListener("input", () => null);
     }
     setSelectionOrigin(origin) {
       this.lastSelectionOrigin = origin;
@@ -5166,12 +5208,20 @@
       this.lastKeyCode = event.keyCode;
       this.lastKeyTime = Date.now();
       if (this.screenKeyEvent(view, event))
-        return;
+        return true;
       if (browser.ios && (event.keyCode == 13 || event.keyCode == 8) && !(event.ctrlKey || event.altKey || event.metaKey) && !event.synthetic) {
-        this[event.keyCode == 13 ? "lastIOSEnter" : "lastIOSBackspace"] = Date.now();
+        this.pendingIOSKey = event.keyCode == 13 ? "enter" : "backspace";
+        setTimeout(() => this.flushIOSKey(view), 250);
         return true;
       }
       return false;
+    }
+    flushIOSKey(view) {
+      if (!this.pendingIOSKey)
+        return false;
+      let dom = view.contentDOM, key = this.pendingIOSKey;
+      this.pendingIOSKey = null;
+      return key == "enter" ? dispatchKey(dom, "Enter", 13) : dispatchKey(dom, "Backspace", 8);
     }
     ignoreDuringComposition(event) {
       if (!/^key/.test(event.type))
@@ -5471,16 +5521,13 @@
       event.dataTransfer.effectAllowed = "copyMove";
     }
   };
-  handlers.drop = (view, event) => {
-    if (!event.dataTransfer || !view.state.facet(editable))
-      return;
+  function dropText(view, event, text, direct) {
     let dropPos = view.posAtCoords({x: event.clientX, y: event.clientY});
-    let text = event.dataTransfer.getData("Text");
     if (dropPos == null || !text)
       return;
     event.preventDefault();
     let {mouseSelection} = view.inputState;
-    let del = mouseSelection && mouseSelection.dragging && mouseSelection.dragMove ? {from: mouseSelection.dragging.from, to: mouseSelection.dragging.to} : null;
+    let del = direct && mouseSelection && mouseSelection.dragging && mouseSelection.dragMove ? {from: mouseSelection.dragging.from, to: mouseSelection.dragging.to} : null;
     let ins = {from: dropPos, insert: text};
     let changes = view.state.changes(del ? [del, ins] : ins);
     view.focus();
@@ -5489,6 +5536,31 @@
       selection: {anchor: changes.mapPos(dropPos, -1), head: changes.mapPos(dropPos, 1)},
       annotations: Transaction.userEvent.of("drop")
     });
+  }
+  handlers.drop = (view, event) => {
+    if (!event.dataTransfer || !view.state.facet(editable))
+      return;
+    let files = event.dataTransfer.files;
+    if (files && files.length) {
+      event.preventDefault();
+      let text = Array(files.length), read = 0;
+      let finishFile = () => {
+        if (++read == files.length)
+          dropText(view, event, text.filter((s) => s != null).join(view.state.lineBreak), false);
+      };
+      for (let i = 0; i < files.length; i++) {
+        let reader = new FileReader();
+        reader.onerror = finishFile;
+        reader.onload = () => {
+          if (!/[\x00-\x08\x0e-\x1f]{2}/.test(reader.result))
+            text[i] = reader.result;
+          finishFile();
+        };
+        reader.readAsText(files[i]);
+      }
+    } else {
+      dropText(view, event, event.dataTransfer.getData("Text"), true);
+    }
   };
   handlers.paste = (view, event) => {
     if (!view.state.facet(editable))
@@ -6296,7 +6368,7 @@
       this.viewports = viewports.sort((a, b) => a.from - b.from);
       this.scaler = this.heightMap.height <= 7e6 ? IdScaler : new BigScaler(this.heightOracle.doc, this.heightMap, this.viewports);
     }
-    update(update, scrollTo2 = null) {
+    update(update, scrollTo = null) {
       let prev = this.state;
       this.state = update.state;
       let newDeco = this.state.facet(decorations);
@@ -6307,8 +6379,8 @@
       if (this.heightMap.height != prevHeight)
         update.flags |= 2;
       let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
-      if (scrollTo2 && (scrollTo2.head < viewport.from || scrollTo2.head > viewport.to) || !this.viewportIsAppropriate(viewport))
-        viewport = this.getViewport(0, scrollTo2);
+      if (scrollTo && (scrollTo.head < viewport.from || scrollTo.head > viewport.to) || !this.viewportIsAppropriate(viewport))
+        viewport = this.getViewport(0, scrollTo);
       if (!viewport.eq(this.viewport)) {
         this.viewport = viewport;
         update.flags |= 4;
@@ -6317,8 +6389,8 @@
       if (this.lineGaps.length || this.viewport.to - this.viewport.from > 15e3)
         update.flags |= this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
       this.computeVisibleRanges();
-      if (scrollTo2)
-        this.scrollTo = scrollTo2;
+      if (scrollTo)
+        this.scrollTo = scrollTo;
       if (!this.mustEnforceCursorAssoc && update.selectionSet && update.view.lineWrapping && update.state.selection.main.empty && update.state.selection.main.assoc)
         this.mustEnforceCursorAssoc = true;
     }
@@ -6384,16 +6456,16 @@
     get visibleBottom() {
       return this.scaler.fromDOM(this.pixelViewport.bottom, 0);
     }
-    getViewport(bias, scrollTo2) {
+    getViewport(bias, scrollTo) {
       let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1e3 / 2));
       let map = this.heightMap, doc2 = this.state.doc, {visibleTop, visibleBottom} = this;
       let viewport = new Viewport(map.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, doc2, 0, 0).to);
-      if (scrollTo2) {
-        if (scrollTo2.head < viewport.from) {
-          let {top: newTop} = map.lineAt(scrollTo2.head, QueryType.ByPos, doc2, 0, 0);
+      if (scrollTo) {
+        if (scrollTo.head < viewport.from) {
+          let {top: newTop} = map.lineAt(scrollTo.head, QueryType.ByPos, doc2, 0, 0);
           viewport = new Viewport(map.lineAt(newTop - 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(newTop + (visibleBottom - visibleTop) + 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).to);
-        } else if (scrollTo2.head > viewport.to) {
-          let {bottom: newBottom} = map.lineAt(scrollTo2.head, QueryType.ByPos, doc2, 0, 0);
+        } else if (scrollTo.head > viewport.to) {
+          let {bottom: newBottom} = map.lineAt(scrollTo.head, QueryType.ByPos, doc2, 0, 0);
           viewport = new Viewport(map.lineAt(newBottom - (visibleBottom - visibleTop) - 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(newBottom + 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).to);
         }
       }
@@ -7086,7 +7158,7 @@
       };
     if (change) {
       let startState = view.state;
-      if (browser.android && (change.from == sel.from && change.to == sel.to && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view, "Enter", 13) || change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 && dispatchKey(view, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view, "Delete", 46)) || browser.ios && (view.inputState.lastIOSEnter > Date.now() - 225 && change.insert.lines > 1 && dispatchKey(view, "Enter", 13) || view.inputState.lastIOSBackspace > Date.now() - 225 && !change.insert.length && dispatchKey(view, "Backspace", 8)))
+      if (browser.android && (change.from == sel.from && change.to == sel.to && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view.contentDOM, "Enter", 13) || change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 && dispatchKey(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view.contentDOM, "Delete", 46)) || browser.ios && view.inputState.flushIOSKey(view))
         return;
       let text = change.insert.toString();
       if (view.state.facet(inputHandler).some((h) => h(view, change.from, change.to, text)))
@@ -7230,16 +7302,6 @@
     let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
     return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base2, head + base2) : null;
   }
-  function dispatchKey(view, name2, code) {
-    let options = {key: name2, code: name2, keyCode: code, which: code, cancelable: true};
-    let down = new KeyboardEvent("keydown", options);
-    down.synthetic = true;
-    view.contentDOM.dispatchEvent(down);
-    let up = new KeyboardEvent("keyup", options);
-    up.synthetic = true;
-    view.contentDOM.dispatchEvent(up);
-    return down.defaultPrevented || up.defaultPrevented;
-  }
   var EditorView = class {
     constructor(config2 = {}) {
       this.plugins = [];
@@ -7313,10 +7375,11 @@
       if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
         return this.setState(state);
       update = new ViewUpdate(this, state, transactions);
+      let scrollTo;
       try {
         this.updateState = 2;
-        let scrollTo2 = transactions.some((tr) => tr.scrollIntoView) ? state.selection.main : null;
-        this.viewState.update(update, scrollTo2);
+        scrollTo = transactions.some((tr) => tr.scrollIntoView) ? state.selection.main : null;
+        this.viewState.update(update, scrollTo);
         this.bidiCache = CachedOrder.update(this.bidiCache, update.changes);
         if (!update.empty)
           this.updatePlugins(update);
@@ -7453,7 +7516,6 @@
         autocorrect: "off",
         autocapitalize: "off",
         contenteditable: String(this.state.facet(editable)),
-        "data-gramm": "false",
         class: "cm-content",
         style: `${browser.tabSize}: ${this.state.tabSize}`,
         role: "textbox",
@@ -7529,16 +7591,16 @@
       return this.viewState.contentHeight;
     }
     moveByChar(start, forward, by) {
-      return moveByChar(this, start, forward, by);
+      return skipAtoms(this, start, moveByChar(this, start, forward, by));
     }
     moveByGroup(start, forward) {
-      return moveByChar(this, start, forward, (initial) => byGroup(this, start.head, initial));
+      return skipAtoms(this, start, moveByChar(this, start, forward, (initial) => byGroup(this, start.head, initial)));
     }
     moveToLineBoundary(start, forward, includeWrap = true) {
       return moveToLineBoundary(this, start, forward, includeWrap);
     }
     moveVertically(start, forward, distance) {
-      return moveVertically(this, start, forward, distance);
+      return skipAtoms(this, start, moveVertically(this, start, forward, distance));
     }
     scrollPosIntoView(pos) {
       this.viewState.scrollTo = EditorSelection.cursor(pos);
@@ -9797,15 +9859,17 @@
     compare(other) {
       return this == other || this.constructor == other.constructor && this.eq(other);
     }
-    toDOM(_view) {
-      return null;
+    eq(other) {
+      return false;
     }
     at(pos) {
       return this.range(pos);
     }
   };
   GutterMarker.prototype.elementClass = "";
+  GutterMarker.prototype.toDOM = void 0;
   GutterMarker.prototype.mapMode = MapMode.TrackBefore;
+  var gutterLineClass = /* @__PURE__ */ Facet.define();
   var defaults2 = {
     class: "",
     renderEmptyElements: false,
@@ -9853,6 +9917,12 @@
       minWidth: "20px",
       textAlign: "right",
       whiteSpace: "nowrap"
+    },
+    "&light .cm-activeLineGutter": {
+      backgroundColor: "#e2f2ff"
+    },
+    "&dark .cm-activeLineGutter": {
+      backgroundColor: "#222227"
     }
   });
   var unfixGutters = /* @__PURE__ */ Facet.define({
@@ -9888,6 +9958,8 @@
         this.syncGutters();
     }
     syncGutters() {
+      let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
+      let classSet = [];
       let contexts = this.gutters.map((gutter2) => new UpdateContext(gutter2, this.view.viewport));
       this.view.viewportLines((line) => {
         let text;
@@ -9902,8 +9974,11 @@
         }
         if (!text)
           return;
+        if (classSet.length)
+          classSet = [];
+        advanceCursor(lineClasses, classSet, line.from);
         for (let cx of contexts)
-          cx.line(this.view, text);
+          cx.line(this.view, text, classSet);
       }, 0);
       for (let cx of contexts)
         cx.finish();
@@ -9953,6 +10028,13 @@
   function asArray2(val) {
     return Array.isArray(val) ? val : [val];
   }
+  function advanceCursor(cursor, collect, pos) {
+    while (cursor.value && cursor.from <= pos) {
+      if (cursor.from == pos)
+        collect.push(cursor.value);
+      cursor.next();
+    }
+  }
   var UpdateContext = class {
     constructor(gutter2, viewport) {
       this.gutter = gutter2;
@@ -9961,32 +10043,27 @@
       this.height = 0;
       this.cursor = RangeSet.iter(gutter2.markers, viewport.from);
     }
-    line(view, line) {
+    line(view, line, extraMarkers) {
       if (this.localMarkers.length)
         this.localMarkers = [];
-      while (this.cursor.value && this.cursor.from <= line.from) {
-        if (this.cursor.from == line.from)
-          this.localMarkers.push(this.cursor.value);
-        this.cursor.next();
-      }
-      let forLine = this.gutter.config.lineMarker(view, line, this.localMarkers);
+      advanceCursor(this.cursor, this.localMarkers, line.from);
+      let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
+      let forLine = this.gutter.config.lineMarker(view, line, localMarkers);
       if (forLine)
-        this.localMarkers.unshift(forLine);
+        localMarkers.unshift(forLine);
       let gutter2 = this.gutter;
-      if (this.localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
+      if (localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
         return;
       let above = line.top - this.height;
       if (this.i == gutter2.elements.length) {
-        let newElt = new GutterElement(view, line.height, above, this.localMarkers);
+        let newElt = new GutterElement(view, line.height, above, localMarkers);
         gutter2.elements.push(newElt);
         gutter2.dom.appendChild(newElt.dom);
       } else {
-        let markers = this.localMarkers, elt = gutter2.elements[this.i];
-        if (sameMarkers(markers, elt.markers)) {
-          markers = elt.markers;
-          this.localMarkers.length = 0;
-        }
-        elt.update(view, line.height, above, markers);
+        let elt = gutter2.elements[this.i];
+        if (sameMarkers(localMarkers, elt.markers))
+          localMarkers = elt.markers;
+        elt.update(view, line.height, above, localMarkers);
       }
       this.height = line.bottom;
       this.i++;
@@ -10048,9 +10125,8 @@
           ch.remove();
         let cls = "cm-gutterElement";
         for (let m of markers) {
-          let dom = m.toDOM(view);
-          if (dom)
-            this.dom.appendChild(dom);
+          if (m.toDOM)
+            this.dom.appendChild(m.toDOM(view));
           let c = m.elementClass;
           if (c)
             cls += " " + c;
@@ -10090,7 +10166,7 @@
     eq(other) {
       return this.number == other.number;
     }
-    toDOM() {
+    toDOM(_view) {
       return document.createTextNode(this.number);
     }
   };
@@ -10103,7 +10179,7 @@
       return view.state.facet(lineNumberMarkers);
     },
     lineMarker(view, line, others) {
-      if (others.length)
+      if (others.some((m) => m.toDOM))
         return null;
       return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line.from).number));
     },
@@ -10228,22 +10304,19 @@
     }
     return ruleNodeProp.add(byName);
   }
-  var ruleNodeProp = new NodeProp();
-  var highlightStyle = Facet.define({
+  var ruleNodeProp = /* @__PURE__ */ new NodeProp();
+  var highlightStyle = /* @__PURE__ */ Facet.define({
     combine(stylings) {
       return stylings.length ? HighlightStyle.combinedMatch(stylings) : null;
     }
   });
-  var fallbackHighlightStyle = Facet.define({
+  var fallbackHighlightStyle = /* @__PURE__ */ Facet.define({
     combine(values) {
       return values.length ? values[0].match : null;
     }
   });
-  function noHighlight() {
-    return null;
-  }
   function getHighlightStyle(state) {
-    return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle) || noHighlight;
+    return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle);
   }
   var Rule = class {
     constructor(tags2, mode, context, next2) {
@@ -10328,7 +10401,8 @@
       return new HighlightStyle(specs, options || {});
     }
     static get(state, tag, scope) {
-      return getHighlightStyle(state)(tag, scope || NodeType.none);
+      let style = getHighlightStyle(state);
+      return style && style(tag, scope || NodeType.none);
     }
   };
   var TreeHighlighter = class {
@@ -10348,7 +10422,7 @@
       }
     }
     buildDeco(view, match2) {
-      if (match2 == noHighlight || !this.tree.length)
+      if (!match2 || !this.tree.length)
         return Decoration.none;
       let builder = new RangeSetBuilder();
       for (let {from, to} of view.visibleRanges) {
@@ -10359,13 +10433,19 @@
       return builder.finish();
     }
   };
-  var treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
+  var treeHighlighter = /* @__PURE__ */ Prec.fallback(/* @__PURE__ */ ViewPlugin.fromClass(TreeHighlighter, {
     decorations: (v) => v.decorations
   }));
   var nodeStack = [""];
   function highlightTreeRange(tree, from, to, style, span) {
     let spanStart = from, spanClass = "";
     let cursor = tree.topNode.cursor;
+    function flush(at, newClass) {
+      if (spanClass)
+        span(spanStart, at, spanClass);
+      spanStart = at;
+      spanClass = newClass;
+    }
     function node(inheritedClass, depth2, scope) {
       let {type, from: start, to: end} = cursor;
       if (start >= to || end <= from)
@@ -10393,28 +10473,21 @@
         }
         rule = rule.next;
       }
-      if (cls != spanClass) {
-        if (start > spanStart && spanClass)
-          span(spanStart, cursor.from, spanClass);
-        spanStart = start;
-        spanClass = cls;
-      }
+      let upto = start;
       if (!opaque && cursor.firstChild()) {
         do {
-          let end2 = cursor.to;
+          if (cursor.from > upto && spanClass != cls)
+            flush(upto, cls);
+          upto = cursor.to;
           node(inheritedClass, depth2 + 1, scope);
-          if (spanClass != cls) {
-            let pos = Math.min(to, end2);
-            if (pos > spanStart && spanClass)
-              span(spanStart, pos, spanClass);
-            spanStart = pos;
-            spanClass = cls;
-          }
         } while (cursor.nextSibling());
         cursor.parent();
       }
+      if (end > upto && spanClass != cls)
+        flush(upto, cls);
     }
     node("", 0, tree.type);
+    flush(to, "");
   }
   function matchContext(context, stack, depth2) {
     if (context.length > depth2 - 1)
@@ -10427,102 +10500,103 @@
     return true;
   }
   var t = Tag.define;
-  var comment = t();
-  var name = t();
-  var typeName = t(name);
-  var literal = t();
-  var string = t(literal);
-  var number = t(literal);
-  var content = t();
-  var heading = t(content);
-  var keyword = t();
-  var operator = t();
-  var punctuation = t();
-  var bracket = t(punctuation);
-  var meta = t();
+  var comment = /* @__PURE__ */ t();
+  var name = /* @__PURE__ */ t();
+  var typeName = /* @__PURE__ */ t(name);
+  var literal = /* @__PURE__ */ t();
+  var string = /* @__PURE__ */ t(literal);
+  var number = /* @__PURE__ */ t(literal);
+  var content = /* @__PURE__ */ t();
+  var heading = /* @__PURE__ */ t(content);
+  var keyword = /* @__PURE__ */ t();
+  var operator = /* @__PURE__ */ t();
+  var punctuation = /* @__PURE__ */ t();
+  var bracket = /* @__PURE__ */ t(punctuation);
+  var meta = /* @__PURE__ */ t();
   var tags = {
     comment,
-    lineComment: t(comment),
-    blockComment: t(comment),
-    docComment: t(comment),
+    lineComment: /* @__PURE__ */ t(comment),
+    blockComment: /* @__PURE__ */ t(comment),
+    docComment: /* @__PURE__ */ t(comment),
     name,
-    variableName: t(name),
+    variableName: /* @__PURE__ */ t(name),
     typeName,
-    tagName: t(typeName),
-    propertyName: t(name),
-    className: t(name),
-    labelName: t(name),
-    namespace: t(name),
-    macroName: t(name),
+    tagName: /* @__PURE__ */ t(typeName),
+    propertyName: /* @__PURE__ */ t(name),
+    className: /* @__PURE__ */ t(name),
+    labelName: /* @__PURE__ */ t(name),
+    namespace: /* @__PURE__ */ t(name),
+    macroName: /* @__PURE__ */ t(name),
     literal,
     string,
-    docString: t(string),
-    character: t(string),
+    docString: /* @__PURE__ */ t(string),
+    character: /* @__PURE__ */ t(string),
     number,
-    integer: t(number),
-    float: t(number),
-    bool: t(literal),
-    regexp: t(literal),
-    escape: t(literal),
-    color: t(literal),
-    url: t(literal),
+    integer: /* @__PURE__ */ t(number),
+    float: /* @__PURE__ */ t(number),
+    bool: /* @__PURE__ */ t(literal),
+    regexp: /* @__PURE__ */ t(literal),
+    escape: /* @__PURE__ */ t(literal),
+    color: /* @__PURE__ */ t(literal),
+    url: /* @__PURE__ */ t(literal),
     keyword,
-    self: t(keyword),
-    null: t(keyword),
-    atom: t(keyword),
-    unit: t(keyword),
-    modifier: t(keyword),
-    operatorKeyword: t(keyword),
-    controlKeyword: t(keyword),
-    definitionKeyword: t(keyword),
+    self: /* @__PURE__ */ t(keyword),
+    null: /* @__PURE__ */ t(keyword),
+    atom: /* @__PURE__ */ t(keyword),
+    unit: /* @__PURE__ */ t(keyword),
+    modifier: /* @__PURE__ */ t(keyword),
+    operatorKeyword: /* @__PURE__ */ t(keyword),
+    controlKeyword: /* @__PURE__ */ t(keyword),
+    definitionKeyword: /* @__PURE__ */ t(keyword),
     operator,
-    derefOperator: t(operator),
-    arithmeticOperator: t(operator),
-    logicOperator: t(operator),
-    bitwiseOperator: t(operator),
-    compareOperator: t(operator),
-    updateOperator: t(operator),
-    definitionOperator: t(operator),
-    typeOperator: t(operator),
-    controlOperator: t(operator),
+    derefOperator: /* @__PURE__ */ t(operator),
+    arithmeticOperator: /* @__PURE__ */ t(operator),
+    logicOperator: /* @__PURE__ */ t(operator),
+    bitwiseOperator: /* @__PURE__ */ t(operator),
+    compareOperator: /* @__PURE__ */ t(operator),
+    updateOperator: /* @__PURE__ */ t(operator),
+    definitionOperator: /* @__PURE__ */ t(operator),
+    typeOperator: /* @__PURE__ */ t(operator),
+    controlOperator: /* @__PURE__ */ t(operator),
     punctuation,
-    separator: t(punctuation),
+    separator: /* @__PURE__ */ t(punctuation),
     bracket,
-    angleBracket: t(bracket),
-    squareBracket: t(bracket),
-    paren: t(bracket),
-    brace: t(bracket),
+    angleBracket: /* @__PURE__ */ t(bracket),
+    squareBracket: /* @__PURE__ */ t(bracket),
+    paren: /* @__PURE__ */ t(bracket),
+    brace: /* @__PURE__ */ t(bracket),
     content,
     heading,
-    heading1: t(heading),
-    heading2: t(heading),
-    heading3: t(heading),
-    heading4: t(heading),
-    heading5: t(heading),
-    heading6: t(heading),
-    contentSeparator: t(content),
-    list: t(content),
-    quote: t(content),
-    emphasis: t(content),
-    strong: t(content),
-    link: t(content),
-    monospace: t(content),
-    inserted: t(),
-    deleted: t(),
-    changed: t(),
-    invalid: t(),
+    heading1: /* @__PURE__ */ t(heading),
+    heading2: /* @__PURE__ */ t(heading),
+    heading3: /* @__PURE__ */ t(heading),
+    heading4: /* @__PURE__ */ t(heading),
+    heading5: /* @__PURE__ */ t(heading),
+    heading6: /* @__PURE__ */ t(heading),
+    contentSeparator: /* @__PURE__ */ t(content),
+    list: /* @__PURE__ */ t(content),
+    quote: /* @__PURE__ */ t(content),
+    emphasis: /* @__PURE__ */ t(content),
+    strong: /* @__PURE__ */ t(content),
+    link: /* @__PURE__ */ t(content),
+    monospace: /* @__PURE__ */ t(content),
+    strikethrough: /* @__PURE__ */ t(content),
+    inserted: /* @__PURE__ */ t(),
+    deleted: /* @__PURE__ */ t(),
+    changed: /* @__PURE__ */ t(),
+    invalid: /* @__PURE__ */ t(),
     meta,
-    documentMeta: t(meta),
-    annotation: t(meta),
-    processingInstruction: t(meta),
-    definition: Tag.defineModifier(),
-    constant: Tag.defineModifier(),
-    function: Tag.defineModifier(),
-    standard: Tag.defineModifier(),
-    local: Tag.defineModifier(),
-    special: Tag.defineModifier()
+    documentMeta: /* @__PURE__ */ t(meta),
+    annotation: /* @__PURE__ */ t(meta),
+    processingInstruction: /* @__PURE__ */ t(meta),
+    definition: /* @__PURE__ */ Tag.defineModifier(),
+    constant: /* @__PURE__ */ Tag.defineModifier(),
+    function: /* @__PURE__ */ Tag.defineModifier(),
+    standard: /* @__PURE__ */ Tag.defineModifier(),
+    local: /* @__PURE__ */ Tag.defineModifier(),
+    special: /* @__PURE__ */ Tag.defineModifier()
   };
-  var defaultHighlightStyle = HighlightStyle.define([
+  var defaultHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
     {
       tag: tags.link,
       textDecoration: "underline"
@@ -10541,6 +10615,10 @@
       fontWeight: "bold"
     },
     {
+      tag: tags.strikethrough,
+      textDecoration: "line-through"
+    },
+    {
       tag: tags.keyword,
       color: "#708"
     },
@@ -10557,15 +10635,15 @@
       color: "#a11"
     },
     {
-      tag: [tags.regexp, tags.escape, tags.special(tags.string)],
+      tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)],
       color: "#e40"
     },
     {
-      tag: tags.definition(tags.variableName),
+      tag: /* @__PURE__ */ tags.definition(tags.variableName),
       color: "#00f"
     },
     {
-      tag: tags.local(tags.variableName),
+      tag: /* @__PURE__ */ tags.local(tags.variableName),
       color: "#30a"
     },
     {
@@ -10577,11 +10655,11 @@
       color: "#167"
     },
     {
-      tag: [tags.special(tags.variableName), tags.macroName],
+      tag: [/* @__PURE__ */ tags.special(tags.variableName), tags.macroName],
       color: "#256"
     },
     {
-      tag: tags.definition(tags.propertyName),
+      tag: /* @__PURE__ */ tags.definition(tags.propertyName),
       color: "#00c"
     },
     {
@@ -10597,7 +10675,7 @@
       color: "#f00"
     }
   ]);
-  var classHighlightStyle = HighlightStyle.define([
+  var classHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
     {tag: tags.link, class: "cmt-link"},
     {tag: tags.heading, class: "cmt-heading"},
     {tag: tags.emphasis, class: "cmt-emphasis"},
@@ -10612,11 +10690,11 @@
     {tag: tags.literal, class: "cmt-literal"},
     {tag: tags.string, class: "cmt-string"},
     {tag: tags.number, class: "cmt-number"},
-    {tag: [tags.regexp, tags.escape, tags.special(tags.string)], class: "cmt-string2"},
+    {tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)], class: "cmt-string2"},
     {tag: tags.variableName, class: "cmt-variableName"},
-    {tag: tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
-    {tag: tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
-    {tag: tags.special(tags.variableName), class: "cmt-variableName2"},
+    {tag: /* @__PURE__ */ tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
+    {tag: /* @__PURE__ */ tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
+    {tag: /* @__PURE__ */ tags.special(tags.variableName), class: "cmt-variableName2"},
     {tag: tags.typeName, class: "cmt-typeName"},
     {tag: tags.namespace, class: "cmt-namespace"},
     {tag: tags.macroName, class: "cmt-macroName"},
@@ -14941,7 +15019,7 @@ g nle`.split("\n");
     for (; ; ) {
       if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
         for (; ; ) {
-          if ((side < 0 ? cursor.to <= pos : cursor.from >= pos) && !cursor.type.isError)
+          if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
             return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 5)) : Math.min(tree.length, Math.max(cursor.from + 1, pos + 5));
           if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
             break;
@@ -15718,7 +15796,7 @@ g nle`.split("\n");
     maxTerm: 33,
     skippedNodes: [0],
     repeatNodeCount: 4,
-    tokenData: "#6R~RdYZ!aqr!frs!!tst!#htu!#suv!#xwx#_xy!%Vyz!%t{|!f|}!%y}!O!f!O!P!&O!Q!R5Z!R![3X!]!^!'p!c!}!'u#R#S!'u#T#o!'u#r#s!f~!fOn~U!i[qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#r#s!fU#fjXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_U%_sXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U'ssXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U*XsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U,mqXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q~#_U.{kXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q![.t![!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_U0w]XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!^!_6n!_!`8|!`!a9S#Q#R!f#p#q:RU1s]qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!_!`!f!c!}7p#R#S7p#T#o7p#r#s!fU2oWwx#_xy2l!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7pU3`_XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S#Q#R!f#p#q:RU4b]qr!fvw!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#r#s!fU5b`XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S#Q#R!f#l#m:}#p#q:RU6kPXSZQyz6dU6q_qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!^!_!f!_!`!f!`!a!f!c!}7p#R#S7p#T#o7p#r#s!fU7waXSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![7p!^!_6n!_!`8|!`!a9S!c!}7p#Q#R!f#R#S7p#T#o7p#p#q:RU9PP!_!`!fU9V^qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!_!`!f!`!a!f!c!}7p#R#S7p#T#o7p#r#s!fU:U]qr!fwx#_xy2l{|!f}!O!f!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p#p#q!f#r#s!fU;QR!Q![;Z!c!i;Z#T#Z;ZU;b`XSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![;Z!^!_6n!_!`8|!`!a9S!c!i;Z#Q#R!f#T#Z;Z#p#q:RU<ksXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_U?PmXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q![.t![!^#_!^!_<d!_!`@z!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#l#_#l#mLd#m#p#_#p#qJO#q~#_UARjXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_<d!_!`Bs!`!aEX!a#O#_#O#PIx#P#Q#_#Q#R'l#R#p#_#p#qJO#q~#_UBzsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_UE`sXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`Bs!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_UGtpXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Gm![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q~#_UI{PO~#_UJVsXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx#_xy,fyz#_z{'l{|'l|}#_}!O'l!O!P.t!P!Q'l!Q!R>x!R![.t![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!}Gm!}#O#_#O#PIx#P#Q#_#Q#R'l#R#SGm#S#T#_#T#oGm#o#p#_#p#qJO#q#r#_#r#s'l#s~#_ULkoXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Nl![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!iNl!i#O#_#O#PIx#P#Q#_#Q#R'l#R#T#_#T#ZNl#Z#p#_#p#qJO#q~#_UNsoXSZQOY#_Zq#_qr%Wru#_uv'lvw*Qwx0pxy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![Nl![!^#_!^!_<d!_!`@z!`!aEX!a!c#_!c!iNl!i#O#_#O#PIx#P#Q#_#Q#R'l#R#T#_#T#ZNl#Z#p#_#p#qJO#q~#_~!!yU]~OY!!tZr!!trs!#]s#O!!t#O#P!#b#P~!!t~!#bO]~~!#ePO~!!t~!#mQ_~OY!#hZ~!#h~!#xOg~~!#{]X^!#xpq!#x!c!}!$t#R#S!$t#T#o!$t#y#z!#x$f$g!#x#BY#BZ!#x$IS$I_!#x$I|$JO!#x$JT$JU!#x$KV$KW!#x&FU&FV!#x~!$ySp~!Q![!$t!c!}!$t#R#S!$t#T#o!$tV!%[WhRwx#_xy2l!O!P3X!Q!R5Z!R![3X!c!}7p#R#S7p#T#o7p~!%yOk~~!&OOj~V!&VbXSZQqr1puv!fvw4_yz6dz{!f{|!f}!O!f!O!P3X!P!Q!f!Q![3X!^!_6n!_!`8|!`!a9S!c!}!'_#Q#R!f#R#S!'_#T#o!'_#p#q:RP!'dSqP!Q![!'_!c!}!'_#R#S!'_#T#o!'_~!'uOm~V!(OlXSZQoPX^!)vpq!)vqr1puv!fvw4_yz6dz{!f{|!f}!O!f!P!Q!f!Q![!'u![!]!*o!^!_6n!_!`!+P!`!a9S!c!}!'u#Q#R!f#R#S!'u#T#o!'u#p#q:R#y#z!)v$f$g!)v#BY#BZ!)v$IS$I_!)v$I|$JO!)v$JT$JU!)v$KV$KW!)v&FU&FV!)vP!)y[X^!)vpq!)v![!]!*o!_!`!*t#y#z!)v$f$g!)v#BY#BZ!)v$IS$I_!)v$I|$JO!)v$JT$JU!)v$KV$KW!)v&FU&FV!)vP!*tOUPP!*yQ^POY!*tZ~!*tV!+US^POY!*tZ!_!*t!_!`!+b!`~!*tV!+gg^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!-XjXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV!/SsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!1jsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!4QsXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV!6hqXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q~!-OV!8xkXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV!:vgXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#p!*t#p#q!Js#q~!*tV!<di^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!_!*t!_!`!+b!`!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!>W`^POY!*tZw!*twx!-Oxy!>Ry!O!*t!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o~!*tV!?chXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!+b!Q![!?Y![!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#p!*t#p#q!Js#q~!*tV!ASh^POY!*tZq!*tqr!+brv!*tvw!+bwx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!BwjXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!+b!Q![!?Y![!^!*t!^!_!EO!_!`!+P!`!a!H|!a#Q!*t#Q#R!+b#R#l!*t#l#m!Lg#m#p!*t#p#q!Js#q~!*tV!DrSXS^PZQOY!*tZy!*tyz!Diz~!*tV!ETk^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!^!*t!^!_!+b!_!`!+b!`!a!+b!a!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!GRmXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q![!Fx![!^!*t!^!_!EO!_!`!+P!`!a!H|!a!c!*t!c!}!Fx!}#Q!*t#Q#R!+b#R#S!Fx#S#T!*t#T#o!Fx#o#p!*t#p#q!Js#q~!*tV!IRj^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!_!*t!_!`!+b!`!a!+b!a!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#r!*t#r#s!+b#s~!*tV!Jxi^POY!*tZq!*tqr!+brw!*twx!-Oxy!>Ry{!*t{|!+b|}!*t}!O!+b!O!P!?Y!P!Q!*t!Q!R!Bn!R![!?Y![!c!*t!c!}!Fx!}#R!*t#R#S!Fx#S#T!*t#T#o!Fx#o#p!*t#p#q!+b#q#r!*t#r#s!+b#s~!*tV!LlW^POY!*tZ!Q!*t!Q![!MU![!c!*t!c!i!MU!i#T!*t#T#Z!MU#Z~!*tV!M_lXS^PZQOY!*tZq!*tqr!<_ru!*tuv!+bvw!@}wy!*tyz!Diz{!+b{|!+b|}!*t}!O!+b!O!P!*t!P!Q!+b!Q![!MU![!^!*t!^!_!EO!_!`!+P!`!a!H|!a!c!*t!c!i!MU!i#Q!*t#Q#R!+b#R#T!*t#T#Z!MU#Z#p!*t#p#q!Js#q~!*tV# `sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV##vmXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#l!-O#l#m#1m#m#p!-O#p#q#/V#q~!-OV#%zjXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q!^!-O!^!_# V!_!`#'l!`!a#*S!a#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#p!-O#p#q#/V#q~!-OV#'usXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#*]sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#'l!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#,spXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#,j![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q~!-OV#.|R^POY!-OYZ#_Z~!-OV#/`sXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!-Oxy!6_yz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!8o!P!Q!1a!Q!R##m!R![!8o![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!}#,j!}#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#S#,j#S#T!-O#T#o#,j#o#p!-O#p#q#/V#q#r!-O#r#s!1a#s~!-OV#1voXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#3w![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!i#3w!i#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#T!-O#T#Z#3w#Z#p!-O#p#q#/V#q~!-OV#4QoXS^PZQOY!-OZq!-Oqr!.yru!-Ouv!1avw!3wwx!:mxy!-Oyz!-Oz{!1a{|!1a|}!-O}!O!1a!O!P!-O!P!Q!1a!Q![#3w![!^!-O!^!_# V!_!`#%q!`!a#*S!a!c!-O!c!i#3w!i#O!-O#O#P#.w#P#Q!-O#Q#R!1a#R#T!-O#T#Z#3w#Z#p!-O#p#q#/V#q~!-O",
+    tokenData: "!GT~RdYZ!aqr!frsBdstCWtuCcuvChwx#_xyDuyzEd{|!f|}Ei}!O!f!O!PEn!Q!R2u!R![0s!]!^G`!c!}Ge#R#SGe#T#oGe#r#s!f~!fOn~U!i[qr!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!c!}5[#R#S5[#T#o5[#r#s!fU#fjXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_%W!_!`:O!`!a%W!a#O#_#O#P;w#P#Q#_#Q#R'l#R#p#_#p#q'l#q~#_U%_sXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx#_xy*Qyz#_z{'l{|'l|}#_}!O'l!O!P,`!P!Q'l!Q!R;}!R![,`![!^#_!^!_%W!_!`%W!`!a%W!a!c#_!c!}@X!}#O#_#O#P;w#P#Q#_#Q#R'l#R#S@X#S#T#_#T#o@X#o#p#_#p#q'l#q#r#_#r#s'l#s~#_U'ssXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx#_xy*Qyz#_z{'l{|'l|}#_}!O'l!O!P,`!P!Q'l!Q!R;}!R![,`![!^#_!^!_%W!_!`:O!`!a%W!a!c#_!c!}@X!}#O#_#O#P;w#P#Q#_#Q#R'l#R#S@X#S#T#_#T#o@X#o#p#_#p#q'l#q#r#_#r#s'l#s~#_U*XqXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx#_xy*Qyz#_z{'l{|'l|}#_}!O'l!O!P,`!P!Q'l!Q!R;}!R![,`![!^#_!^!_%W!_!`:O!`!a%W!a!c#_!c!}@X!}#O#_#O#P;w#P#Q#_#Q#R'l#R#S@X#S#T#_#T#o@X#o#p#_#p#q'l#q~#_U,gkXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P,`!P!Q'l!Q![,`![!^#_!^!_%W!_!`:O!`!a%W!a#O#_#O#P;w#P#Q#_#Q#R'l#R#p#_#p#q'l#q~#_U.c]XSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!P!Q!f!^!_4Y!_!`6h!`!a6n#Q#R!f#p#q7mU/_]qr!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!_!`!f!c!}5[#R#S5[#T#o5[#r#s!fU0ZWwx#_xy0W!O!P0s!Q!R2u!R![0s!c!}5[#R#S5[#T#o5[U0z_XSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!O!P0s!P!Q!f!Q![0s!^!_4Y!_!`6h!`!a6n#Q#R!f#p#q7mU1|]qr!fvw!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!c!}5[#R#S5[#T#o5[#r#s!fU2|`XSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!O!P0s!P!Q!f!Q![0s!^!_4Y!_!`6h!`!a6n#Q#R!f#l#m8i#p#q7mU4VPXSZQyz4OU4]_qr!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!^!_!f!_!`!f!`!a!f!c!}5[#R#S5[#T#o5[#r#s!fU5caXSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!P!Q!f!Q![5[!^!_4Y!_!`6h!`!a6n!c!}5[#Q#R!f#R#S5[#T#o5[#p#q7mU6kP!_!`!fU6q^qr!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!_!`!f!`!a!f!c!}5[#R#S5[#T#o5[#r#s!fU7p]qr!fwx#_xy0W{|!f}!O!f!O!P0s!Q!R2u!R![0s!c!}5[#R#S5[#T#o5[#p#q!f#r#s!fU8lR!Q![8u!c!i8u#T#Z8uU8|`XSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!P!Q!f!Q![8u!^!_4Y!_!`6h!`!a6n!c!i8u#Q#R!f#T#Z8u#p#q7mU:VjXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q!^#_!^!_%W!_!`%W!`!a%W!a#O#_#O#P;w#P#Q#_#Q#R'l#R#p#_#p#q'l#q~#_U;zPO~#_U<UmXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P,`!P!Q'l!Q![,`![!^#_!^!_%W!_!`:O!`!a%W!a#O#_#O#P;w#P#Q#_#Q#R'l#R#l#_#l#m>P#m#p#_#p#q'l#q~#_U>WoXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![>P![!^#_!^!_%W!_!`:O!`!a%W!a!c#_!c!i>P!i#O#_#O#P;w#P#Q#_#Q#R'l#R#T#_#T#Z>P#Z#p#_#p#q'l#q~#_U@`pXSZQOY#_Zq#_qr%Wru#_uv'lvw'lwx.[xy#_yz#_z{'l{|'l|}#_}!O'l!O!P#_!P!Q'l!Q![@X![!^#_!^!_%W!_!`:O!`!a%W!a!c#_!c!}@X!}#O#_#O#P;w#P#Q#_#Q#R'l#R#S@X#S#T#_#T#o@X#o#p#_#p#q'l#q~#_~BiU]~OYBdZrBdrsB{s#OBd#O#PCQ#P~Bd~CQO]~~CTPO~Bd~C]Q_~OYCWZ~CW~ChOg~~Ck]X^ChpqCh!c!}Dd#R#SDd#T#oDd#y#zCh$f$gCh#BY#BZCh$IS$I_Ch$I|$JOCh$JT$JUCh$KV$KWCh&FU&FVCh~DiSp~!Q![Dd!c!}Dd#R#SDd#T#oDdVDzWhRwx#_xy0W!O!P0s!Q!R2u!R![0s!c!}5[#R#S5[#T#o5[~EiOk~~EnOj~VEubXSZQqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!O!P0s!P!Q!f!Q![0s!^!_4Y!_!`6h!`!a6n!c!}F}#Q#R!f#R#SF}#T#oF}#p#q7mPGSSqP!Q![F}!c!}F}#R#SF}#T#oF}~GeOm~VGnlXSZQoPX^IfpqIfqr/[uv!fvw1yyz4Oz{!f{|!f}!O!f!P!Q!f!Q![Ge![!]J_!^!_4Y!_!`Jo!`!a6n!c!}Ge#Q#R!f#R#SGe#T#oGe#p#q7m#y#zIf$f$gIf#BY#BZIf$IS$I_If$I|$JOIf$JT$JUIf$KV$KWIf&FU&FVIfPIi[X^IfpqIf![!]J_!_!`Jd#y#zIf$f$gIf#BY#BZIf$IS$I_If$I|$JOIf$JT$JUIf$KV$KWIf&FU&FVIfPJdOUPPJiQ^POYJdZ~JdVJtS^POYJdZ!_Jd!_!`KQ!`~JdVKVg^POYJdZqJdqrKQrwJdwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#rJd#r#sKQ#s~JdVLwjXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!PLn!P!Q!#P!Q!^Ln!^!_Ni!_!`!>_!`!aNi!a#OLn#O#P!@Y#P#QLn#Q#R!#P#R#pLn#p#q!#P#q~LnVNrsXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#PwxLnxy!%gyzLnz{!#P{|!#P|}Ln}!O!#P!O!P!'w!P!Q!#P!Q!R!@h!R![!'w![!^Ln!^!_Ni!_!`Ni!`!aNi!a!cLn!c!}!Dv!}#OLn#O#P!@Y#P#QLn#Q#R!#P#R#S!Dv#S#TLn#T#o!Dv#o#pLn#p#q!#P#q#rLn#r#s!#P#s~LnV!#YsXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#PwxLnxy!%gyzLnz{!#P{|!#P|}Ln}!O!#P!O!P!'w!P!Q!#P!Q!R!@h!R![!'w![!^Ln!^!_Ni!_!`!>_!`!aNi!a!cLn!c!}!Dv!}#OLn#O#P!@Y#P#QLn#Q#R!#P#R#S!Dv#S#TLn#T#o!Dv#o#pLn#p#q!#P#q#rLn#r#s!#P#s~LnV!%pqXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#PwxLnxy!%gyzLnz{!#P{|!#P|}Ln}!O!#P!O!P!'w!P!Q!#P!Q!R!@h!R![!'w![!^Ln!^!_Ni!_!`!>_!`!aNi!a!cLn!c!}!Dv!}#OLn#O#P!@Y#P#QLn#Q#R!#P#R#S!Dv#S#TLn#T#o!Dv#o#pLn#p#q!#P#q~LnV!(QkXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!P!'w!P!Q!#P!Q![!'w![!^Ln!^!_Ni!_!`!>_!`!aNi!a#OLn#O#P!@Y#P#QLn#Q#R!#P#R#pLn#p#q!#P#q~LnV!*OgXS^PZQOYJdZqJdqr!+gruJduvKQvw!0VwyJdyz!3qz{KQ{|KQ|}Jd}!OKQ!O!PJd!P!QKQ!Q!^Jd!^!_!4W!_!`Jo!`!a!8U!a#QJd#Q#RKQ#R#pJd#p#q!9{#q~JdV!+li^POYJdZqJdqrKQrwJdwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!_Jd!_!`KQ!`!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#rJd#r#sKQ#s~JdV!-``^POYJdZwJdwxLnxy!-Zy!OJd!O!P!.b!P!QJd!Q!R!1v!R![!.b![!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o~JdV!.khXS^PZQOYJdZqJdqr!+gruJduvKQvw!0VwyJdyz!3qz{KQ{|KQ|}Jd}!OKQ!O!P!.b!P!QKQ!Q![!.b![!^Jd!^!_!4W!_!`Jo!`!a!8U!a#QJd#Q#RKQ#R#pJd#p#q!9{#q~JdV!0[h^POYJdZqJdqrKQrvJdvwKQwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#rJd#r#sKQ#s~JdV!2PjXS^PZQOYJdZqJdqr!+gruJduvKQvw!0VwyJdyz!3qz{KQ{|KQ|}Jd}!OKQ!O!P!.b!P!QKQ!Q![!.b![!^Jd!^!_!4W!_!`Jo!`!a!8U!a#QJd#Q#RKQ#R#lJd#l#m!;o#m#pJd#p#q!9{#q~JdV!3zSXS^PZQOYJdZyJdyz!3qz~JdV!4]k^POYJdZqJdqrKQrwJdwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!^Jd!^!_KQ!_!`KQ!`!aKQ!a!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#rJd#r#sKQ#s~JdV!6ZmXS^PZQOYJdZqJdqr!+gruJduvKQvw!0VwyJdyz!3qz{KQ{|KQ|}Jd}!OKQ!O!PJd!P!QKQ!Q![!6Q![!^Jd!^!_!4W!_!`Jo!`!a!8U!a!cJd!c!}!6Q!}#QJd#Q#RKQ#R#S!6Q#S#TJd#T#o!6Q#o#pJd#p#q!9{#q~JdV!8Zj^POYJdZqJdqrKQrwJdwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!_Jd!_!`KQ!`!aKQ!a!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#rJd#r#sKQ#s~JdV!:Qi^POYJdZqJdqrKQrwJdwxLnxy!-Zy{Jd{|KQ|}Jd}!OKQ!O!P!.b!P!QJd!Q!R!1v!R![!.b![!cJd!c!}!6Q!}#RJd#R#S!6Q#S#TJd#T#o!6Q#o#pJd#p#qKQ#q#rJd#r#sKQ#s~JdV!;tW^POYJdZ!QJd!Q![!<^![!cJd!c!i!<^!i#TJd#T#Z!<^#Z~JdV!<glXS^PZQOYJdZqJdqr!+gruJduvKQvw!0VwyJdyz!3qz{KQ{|KQ|}Jd}!OKQ!O!PJd!P!QKQ!Q![!<^![!^Jd!^!_!4W!_!`Jo!`!a!8U!a!cJd!c!i!<^!i#QJd#Q#RKQ#R#TJd#T#Z!<^#Z#pJd#p#q!9{#q~JdV!>hjXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!PLn!P!Q!#P!Q!^Ln!^!_Ni!_!`Ni!`!aNi!a#OLn#O#P!@Y#P#QLn#Q#R!#P#R#pLn#p#q!#P#q~LnV!@_R^POYLnYZ#_Z~LnV!@qmXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!P!'w!P!Q!#P!Q![!'w![!^Ln!^!_Ni!_!`!>_!`!aNi!a#OLn#O#P!@Y#P#QLn#Q#R!#P#R#lLn#l#m!Bl#m#pLn#p#q!#P#q~LnV!BuoXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!PLn!P!Q!#P!Q![!Bl![!^Ln!^!_Ni!_!`!>_!`!aNi!a!cLn!c!i!Bl!i#OLn#O#P!@Y#P#QLn#Q#R!#P#R#TLn#T#Z!Bl#Z#pLn#p#q!#P#q~LnV!EPpXS^PZQOYLnZqLnqrNiruLnuv!#Pvw!#Pwx!)uxyLnyzLnz{!#P{|!#P|}Ln}!O!#P!O!PLn!P!Q!#P!Q![!Dv![!^Ln!^!_Ni!_!`!>_!`!aNi!a!cLn!c!}!Dv!}#OLn#O#P!@Y#P#QLn#Q#R!#P#R#S!Dv#S#TLn#T#o!Dv#o#pLn#p#q!#P#q~Ln",
     tokenizers: [0, 1, 2],
     topRules: {"Program": [0, 5]},
     specialized: [{term: 31, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 32, get: (value, stack) => isRegister(value, stack) << 1}, {term: 33, get: (value, stack) => isDirective(value, stack) << 1}],
@@ -15756,10 +15834,10 @@ g nle`.split("\n");
     },
     ".cm-asm-error-tooltip": {
       fontFamily: "monospace",
-      color: "#eee",
-      backgroundColor: "black",
       borderRadius: ".25em",
       padding: ".1em .25em",
+      color: "#eee",
+      backgroundColor: "black",
       "&:before": {
         position: "absolute",
         content: '""',
@@ -15770,6 +15848,16 @@ g nle`.split("\n");
         borderRight: ".3em solid transparent",
         borderTop: ".3em solid black"
       }
+    },
+    "&dark .cm-asm-error-tooltip": {
+      color: "black",
+      backgroundColor: "#eee",
+      "&:before": {
+        borderTop: ".3em solid #eee"
+      }
+    },
+    "&dark .cm-asm-dump": {
+      color: "#aaa"
     }
   });
   function assembly() {

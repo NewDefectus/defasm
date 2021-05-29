@@ -1,6 +1,6 @@
 {
   "name": "@defasm/core",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Fast, lightweight JavaScript x64 assembler",
   "main": "main.js",
   "repository": {
