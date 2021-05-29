@@ -13594,10 +13594,15 @@ g nle`.split("\n");
       throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
     this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
     this.endPos = codePos;
-    this.compile();
+    this.removed = false;
+    try {
+      this.compile();
+    } catch (e) {
+      this.error = e;
+      this.length = 0;
+    }
     if (!this.needsRecompilation && !this.ipRelative)
       this.outline = void 0;
-    this.removed = false;
   };
   Instruction.prototype.compile = function() {
     let [operands, enforcedSize, operations, prefsToGen, vexInfo] = this.outline;

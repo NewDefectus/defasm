@@ -169,10 +169,18 @@ Instruction.prototype.interpret = function()
     this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
     this.endPos = codePos;
 
-    this.compile();
+    this.removed = false; // Interpreting was successful, so don't mark as removed
+    try
+    {
+        this.compile();
+    }
+    catch(e)
+    {
+        this.error = e;
+        this.length = 0;
+    }
     if(!this.needsRecompilation && !this.ipRelative)
         this.outline = undefined;
-    this.removed = false;
 }
 
 Instruction.prototype.compile = function()
