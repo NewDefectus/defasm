@@ -9,18 +9,17 @@ const assemblyLang = LezerLanguage.define({
         props: [
             styleTags({
                 Opcode: tags.operatorKeyword,
-                Prefix: tags.keyword,
+                Prefix: tags.operatorKeyword,
                 Register: tags.className,
                 Directive: tags.meta,
                 Comment: tags.lineComment,
                 LabelDefinition: tags.definition(tags.labelName),
-                MacroDefinition: tags.definition(tags.macroName),
+                SymbolDefinition: tags.definition(tags.macroName),
                 Immediate: tags.literal,
                 Memory: tags.regexp,
                 Relative: tags.regexp,
                 Expression: tags.literal,
-                FullString: tags.string,
-                CharString: tags.string
+                FullString: tags.string
             })
         ]
     })

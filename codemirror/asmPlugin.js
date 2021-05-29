@@ -53,7 +53,7 @@ export const asmHover = hoverTooltip((view, pos) => {
                     let dom = document.createElement('div');
                     dom.textContent = text;
                     dom.className = 'cm-asm-error-tooltip';
-                    return {dom: dom};
+                    return { dom };
                 }
             }
         }
@@ -135,30 +135,22 @@ export const asmPlugin = ViewPlugin.fromClass(class {
             }
         );
 
-        try
-        {
-            update.changes.iterChanges(
-                (fromA, toA, fromB, toB) => {
-                    let removedLines =
-                        update.startState.doc.lineAt(toA).number
-                        -
-                        update.startState.doc.lineAt(fromA).number;
-                    let line = doc.lineAt(fromB);
-                    fromB = line.from;
-                    toB = doc.lineAt(toB).to;
-                    compileAsm(state.sliceDoc(fromB, toB), this.instrs, { line: line.number, linesRemoved: removedLines, doSecondPass: false });
-                }
-            );
+        /* In case there are multiple changed ranges, we'll compile each
+        range separately and only run the second pass on the final state. */
+        update.changes.iterChanges(
+            (fromA, toA, fromB, toB) => {
+                let removedLines =
+                    update.startState.doc.lineAt(toA).number
+                    -
+                    update.startState.doc.lineAt(fromA).number;
+                let line = doc.lineAt(fromB);
+                fromB = line.from;
+                toB = doc.lineAt(toB).to;
+                compileAsm(state.sliceDoc(fromB, toB), this.instrs, { line: line.number, linesRemoved: removedLines, doSecondPass: false });
+            }
+        );
 
-            update.view['asm-bytes'] = secondPass(this.instrs);
-        }
-        catch(e)
-        {
-            if(e !== "Macro edited, must recompile") throw e;
-            this.instrs = [];
-            update.view['asm-bytes'] = compileAsm(state.sliceDoc(), this.instrs).bytes;
-        }
-        
+        update.view['asm-bytes'] = secondPass(this.instrs);
         this.makeAsmDecorations(update.view);
     }
 
@@ -221,6 +213,9 @@ export const asmPlugin = ViewPlugin.fromClass(class {
     }
 
 }, { decorations: view => view.decorations });
+
+
+/* Auxiliary functions for the Assembly grammar, to help identify registered keywords */
 
 export function isOpcode(opcode)
 {

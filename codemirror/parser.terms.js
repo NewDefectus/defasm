@@ -13,5 +13,5 @@ export const
   Relative = 11,
   DirectiveStatement = 12,
   FullString = 13,
-  MacroDefinition = 14,
+  SymbolDefinition = 14,
   Comment = 15

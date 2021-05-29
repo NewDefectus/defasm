@@ -5,7 +5,7 @@ statement {
   (
   InstructionStatement |
   DirectiveStatement |
-  MacroDefinition |
+  SymbolDefinition |
   Comment
   ) (';' | '\n')
 }
@@ -35,7 +35,7 @@ Memory {
   directive { '.' word }
   Comment { '#' ![\n]* }
   LabelDefinition { word std.whitespace* ':' }
-  MacroDefinition { word std.whitespace* "=" ![\n]* }
+  SymbolDefinition { word std.whitespace* "=" ![\n]* }
   CharString { "'" (![\\\n'] | "\\" _)* "'"? }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
   Number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
@@ -44,7 +44,7 @@ Memory {
   Expression { Unary* '('* (Number | CharString | word) (')'* | (Operator Expression)) }
   Relative { Expression }
 
-  @precedence { MacroDefinition, LabelDefinition, opcode }
+  @precedence { SymbolDefinition, LabelDefinition, opcode }
   @precedence { Relative, '(' }
 }
 

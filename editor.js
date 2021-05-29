@@ -14384,21 +14384,14 @@ g nle`.split("\n");
         let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number;
         this.updateWidths(fromB, toB, removedLines, doc2);
       });
-      try {
-        update.changes.iterChanges((fromA, toA, fromB, toB) => {
-          let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number;
-          let line = doc2.lineAt(fromB);
-          fromB = line.from;
-          toB = doc2.lineAt(toB).to;
-          compileAsm(state.sliceDoc(fromB, toB), this.instrs, {line: line.number, linesRemoved: removedLines, doSecondPass: false});
-        });
-        update.view["asm-bytes"] = secondPass(this.instrs);
-      } catch (e) {
-        if (e !== "Macro edited, must recompile")
-          throw e;
-        this.instrs = [];
-        update.view["asm-bytes"] = compileAsm(state.sliceDoc(), this.instrs).bytes;
-      }
+      update.changes.iterChanges((fromA, toA, fromB, toB) => {
+        let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number;
+        let line = doc2.lineAt(fromB);
+        fromB = line.from;
+        toB = doc2.lineAt(toB).to;
+        compileAsm(state.sliceDoc(fromB, toB), this.instrs, {line: line.number, linesRemoved: removedLines, doSecondPass: false});
+      });
+      update.view["asm-bytes"] = secondPass(this.instrs);
       this.makeAsmDecorations(update.view);
     }
     updateWidths(from, to, removedLines, doc2) {
@@ -15721,7 +15714,7 @@ g nle`.split("\n");
     states: "%pOQOPOOOOOO'#Cl'#ClOlOPO'#CcOzOQO'#CcO!`OSO'#ChOOOO'#Cq'#CqO!nOPO'#CqQOOOOOOOOO-E6j-E6jOzOQO,58}O!vOSO'#CdO!{OPO'#CfO#ZOPO'#CfO#cOPO'#CrOOOO,58},58}O#nOPO'#CxOOOO,59S,59SOOOO,59],59]OOOO1G.i1G.iOOOO,59O,59OO#ZOPO,59QOOOO'#Cm'#CmO#yOPO'#CuO$ROPO,59QO$WOQO'#CnO$oOPO,59^O$zOSO'#CoO%]OPO,59dO%hOPO1G.lOOOO-E6k-E6kOOOO1G.l1G.lOOOO,59Y,59YOOOO-E6l-E6lOOOO,59Z,59ZOOOO-E6m-E6mOOOO7+$W7+$W",
     stateData: "%s~OPROQPOSSOUTO^UO_UOmVPnVP~OPXOQPOmVXnVX~OR]OZZOgYOh[OmfPnfP~OX_O]_OmlPnlP~OmaOnaO~OXcO~OhdOjYXmYXnYX~OjeOkiP~OjhOmfXnfX~OjjOmlXnlX~OjeOkiX~OknO~ORoOZZOgYOh[OjbXmbXnbX~OjhOmfanfa~OXqO]qOjcXmcXncX~OjjOmlanla~OksO~O^UZho~",
     goto: "!umPPPPPPPnqPqPnPPPx!O!V!]P!c!fPP!lPP!rRUOS]RXRohQQORWQSf[dRmfQi]RpiQk_RrkRVOQ^RRbXQg[RldR`S",
-    nodeNames: "\u26A0 Opcode Prefix Register Directive Program LabelDefinition InstructionStatement Immediate Expression Memory Relative DirectiveStatement FullString MacroDefinition Comment",
+    nodeNames: "\u26A0 Opcode Prefix Register Directive Program LabelDefinition InstructionStatement Immediate Expression Memory Relative DirectiveStatement FullString SymbolDefinition Comment",
     maxTerm: 33,
     skippedNodes: [0],
     repeatNodeCount: 4,
@@ -15738,18 +15731,17 @@ g nle`.split("\n");
       props: [
         styleTags({
           Opcode: tags.operatorKeyword,
-          Prefix: tags.keyword,
+          Prefix: tags.operatorKeyword,
           Register: tags.className,
           Directive: tags.meta,
           Comment: tags.lineComment,
           LabelDefinition: tags.definition(tags.labelName),
-          MacroDefinition: tags.definition(tags.macroName),
+          SymbolDefinition: tags.definition(tags.macroName),
           Immediate: tags.literal,
           Memory: tags.regexp,
           Relative: tags.regexp,
           Expression: tags.literal,
-          FullString: tags.string,
-          CharString: tags.string
+          FullString: tags.string
         })
       ]
     })
