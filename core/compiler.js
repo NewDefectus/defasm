@@ -158,23 +158,9 @@ export function secondPass(instructions, haltOnError)
                 }
                 catch(e)
                 {
-                    // Instructions whose pos can't be determined should be logged, not marked
-                    if(haltOnError || e.pos == null || e.length == null)
-                    {
-                        // Find the instruction's line
-                        for(let line = 0; line < instructions.length; line++)
-                        {
-                            if(instructions[line].includes(instr))
-                            {
-                                if(haltOnError) throw `Error on line ${line + 1}: ${e.message}`;
-                                if(e.pos == null || e.length == null)
-                                    console.error(`Error on line ${line + 1}:\n`, e);
-                                break;
-                            }
-                        }
-                    }
-                    else
-                        instr.error = e;
+                    instr.error = e;
+
+                    // When a symbol is invalidated, all references to it should be too
                     if(instr.name)
                         for(let ref of symbols.get(instr.name).references)
                         {
@@ -188,9 +174,26 @@ export function secondPass(instructions, haltOnError)
         } while(instr && instr.address != currIndex);
     }
 
-    for(let instrLine of instructions)
-        if(instrLine.length > 0)
-            for(instr of instrLine);
+    // Error collection
+    for(let i = 0; i < instructions.length; i++)
+    {
+        for(instr of instructions[i])
+        {
+            let e = instr.error;
+            if(e)
+            {
+                if(haltOnError) throw `Error on line ${i + 1}: ${e.message}`;
+
+                /* Errors whose pos can't be determined should be logged,
+                not marked (these are usually internal compiler errors) */
+                if(e.pos == null || e.length == null)
+                {
+                    console.error(`Error on line ${i + 1}:\n`, e);
+                    instr.error = null;
+                }
+            }
+        }
+    }
     
     return instr ? instr.address + instr.length - baseAddr : 0;
 }

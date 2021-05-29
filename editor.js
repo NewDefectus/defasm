@@ -14269,19 +14269,7 @@ g nle`.split("\n");
             instr.recompile();
             instr.wantsRecomp = false;
           } catch (e) {
-            if (haltOnError || e.pos == null || e.length == null) {
-              for (let line = 0; line < instructions.length; line++) {
-                if (instructions[line].includes(instr)) {
-                  if (haltOnError)
-                    throw `Error on line ${line + 1}: ${e.message}`;
-                  if (e.pos == null || e.length == null)
-                    console.error(`Error on line ${line + 1}:
-`, e);
-                  break;
-                }
-              }
-            } else
-              instr.error = e;
+            instr.error = e;
             if (instr.name)
               for (let ref of symbols.get(instr.name).references) {
                 ref.wantsRecomp = true;
@@ -14293,10 +14281,20 @@ g nle`.split("\n");
         instr = instr.next;
       } while (instr && instr.address != currIndex);
     }
-    for (let instrLine of instructions)
-      if (instrLine.length > 0)
-        for (instr of instrLine)
-          ;
+    for (let i = 0; i < instructions.length; i++) {
+      for (instr of instructions[i]) {
+        let e = instr.error;
+        if (e) {
+          if (haltOnError)
+            throw `Error on line ${i + 1}: ${e.message}`;
+          if (e.pos == null || e.length == null) {
+            console.error(`Error on line ${i + 1}:
+`, e);
+            instr.error = null;
+          }
+        }
+      }
+    }
     return instr ? instr.address + instr.length - baseAddr : 0;
   }
 
