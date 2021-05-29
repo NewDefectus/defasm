@@ -40,8 +40,11 @@ export function Symbol(address, name, isLabel = false)
         record.symbol = this;
         for(let ref of record.references)
         {
-            recompQueue.push(ref);
-            ref.wantsRecomp = true;
+            if(!ref.removed)
+            {
+                recompQueue.push(ref);
+                ref.wantsRecomp = true;
+            }
         }
     }
     else

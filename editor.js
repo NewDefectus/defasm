@@ -13768,8 +13768,10 @@ g nle`.split("\n");
       let record = symbols.get(name2);
       record.symbol = this;
       for (let ref of record.references) {
-        recompQueue.push(ref);
-        ref.wantsRecomp = true;
+        if (!ref.removed) {
+          recompQueue.push(ref);
+          ref.wantsRecomp = true;
+        }
       }
     } else
       symbols.set(name2, {
@@ -14132,8 +14134,6 @@ g nle`.split("\n");
         this.genValue(op.value);
       } catch (e) {
         this.error = e;
-        if (i === 0)
-          return;
         outlineLength = i;
         i = -1;
         this.length = 0;

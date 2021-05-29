@@ -117,8 +117,6 @@ Directive.prototype.recompile = function()
         catch(e)
         {
             this.error = e;
-            if(i === 0)
-                return;
             outlineLength = i;
             i = -1;
             this.length = 0;
