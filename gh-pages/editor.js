@@ -38,10 +38,10 @@ function getLastCode()
     if(prevCode)
         prevCode = decodeURIComponent(prevCode.slice(5));
     return prevCode || `# Printing
-mov $1, %eax    # Syscall code 1 (write)
-mov $1, %edi    # File descriptor 1 (stdout)
-mov $text, %rsi # Address of buffer
-mov $14, %edx   # Length of buffer
+mov $1, %eax        # Syscall code 1 (write)
+mov $1, %edi        # File descriptor 1 (stdout)
+mov $text, %rsi     # Address of buffer
+mov $textSize, %edx # Length of buffer
 syscall
 
 # Looping
@@ -87,6 +87,6 @@ mov $60, %eax   # Syscall code 60 (exit)
 mov $0, %edi    # Exit code
 syscall
 
-text:  .string "Hello, World!\\n"
+text:  .string "Hello, World!\\n"; textSize = . - text
 digit: .byte   '0', '\\n'`;
 }
