@@ -6,7 +6,6 @@ import { Symbol, symbols, recompQueue } from "./symbols.js";
 export const baseAddr = 0x400078;
 
 var lastInstr, currLineArr, currAddr;
-var errorsHalt = false;
 var linkedInstrQueue = [];
 
 function addInstruction(instr)
@@ -18,36 +17,11 @@ function addInstruction(instr)
     currAddr += instr.length;
 }
 
-function recompile(instr)
-{
-    instr.removed = false;
-    try
-    {
-        instr.recompile();
-        instr.wantsRecomp = false;
-    }
-    catch(e)
-    {
-        if(errorsHalt) throw `Error: ${e.message}`;
-        if(e.pos == null || e.length == null)
-            console.error("Error:\n", e);
-        else
-            instr.error = e;
-        if(instr.name)
-            for(let ref of symbols.get(instr.name).references)
-            {
-                ref.wantsRecomp = true;
-                recompQueue.push(ref);
-            }
-    }
-}
-
 // Compile Assembly from source code into machine code
 export function compileAsm(source, instructions, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
 {
     let opcode, pos;
     lastInstr = null; currLineArr = [];
-    errorsHalt = haltOnError;
 
     // Reset the macro list and add only the macros that have been defined prior to this line
     macros.clear();
@@ -153,7 +127,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
 }
 
 // Run the second pass on the instruction list
-export function secondPass(instructions)
+export function secondPass(instructions, haltOnError)
 {
     let currIndex = baseAddr, instr;
 
@@ -174,7 +148,41 @@ export function secondPass(instructions)
         {
             instr.address = currIndex;
             if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
-                recompile(instr);
+            {
+                // Recompiling the instruction
+                instr.removed = false;
+                try
+                {
+                    instr.recompile();
+                    instr.wantsRecomp = false;
+                }
+                catch(e)
+                {
+                    // Instructions whose pos can't be determined should be logged, not marked
+                    if(haltOnError || e.pos == null || e.length == null)
+                    {
+                        // Find the instruction's line
+                        for(let line = 0; line < instructions.length; line++)
+                        {
+                            if(instructions[line].includes(instr))
+                            {
+                                if(haltOnError) throw `Error on line ${line + 1}: ${e.message}`;
+                                if(e.pos == null || e.length == null)
+                                    console.error(`Error on line ${line + 1}:\n`, e);
+                                break;
+                            }
+                        }
+                    }
+                    else
+                        instr.error = e;
+                    if(instr.name)
+                        for(let ref of symbols.get(instr.name).references)
+                        {
+                            ref.wantsRecomp = true;
+                            recompQueue.push(ref);
+                        }
+                }
+            }
             currIndex = instr.address + instr.length;
             instr = instr.next;
         } while(instr && instr.address != currIndex);
