@@ -161,7 +161,7 @@ function assemble()
 
             try
             {
-                let coreDumpLocation = child_process.execFileSync("/sbin/sysctl", ["-n", "kernel.core_pattern"]).toString().trim();
+                let coreDumpLocation = fs.readFileSync("/proc/sys/kernel/core_pattern").toString().trim();
                 if(coreDumpLocation[0] === '|' || coreDumpLocation.includes('%')) throw "";
                 let data = fs.readFileSync(coreDumpLocation);
                 let lastIP = null;
