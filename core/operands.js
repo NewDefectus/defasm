@@ -96,7 +96,7 @@ export function parseRegister(expectedType = null)
     else if(token[0] === 'r') // Attempt to parse the register name as a numeric (e.g. r10)
     {
         reg = parseInt(token.slice(1));
-        if(isNaN(reg) || reg <= 0 || reg >= 16)
+        if(isNaN(reg) || reg < 0 || reg >= 16)
             throw new ParserError("Unknown register");
         type = OPT.REG;
 

@@ -11387,7 +11387,7 @@
       reg -= registers.spl - 4;
     } else if (token[0] === "r") {
       reg = parseInt(token.slice(1));
-      if (isNaN(reg) || reg <= 0 || reg >= 16)
+      if (isNaN(reg) || reg < 0 || reg >= 16)
         throw new ParserError("Unknown register");
       type = OPT.REG;
       size = suffixes[token[token.length - 1]] || 64;
@@ -14535,7 +14535,7 @@ g nle`.split("\n");
       return Register;
     if (reg[0] === "r") {
       reg = reg.slice(1);
-      if (parseInt(reg) > 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
+      if (parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
         return Register;
     } else {
       let max = 32;

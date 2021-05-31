@@ -235,11 +235,13 @@ export function isOpcode(opcode)
 export function isRegister(reg)
 {
     reg = reg.slice(1).trim().toLowerCase();
-    if(registers.hasOwnProperty(reg)) return Terms.Register;
+    if(registers.hasOwnProperty(reg))
+        return Terms.Register;
     if(reg[0] === 'r')
     {
         reg = reg.slice(1);
-        if(parseInt(reg) > 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]])) return Terms.Register;
+        if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
+            return Terms.Register;
     }
     else
     {
@@ -249,7 +251,8 @@ export function isRegister(reg)
         else if(reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
         else if(reg.startsWith("bnd")) reg = reg.slice(3), max = 4;
         else if(reg[0] == 'k') reg = reg.slice(1), max = 8;
-        if(!isNaN(reg) && (reg = parseInt(reg), reg >= 0 && reg < max)) return Terms.Register;
+        if(!isNaN(reg) && (reg = parseInt(reg), reg >= 0 && reg < max))
+            return Terms.Register;
     }
     return -1;
 }
