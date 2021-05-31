@@ -12888,7 +12888,7 @@ xtest:0F01D6
   shiftMnemonics.forEach((name2, i) => {
     if (name2)
       mnemonics[name2] = [
-        "D0." + i + " i_1b rbwlq",
+        "D0." + i + " i_1 rbwlq",
         "D2." + i + " R_1b rbwlq",
         "C0." + i + " ib rbwlq"
       ];
@@ -13083,6 +13083,11 @@ g nle`.split("\n");
     let rawSize, size = 0, found = false;
     if (enforcedSize > 0 && operand.type >= OPT.IMM)
       opSize = enforcedSize;
+    if (this.implicitValue !== null) {
+      let opValue = operand.type === OPT.IMM ? Number(operand.value) : operand.reg;
+      if (this.implicitValue !== opValue)
+        return null;
+    }
     if (isNaN(opSize)) {
       if (this.defSize > 0)
         return this.defSize;
@@ -13121,11 +13126,6 @@ g nle`.split("\n");
         }
       }
       if (!found)
-        return null;
-    }
-    if (this.implicitValue !== null) {
-      let opValue = operand.type === OPT.IMM ? Number(operand.value) : operand.reg;
-      if (this.implicitValue !== opValue)
         return null;
     }
     return size;

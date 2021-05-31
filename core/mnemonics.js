@@ -158,6 +158,13 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM) opSize = enforcedSize;
 
+    // In case of implicit operands, check that the values match
+    if(this.implicitValue !== null)
+    {
+        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
+        if(this.implicitValue !== opValue) return null;
+    }
+
     if(isNaN(opSize))
     {
         // For unknown-sized operands, if possible, choose the default size
@@ -206,11 +213,6 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         }
         
         if(!found) return null;
-    }
-    if(this.implicitValue !== null)
-    {
-        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
-        if(this.implicitValue !== opValue) return null;
     }
 
     return size;
