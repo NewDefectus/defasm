@@ -1,4 +1,4 @@
-@top Program { statement }
+@top Program { statement+ }
 
 statement {
   LabelDefinition |
@@ -24,34 +24,33 @@ Immediate {
 }
 
 Memory {
-  Relative | Relative? '(' commaSep<()> ')'
+  Relative | Relative? '(' commaSep<Register | Number> ')'
 }
+
+Relative { unary* (number | charString | word) ')'* (operator Relative)? }
+Expression { unary* (number | charString | word) ')'* (operator Expression)? }
+
+LabelDefinition { word ':' }
+SymbolDefinition { word '=' Expression }
 
 @tokens {
   word { $[a-zA-Z_] $[a-zA-Z_0-9]* }
 
-  opcode { word }
   register { '%' std.whitespace* word }
   directive { '.' word }
   Comment { '#' ![\n]* }
-  LabelDefinition { word std.whitespace* ':' }
-  SymbolDefinition { word std.whitespace* "=" ![\n]* }
-  CharString { "'" (![\\\n'] | "\\" _)* "'" }
-  FullString { '"' (![\\\n"] | "\\" _)* '"' }
-  Number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
-  Unary { '+' | '-' | '~' | '!' }
-  Operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
-  Expression { Unary* '('* (Number | CharString | word) (')'* | (Operator Expression)) }
-  Relative { Expression }
-
-  @precedence { SymbolDefinition, LabelDefinition, opcode }
-  @precedence { Relative, '(' }
+  charString { "'" (![\\\n'] | "\\" _)* "'"? }
+  FullString { '"' (![\\\n"] | "\\" _)* '"'? }
+  number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
+  Number { number }
+  unary { '+' | '-' | '~' | '!' }
+  operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
 }
 
 commaSep<content> {
   "" | content ("," content?)*
 }
 
-@external specialize {opcode} isOpcode from "./asmPlugin" { Opcode, Prefix }
+@external specialize {word} isOpcode from "./asmPlugin" { Opcode, Prefix }
 @external specialize {register} isRegister from "./asmPlugin" { Register }
 @external specialize {directive} isDirective from "./asmPlugin" { Directive }

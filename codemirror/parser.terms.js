@@ -11,7 +11,8 @@ export const
   Expression = 9,
   Memory = 10,
   Relative = 11,
-  DirectiveStatement = 12,
-  FullString = 13,
-  SymbolDefinition = 14,
-  Comment = 15
+  Number = 12,
+  DirectiveStatement = 13,
+  FullString = 14,
+  SymbolDefinition = 15,
+  Comment = 16
