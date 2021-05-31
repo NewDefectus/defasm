@@ -13752,7 +13752,7 @@ g nle`.split("\n");
   // core/symbols.js
   var recompQueue = [];
   var symbols = new Map();
-  function Symbol2(address, name2, isLabel = false) {
+  function Symbol2(address, name2, namePos, isLabel = false) {
     this.address = address;
     this.name = name2;
     try {
@@ -13766,11 +13766,16 @@ g nle`.split("\n");
     }
     if (symbols.has(name2)) {
       let record = symbols.get(name2);
-      record.symbol = this;
-      for (let ref of record.references) {
-        if (!ref.removed) {
-          recompQueue.push(ref);
-          ref.wantsRecomp = true;
+      if (record.symbol) {
+        this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
+        record.references.push(this);
+      } else {
+        record.symbol = this;
+        for (let ref of record.references) {
+          if (!ref.removed) {
+            recompQueue.push(ref);
+            ref.wantsRecomp = true;
+          }
         }
       }
     } else
@@ -13783,8 +13788,11 @@ g nle`.split("\n");
     let originValue = this.error ? null : this.value;
     this.error = null;
     this.value = this.expression.evaluate(this.address, true);
+    let record = symbols.get(this.name);
+    if (!this.error)
+      record.symbol = this;
     if (originValue !== this.value)
-      for (let ref of symbols.get(this.name).references) {
+      for (let ref of record.references) {
         recompQueue.push(ref);
         ref.wantsRecomp = true;
       }
@@ -14200,10 +14208,10 @@ g nle`.split("\n");
             opcode = token;
             switch (next()) {
               case ":":
-                addInstruction(new Symbol2(currAddr, opcode, true));
+                addInstruction(new Symbol2(currAddr, opcode, pos, true));
                 continue;
               case "=":
-                addInstruction(new Symbol2(currAddr, opcode));
+                addInstruction(new Symbol2(currAddr, opcode, pos));
                 break;
               default:
                 addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));

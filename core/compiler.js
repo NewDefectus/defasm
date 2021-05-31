@@ -67,11 +67,11 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
                     switch(next())
                     {
                         case ':': // Label definition
-                            addInstruction(new Symbol(currAddr, opcode, true));
+                            addInstruction(new Symbol(currAddr, opcode, pos, true));
                             continue;
                         
                         case '=': // Symbol definition
-                            addInstruction(new Symbol(currAddr, opcode));
+                            addInstruction(new Symbol(currAddr, opcode, pos));
                             break;
                         
                         default: // Instruction

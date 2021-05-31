@@ -1,5 +1,6 @@
 import { Expression, LabelExpression } from "./shuntingYard.js";
 import { Instruction } from "./instructions.js";
+import { ParserError } from "./parser.js";
 
 export var recompQueue = [];
 
@@ -17,7 +18,7 @@ export var symbols = new Map();
  * @param {string} name 
  * @param {Expression} expression 
  */
-export function Symbol(address, name, isLabel = false)
+export function Symbol(address, name, namePos, isLabel = false)
 {
     this.address = address;
     this.name = name;
@@ -37,13 +38,21 @@ export function Symbol(address, name, isLabel = false)
     if(symbols.has(name))
     {
         let record = symbols.get(name);
-        record.symbol = this;
-        for(let ref of record.references)
+        if(record.symbol)
         {
-            if(!ref.removed)
+            this.error = new ParserError(`This ${isLabel ? 'label' : 'symbol'} already exists`, namePos);
+            record.references.push(this);
+        }
+        else
+        {       
+            record.symbol = this;
+            for(let ref of record.references)
             {
-                recompQueue.push(ref);
-                ref.wantsRecomp = true;
+                if(!ref.removed)
+                {
+                    recompQueue.push(ref);
+                    ref.wantsRecomp = true;
+                }
             }
         }
     }
@@ -59,8 +68,14 @@ Symbol.prototype.recompile = function()
     let originValue = this.error ? null : this.value;
     this.error = null;
     this.value = this.expression.evaluate(this.address, true);
+
+    let record = symbols.get(this.name);
+
+    if(!this.error)
+        record.symbol = this;
+
     if(originValue !== this.value)
-        for(let ref of symbols.get(this.name).references)
+        for(let ref of record.references)
         {
             recompQueue.push(ref);
             ref.wantsRecomp = true;
