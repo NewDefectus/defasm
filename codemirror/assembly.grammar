@@ -36,8 +36,8 @@ Memory {
   Comment { '#' ![\n]* }
   LabelDefinition { word std.whitespace* ':' }
   SymbolDefinition { word std.whitespace* "=" ![\n]* }
-  CharString { "'" (![\\\n'] | "\\" _)* "'"? }
-  FullString { '"' (![\\\n"] | "\\" _)* '"'? }
+  CharString { "'" (![\\\n'] | "\\" _)* "'" }
+  FullString { '"' (![\\\n"] | "\\" _)* '"' }
   Number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
   Unary { '+' | '-' | '~' | '!' }
   Operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
