@@ -201,6 +201,8 @@ function assemble()
             }
             catch(e) {}
 
+            let regFormat = reg => registers[reg].toString(16).toUpperCase().padStart(16, '0');
+
             
             signal = ({
                 SIGFPE:  'floating point error',
@@ -215,18 +217,33 @@ function assemble()
             console.warn(`Signal: ${signal}${
                 errLine !== null ? ` ${pos} line ${errLine}` : ''
             } ${
-                registers && registers['rip'] !== undefined ? `(%rip was ${registers['rip'].toString(16).toUpperCase().padStart(16, '0')})` : ''
+                registers && registers['rip'] !== undefined ? `(%rip was ${regFormat('rip')})` : ''
             }`);
             
             if(registers !== null)
             {
-                console.warn("Register dump:");
-                let regFormat = reg => `    %${reg.padEnd(4, ' ')}= ${registers[reg].toString(16).toUpperCase().padStart(16, '0')}`;
+                console.warn("Registers:");
+                let regTab = reg => `%${reg.padEnd(4, ' ')}= ${regFormat(reg)}`;
                 for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
                 {
                     let [reg1, reg2] = regNames.split(' ');
-                    console.warn(regFormat(reg1) + regFormat(reg2));
+                    console.warn('    ' + regTab(reg1) + '        ' + regTab(reg2));
                 }
+                
+                let flag = i => registers['rflags'] & 1n << BigInt(i) ? 1 : 0;
+                let tmp;
+                let flagTab = (name, id, length, options = []) =>
+                    ('    ' + name.padEnd(length, ' ') + ' = ' + (tmp = flag(id)) +
+                    ' (' + options[tmp] + ')').padEnd(31, ' ');
+                let twoFlagTab = (name1, id1, options1, name2, id2, options2) =>
+                    console.warn(flagTab(name1, id1, 9, options1) + (name2 ? flagTab(name2, id2, 6, options2) : ''));
+
+                console.warn(`Flags (${regFormat('rflags')}):`);
+                
+                twoFlagTab('Carry', 0, ['no carry', 'carry'], 'Zero', 6, ["isn't zero", 'is zero']);
+                twoFlagTab('Overflow', 11, ['no overflow', 'overflow'], 'Sign', 7, ['positive', 'negative']);
+                twoFlagTab('Direction', 10, ['up', 'down'], 'Parity', 2, ['odd', 'even']);
+                twoFlagTab('Adjust', 4, ['no aux carry', 'aux carry']);
             }
 
             process.exit();
