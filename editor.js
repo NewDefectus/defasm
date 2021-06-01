@@ -14377,7 +14377,7 @@ g nle`.split("\n");
       setTimeout(() => {
         let style = window.getComputedStyle(view.contentDOM);
         this.ctx.font = `${style.getPropertyValue("font-style")} ${style.getPropertyValue("font-variant")} ${style.getPropertyValue("font-weight")} ${style.getPropertyValue("font-size")} ${style.getPropertyValue("font-family")}`;
-        this.tabSize = style.getPropertyValue("tab-size");
+        this.tabSize = style.getPropertyValue("tab-size") || style.getPropertyValue("-moz-tab-size") || style.getPropertyValue("-o-tab-size") || 4;
         this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
         this.makeAsmDecorations(view);
         view.dispatch();

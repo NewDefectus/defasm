@@ -109,7 +109,11 @@ export const asmPlugin = ViewPlugin.fromClass(class {
             } ${
                 style.getPropertyValue('font-family')
             }`;
-            this.tabSize = style.getPropertyValue('tab-size');
+            
+            this.tabSize =
+                style.getPropertyValue('tab-size') ||
+                style.getPropertyValue('-moz-tab-size') ||
+                style.getPropertyValue('-o-tab-size') || 4;
             this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
             this.makeAsmDecorations(view);
             view.dispatch();
@@ -161,9 +165,8 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         let newWidths = [];
         
         for(let i = start; i <= end; i++)
-        {
             newWidths.push(this.ctx.measureText(expandTabs(doc.line(i).text, this.tabSize)).width);
-        }
+        
         this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
     }
 
