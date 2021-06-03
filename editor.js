@@ -13862,19 +13862,23 @@ g nle`.split("\n");
     n: "\n",
     r: "\r",
     t: "	",
-    v: "\v",
-    "\\": "\\",
-    "'": "'",
-    '"': '"',
-    "?": "?"
+    v: "\v"
   };
-  var unescapeString = (string2) => string2.slice(1, -1).replace(/\\x[0-9a-f]{1,2}/ig, (x) => String.fromCharCode(parseInt(x.slice(2), 16))).replace(/\\[0-7]{1,3}/g, (x) => String.fromCharCode(parseInt(x.slice(1), 8) & 255)).replace(/\\u[0-9a-f]{1,8}/ig, (x) => {
-    try {
-      return String.fromCodePoint(parseInt(x.slice(2), 16));
-    } catch (e) {
-      return "";
+  var unescapeString = (string2) => string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.)/ig, (x) => {
+    x = x.slice(1);
+    if (x.match(/x[0-9a-f]{1,2}/i))
+      return String.fromCharCode(parseInt(x.slice(1), 16));
+    if (x.match(/u[0-9a-f]{1,8}/i)) {
+      try {
+        return String.fromCodePoint(parseInt(x.slice(1), 16));
+      } catch (e) {
+        return "";
+      }
     }
-  }).replace(/\\./g, (x) => stringEscapeSeqs[x.slice(1)] || "");
+    if (x.match(/[0-7]{1,3}/))
+      return String.fromCharCode(parseInt(x, 8) & 255);
+    return stringEscapeSeqs[x] || x;
+  });
   function parseNumber(asFloat = false) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
     try {

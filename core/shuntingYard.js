@@ -58,30 +58,26 @@ const stringEscapeSeqs = {
     'r': '\x0D',
     't': '\x09',
     'v': '\x0B',
-    '\\':'\x5C',
-    '\'':'\x27',
-    '"': '\x22',
-    '?': '\x3F'
 }
 
 
 export var unescapeString = string => string.slice(1, -1)
-.replace(/\\x[0-9a-f]{1,2}/ig, x => 
-    String.fromCharCode(parseInt(x.slice(2), 16))
-)
-.replace(/\\[0-7]{1,3}/g, x => 
-    String.fromCharCode(parseInt(x.slice(1), 8) & 255)
-)
-.replace(/\\u[0-9a-f]{1,8}/ig, x => {
-    try {
-        return String.fromCodePoint(parseInt(x.slice(2), 16))
-    } catch(e) {
-        return '';
+.replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.)/ig, x => {
+    x = x.slice(1);
+    if(x.match(/x[0-9a-f]{1,2}/i))
+        return String.fromCharCode(parseInt(x.slice(1), 16));
+    if(x.match(/u[0-9a-f]{1,8}/i))
+    {
+        try {
+            return String.fromCodePoint(parseInt(x.slice(1), 16));
+        } catch(e) {
+            return '';
+        }
     }
-})
-.replace(/\\./g, x => 
-    stringEscapeSeqs[x.slice(1)] || ''
-);
+    if(x.match(/[0-7]{1,3}/))
+        return String.fromCharCode(parseInt(x, 8) & 255);
+    return stringEscapeSeqs[x] || x;
+});
 
 
 function parseNumber(asFloat = false)
