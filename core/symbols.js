@@ -41,11 +41,13 @@ export function Symbol(address, name, namePos, isLabel = false)
         if(record.symbol)
         {
             this.error = new ParserError(`This ${isLabel ? 'label' : 'symbol'} already exists`, namePos);
+            this.duplicate = true;
             record.references.push(this);
         }
         else
         {       
             record.symbol = this;
+            this.duplicate = false;
             for(let ref of record.references)
             {
                 if(!ref.removed)
@@ -65,19 +67,30 @@ export function Symbol(address, name, namePos, isLabel = false)
 
 Symbol.prototype.recompile = function()
 {
+    let record = symbols.get(this.name);
+    if(this.duplicate && record.symbol)
+        return;
+    this.duplicate = false;
+
     let originValue = this.error ? null : this.value;
     this.error = null;
-    this.value = this.expression.evaluate(this.address, true);
 
-    let record = symbols.get(this.name);
+    try
+    {
+        this.value = this.expression.evaluate(this.address, true);
+    }
+    catch(e)
+    {
+        this.error = e;
+    }
 
-    if(!this.error)
+    if(originValue !== (this.error ? null : this.value))
+    {
         record.symbol = this;
-
-    if(originValue !== this.value)
         for(let ref of record.references)
         {
             recompQueue.push(ref);
             ref.wantsRecomp = true;
         }
+    }
 }

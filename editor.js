@@ -13772,9 +13772,11 @@ g nle`.split("\n");
       let record = symbols.get(name2);
       if (record.symbol) {
         this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
+        this.duplicate = true;
         record.references.push(this);
       } else {
         record.symbol = this;
+        this.duplicate = false;
         for (let ref of record.references) {
           if (!ref.removed) {
             recompQueue.push(ref);
@@ -13789,17 +13791,24 @@ g nle`.split("\n");
       });
   }
   Symbol2.prototype.recompile = function() {
+    let record = symbols.get(this.name);
+    if (this.duplicate && record.symbol)
+      return;
+    this.duplicate = false;
     let originValue = this.error ? null : this.value;
     this.error = null;
-    this.value = this.expression.evaluate(this.address, true);
-    let record = symbols.get(this.name);
-    if (!this.error)
+    try {
+      this.value = this.expression.evaluate(this.address, true);
+    } catch (e) {
+      this.error = e;
+    }
+    if (originValue !== (this.error ? null : this.value)) {
       record.symbol = this;
-    if (originValue !== this.value)
       for (let ref of record.references) {
         recompQueue.push(ref);
         ref.wantsRecomp = true;
       }
+    }
   };
 
   // core/shuntingYard.js
@@ -14181,18 +14190,14 @@ g nle`.split("\n");
     let opcode, pos;
     lastInstr = null;
     currLineArr = [];
-    macros.clear();
-    for (let i = 1; i < line && i <= instructions.length; i++) {
-      for (lastInstr of instructions[i - 1]) {
-        if (lastInstr.macroName)
-          macros.set(lastInstr.macroName, lastInstr.macro);
-      }
-    }
+    for (let i = 1; i < line && i <= instructions.length; i++)
+      for (lastInstr of instructions[i - 1])
+        ;
     currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
     let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for (let removed of removedInstrs)
       for (let instr of removed) {
-        if (instr.name) {
+        if (instr.name && !instr.duplicate) {
           let record = symbols.get(instr.name);
           if (record.references.length > 0)
             record.symbol = null;

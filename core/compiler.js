@@ -23,15 +23,9 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
     let opcode, pos;
     lastInstr = null; currLineArr = [];
 
-    // Reset the macro list and add only the macros that have been defined prior to this line
-    macros.clear();
     for(let i = 1; i < line && i <= instructions.length; i++)
-    {
-        for(lastInstr of instructions[i - 1])
-        {
-            if(lastInstr.macroName) macros.set(lastInstr.macroName, lastInstr.macro);
-        }
-    }
+        for(lastInstr of instructions[i - 1]);
+
     currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
 
     // Remove instructions that were replaced
@@ -39,7 +33,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
     for(let removed of removedInstrs)
         for(let instr of removed)
         {
-            if(instr.name)
+            if(instr.name && !instr.duplicate)
             {
                 let record = symbols.get(instr.name);
                 if(record.references.length > 0)
