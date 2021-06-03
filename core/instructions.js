@@ -88,7 +88,11 @@ Instruction.prototype.interpret = function()
         }
     }
 
-    let operations = mnemonics[opcode], operands = [];
+    /** @type { Operation[] } */
+    let operations = mnemonics[opcode];
+    /** @type { Operand[] } */
+    let operands = [];
+
     if(typeof operations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
     {
         if(operations[0][0] === '#') // References other mnemonic
@@ -166,7 +170,7 @@ Instruction.prototype.interpret = function()
 
     if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
-    this.outline = [operands, enforcedSize, operations, prefsToGen, vexInfo];
+    this.outline = { operands, enforcedSize, operations, prefsToGen, vexInfo };
     this.endPos = codePos;
 
     this.removed = false; // Interpreting was successful, so don't mark as removed
@@ -185,7 +189,7 @@ Instruction.prototype.interpret = function()
 
 Instruction.prototype.compile = function()
 {
-    let [operands, enforcedSize, operations, prefsToGen, vexInfo] = this.outline;
+    let { operands, enforcedSize, operations, prefsToGen, vexInfo } = this.outline;
     this.length = 0;
 
     // Before we compile, we'll get the immediates' sizes

@@ -333,35 +333,21 @@ export function Operation(format)
 }
 
 /**
- * @typedef {Object} operationResults
- * @property {number} opcode The resulting opcode of the instruction
- * @property {number} size The size that should be encoded into the instruction
- * @property {number|null} prefix A prefix to add in the encoding before the REX prefix
- * @property {boolean} extendOp Special case: if the register is encoded into the opcode but doesn't fit (id > 7), this is true
- * @property {boolean} rexw The value of REX.w
- * @property {Operand} reg The register operand (goes into ModRM.reg)
- * @property {Operand} rm The register/memory operand (goes into ModRM.rm)
- * @property {number} vex The VEX prefix (partially generated)
- * @property {Operand[]} imms The immediate operands (should be appended to the instruction)
- */
-
-/**
  * @typedef {Object} vexData
- * @property {boolean} needed True if the instruction should be encoded with VEX
- * @property {boolean} evex True if the instruction should be encoded with EVEX
- * @property {number} mask The id of the mask register used as the instruction writemask
- * @property {boolean} zeroing True if the instruction uses zero-masking, false for merge-masking
- * @property {number|null} round Used to identify one of 4 rounding modes, or 0 for SAE, or null for none specified
- * @property {number|null} broadcast Used to identify one of 2 broadcasting modes, or null for none specified
+ * @property {boolean} needed
+ * @property {boolean} evex
+ * @property {number} mask
+ * @property {boolean} zeroing
+ * @property {number|null} round
+ * @property {number|null} broadcast
  * @returns 
  */
 
 /** Attempt to fit the operand list into the operation
- * @param {Operand[]} operands The operand list to be fitted
- * @param {Number} address The address of the instruction
- * @param {number} enforcedSize The size that was enforced, or 0 if no size was enforced
- * @param {vexData|null} vexInfo Additional info needed to encode the instruction with a VEX/EVEX prefix
- * @returns {operationResults|null} The information needed to encode the instruction
+ * @param {Operand[]} operands
+ * @param {Number} address
+ * @param {number} enforcedSize
+ * @param {vexData} vexInfo
  */
 Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
 {

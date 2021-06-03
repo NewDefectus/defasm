@@ -1,3 +1,5 @@
+import { Operation } from "./mnemonics.js"; // For proper JSDoc
+
 let lines;
 let mnemonicStrings = `
 adcx:66)0F38F6 r Rlq
