@@ -206,10 +206,11 @@ Instruction.prototype.compile = function()
     }
 
     // Now, we'll find the matching operation for this operand list
-    let op, found = false, rexVal = 0x40;
+    let op, found = false, rexVal = 0x40, couldveBeenVex = false;
     
     for(let operation of operations)
     {
+        couldveBeenVex = couldveBeenVex || operation.allowVex;
         op = operation.fit(operands, this.address, enforcedSize, vexInfo);
         if(op !== null)
         {
@@ -220,6 +221,8 @@ Instruction.prototype.compile = function()
 
     if(!found)
     {
+        if(vexInfo.needed && !couldveBeenVex)
+            throw new ParserError("Unknown opcode", this.opcodePos);
         throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
 

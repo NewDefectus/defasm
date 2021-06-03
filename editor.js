@@ -13616,8 +13616,9 @@ g nle`.split("\n");
         }
       }
     }
-    let op, found = false, rexVal = 64;
+    let op, found = false, rexVal = 64, couldveBeenVex = false;
     for (let operation of operations) {
+      couldveBeenVex = couldveBeenVex || operation.allowVex;
       op = operation.fit(operands, this.address, enforcedSize, vexInfo);
       if (op !== null) {
         found = true;
@@ -13625,6 +13626,8 @@ g nle`.split("\n");
       }
     }
     if (!found) {
+      if (vexInfo.needed && !couldveBeenVex)
+        throw new ParserError("Unknown opcode", this.opcodePos);
       throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
     }
     this.ipRelative = this.ipRelative || op.ipRelative;
