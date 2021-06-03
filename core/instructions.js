@@ -262,16 +262,16 @@ Instruction.prototype.compile = function()
 function makeModRM(rm, r)
 {
     let modrm = 0, rex = 0;
-    // rm's values may be edited, however the object itself shouldn't be changed
-    let rmReg = rm.reg, rmReg2 = rm.reg2;
+    // rm's and r's values may be edited, however the objects themselves shouldn't be modified
+    let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
 
     // Encoding the "reg" field
-    if(r.reg >= 8)
+    if(rReg >= 8)
     {
         rex |= 4; // rex.R extension
-        r.reg &= 7;
+        rReg &= 7;
     }
-    modrm |= r.reg << 3;
+    modrm |= rReg << 3;
 
     // Special case for RIP-relative addressing
     if(rm.ripRelative)
