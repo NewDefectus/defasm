@@ -13049,9 +13049,9 @@ g nle`.split("\n");
       format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbkm".includes(opType);
-    this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
     this.unsigned = opType === "i";
     this.type = OPC[opType.toLowerCase()];
+    this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
     this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
     this.implicitValue = null;
     if (format[1] === "_") {
