@@ -200,7 +200,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     if(this.sizes !== 0)
     {
         for(size of this.sizes)
-        {   
+        {
             rawSize = size & ~7;
             if(opSize === rawSize || ((this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
             {
@@ -460,10 +460,10 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
         if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors) rexw = true;
         if(catcher.implicitValue === null)
         {
-            if(operand.type === OPT.IMM) imms.unshift(operand);
+            if(operand.type === OPT.IMM) imms.push(operand);
             else if(catcher.type === OPT.REL)
             {
-                imms.unshift({
+                imms.push({
                     value: operand.virtualValue,
                     size: size
                 });
@@ -472,7 +472,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
             else if(catcher.forceRM) rm = operand;
             else if(catcher.vexOp)
             {
-                if(catcher.vexOpImm) imms.unshift({value: BigInt(operand.reg << 4), size: 8});
+                if(catcher.vexOpImm) imms.push({value: BigInt(operand.reg << 4), size: 8});
                 else vex = (vex & ~0x7800) | ((~operand.reg & 15) << 11);
 
                 if(operand.reg >= 16) vex |= 0x80000; // EVEX.V'

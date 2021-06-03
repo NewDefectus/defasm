@@ -60,19 +60,19 @@ bswap:0FC8.o Rlq
 
 bt
 0FA3 Rwlq r
-0FBA.4 ib rwlq
+0FBA.4 iB rwlq
 
 btc
 0FBB Rwlq r
-0FBA.7 ib rwlq
+0FBA.7 iB rwlq
 
 btr
 0FB3 Rwlq r
-0FBA.6 ib rwlq
+0FBA.6 iB rwlq
 
 bts
 0FAB Rwlq r
-0FBA.5 ib rwlq
+0FBA.5 iB rwlq
 
 bzhi:V 0F38F5 Rlq r >R
 
@@ -166,7 +166,7 @@ dpps:66)0F3A40 ib v >V Vxy
 emms:0F77
 endbr32:F3)0F1EFB
 endbr64:F3)0F1EFA
-enter:C8 ib iW
+enter:C8 iW ib
 extractps:66)0F3A17 ib Vx rL > {
 
 f2xm1:D9F0
@@ -1464,7 +1464,7 @@ shiftMnemonics.forEach((name, i) => {
         mnemonics[name] = [
             "D0." + i + " i_1 rbwlq",
             "D2." + i + " R_1b rbwlq",
-            "C0." + i + " ib rbwlq"
+            "C0." + i + " iB rbwlq"
         ];
 });
 
