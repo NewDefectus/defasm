@@ -125,7 +125,7 @@ Instruction.prototype.interpret = function()
             prefsToGen |= (operand.reg + 1) << 3;
             next();
             operand = new Operand(this);
-            if(operand.type !== OPT.MEM)
+            if(operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
                 throw new ParserError("Segment prefix must be followed by memory reference");
         }
 

@@ -13555,7 +13555,7 @@ g nle`.split("\n");
         prefsToGen |= operand.reg + 1 << 3;
         next();
         operand = new Operand(this);
-        if (operand.type !== OPT.MEM)
+        if (operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
           throw new ParserError("Segment prefix must be followed by memory reference");
       }
       if (operand.expression && operand.expression.hasSymbols)
@@ -13671,12 +13671,12 @@ g nle`.split("\n");
   };
   function makeModRM(rm2, r) {
     let modrm = 0, rex = 0;
-    let rmReg = rm2.reg, rmReg2 = rm2.reg2;
-    if (r.reg >= 8) {
+    let rmReg = rm2.reg, rmReg2 = rm2.reg2, rReg = r.reg;
+    if (rReg >= 8) {
       rex |= 4;
-      r.reg &= 7;
+      rReg &= 7;
     }
-    modrm |= r.reg << 3;
+    modrm |= rReg << 3;
     if (rm2.ripRelative) {
       rm2.value = rm2.value || 0n;
       return [rex, modrm | 5, null];
@@ -14406,9 +14406,8 @@ g nle`.split("\n");
       let start = doc2.lineAt(from).number;
       let end = doc2.lineAt(to).number;
       let newWidths = [];
-      for (let i = start; i <= end; i++) {
+      for (let i = start; i <= end; i++)
         newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, this.tabSize)).width);
-      }
       this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
     }
     makeAsmDecorations(view) {
