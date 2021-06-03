@@ -13732,7 +13732,7 @@ g nle`.split("\n");
   Instruction.prototype.recompile = function() {
     this.error = null;
     try {
-      for (let op of this.outline[0]) {
+      for (let op of this.outline.operands) {
         if (op.expression && op.expression.hasSymbols)
           op.value = op.expression.evaluate(this.address, true);
       }
