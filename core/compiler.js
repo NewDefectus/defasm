@@ -125,14 +125,18 @@ export function secondPass(instructions, haltOnError)
 {
     let currIndex = baseAddr, instr;
 
-    symbols.forEach(record => {
+    symbols.forEach((record, name) => {
         record.references = record.references.filter(instr => !instr.removed);
-        if(record.symbol === null)
-            for(let ref of record.references)
+        if(record.symbol === null || record.symbol.error)
+        {
+            if(record.references.length == 0)
+                symbols.delete(name);
+            else for(let ref of record.references)
             {
                 ref.wantsRecomp = true;
                 recompQueue.push(ref);
             }
+        }
     });
 
     while(instr = linkedInstrQueue.shift() || recompQueue.shift())

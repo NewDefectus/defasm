@@ -14268,13 +14268,17 @@ g nle`.split("\n");
   }
   function secondPass(instructions, haltOnError) {
     let currIndex = baseAddr, instr;
-    symbols.forEach((record) => {
+    symbols.forEach((record, name2) => {
       record.references = record.references.filter((instr2) => !instr2.removed);
-      if (record.symbol === null)
-        for (let ref of record.references) {
-          ref.wantsRecomp = true;
-          recompQueue.push(ref);
-        }
+      if (record.symbol === null || record.symbol.error) {
+        if (record.references.length == 0)
+          symbols.delete(name2);
+        else
+          for (let ref of record.references) {
+            ref.wantsRecomp = true;
+            recompQueue.push(ref);
+          }
+      }
     });
     while (instr = linkedInstrQueue.shift() || recompQueue.shift()) {
       currIndex = instr.address;
