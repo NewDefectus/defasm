@@ -9,7 +9,7 @@ var prevCodePos;
 
 export function loadCode(code)
 {
-    srcTokens = code.matchAll(/(["'])(\\.|[^\\\n])*?\1|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
+    srcTokens = code.matchAll(/(["'])(\\.|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
     next = defaultNext;
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};

@@ -11171,7 +11171,7 @@
   var lastLineIndex = 0;
   var prevCodePos;
   function loadCode(code) {
-    srcTokens = code.matchAll(/(["'])(\\.|[^\\\n])*?\1|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
+    srcTokens = code.matchAll(/(["'])(\\.|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
     next = defaultNext;
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};
@@ -13864,27 +13864,34 @@ g nle`.split("\n");
     t: "	",
     v: "\v"
   };
-  var unescapeString = (string2) => string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.)/ig, (x) => {
-    x = x.slice(1);
-    if (x.match(/x[0-9a-f]{1,2}/i))
-      return String.fromCharCode(parseInt(x.slice(1), 16));
-    if (x.match(/u[0-9a-f]{1,8}/i)) {
-      try {
-        return String.fromCodePoint(parseInt(x.slice(1), 16));
-      } catch (e) {
-        return "";
+  var unescapeString = (string2) => {
+    if (string2.length < 2 || string2[string2.length - 1] != string2[0])
+      throw new ParserError("Incomplete string");
+    string2 = string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, (x) => {
+      x = x.slice(1);
+      if (x == "")
+        throw new ParserError("Incomplete string");
+      if (x.match(/x[0-9a-f]{1,2}/i))
+        return String.fromCharCode(parseInt(x.slice(1), 16));
+      if (x.match(/u[0-9a-f]{1,8}/i)) {
+        try {
+          return String.fromCodePoint(parseInt(x.slice(1), 16));
+        } catch (e) {
+          return "";
+        }
       }
-    }
-    if (x.match(/[0-7]{1,3}/))
-      return String.fromCharCode(parseInt(x, 8) & 255);
-    return stringEscapeSeqs[x] || x;
-  });
+      if (x.match(/[0-7]{1,3}/))
+        return String.fromCharCode(parseInt(x, 8) & 255);
+      return stringEscapeSeqs[x] || x;
+    });
+    return string2;
+  };
   function parseNumber(asFloat = false) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
     try {
       if (token === "\n")
         throw new ParserError("Expected value, got none");
-      if (token[0] === "'" && token[token.length - 1] === "'") {
+      if (token[0] === "'") {
         let string2 = unescapeString(token);
         let i = string2.length;
         while (i--) {
@@ -13976,6 +13983,8 @@ g nle`.split("\n");
         lastWasNum = true;
         next();
       } else {
+        if (lastWasNum)
+          throw new ParserError("Unexpected value");
         lastWasNum = true;
         let imm = parseNumber(this.floatPrec !== 0);
         if (imm.floatPrec > this.floatPrec)
@@ -13996,6 +14005,8 @@ g nle`.split("\n");
         this.stack.push(value);
       }
     }
+    if (this.stack.length === 0 && !expectMemory)
+      throw new ParserError("Expected expression");
     if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
       ungetToken();
       setToken("(");
@@ -14112,7 +14123,7 @@ g nle`.split("\n");
           let strBytes, temp;
           this.bytes = new Uint8Array();
           do {
-            if (next().length > 1 && token[0] === '"' && token[token.length - 1] === '"') {
+            if (next()[0] === '"') {
               strBytes = encoder.encode(unescapeString(token));
               temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
               temp.set(this.bytes);
@@ -14125,8 +14136,9 @@ g nle`.split("\n");
           break;
       }
     } catch (e) {
-      if (this.length === 0)
-        throw e;
+      this.error = e;
+      while (token !== ";" && token !== "\n")
+        next();
     }
   }
   Directive.prototype.compileValues = function(valSize) {

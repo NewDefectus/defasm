@@ -56,7 +56,7 @@ export function Directive(address, dir)
                 this.bytes = new Uint8Array();
                 do
                 {
-                    if(next().length > 1 && token[0] === '"' && token[token.length - 1] === '"')
+                    if(next()[0] === '"')
                     {
                         strBytes = encoder.encode(unescapeString(token));
                         temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
@@ -72,7 +72,8 @@ export function Directive(address, dir)
     }
     catch(e)
     {
-        if(this.length === 0) throw e; // Only propagate the exception if the directive is empty
+        this.error = e;
+        while(token !== ';' && token !== '\n') next();
     }
 }
 

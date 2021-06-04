@@ -61,23 +61,30 @@ const stringEscapeSeqs = {
 }
 
 
-export var unescapeString = string => string.slice(1, -1)
-.replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.)/ig, x => {
-    x = x.slice(1);
-    if(x.match(/x[0-9a-f]{1,2}/i))
-        return String.fromCharCode(parseInt(x.slice(1), 16));
-    if(x.match(/u[0-9a-f]{1,8}/i))
-    {
-        try {
-            return String.fromCodePoint(parseInt(x.slice(1), 16));
-        } catch(e) {
-            return '';
+export var unescapeString = string => {
+    if(string.length < 2 || string[string.length - 1] != string[0])
+        throw new ParserError("Incomplete string");
+    string = string.slice(1, -1)
+    .replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, x => {
+        x = x.slice(1);
+        if(x == '')
+            throw new ParserError("Incomplete string");
+        if(x.match(/x[0-9a-f]{1,2}/i))
+            return String.fromCharCode(parseInt(x.slice(1), 16));
+        if(x.match(/u[0-9a-f]{1,8}/i))
+        {
+            try {
+                return String.fromCodePoint(parseInt(x.slice(1), 16));
+            } catch(e) {
+                return '';
+            }
         }
-    }
-    if(x.match(/[0-7]{1,3}/))
-        return String.fromCharCode(parseInt(x, 8) & 255);
-    return stringEscapeSeqs[x] || x;
-});
+        if(x.match(/[0-7]{1,3}/))
+            return String.fromCharCode(parseInt(x, 8) & 255);
+        return stringEscapeSeqs[x] || x;
+    });
+    return string;
+}
 
 
 function parseNumber(asFloat = false)
@@ -88,7 +95,7 @@ function parseNumber(asFloat = false)
     {
         if(token === '\n')
             throw new ParserError("Expected value, got none");
-        if(token[0] === "'" && token[token.length - 1] === "'")
+        if(token[0] === "'")
         {
             let string = unescapeString(token); // Decode escape sequences
             // Parse as character constant
@@ -204,6 +211,8 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         }
         else // Number
         {
+            if(lastWasNum)
+                throw new ParserError("Unexpected value");
             lastWasNum = true;
 
             let imm = parseNumber(this.floatPrec !== 0);
@@ -226,6 +235,9 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             this.stack.push(value);
         }
     }
+
+    if(this.stack.length === 0 && !expectMemory)
+        throw new ParserError("Expected expression");
 
     if(expectMemory && opStack.length == 1 && opStack[0].bracket)
     {
