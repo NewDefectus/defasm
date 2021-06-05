@@ -1,11 +1,11 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 import { hoverTooltip }                                               from '@codemirror/tooltip';
 
-import { compileAsm, secondPass } from '@defasm/core/compiler.js';
-import { mnemonics }              from '@defasm/core/mnemonicList.js';
-import { registers, suffixes }    from '@defasm/core/operands.js';
-import { prefixes }               from '@defasm/core/instructions.js';
-import { dirs }                   from '@defasm/core/directives.js';
+import { AssemblyState }       from '@defasm/core/compiler.js';
+import { mnemonics }           from '@defasm/core/mnemonicList.js';
+import { registers, suffixes } from '@defasm/core/operands.js';
+import { prefixes }            from '@defasm/core/instructions.js';
+import { dirs }                from '@defasm/core/directives.js';
 
 import * as Terms from './parser.terms.js';
 
@@ -86,12 +86,12 @@ export const asmPlugin = ViewPlugin.fromClass(class {
     /** @param {EditorView} view */
     constructor(view)
     {
-        this.ctx          = document.createElement('canvas').getContext('2d');
-        this.lineWidths   = [];
-        this.instrs       = [];
+        this.ctx        = document.createElement('canvas').getContext('2d');
+        this.lineWidths = [];
+        this.state      = new AssemblyState();
 
-        let result = compileAsm(view.state.sliceDoc(), this.instrs);
-        view['asm-bytes'] = result.bytes;
+        this.state.compile(view.state.sliceDoc());
+        view['asm-bytes'] = this.state.bytes;
         this.decorations = Decoration.set([]);
 
         // This timeout is required to let the content DOM's style be calculated
@@ -150,11 +150,12 @@ export const asmPlugin = ViewPlugin.fromClass(class {
                 let line = doc.lineAt(fromB);
                 fromB = line.from;
                 toB = doc.lineAt(toB).to;
-                compileAsm(state.sliceDoc(fromB, toB), this.instrs, { line: line.number, linesRemoved: removedLines, doSecondPass: false });
+                this.state.compile(state.sliceDoc(fromB, toB), { line: line.number, linesRemoved: removedLines, doSecondPass: false });
             }
         );
 
-        update.view['asm-bytes'] = secondPass(this.instrs);
+        this.state.secondPass();
+        update.view['asm-bytes'] = this.state.bytes;
         this.makeAsmDecorations(update.view);
     }
 
@@ -176,16 +177,17 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         let doc       = view.state.doc;
         let maxOffset = Math.max(...this.lineWidths) + 50;
         let widgets   = [];
+        let instrs    = this.state.instructions;
         let hasData;
 
         view['asm-errors'] = [];
 
-        for(let i = 0; i < this.instrs.length; i++)
+        for(let i = 0; i < instrs.length; i++)
         {
-            if(this.instrs[i].length == 0) continue;
+            if(instrs[i].length == 0) continue;
 
             hasData = false;
-            this.instrs[i].map(x => {
+            instrs[i].map(x => {
                 let error = x.error;
                 if(error)
                 {
@@ -205,7 +207,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
             if(hasData)
             {
                 let deco = Decoration.widget({
-                    widget: new AsmDumpWidget(this.instrs[i], maxOffset - this.lineWidths[i]),
+                    widget: new AsmDumpWidget(instrs[i], maxOffset - this.lineWidths[i]),
                     side: 1
                 });
                 widgets.push(deco.range(doc.line(i + 1).to));

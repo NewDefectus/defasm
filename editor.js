@@ -2491,17 +2491,17 @@
       if (!this.active.length)
         return this.active;
       let active = [];
-      for (let i = 0; i < this.active.length; i++) {
-        if (this.activeRank[i] > this.pointRank)
+      for (let i = this.active.length - 1; i >= 0; i--) {
+        if (this.activeRank[i] < this.pointRank)
           break;
         if (this.activeTo[i] > to || this.activeTo[i] == to && this.active[i].endSide > this.point.endSide)
           active.push(this.active[i]);
       }
-      return active;
+      return active.reverse();
     }
     openEnd(to) {
       let open = 0;
-      while (open < this.activeTo.length && this.activeTo[open] > to)
+      for (let i = this.activeTo.length - 1; i >= 0 && this.activeTo[i] > to; i--)
         open++;
       return open;
     }
@@ -2730,6 +2730,8 @@
         node = parent;
       } else if (node.nodeType == 1) {
         node = node.childNodes[off + (dir < 0 ? -1 : 0)];
+        if (node.nodeType == 1 && node.contentEditable == "false")
+          return false;
         off = dir < 0 ? maxOffset(node) : 0;
       } else {
         return false;
@@ -2867,6 +2869,16 @@
     range.setStart(node, from);
     return range;
   }
+  function dispatchKey(elt, name2, code) {
+    let options = {key: name2, code: name2, keyCode: code, which: code, cancelable: true};
+    let down = new KeyboardEvent("keydown", options);
+    down.synthetic = true;
+    elt.dispatchEvent(down);
+    let up = new KeyboardEvent("keyup", options);
+    up.synthetic = true;
+    elt.dispatchEvent(up);
+    return down.defaultPrevented || up.defaultPrevented;
+  }
   var DOMPos = class {
     constructor(node, offset, precise = true) {
       this.node = node;
@@ -3003,7 +3015,12 @@
         prevEnd = end;
         pos = end + child.breakAfter;
       }
-      return {from: fromStart, to: toEnd < 0 ? offset + this.length : toEnd, startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild, endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null};
+      return {
+        from: fromStart,
+        to: toEnd < 0 ? offset + this.length : toEnd,
+        startDOM: (fromI ? this.children[fromI - 1].dom.nextSibling : null) || this.dom.firstChild,
+        endDOM: toI < this.children.length && toI >= 0 ? this.children[toI].dom : null
+      };
     }
     markDirty(andParent = false) {
       if (this.dirty & 2)
@@ -3042,8 +3059,11 @@
     }
     replaceChildren(from, to, children = none$3) {
       this.markDirty();
-      for (let i = from; i < to; i++)
-        this.children[i].parent = null;
+      for (let i = from; i < to; i++) {
+        let child = this.children[i];
+        if (child.parent == this)
+          child.parent = null;
+      }
       this.children.splice(from, to - from, ...children);
       for (let i = 0; i < children.length; i++)
         children[i].setParent(this);
@@ -3730,7 +3750,7 @@
       }
       super.sync(track);
       let last = this.dom.lastChild;
-      if (!last || last.nodeName != "BR" && ContentView.get(last) instanceof WidgetView) {
+      if (!last || last.nodeName != "BR" && ContentView.get(last) instanceof WidgetView && (!browser.ios || !this.children.some((ch) => ch instanceof TextView))) {
         let hack = document.createElement("BR");
         hack.cmIgnore = true;
         this.dom.appendChild(hack);
@@ -3748,7 +3768,10 @@
           return null;
         totalWidth += rects[0].width;
       }
-      return {lineHeight: this.dom.getBoundingClientRect().height, charWidth: totalWidth / this.length};
+      return {
+        lineHeight: this.dom.getBoundingClientRect().height,
+        charWidth: totalWidth / this.length
+      };
     }
     coordsAt(pos, side) {
       return coordsInChildren(this, pos, side);
@@ -3863,8 +3886,8 @@
         this.getLine();
     }
     wrapMarks(view, active) {
-      for (let i = active.length - 1; i >= 0; i--)
-        view = new MarkView(active[i], [view], view.length);
+      for (let mark of active)
+        view = new MarkView(mark, [view], view.length);
       return view;
     }
     buildText(length, active, openStart) {
@@ -3988,6 +4011,7 @@
     }
   };
   PluginField.decorations = /* @__PURE__ */ PluginField.define();
+  PluginField.atomicRanges = /* @__PURE__ */ PluginField.define();
   PluginField.scrollMargins = /* @__PURE__ */ PluginField.define();
   var nextPluginID = 0;
   var viewPlugin = /* @__PURE__ */ Facet.define();
@@ -4219,13 +4243,14 @@
     }
     updateInner(changes, deco, oldLength, forceSelection = false, pointerSel = false) {
       this.updateChildren(changes, deco, oldLength);
-      this.view.observer.ignore(() => {
+      let {observer} = this.view;
+      observer.ignore(() => {
         this.dom.style.height = this.view.viewState.domHeight + "px";
         this.dom.style.minWidth = this.minWidth ? this.minWidth + "px" : "";
-        let track = browser.chrome ? {node: getSelection(this.view.root).focusNode, written: false} : void 0;
+        let track = browser.chrome || browser.ios ? {node: observer.selectionRange.focusNode, written: false} : void 0;
         this.sync(track);
         this.dirty = 0;
-        if (track === null || track === void 0 ? void 0 : track.written)
+        if (track && (track.written || observer.selectionRange.focusNode != track.node))
           forceSelection = true;
         this.updateSelection(forceSelection, pointerSel);
         this.dom.style.height = "";
@@ -4486,7 +4511,7 @@
     }
   };
   function betweenUneditable(pos) {
-    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset < pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
+    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
   }
   var BlockGapWidget = class extends WidgetType {
     constructor(height) {
@@ -4943,7 +4968,7 @@
         bias = block.top > y ? -1 : 1;
         y = Math.min(block.bottom - halfLine, Math.max(block.top + halfLine, y));
         if (bounced)
-          return -1;
+          return null;
         else
           bounced = true;
       }
@@ -5078,12 +5103,27 @@
     }
     return EditorSelection.cursor(result, void 0, void 0, goal);
   }
+  function skipAtoms(view, oldPos, pos) {
+    let atoms = view.pluginField(PluginField.atomicRanges);
+    for (; ; ) {
+      let moved = false;
+      for (let set of atoms) {
+        set.between(pos.from - 1, pos.from + 1, (from, to, value) => {
+          if (pos.from > from && pos.from < to) {
+            pos = oldPos.from > pos.from ? EditorSelection.cursor(from, 1) : EditorSelection.cursor(to, -1);
+            moved = true;
+          }
+        });
+      }
+      if (!moved)
+        return pos;
+    }
+  }
   var InputState = class {
     constructor(view) {
       this.lastKeyCode = 0;
       this.lastKeyTime = 0;
-      this.lastIOSEnter = 0;
-      this.lastIOSBackspace = 0;
+      this.pendingIOSKey = null;
       this.lastSelectionOrigin = null;
       this.lastSelectionTime = 0;
       this.lastEscPress = 0;
@@ -5112,6 +5152,8 @@
       }
       this.notifiedFocused = view.hasFocus;
       this.ensureHandlers(view);
+      if (browser.safari)
+        view.contentDOM.addEventListener("input", () => null);
     }
     setSelectionOrigin(origin) {
       this.lastSelectionOrigin = origin;
@@ -5166,12 +5208,20 @@
       this.lastKeyCode = event.keyCode;
       this.lastKeyTime = Date.now();
       if (this.screenKeyEvent(view, event))
-        return;
+        return true;
       if (browser.ios && (event.keyCode == 13 || event.keyCode == 8) && !(event.ctrlKey || event.altKey || event.metaKey) && !event.synthetic) {
-        this[event.keyCode == 13 ? "lastIOSEnter" : "lastIOSBackspace"] = Date.now();
+        this.pendingIOSKey = event.keyCode == 13 ? "enter" : "backspace";
+        setTimeout(() => this.flushIOSKey(view), 250);
         return true;
       }
       return false;
+    }
+    flushIOSKey(view) {
+      if (!this.pendingIOSKey)
+        return false;
+      let dom = view.contentDOM, key = this.pendingIOSKey;
+      this.pendingIOSKey = null;
+      return key == "enter" ? dispatchKey(dom, "Enter", 13) : dispatchKey(dom, "Backspace", 8);
     }
     ignoreDuringComposition(event) {
       if (!/^key/.test(event.type))
@@ -5471,16 +5521,13 @@
       event.dataTransfer.effectAllowed = "copyMove";
     }
   };
-  handlers.drop = (view, event) => {
-    if (!event.dataTransfer || !view.state.facet(editable))
-      return;
+  function dropText(view, event, text, direct) {
     let dropPos = view.posAtCoords({x: event.clientX, y: event.clientY});
-    let text = event.dataTransfer.getData("Text");
     if (dropPos == null || !text)
       return;
     event.preventDefault();
     let {mouseSelection} = view.inputState;
-    let del = mouseSelection && mouseSelection.dragging && mouseSelection.dragMove ? {from: mouseSelection.dragging.from, to: mouseSelection.dragging.to} : null;
+    let del = direct && mouseSelection && mouseSelection.dragging && mouseSelection.dragMove ? {from: mouseSelection.dragging.from, to: mouseSelection.dragging.to} : null;
     let ins = {from: dropPos, insert: text};
     let changes = view.state.changes(del ? [del, ins] : ins);
     view.focus();
@@ -5489,6 +5536,31 @@
       selection: {anchor: changes.mapPos(dropPos, -1), head: changes.mapPos(dropPos, 1)},
       annotations: Transaction.userEvent.of("drop")
     });
+  }
+  handlers.drop = (view, event) => {
+    if (!event.dataTransfer || !view.state.facet(editable))
+      return;
+    let files = event.dataTransfer.files;
+    if (files && files.length) {
+      event.preventDefault();
+      let text = Array(files.length), read = 0;
+      let finishFile = () => {
+        if (++read == files.length)
+          dropText(view, event, text.filter((s) => s != null).join(view.state.lineBreak), false);
+      };
+      for (let i = 0; i < files.length; i++) {
+        let reader = new FileReader();
+        reader.onerror = finishFile;
+        reader.onload = () => {
+          if (!/[\x00-\x08\x0e-\x1f]{2}/.test(reader.result))
+            text[i] = reader.result;
+          finishFile();
+        };
+        reader.readAsText(files[i]);
+      }
+    } else {
+      dropText(view, event, event.dataTransfer.getData("Text"), true);
+    }
   };
   handlers.paste = (view, event) => {
     if (!view.state.facet(editable))
@@ -6296,7 +6368,7 @@
       this.viewports = viewports.sort((a, b) => a.from - b.from);
       this.scaler = this.heightMap.height <= 7e6 ? IdScaler : new BigScaler(this.heightOracle.doc, this.heightMap, this.viewports);
     }
-    update(update, scrollTo2 = null) {
+    update(update, scrollTo = null) {
       let prev = this.state;
       this.state = update.state;
       let newDeco = this.state.facet(decorations);
@@ -6307,8 +6379,8 @@
       if (this.heightMap.height != prevHeight)
         update.flags |= 2;
       let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
-      if (scrollTo2 && (scrollTo2.head < viewport.from || scrollTo2.head > viewport.to) || !this.viewportIsAppropriate(viewport))
-        viewport = this.getViewport(0, scrollTo2);
+      if (scrollTo && (scrollTo.head < viewport.from || scrollTo.head > viewport.to) || !this.viewportIsAppropriate(viewport))
+        viewport = this.getViewport(0, scrollTo);
       if (!viewport.eq(this.viewport)) {
         this.viewport = viewport;
         update.flags |= 4;
@@ -6317,8 +6389,8 @@
       if (this.lineGaps.length || this.viewport.to - this.viewport.from > 15e3)
         update.flags |= this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
       this.computeVisibleRanges();
-      if (scrollTo2)
-        this.scrollTo = scrollTo2;
+      if (scrollTo)
+        this.scrollTo = scrollTo;
       if (!this.mustEnforceCursorAssoc && update.selectionSet && update.view.lineWrapping && update.state.selection.main.empty && update.state.selection.main.assoc)
         this.mustEnforceCursorAssoc = true;
     }
@@ -6384,16 +6456,16 @@
     get visibleBottom() {
       return this.scaler.fromDOM(this.pixelViewport.bottom, 0);
     }
-    getViewport(bias, scrollTo2) {
+    getViewport(bias, scrollTo) {
       let marginTop = 0.5 - Math.max(-0.5, Math.min(0.5, bias / 1e3 / 2));
       let map = this.heightMap, doc2 = this.state.doc, {visibleTop, visibleBottom} = this;
       let viewport = new Viewport(map.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, doc2, 0, 0).to);
-      if (scrollTo2) {
-        if (scrollTo2.head < viewport.from) {
-          let {top: newTop} = map.lineAt(scrollTo2.head, QueryType.ByPos, doc2, 0, 0);
+      if (scrollTo) {
+        if (scrollTo.head < viewport.from) {
+          let {top: newTop} = map.lineAt(scrollTo.head, QueryType.ByPos, doc2, 0, 0);
           viewport = new Viewport(map.lineAt(newTop - 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(newTop + (visibleBottom - visibleTop) + 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).to);
-        } else if (scrollTo2.head > viewport.to) {
-          let {bottom: newBottom} = map.lineAt(scrollTo2.head, QueryType.ByPos, doc2, 0, 0);
+        } else if (scrollTo.head > viewport.to) {
+          let {bottom: newBottom} = map.lineAt(scrollTo.head, QueryType.ByPos, doc2, 0, 0);
           viewport = new Viewport(map.lineAt(newBottom - (visibleBottom - visibleTop) - 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(newBottom + 1e3 / 2, QueryType.ByHeight, doc2, 0, 0).to);
         }
       }
@@ -7086,7 +7158,7 @@
       };
     if (change) {
       let startState = view.state;
-      if (browser.android && (change.from == sel.from && change.to == sel.to && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view, "Enter", 13) || change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 && dispatchKey(view, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view, "Delete", 46)) || browser.ios && (view.inputState.lastIOSEnter > Date.now() - 225 && change.insert.lines > 1 && dispatchKey(view, "Enter", 13) || view.inputState.lastIOSBackspace > Date.now() - 225 && !change.insert.length && dispatchKey(view, "Backspace", 8)))
+      if (browser.android && (change.from == sel.from && change.to == sel.to && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view.contentDOM, "Enter", 13) || change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 && dispatchKey(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view.contentDOM, "Delete", 46)) || browser.ios && view.inputState.flushIOSKey(view))
         return;
       let text = change.insert.toString();
       if (view.state.facet(inputHandler).some((h) => h(view, change.from, change.to, text)))
@@ -7230,16 +7302,6 @@
     let anchor = points[0].pos, head = points.length == 2 ? points[1].pos : anchor;
     return anchor > -1 && head > -1 ? EditorSelection.single(anchor + base2, head + base2) : null;
   }
-  function dispatchKey(view, name2, code) {
-    let options = {key: name2, code: name2, keyCode: code, which: code, cancelable: true};
-    let down = new KeyboardEvent("keydown", options);
-    down.synthetic = true;
-    view.contentDOM.dispatchEvent(down);
-    let up = new KeyboardEvent("keyup", options);
-    up.synthetic = true;
-    view.contentDOM.dispatchEvent(up);
-    return down.defaultPrevented || up.defaultPrevented;
-  }
   var EditorView = class {
     constructor(config2 = {}) {
       this.plugins = [];
@@ -7313,10 +7375,11 @@
       if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
         return this.setState(state);
       update = new ViewUpdate(this, state, transactions);
+      let scrollTo;
       try {
         this.updateState = 2;
-        let scrollTo2 = transactions.some((tr) => tr.scrollIntoView) ? state.selection.main : null;
-        this.viewState.update(update, scrollTo2);
+        scrollTo = transactions.some((tr) => tr.scrollIntoView) ? state.selection.main : null;
+        this.viewState.update(update, scrollTo);
         this.bidiCache = CachedOrder.update(this.bidiCache, update.changes);
         if (!update.empty)
           this.updatePlugins(update);
@@ -7453,7 +7516,6 @@
         autocorrect: "off",
         autocapitalize: "off",
         contenteditable: String(this.state.facet(editable)),
-        "data-gramm": "false",
         class: "cm-content",
         style: `${browser.tabSize}: ${this.state.tabSize}`,
         role: "textbox",
@@ -7529,16 +7591,16 @@
       return this.viewState.contentHeight;
     }
     moveByChar(start, forward, by) {
-      return moveByChar(this, start, forward, by);
+      return skipAtoms(this, start, moveByChar(this, start, forward, by));
     }
     moveByGroup(start, forward) {
-      return moveByChar(this, start, forward, (initial) => byGroup(this, start.head, initial));
+      return skipAtoms(this, start, moveByChar(this, start, forward, (initial) => byGroup(this, start.head, initial)));
     }
     moveToLineBoundary(start, forward, includeWrap = true) {
       return moveToLineBoundary(this, start, forward, includeWrap);
     }
     moveVertically(start, forward, distance) {
-      return moveVertically(this, start, forward, distance);
+      return skipAtoms(this, start, moveVertically(this, start, forward, distance));
     }
     scrollPosIntoView(pos) {
       this.viewState.scrollTo = EditorSelection.cursor(pos);
@@ -7630,7 +7692,7 @@
   EditorView.decorations = decorations;
   EditorView.contentAttributes = contentAttributes;
   EditorView.editorAttributes = editorAttributes;
-  EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({class: "cm-lineWrapping"});
+  EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({"class": "cm-lineWrapping"});
   EditorView.announce = /* @__PURE__ */ StateEffect.define();
   var MaxBidiLine = 4096;
   function ensureTop(given, dom) {
@@ -9797,15 +9859,17 @@
     compare(other) {
       return this == other || this.constructor == other.constructor && this.eq(other);
     }
-    toDOM(_view) {
-      return null;
+    eq(other) {
+      return false;
     }
     at(pos) {
       return this.range(pos);
     }
   };
   GutterMarker.prototype.elementClass = "";
+  GutterMarker.prototype.toDOM = void 0;
   GutterMarker.prototype.mapMode = MapMode.TrackBefore;
+  var gutterLineClass = /* @__PURE__ */ Facet.define();
   var defaults2 = {
     class: "",
     renderEmptyElements: false,
@@ -9853,6 +9917,12 @@
       minWidth: "20px",
       textAlign: "right",
       whiteSpace: "nowrap"
+    },
+    "&light .cm-activeLineGutter": {
+      backgroundColor: "#e2f2ff"
+    },
+    "&dark .cm-activeLineGutter": {
+      backgroundColor: "#222227"
     }
   });
   var unfixGutters = /* @__PURE__ */ Facet.define({
@@ -9888,6 +9958,8 @@
         this.syncGutters();
     }
     syncGutters() {
+      let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
+      let classSet = [];
       let contexts = this.gutters.map((gutter2) => new UpdateContext(gutter2, this.view.viewport));
       this.view.viewportLines((line) => {
         let text;
@@ -9902,8 +9974,11 @@
         }
         if (!text)
           return;
+        if (classSet.length)
+          classSet = [];
+        advanceCursor(lineClasses, classSet, line.from);
         for (let cx of contexts)
-          cx.line(this.view, text);
+          cx.line(this.view, text, classSet);
       }, 0);
       for (let cx of contexts)
         cx.finish();
@@ -9953,6 +10028,13 @@
   function asArray2(val) {
     return Array.isArray(val) ? val : [val];
   }
+  function advanceCursor(cursor, collect, pos) {
+    while (cursor.value && cursor.from <= pos) {
+      if (cursor.from == pos)
+        collect.push(cursor.value);
+      cursor.next();
+    }
+  }
   var UpdateContext = class {
     constructor(gutter2, viewport) {
       this.gutter = gutter2;
@@ -9961,32 +10043,27 @@
       this.height = 0;
       this.cursor = RangeSet.iter(gutter2.markers, viewport.from);
     }
-    line(view, line) {
+    line(view, line, extraMarkers) {
       if (this.localMarkers.length)
         this.localMarkers = [];
-      while (this.cursor.value && this.cursor.from <= line.from) {
-        if (this.cursor.from == line.from)
-          this.localMarkers.push(this.cursor.value);
-        this.cursor.next();
-      }
-      let forLine = this.gutter.config.lineMarker(view, line, this.localMarkers);
+      advanceCursor(this.cursor, this.localMarkers, line.from);
+      let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
+      let forLine = this.gutter.config.lineMarker(view, line, localMarkers);
       if (forLine)
-        this.localMarkers.unshift(forLine);
+        localMarkers.unshift(forLine);
       let gutter2 = this.gutter;
-      if (this.localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
+      if (localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
         return;
       let above = line.top - this.height;
       if (this.i == gutter2.elements.length) {
-        let newElt = new GutterElement(view, line.height, above, this.localMarkers);
+        let newElt = new GutterElement(view, line.height, above, localMarkers);
         gutter2.elements.push(newElt);
         gutter2.dom.appendChild(newElt.dom);
       } else {
-        let markers = this.localMarkers, elt = gutter2.elements[this.i];
-        if (sameMarkers(markers, elt.markers)) {
-          markers = elt.markers;
-          this.localMarkers.length = 0;
-        }
-        elt.update(view, line.height, above, markers);
+        let elt = gutter2.elements[this.i];
+        if (sameMarkers(localMarkers, elt.markers))
+          localMarkers = elt.markers;
+        elt.update(view, line.height, above, localMarkers);
       }
       this.height = line.bottom;
       this.i++;
@@ -10048,9 +10125,8 @@
           ch.remove();
         let cls = "cm-gutterElement";
         for (let m of markers) {
-          let dom = m.toDOM(view);
-          if (dom)
-            this.dom.appendChild(dom);
+          if (m.toDOM)
+            this.dom.appendChild(m.toDOM(view));
           let c = m.elementClass;
           if (c)
             cls += " " + c;
@@ -10090,7 +10166,7 @@
     eq(other) {
       return this.number == other.number;
     }
-    toDOM() {
+    toDOM(_view) {
       return document.createTextNode(this.number);
     }
   };
@@ -10103,7 +10179,7 @@
       return view.state.facet(lineNumberMarkers);
     },
     lineMarker(view, line, others) {
-      if (others.length)
+      if (others.some((m) => m.toDOM))
         return null;
       return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line.from).number));
     },
@@ -10228,22 +10304,19 @@
     }
     return ruleNodeProp.add(byName);
   }
-  var ruleNodeProp = new NodeProp();
-  var highlightStyle = Facet.define({
+  var ruleNodeProp = /* @__PURE__ */ new NodeProp();
+  var highlightStyle = /* @__PURE__ */ Facet.define({
     combine(stylings) {
       return stylings.length ? HighlightStyle.combinedMatch(stylings) : null;
     }
   });
-  var fallbackHighlightStyle = Facet.define({
+  var fallbackHighlightStyle = /* @__PURE__ */ Facet.define({
     combine(values) {
       return values.length ? values[0].match : null;
     }
   });
-  function noHighlight() {
-    return null;
-  }
   function getHighlightStyle(state) {
-    return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle) || noHighlight;
+    return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle);
   }
   var Rule = class {
     constructor(tags2, mode, context, next2) {
@@ -10328,7 +10401,8 @@
       return new HighlightStyle(specs, options || {});
     }
     static get(state, tag, scope) {
-      return getHighlightStyle(state)(tag, scope || NodeType.none);
+      let style = getHighlightStyle(state);
+      return style && style(tag, scope || NodeType.none);
     }
   };
   var TreeHighlighter = class {
@@ -10348,7 +10422,7 @@
       }
     }
     buildDeco(view, match2) {
-      if (match2 == noHighlight || !this.tree.length)
+      if (!match2 || !this.tree.length)
         return Decoration.none;
       let builder = new RangeSetBuilder();
       for (let {from, to} of view.visibleRanges) {
@@ -10359,13 +10433,19 @@
       return builder.finish();
     }
   };
-  var treeHighlighter = Prec.fallback(ViewPlugin.fromClass(TreeHighlighter, {
+  var treeHighlighter = /* @__PURE__ */ Prec.fallback(/* @__PURE__ */ ViewPlugin.fromClass(TreeHighlighter, {
     decorations: (v) => v.decorations
   }));
   var nodeStack = [""];
   function highlightTreeRange(tree, from, to, style, span) {
     let spanStart = from, spanClass = "";
     let cursor = tree.topNode.cursor;
+    function flush(at, newClass) {
+      if (spanClass)
+        span(spanStart, at, spanClass);
+      spanStart = at;
+      spanClass = newClass;
+    }
     function node(inheritedClass, depth2, scope) {
       let {type, from: start, to: end} = cursor;
       if (start >= to || end <= from)
@@ -10393,28 +10473,21 @@
         }
         rule = rule.next;
       }
-      if (cls != spanClass) {
-        if (start > spanStart && spanClass)
-          span(spanStart, cursor.from, spanClass);
-        spanStart = start;
-        spanClass = cls;
-      }
+      let upto = start;
       if (!opaque && cursor.firstChild()) {
         do {
-          let end2 = cursor.to;
+          if (cursor.from > upto && spanClass != cls)
+            flush(upto, cls);
+          upto = cursor.to;
           node(inheritedClass, depth2 + 1, scope);
-          if (spanClass != cls) {
-            let pos = Math.min(to, end2);
-            if (pos > spanStart && spanClass)
-              span(spanStart, pos, spanClass);
-            spanStart = pos;
-            spanClass = cls;
-          }
         } while (cursor.nextSibling());
         cursor.parent();
       }
+      if (end > upto && spanClass != cls)
+        flush(upto, cls);
     }
     node("", 0, tree.type);
+    flush(to, "");
   }
   function matchContext(context, stack, depth2) {
     if (context.length > depth2 - 1)
@@ -10427,102 +10500,103 @@
     return true;
   }
   var t = Tag.define;
-  var comment = t();
-  var name = t();
-  var typeName = t(name);
-  var literal = t();
-  var string = t(literal);
-  var number = t(literal);
-  var content = t();
-  var heading = t(content);
-  var keyword = t();
-  var operator = t();
-  var punctuation = t();
-  var bracket = t(punctuation);
-  var meta = t();
+  var comment = /* @__PURE__ */ t();
+  var name = /* @__PURE__ */ t();
+  var typeName = /* @__PURE__ */ t(name);
+  var literal = /* @__PURE__ */ t();
+  var string = /* @__PURE__ */ t(literal);
+  var number = /* @__PURE__ */ t(literal);
+  var content = /* @__PURE__ */ t();
+  var heading = /* @__PURE__ */ t(content);
+  var keyword = /* @__PURE__ */ t();
+  var operator = /* @__PURE__ */ t();
+  var punctuation = /* @__PURE__ */ t();
+  var bracket = /* @__PURE__ */ t(punctuation);
+  var meta = /* @__PURE__ */ t();
   var tags = {
     comment,
-    lineComment: t(comment),
-    blockComment: t(comment),
-    docComment: t(comment),
+    lineComment: /* @__PURE__ */ t(comment),
+    blockComment: /* @__PURE__ */ t(comment),
+    docComment: /* @__PURE__ */ t(comment),
     name,
-    variableName: t(name),
+    variableName: /* @__PURE__ */ t(name),
     typeName,
-    tagName: t(typeName),
-    propertyName: t(name),
-    className: t(name),
-    labelName: t(name),
-    namespace: t(name),
-    macroName: t(name),
+    tagName: /* @__PURE__ */ t(typeName),
+    propertyName: /* @__PURE__ */ t(name),
+    className: /* @__PURE__ */ t(name),
+    labelName: /* @__PURE__ */ t(name),
+    namespace: /* @__PURE__ */ t(name),
+    macroName: /* @__PURE__ */ t(name),
     literal,
     string,
-    docString: t(string),
-    character: t(string),
+    docString: /* @__PURE__ */ t(string),
+    character: /* @__PURE__ */ t(string),
     number,
-    integer: t(number),
-    float: t(number),
-    bool: t(literal),
-    regexp: t(literal),
-    escape: t(literal),
-    color: t(literal),
-    url: t(literal),
+    integer: /* @__PURE__ */ t(number),
+    float: /* @__PURE__ */ t(number),
+    bool: /* @__PURE__ */ t(literal),
+    regexp: /* @__PURE__ */ t(literal),
+    escape: /* @__PURE__ */ t(literal),
+    color: /* @__PURE__ */ t(literal),
+    url: /* @__PURE__ */ t(literal),
     keyword,
-    self: t(keyword),
-    null: t(keyword),
-    atom: t(keyword),
-    unit: t(keyword),
-    modifier: t(keyword),
-    operatorKeyword: t(keyword),
-    controlKeyword: t(keyword),
-    definitionKeyword: t(keyword),
+    self: /* @__PURE__ */ t(keyword),
+    null: /* @__PURE__ */ t(keyword),
+    atom: /* @__PURE__ */ t(keyword),
+    unit: /* @__PURE__ */ t(keyword),
+    modifier: /* @__PURE__ */ t(keyword),
+    operatorKeyword: /* @__PURE__ */ t(keyword),
+    controlKeyword: /* @__PURE__ */ t(keyword),
+    definitionKeyword: /* @__PURE__ */ t(keyword),
     operator,
-    derefOperator: t(operator),
-    arithmeticOperator: t(operator),
-    logicOperator: t(operator),
-    bitwiseOperator: t(operator),
-    compareOperator: t(operator),
-    updateOperator: t(operator),
-    definitionOperator: t(operator),
-    typeOperator: t(operator),
-    controlOperator: t(operator),
+    derefOperator: /* @__PURE__ */ t(operator),
+    arithmeticOperator: /* @__PURE__ */ t(operator),
+    logicOperator: /* @__PURE__ */ t(operator),
+    bitwiseOperator: /* @__PURE__ */ t(operator),
+    compareOperator: /* @__PURE__ */ t(operator),
+    updateOperator: /* @__PURE__ */ t(operator),
+    definitionOperator: /* @__PURE__ */ t(operator),
+    typeOperator: /* @__PURE__ */ t(operator),
+    controlOperator: /* @__PURE__ */ t(operator),
     punctuation,
-    separator: t(punctuation),
+    separator: /* @__PURE__ */ t(punctuation),
     bracket,
-    angleBracket: t(bracket),
-    squareBracket: t(bracket),
-    paren: t(bracket),
-    brace: t(bracket),
+    angleBracket: /* @__PURE__ */ t(bracket),
+    squareBracket: /* @__PURE__ */ t(bracket),
+    paren: /* @__PURE__ */ t(bracket),
+    brace: /* @__PURE__ */ t(bracket),
     content,
     heading,
-    heading1: t(heading),
-    heading2: t(heading),
-    heading3: t(heading),
-    heading4: t(heading),
-    heading5: t(heading),
-    heading6: t(heading),
-    contentSeparator: t(content),
-    list: t(content),
-    quote: t(content),
-    emphasis: t(content),
-    strong: t(content),
-    link: t(content),
-    monospace: t(content),
-    inserted: t(),
-    deleted: t(),
-    changed: t(),
-    invalid: t(),
+    heading1: /* @__PURE__ */ t(heading),
+    heading2: /* @__PURE__ */ t(heading),
+    heading3: /* @__PURE__ */ t(heading),
+    heading4: /* @__PURE__ */ t(heading),
+    heading5: /* @__PURE__ */ t(heading),
+    heading6: /* @__PURE__ */ t(heading),
+    contentSeparator: /* @__PURE__ */ t(content),
+    list: /* @__PURE__ */ t(content),
+    quote: /* @__PURE__ */ t(content),
+    emphasis: /* @__PURE__ */ t(content),
+    strong: /* @__PURE__ */ t(content),
+    link: /* @__PURE__ */ t(content),
+    monospace: /* @__PURE__ */ t(content),
+    strikethrough: /* @__PURE__ */ t(content),
+    inserted: /* @__PURE__ */ t(),
+    deleted: /* @__PURE__ */ t(),
+    changed: /* @__PURE__ */ t(),
+    invalid: /* @__PURE__ */ t(),
     meta,
-    documentMeta: t(meta),
-    annotation: t(meta),
-    processingInstruction: t(meta),
-    definition: Tag.defineModifier(),
-    constant: Tag.defineModifier(),
-    function: Tag.defineModifier(),
-    standard: Tag.defineModifier(),
-    local: Tag.defineModifier(),
-    special: Tag.defineModifier()
+    documentMeta: /* @__PURE__ */ t(meta),
+    annotation: /* @__PURE__ */ t(meta),
+    processingInstruction: /* @__PURE__ */ t(meta),
+    definition: /* @__PURE__ */ Tag.defineModifier(),
+    constant: /* @__PURE__ */ Tag.defineModifier(),
+    function: /* @__PURE__ */ Tag.defineModifier(),
+    standard: /* @__PURE__ */ Tag.defineModifier(),
+    local: /* @__PURE__ */ Tag.defineModifier(),
+    special: /* @__PURE__ */ Tag.defineModifier()
   };
-  var defaultHighlightStyle = HighlightStyle.define([
+  var defaultHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
     {
       tag: tags.link,
       textDecoration: "underline"
@@ -10541,6 +10615,10 @@
       fontWeight: "bold"
     },
     {
+      tag: tags.strikethrough,
+      textDecoration: "line-through"
+    },
+    {
       tag: tags.keyword,
       color: "#708"
     },
@@ -10557,15 +10635,15 @@
       color: "#a11"
     },
     {
-      tag: [tags.regexp, tags.escape, tags.special(tags.string)],
+      tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)],
       color: "#e40"
     },
     {
-      tag: tags.definition(tags.variableName),
+      tag: /* @__PURE__ */ tags.definition(tags.variableName),
       color: "#00f"
     },
     {
-      tag: tags.local(tags.variableName),
+      tag: /* @__PURE__ */ tags.local(tags.variableName),
       color: "#30a"
     },
     {
@@ -10577,11 +10655,11 @@
       color: "#167"
     },
     {
-      tag: [tags.special(tags.variableName), tags.macroName],
+      tag: [/* @__PURE__ */ tags.special(tags.variableName), tags.macroName],
       color: "#256"
     },
     {
-      tag: tags.definition(tags.propertyName),
+      tag: /* @__PURE__ */ tags.definition(tags.propertyName),
       color: "#00c"
     },
     {
@@ -10597,7 +10675,7 @@
       color: "#f00"
     }
   ]);
-  var classHighlightStyle = HighlightStyle.define([
+  var classHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
     {tag: tags.link, class: "cmt-link"},
     {tag: tags.heading, class: "cmt-heading"},
     {tag: tags.emphasis, class: "cmt-emphasis"},
@@ -10612,11 +10690,11 @@
     {tag: tags.literal, class: "cmt-literal"},
     {tag: tags.string, class: "cmt-string"},
     {tag: tags.number, class: "cmt-number"},
-    {tag: [tags.regexp, tags.escape, tags.special(tags.string)], class: "cmt-string2"},
+    {tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)], class: "cmt-string2"},
     {tag: tags.variableName, class: "cmt-variableName"},
-    {tag: tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
-    {tag: tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
-    {tag: tags.special(tags.variableName), class: "cmt-variableName2"},
+    {tag: /* @__PURE__ */ tags.local(tags.variableName), class: "cmt-variableName cmt-local"},
+    {tag: /* @__PURE__ */ tags.definition(tags.variableName), class: "cmt-variableName cmt-definition"},
+    {tag: /* @__PURE__ */ tags.special(tags.variableName), class: "cmt-variableName2"},
     {tag: tags.typeName, class: "cmt-typeName"},
     {tag: tags.namespace, class: "cmt-namespace"},
     {tag: tags.macroName, class: "cmt-macroName"},
@@ -11166,7 +11244,6 @@
   var srcTokens;
   var match;
   var token;
-  var macros = new Map();
   var codePos;
   var lastLineIndex = 0;
   var prevCodePos;
@@ -11176,12 +11253,8 @@
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};
   }
-  var defaultNext = () => token = (match = srcTokens.next()).done ? "\n" : (prevCodePos = codePos, match.value[0] === "\n" ? lastLineIndex = match.value.index + 1 : codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length}, macros.has(match.value[0])) ? (insertTokens(macros.get(match.value[0])), next()) : match.value[0][0] === "#" ? next() : match.value[0];
+  var defaultNext = () => token = (match = srcTokens.next()).done ? "\n" : (prevCodePos = codePos, match.value[0] === "\n" ? lastLineIndex = match.value.index + 1 : codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length}, match.value[0][0] === "#" ? next() : match.value[0]);
   var next = defaultNext;
-  function insertTokens(tokens) {
-    let tokensCopy = [...tokens];
-    next = () => token = tokensCopy.shift() || (next = defaultNext)();
-  }
   function ungetToken() {
     let t2 = token, p = codePos, oldNext = next;
     codePos = prevCodePos;
@@ -11259,7 +11332,7 @@
     "sil",
     "dil"
   ].map((x, i) => ({[x]: i})));
-  var suffixes = {b: 8, w: 16, l: 32, d: 32, q: 64, t: 80};
+  var suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80};
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
@@ -11431,6 +11504,384 @@
     }
   }
 
+  // core/shuntingYard.js
+  var unaries = {
+    "+": (a) => a,
+    "-": (a) => -a,
+    "~": (a) => ~a,
+    "!": (a) => !a
+  };
+  var operators = [
+    {
+      "*": (a, b) => a * b,
+      "/": (a, b) => a / b,
+      "%": (a, b) => a % b,
+      "<<": (a, b) => a << b,
+      ">>": (a, b) => a >> b
+    },
+    {
+      "|": (a, b) => a | b,
+      "&": (a, b) => a & b,
+      "^": (a, b) => a ^ b,
+      "!": (a, b) => a | ~b
+    },
+    {
+      "+": (a, b) => a + b,
+      "-": (a, b) => a - b
+    },
+    {
+      "==": (a, b) => a == b ? -1 : 0,
+      "<>": (a, b) => a != b ? -1 : 0,
+      "!=": (a, b) => a != b ? -1 : 0,
+      "<": (a, b) => a < b ? -1 : 0,
+      ">": (a, b) => a > b ? -1 : 0,
+      ">=": (a, b) => a >= b ? -1 : 0,
+      "<=": (a, b) => a <= b ? -1 : 0
+    },
+    {"&&": (a, b) => a && b ? 1 : 0},
+    {"||": (a, b) => a || b ? 1 : 0}
+  ];
+  for (let i = 0; i < operators.length; i++) {
+    for (let op of Object.keys(operators[i])) {
+      operators[i][op] = {func: operators[i][op], prec: i};
+    }
+  }
+  operators = Object.assign({}, ...operators);
+  var stringEscapeSeqs = {
+    "a": "\x07",
+    "b": "\b",
+    "e": "",
+    "f": "\f",
+    "n": "\n",
+    "r": "\r",
+    "t": "	",
+    "v": "\v"
+  };
+  var unescapeString = (string2) => {
+    if (string2.length < 2 || string2[string2.length - 1] != string2[0])
+      throw new ParserError("Incomplete string");
+    string2 = string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, (x) => {
+      x = x.slice(1);
+      if (x == "")
+        throw new ParserError("Incomplete string");
+      if (x.match(/x[0-9a-f]{1,2}/i))
+        return String.fromCharCode(parseInt(x.slice(1), 16));
+      if (x.match(/u[0-9a-f]{1,8}/i)) {
+        try {
+          return String.fromCodePoint(parseInt(x.slice(1), 16));
+        } catch (e) {
+          return "";
+        }
+      }
+      if (x.match(/[0-7]{1,3}/))
+        return String.fromCharCode(parseInt(x, 8) & 255);
+      return stringEscapeSeqs[x] || x;
+    });
+    return string2;
+  };
+  function parseNumber(asFloat = false) {
+    let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
+    try {
+      if (token === "\n")
+        throw new ParserError("Expected value, got none");
+      if (token[0] === "'") {
+        let string2 = unescapeString(token);
+        let i = string2.length;
+        while (i--) {
+          value <<= asFloat ? 8 : 8n;
+          value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
+        }
+      } else if (isNaN(token)) {
+        if (token.length > 1 && !isNaN(token.slice(0, -1))) {
+          if (token.endsWith("d"))
+            floatPrec = 2, value = parseFloat(token);
+          else if (token.endsWith("f"))
+            floatPrec = 1, value = parseFloat(token);
+          else {
+            codePos.start += codePos.length - 1;
+            codePos.length = 1;
+            throw new ParserError("Invalid number suffix");
+          }
+        } else if (registers[token] !== void 0)
+          throw new ParserError("Registers must be prefixed with %");
+        else {
+          let symbol = {name: token, pos: codePos};
+          next();
+          return {value: symbol, floatPrec};
+        }
+      } else if (token.includes(".") || asFloat)
+        floatPrec = 1, value = parseFloat(token);
+      else
+        value = asFloat ? Number(token) : BigInt(token);
+      if (next() === "f")
+        floatPrec = 1, next();
+      else if (token === "d")
+        floatPrec = 2, next();
+      return {value, floatPrec};
+    } catch (e) {
+      if (e.pos === void 0)
+        throw new ParserError("Couldn't parse immediate: " + e);
+      throw e;
+    }
+  }
+  function LabelExpression(instr) {
+    let result = Object.create(Expression.prototype);
+    result.hasSymbols = true;
+    result.stack = [{name: ".", pos: null}];
+    result.floatPrec = 0;
+    instr.ipRelative = true;
+    return result;
+  }
+  function Expression(instr, minFloatPrec = 0, expectMemory = false) {
+    this.hasSymbols = false;
+    this.stack = [];
+    this.floatPrec = minFloatPrec;
+    let opStack = [], lastOp, lastWasNum = false;
+    if (!expectMemory)
+      next();
+    while (token !== "," && token !== "\n" && token !== ";") {
+      if (!lastWasNum && unaries.hasOwnProperty(token)) {
+        opStack.push({pos: codePos, func: unaries[token], prec: -1});
+        next();
+      } else if (operators.hasOwnProperty(token)) {
+        if (!lastWasNum) {
+          if (expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
+            break;
+          throw new ParserError("Missing left operand");
+        }
+        lastWasNum = false;
+        let op = Object.assign({pos: codePos}, operators[token]);
+        while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
+          this.stack.push(opStack.pop());
+        opStack.push(op);
+        next();
+      } else if (unaries.hasOwnProperty(token))
+        throw new ParserError("Unary operator can't be used here");
+      else if (token === "(") {
+        if (lastWasNum) {
+          if (expectMemory)
+            break;
+          throw new ParserError("Unexpected parenthesis");
+        }
+        opStack.push({pos: codePos, bracket: true});
+        next();
+      } else if (token === ")") {
+        if (!lastWasNum)
+          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+        while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
+          this.stack.push(opStack.pop());
+        if (!lastOp || !lastOp.bracket)
+          throw new ParserError("Mismatched parentheses");
+        opStack.pop();
+        lastWasNum = true;
+        next();
+      } else {
+        if (lastWasNum)
+          throw new ParserError("Unexpected value");
+        lastWasNum = true;
+        let imm = parseNumber(this.floatPrec !== 0);
+        if (imm.floatPrec > this.floatPrec)
+          this.floatPrec = imm.floatPrec;
+        let value = imm.value;
+        if (value.name) {
+          if (value.name === ".")
+            instr.ipRelative = true;
+          else if (symbols.has(value.name))
+            symbols.get(value.name).references.push(instr);
+          else
+            symbols.set(value.name, {
+              symbol: null,
+              references: [instr]
+            });
+          this.hasSymbols = true;
+        }
+        this.stack.push(value);
+      }
+    }
+    if (this.stack.length === 0 && !expectMemory)
+      throw new ParserError("Expected expression");
+    if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
+      ungetToken();
+      setToken("(");
+      return null;
+    } else if (!lastWasNum)
+      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+    while (opStack[0]) {
+      if (opStack[opStack.length - 1].bracket)
+        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+      this.stack.push(opStack.pop());
+    }
+    if (this.floatPrec !== 0)
+      this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
+  }
+  Expression.prototype.evaluate = function(currIndex, requireSymbols = false) {
+    if (this.stack.length === 0)
+      return null;
+    let stack = [], len = 0;
+    for (let op of this.stack) {
+      let func = op.func;
+      if (func) {
+        if (func.length === 1)
+          stack[len - 1] = func(stack[len - 1]);
+        else {
+          stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
+          len--;
+        }
+      } else {
+        if (op.name) {
+          if (op.name === ".")
+            op = BigInt(currIndex);
+          else {
+            let record = symbols.get(op.name);
+            if (record.symbol !== null && !record.symbol.error)
+              op = symbols.get(op.name).symbol.value;
+            else if (!requireSymbols)
+              op = 1n;
+            else
+              throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
+          }
+        }
+        stack[len++] = op;
+      }
+      if (this.floatPrec === 0)
+        stack[len - 1] = BigInt(stack[len - 1]);
+      else
+        stack[len - 1] = Number(stack[len - 1]);
+    }
+    if (stack.length > 1)
+      throw new ParserError("Invalid expression");
+    if (this.floatPrec === 0)
+      return stack[0];
+    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
+    floatVal[0] = Number(stack[0]);
+    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
+  };
+
+  // core/directives.js
+  var DIRECTIVE_BUFFER_SIZE = 15;
+  var encoder = new TextEncoder();
+  var dirs = {
+    byte: 1,
+    short: 2,
+    word: 2,
+    hword: 2,
+    int: 3,
+    long: 3,
+    quad: 4,
+    octa: 5,
+    float: 6,
+    single: 6,
+    double: 7,
+    asciz: 8,
+    ascii: 9,
+    string: 9
+  };
+  function Directive(address, dir) {
+    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
+    this.length = 0;
+    this.outline = null;
+    this.floatPrec = 0;
+    this.address = address;
+    let appendNullByte = 0;
+    try {
+      if (!dirs.hasOwnProperty(dir))
+        throw new ParserError("Unknown directive");
+      switch (dirs[dir]) {
+        case dirs.byte:
+          this.compileValues(1);
+          break;
+        case dirs.word:
+          this.compileValues(2);
+          break;
+        case dirs.int:
+          this.compileValues(4);
+          break;
+        case dirs.quad:
+          this.compileValues(8);
+          break;
+        case dirs.octa:
+          this.compileValues(16);
+          break;
+        case dirs.float:
+          this.floatPrec = 1;
+          this.compileValues(4);
+          break;
+        case dirs.double:
+          this.floatPrec = 2;
+          this.compileValues(8);
+          break;
+        case dirs.asciz:
+          appendNullByte = 1;
+        case dirs.ascii:
+          let strBytes, temp;
+          this.bytes = new Uint8Array();
+          do {
+            if (next()[0] === '"') {
+              strBytes = encoder.encode(unescapeString(token));
+              temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+              temp.set(this.bytes);
+              temp.set(strBytes, this.length);
+              this.bytes = temp;
+              this.length = temp.length;
+            } else
+              throw new ParserError("Expected string");
+          } while (next() === ",");
+          break;
+      }
+    } catch (e) {
+      this.error = e;
+      while (token !== ";" && token !== "\n")
+        next();
+    }
+  }
+  Directive.prototype.compileValues = function(valSize) {
+    this.valSize = valSize;
+    let value, expression, needsRecompilation = false;
+    this.outline = [];
+    try {
+      do {
+        expression = new Expression(this, this.floatPrec);
+        value = expression.evaluate(this.address);
+        if (expression.hasSymbols)
+          needsRecompilation = true;
+        this.outline.push({value, expression});
+        this.genValue(value);
+      } while (token === ",");
+    } finally {
+      if (!needsRecompilation)
+        this.outline = null;
+    }
+  };
+  Directive.prototype.recompile = function() {
+    let op, outlineLength = this.outline.length;
+    this.length = 0;
+    this.error = null;
+    for (let i = 0; i < outlineLength; i++) {
+      op = this.outline[i];
+      try {
+        if (op.expression.hasSymbols)
+          op.value = op.expression.evaluate(this.address + i * this.valSize, true);
+        this.genValue(op.value);
+      } catch (e) {
+        this.error = e;
+        outlineLength = i;
+        i = -1;
+        this.length = 0;
+      }
+    }
+  };
+  Directive.prototype.genValue = function(value) {
+    for (let i = 0; i < this.valSize; i++) {
+      this.bytes[this.length++] = Number(value & 0xffn);
+      value >>= 8n;
+      if (this.length === this.bytes.length) {
+        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
+        temp.set(this.bytes);
+        this.bytes = temp;
+      }
+    }
+  };
+
   // core/mnemonics.js
   var REG_MOD = -1;
   var REG_OP = -2;
@@ -11449,7 +11900,7 @@
     g: OPT.VMEM
   };
   var opCatcherCache = {};
-  var sizeIds = {b: 8, w: 16, l: 32, q: 64, t: 80, x: 128, y: 256, z: 512};
+  var sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
   var SIZETYPE_EXPLICITSUF = 1;
   var SIZETYPE_IMPLICITENC = 2;
   var EVEXPERM_MASK = 1;
@@ -13755,7 +14206,6 @@ g nle`.split("\n");
 
   // core/symbols.js
   var recompQueue = [];
-  var symbols = new Map();
   function Symbol2(address, name2, namePos, isLabel = false) {
     this.address = address;
     this.name = name2;
@@ -13811,390 +14261,18 @@ g nle`.split("\n");
     }
   };
 
-  // core/shuntingYard.js
-  var unaries = {
-    "+": (a) => a,
-    "-": (a) => -a,
-    "~": (a) => ~a,
-    "!": (a) => !a
-  };
-  var operators = [
-    {
-      "*": (a, b) => a * b,
-      "/": (a, b) => a / b,
-      "%": (a, b) => a % b,
-      "<<": (a, b) => a << b,
-      ">>": (a, b) => a >> b
-    },
-    {
-      "|": (a, b) => a | b,
-      "&": (a, b) => a & b,
-      "^": (a, b) => a ^ b,
-      "!": (a, b) => a | ~b
-    },
-    {
-      "+": (a, b) => a + b,
-      "-": (a, b) => a - b
-    },
-    {
-      "==": (a, b) => a == b ? -1 : 0,
-      "<>": (a, b) => a != b ? -1 : 0,
-      "!=": (a, b) => a != b ? -1 : 0,
-      "<": (a, b) => a < b ? -1 : 0,
-      ">": (a, b) => a > b ? -1 : 0,
-      ">=": (a, b) => a >= b ? -1 : 0,
-      "<=": (a, b) => a <= b ? -1 : 0
-    },
-    {"&&": (a, b) => a && b ? 1 : 0},
-    {"||": (a, b) => a || b ? 1 : 0}
-  ];
-  for (let i = 0; i < operators.length; i++) {
-    for (let op of Object.keys(operators[i])) {
-      operators[i][op] = {func: operators[i][op], prec: i};
-    }
-  }
-  operators = Object.assign({}, ...operators);
-  var stringEscapeSeqs = {
-    a: "\x07",
-    b: "\b",
-    e: "",
-    f: "\f",
-    n: "\n",
-    r: "\r",
-    t: "	",
-    v: "\v"
-  };
-  var unescapeString = (string2) => {
-    if (string2.length < 2 || string2[string2.length - 1] != string2[0])
-      throw new ParserError("Incomplete string");
-    string2 = string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, (x) => {
-      x = x.slice(1);
-      if (x == "")
-        throw new ParserError("Incomplete string");
-      if (x.match(/x[0-9a-f]{1,2}/i))
-        return String.fromCharCode(parseInt(x.slice(1), 16));
-      if (x.match(/u[0-9a-f]{1,8}/i)) {
-        try {
-          return String.fromCodePoint(parseInt(x.slice(1), 16));
-        } catch (e) {
-          return "";
-        }
-      }
-      if (x.match(/[0-7]{1,3}/))
-        return String.fromCharCode(parseInt(x, 8) & 255);
-      return stringEscapeSeqs[x] || x;
-    });
-    return string2;
-  };
-  function parseNumber(asFloat = false) {
-    let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
-    try {
-      if (token === "\n")
-        throw new ParserError("Expected value, got none");
-      if (token[0] === "'") {
-        let string2 = unescapeString(token);
-        let i = string2.length;
-        while (i--) {
-          value <<= asFloat ? 8 : 8n;
-          value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
-        }
-      } else if (isNaN(token)) {
-        if (token.length > 1 && !isNaN(token.slice(0, -1))) {
-          if (token.endsWith("d"))
-            floatPrec = 2, value = parseFloat(token);
-          else if (token.endsWith("f"))
-            floatPrec = 1, value = parseFloat(token);
-          else {
-            codePos.start += codePos.length - 1;
-            codePos.length = 1;
-            throw new ParserError("Invalid number suffix");
-          }
-        } else if (registers[token] !== void 0)
-          throw new ParserError("Registers must be prefixed with %");
-        else {
-          let symbol = {name: token, pos: codePos};
-          next();
-          return {value: symbol, floatPrec};
-        }
-      } else if (token.includes(".") || asFloat)
-        floatPrec = 1, value = parseFloat(token);
-      else
-        value = asFloat ? Number(token) : BigInt(token);
-      if (next() === "f")
-        floatPrec = 1, next();
-      else if (token === "d")
-        floatPrec = 2, next();
-      return {value, floatPrec};
-    } catch (e) {
-      if (e.pos === void 0)
-        throw new ParserError("Couldn't parse immediate: " + e);
-      throw e;
-    }
-  }
-  function LabelExpression(instr) {
-    let result = Object.create(Expression.prototype);
-    result.hasSymbols = true;
-    result.stack = [{name: ".", pos: null}];
-    result.floatPrec = 0;
-    instr.ipRelative = true;
-    return result;
-  }
-  function Expression(instr, minFloatPrec = 0, expectMemory = false) {
-    this.hasSymbols = false;
-    this.stack = [];
-    this.floatPrec = minFloatPrec;
-    let opStack = [], lastOp, lastWasNum = false;
-    if (!expectMemory)
-      next();
-    while (token !== "," && token !== "\n" && token !== ";") {
-      if (!lastWasNum && unaries.hasOwnProperty(token)) {
-        opStack.push({pos: codePos, func: unaries[token], prec: -1});
-        next();
-      } else if (operators.hasOwnProperty(token)) {
-        if (!lastWasNum) {
-          if (expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
-            break;
-          throw new ParserError("Missing left operand");
-        }
-        lastWasNum = false;
-        let op = Object.assign({pos: codePos}, operators[token]);
-        while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
-          this.stack.push(opStack.pop());
-        opStack.push(op);
-        next();
-      } else if (unaries.hasOwnProperty(token))
-        throw new ParserError("Unary operator can't be used here");
-      else if (token === "(") {
-        if (lastWasNum) {
-          if (expectMemory)
-            break;
-          throw new ParserError("Unexpected parenthesis");
-        }
-        opStack.push({pos: codePos, bracket: true});
-        next();
-      } else if (token === ")") {
-        if (!lastWasNum)
-          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
-        while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
-          this.stack.push(opStack.pop());
-        if (!lastOp || !lastOp.bracket)
-          throw new ParserError("Mismatched parentheses");
-        opStack.pop();
-        lastWasNum = true;
-        next();
-      } else {
-        if (lastWasNum)
-          throw new ParserError("Unexpected value");
-        lastWasNum = true;
-        let imm = parseNumber(this.floatPrec !== 0);
-        if (imm.floatPrec > this.floatPrec)
-          this.floatPrec = imm.floatPrec;
-        let value = imm.value;
-        if (value.name) {
-          if (value.name === ".")
-            instr.ipRelative = true;
-          else if (symbols.has(value.name))
-            symbols.get(value.name).references.push(instr);
-          else
-            symbols.set(value.name, {
-              symbol: null,
-              references: [instr]
-            });
-          this.hasSymbols = true;
-        }
-        this.stack.push(value);
-      }
-    }
-    if (this.stack.length === 0 && !expectMemory)
-      throw new ParserError("Expected expression");
-    if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
-      ungetToken();
-      setToken("(");
-      return null;
-    } else if (!lastWasNum)
-      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
-    while (opStack[0]) {
-      if (opStack[opStack.length - 1].bracket)
-        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
-      this.stack.push(opStack.pop());
-    }
-    if (this.floatPrec !== 0)
-      this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
-  }
-  Expression.prototype.evaluate = function(currIndex, requireSymbols = false) {
-    if (this.stack.length === 0)
-      return null;
-    let stack = [], len = 0;
-    for (let op of this.stack) {
-      let func = op.func;
-      if (func) {
-        if (func.length === 1)
-          stack[len - 1] = func(stack[len - 1]);
-        else {
-          stack.splice(len - 2, 2, func(stack[len - 2], stack[len - 1]));
-          len--;
-        }
-      } else {
-        if (op.name) {
-          if (op.name === ".")
-            op = BigInt(currIndex);
-          else {
-            let record = symbols.get(op.name);
-            if (record.symbol !== null && !record.symbol.error)
-              op = symbols.get(op.name).symbol.value;
-            else if (!requireSymbols)
-              op = 1n;
-            else
-              throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
-          }
-        }
-        stack[len++] = op;
-      }
-      if (this.floatPrec === 0)
-        stack[len - 1] = BigInt(stack[len - 1]);
-      else
-        stack[len - 1] = Number(stack[len - 1]);
-    }
-    if (stack.length > 1)
-      throw new ParserError("Invalid expression");
-    if (this.floatPrec === 0)
-      return stack[0];
-    let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
-    floatVal[0] = Number(stack[0]);
-    return new Uint8Array(floatVal.buffer).reduceRight((prev, val) => (prev << 8n) + BigInt(val), 0n);
-  };
-
-  // core/directives.js
-  var DIRECTIVE_BUFFER_SIZE = 15;
-  var encoder = new TextEncoder();
-  var dirs = {
-    byte: 1,
-    short: 2,
-    word: 2,
-    hword: 2,
-    int: 3,
-    long: 3,
-    quad: 4,
-    octa: 5,
-    float: 6,
-    single: 6,
-    double: 7,
-    asciz: 8,
-    ascii: 9,
-    string: 9
-  };
-  function Directive(address, dir) {
-    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
-    this.length = 0;
-    this.outline = null;
-    this.floatPrec = 0;
-    this.address = address;
-    let appendNullByte = 0;
-    try {
-      if (!dirs.hasOwnProperty(dir))
-        throw new ParserError("Unknown directive");
-      switch (dirs[dir]) {
-        case dirs.byte:
-          this.compileValues(1);
-          break;
-        case dirs.word:
-          this.compileValues(2);
-          break;
-        case dirs.int:
-          this.compileValues(4);
-          break;
-        case dirs.quad:
-          this.compileValues(8);
-          break;
-        case dirs.octa:
-          this.compileValues(16);
-          break;
-        case dirs.float:
-          this.floatPrec = 1;
-          this.compileValues(4);
-          break;
-        case dirs.double:
-          this.floatPrec = 2;
-          this.compileValues(8);
-          break;
-        case dirs.asciz:
-          appendNullByte = 1;
-        case dirs.ascii:
-          let strBytes, temp;
-          this.bytes = new Uint8Array();
-          do {
-            if (next()[0] === '"') {
-              strBytes = encoder.encode(unescapeString(token));
-              temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
-              temp.set(this.bytes);
-              temp.set(strBytes, this.length);
-              this.bytes = temp;
-              this.length = temp.length;
-            } else
-              throw new ParserError("Expected string");
-          } while (next() === ",");
-          break;
-      }
-    } catch (e) {
-      this.error = e;
-      while (token !== ";" && token !== "\n")
-        next();
-    }
-  }
-  Directive.prototype.compileValues = function(valSize) {
-    this.valSize = valSize;
-    let value, expression, needsRecompilation = false;
-    this.outline = [];
-    try {
-      do {
-        expression = new Expression(this, this.floatPrec);
-        value = expression.evaluate(this.address);
-        if (expression.hasSymbols)
-          needsRecompilation = true;
-        this.outline.push({value, expression});
-        this.genValue(value);
-      } while (token === ",");
-    } finally {
-      if (!needsRecompilation)
-        this.outline = null;
-    }
-  };
-  Directive.prototype.recompile = function() {
-    let op, outlineLength = this.outline.length;
-    this.length = 0;
-    this.error = null;
-    for (let i = 0; i < outlineLength; i++) {
-      op = this.outline[i];
-      try {
-        if (op.expression.hasSymbols)
-          op.value = op.expression.evaluate(this.address + i * this.valSize, true);
-        this.genValue(op.value);
-      } catch (e) {
-        this.error = e;
-        outlineLength = i;
-        i = -1;
-        this.length = 0;
-      }
-    }
-  };
-  Directive.prototype.genValue = function(value) {
-    for (let i = 0; i < this.valSize; i++) {
-      this.bytes[this.length++] = Number(value & 0xffn);
-      value >>= 8n;
-      if (this.length === this.bytes.length) {
-        let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
-        temp.set(this.bytes);
-        this.bytes = temp;
-      }
-    }
-  };
-
   // core/compiler.js
-  var baseAddr = 4194424;
   var lastInstr;
   var currLineArr;
   var currAddr;
   var linkedInstrQueue = [];
+  var symbols = null;
+  var baseAddr = 4194424;
+  function AssemblyState() {
+    this.symbols = new Map();
+    this.instructions = [];
+    this.bytes = 0;
+  }
   function addInstruction(instr) {
     if (lastInstr)
       lastInstr.next = instr;
@@ -14202,15 +14280,16 @@ g nle`.split("\n");
     lastInstr = instr;
     currAddr += instr.length;
   }
-  function compileAsm(source, instructions, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
+  AssemblyState.prototype.compile = function(source, {haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true} = {}) {
     let opcode, pos;
     lastInstr = null;
     currLineArr = [];
-    for (let i = 1; i < line && i <= instructions.length; i++)
-      for (lastInstr of instructions[i - 1])
+    symbols = this.symbols;
+    for (let i = 1; i < line && i <= this.instructions.length; i++)
+      for (lastInstr of this.instructions[i - 1])
         ;
     currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
-    let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
+    let removedInstrs = this.instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for (let removed of removedInstrs)
       for (let instr of removed) {
         if (instr.name && !instr.duplicate) {
@@ -14246,7 +14325,7 @@ g nle`.split("\n");
         }
         if (token === "\n") {
           if (!match.done)
-            instructions.splice(line++, 0, currLineArr = []);
+            this.instructions.splice(line++, 0, currLineArr = []);
         } else if (token !== ";")
           throw new ParserError("Expected end of line");
       } catch (e) {
@@ -14259,12 +14338,12 @@ g nle`.split("\n");
         while (token !== "\n" && token !== ";")
           next();
         if (token === "\n" && !match.done)
-          instructions.splice(line++, 0, currLineArr = []);
+          this.instructions.splice(line++, 0, currLineArr = []);
       }
     }
-    while (line < instructions.length) {
-      if (instructions[line].length > 0) {
-        let instr = instructions[line][0];
+    while (line < this.instructions.length) {
+      if (this.instructions[line].length > 0) {
+        let instr = this.instructions[line][0];
         if (lastInstr) {
           lastInstr.next = instr;
           linkedInstrQueue.push(lastInstr);
@@ -14277,13 +14356,12 @@ g nle`.split("\n");
       }
       line++;
     }
-    let bytes = 0;
     if (doSecondPass)
-      bytes = secondPass(instructions, haltOnError);
-    return {instructions, bytes};
-  }
-  function secondPass(instructions, haltOnError) {
+      this.secondPass(haltOnError);
+  };
+  AssemblyState.prototype.secondPass = function(haltOnError = false) {
     let currIndex = baseAddr, instr;
+    symbols = this.symbols;
     symbols.forEach((record, name2) => {
       record.references = record.references.filter((instr2) => !instr2.removed);
       if (record.symbol === null || record.symbol.error) {
@@ -14318,12 +14396,13 @@ g nle`.split("\n");
         instr = instr.next;
       } while (instr && instr.address != currIndex);
     }
-    for (let i = 0; i < instructions.length; i++) {
-      for (instr of instructions[i]) {
+    let haltingErrors = [];
+    for (let i = 0; i < this.instructions.length; i++) {
+      for (instr of this.instructions[i]) {
         let e = instr.error;
         if (e) {
           if (haltOnError)
-            throw `Error on line ${i + 1}: ${e.message}`;
+            haltingErrors.push(`Error on line ${i + 1}: ${e.message}`);
           if (e.pos == null || e.length == null) {
             console.error(`Error on line ${i + 1}:
 `, e);
@@ -14332,8 +14411,10 @@ g nle`.split("\n");
         }
       }
     }
-    return instr ? instr.address + instr.length - baseAddr : 0;
-  }
+    if (haltingErrors.length > 0)
+      throw haltingErrors.join("\n");
+    this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
+  };
 
   // codemirror/parser.terms.js
   var Opcode = 1;
@@ -14399,9 +14480,9 @@ g nle`.split("\n");
     constructor(view) {
       this.ctx = document.createElement("canvas").getContext("2d");
       this.lineWidths = [];
-      this.instrs = [];
-      let result = compileAsm(view.state.sliceDoc(), this.instrs);
-      view["asm-bytes"] = result.bytes;
+      this.state = new AssemblyState();
+      this.state.compile(view.state.sliceDoc());
+      view["asm-bytes"] = this.state.bytes;
       this.decorations = Decoration.set([]);
       setTimeout(() => {
         let style = window.getComputedStyle(view.contentDOM);
@@ -14426,9 +14507,10 @@ g nle`.split("\n");
         let line = doc2.lineAt(fromB);
         fromB = line.from;
         toB = doc2.lineAt(toB).to;
-        compileAsm(state.sliceDoc(fromB, toB), this.instrs, {line: line.number, linesRemoved: removedLines, doSecondPass: false});
+        this.state.compile(state.sliceDoc(fromB, toB), {line: line.number, linesRemoved: removedLines, doSecondPass: false});
       });
-      update.view["asm-bytes"] = secondPass(this.instrs);
+      this.state.secondPass();
+      update.view["asm-bytes"] = this.state.bytes;
       this.makeAsmDecorations(update.view);
     }
     updateWidths(from, to, removedLines, doc2) {
@@ -14443,13 +14525,14 @@ g nle`.split("\n");
       let doc2 = view.state.doc;
       let maxOffset2 = Math.max(...this.lineWidths) + 50;
       let widgets = [];
+      let instrs = this.state.instructions;
       let hasData;
       view["asm-errors"] = [];
-      for (let i = 0; i < this.instrs.length; i++) {
-        if (this.instrs[i].length == 0)
+      for (let i = 0; i < instrs.length; i++) {
+        if (instrs[i].length == 0)
           continue;
         hasData = false;
-        this.instrs[i].map((x) => {
+        instrs[i].map((x) => {
           let error = x.error;
           if (error) {
             let errorMark = Decoration.mark({
@@ -14466,7 +14549,7 @@ g nle`.split("\n");
         });
         if (hasData) {
           let deco = Decoration.widget({
-            widget: new AsmDumpWidget(this.instrs[i], maxOffset2 - this.lineWidths[i]),
+            widget: new AsmDumpWidget(instrs[i], maxOffset2 - this.lineWidths[i]),
             side: 1
           });
           widgets.push(deco.range(doc2.line(i + 1).to));
@@ -14977,7 +15060,7 @@ g nle`.split("\n");
     for (; ; ) {
       if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
         for (; ; ) {
-          if ((side < 0 ? cursor.to <= pos : cursor.from >= pos) && !cursor.type.isError)
+          if ((side < 0 ? cursor.to < pos : cursor.from > pos) && !cursor.type.isError)
             return side < 0 ? Math.max(0, Math.min(cursor.to - 1, pos - 5)) : Math.min(tree.length, Math.max(cursor.from + 1, pos + 5));
           if (side < 0 ? cursor.prevSibling() : cursor.nextSibling())
             break;
@@ -15756,7 +15839,7 @@ g nle`.split("\n");
     repeatNodeCount: 7,
     tokenData: "+t~RmYZ!|qr#Rrs#bst$Utu$auv$fvw&qwx&yxy'myz'rz{#]{|'w|}(O}!O'w!O!P(T!P!Q#]!Q!R)Z!R![(k![!]*X!]!^*^!^!_*c!_!`*q!`!a*y!c!}+U#Q#R#]#R#S+U#T#o+U#p#q+g#r#s+o~#ROy~U#YPrSnQ!_!`#]S#bOrS~#gU^~OY#bZr#brs#ys#O#b#O#P$O#P~#b~$OO^~~$RPO~#b~$ZQ`~OY$UZ~$U~$fOm~^$k]rSX^%dpq%d!c!}&`#R#S&`#T#o&`#y#z%d$f$g%d#BY#BZ%d$IS$I_%d$I|$JO%d$JT$JU%d$KV$KW%d&FU&FV%dY%g]X^%dpq%d!c!}&`#R#S&`#T#o&`#y#z%d$f$g%d#BY#BZ%d$IS$I_%d$I|$JO%d$JT$JU%d$KV$KW%d&FU&FV%dY&eSzY!Q![&`!c!}&`#R#S&`#T#o&`S&vPrSvw#]~'OUp~OY&yZw&ywx'bx#O&y#O#P'g#P~&y~'gOp~~'jPO~&y~'rOs~~'wOq~U(OOrSnQ~(TOu~Z([T[WoQ!O!P(k!Q![(k!c!}(x#R#S(x#T#o(xY(rQ[WoQ!O!P(k!Q![(kP(}S{P!Q![(x!c!}(x#R#S(x#T#o(xY)bR[WoQ!O!P(k!Q![(k#l#m)kY)nR!Q![)w!c!i)w#T#Z)wY*OR[WoQ!Q![)w!c!i)w#T#Z)w~*^Ok~~*cOx~S*hRrS!^!_#]!_!`#]!`!a#]T*vPwP!_!`#]S+OQrS!_!`#]!`!a#]~+ZSj~!Q![+U!c!}+U#R#S+U#T#o+US+lPrS#p#q#]Q+tOnQ",
     tokenizers: [0, 1, 2, 3],
-    topRules: {Program: [0, 5]},
+    topRules: {"Program": [0, 5]},
     specialized: [{term: 26, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 42, get: (value, stack) => isRegister(value, stack) << 1}, {term: 43, get: (value, stack) => isDirective(value, stack) << 1}],
     tokenPrec: 0
   });

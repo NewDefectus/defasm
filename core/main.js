@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import child_process from "child_process";
-import { compileAsm, baseAddr } from "./compiler.js";
+import { AssemblyState, baseAddr } from "./compiler.js";
 
 
 let args = process.argv.slice(2);
@@ -102,10 +102,11 @@ function assemble()
 
     try
     {
-        let results = compileAsm(code, [], { haltOnError: true });
-        bytes = results.bytes;
+        let state = new AssemblyState();
+        state.compile(code, { haltOnError: true });
+        bytes = state.bytes;
         writeSize(bytes);
-        instrLines = results.instructions;
+        instrLines = state.instructions;
     }
     catch(e)
     {

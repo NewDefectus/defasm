@@ -1,23 +1,9 @@
 import { Expression, LabelExpression } from "./shuntingYard.js";
-import { Instruction } from "./instructions.js";
 import { ParserError } from "./parser.js";
+import { symbols } from "./compiler.js";
 
 export var recompQueue = [];
 
-/**
- * @typedef {Object} SymbolRecord
- * @property {?Symbol} symbol The symbol instruction this record belongs to, if it exists
- * @property {Instruction[]} references List of instructions that reference this symbol
- */
-
-/** @type {Map<string, SymbolRecord>} */
-export var symbols = new Map();
-
-/**
- * @param {number} address 
- * @param {string} name 
- * @param {Expression} expression 
- */
 export function Symbol(address, name, namePos, isLabel = false)
 {
     this.address = address;

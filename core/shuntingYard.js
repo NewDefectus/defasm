@@ -1,6 +1,6 @@
 import { registers } from "./operands.js";
 import { codePos, next, ParserError, setToken, token, ungetToken } from "./parser.js";
-import { symbols } from "./symbols.js";
+import { symbols } from "./compiler.js";
 
 export var unaries = {
     '+': a=>a,

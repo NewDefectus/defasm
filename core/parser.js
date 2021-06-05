@@ -1,7 +1,6 @@
 var srcTokens;
 export var match;
 export var token;
-export var macros = new Map();
 export var codePos;
 var lastLineIndex = 0;
 
@@ -21,17 +20,9 @@ var defaultNext = () =>
     match.value[0] === '\n' ?
         lastLineIndex = match.value.index + 1 :
         codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
-    macros.has(match.value[0])) ?
-        (insertTokens(macros.get(match.value[0])), next())
-    :  match.value[0][0] === '#' ? next() : match.value[0];
+    match.value[0][0] === '#' ? next() : match.value[0]);
 
 export var next = defaultNext;
-
-function insertTokens(tokens)
-{
-    let tokensCopy = [...tokens];
-    next = () => token = tokensCopy.shift() || (next = defaultNext)();
-}
 
 // Highly unhygienic. You shouldn't put the token back on the stack after you touched it.
 // I recommend washing your hands after you use this thing.

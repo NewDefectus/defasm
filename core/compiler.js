@@ -1,12 +1,32 @@
-import { token, next, match, loadCode, macros, ParserError, codePos } from "./parser.js";
+import { token, next, match, loadCode, ParserError, codePos } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
-import { Symbol, symbols, recompQueue } from "./symbols.js";
-
-export const baseAddr = 0x400078;
+import { Symbol, recompQueue } from "./symbols.js";
 
 var lastInstr, currLineArr, currAddr;
 var linkedInstrQueue = [];
+
+/**
+ * @typedef {Object} SymbolRecord
+ * @property {?Symbol} symbol The symbol instruction this record belongs to, if it exists
+ * @property {Instruction[]} references List of instructions that reference this symbol
+ */
+
+/** @type {Map<string, SymbolRecord>} */
+export var symbols = null;
+
+export const baseAddr = 0x400078;
+
+export function AssemblyState()
+{
+    /** @type {Map<string, SymbolRecord>} */
+    this.symbols = new Map();
+
+    /** @type {Instruction[][]} */
+    this.instructions = [];
+
+    this.bytes = 0;
+}
 
 function addInstruction(instr)
 {
@@ -18,18 +38,19 @@ function addInstruction(instr)
 }
 
 // Compile Assembly from source code into machine code
-export function compileAsm(source, instructions, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
+AssemblyState.prototype.compile = function(source, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
 {
     let opcode, pos;
     lastInstr = null; currLineArr = [];
+    symbols = this.symbols;
 
-    for(let i = 1; i < line && i <= instructions.length; i++)
-        for(lastInstr of instructions[i - 1]);
+    for(let i = 1; i < line && i <= this.instructions.length; i++)
+        for(lastInstr of this.instructions[i - 1]);
 
     currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
 
     // Remove instructions that were replaced
-    let removedInstrs = instructions.splice(line - 1, linesRemoved + 1, currLineArr);
+    let removedInstrs = this.instructions.splice(line - 1, linesRemoved + 1, currLineArr);
     for(let removed of removedInstrs)
         for(let instr of removed)
         {
@@ -77,7 +98,7 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
 
             if(token === '\n')
             {
-                if(!match.done) instructions.splice(line++, 0, currLineArr = []);
+                if(!match.done) this.instructions.splice(line++, 0, currLineArr = []);
             }
             else if(token !== ';') throw new ParserError("Expected end of line");
         }
@@ -90,15 +111,15 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
             else
                 addInstruction({length: 0, bytes: new Uint8Array(), error: e, address: currAddr });
             while(token !== '\n' && token !== ';') next();
-            if(token === '\n' && !match.done) instructions.splice(line++, 0, currLineArr = []);
+            if(token === '\n' && !match.done) this.instructions.splice(line++, 0, currLineArr = []);
         }
     }
 
-    while(line < instructions.length)
+    while(line < this.instructions.length)
     {
-        if(instructions[line].length > 0)
+        if(this.instructions[line].length > 0)
         {
-            let instr = instructions[line][0];
+            let instr = this.instructions[line][0];
             if(lastInstr)
             {
                 lastInstr.next = instr;
@@ -115,15 +136,15 @@ export function compileAsm(source, instructions, { haltOnError = false, line = 1
         line++;
     }
 
-    let bytes = 0;
-    if(doSecondPass) bytes = secondPass(instructions, haltOnError);
-    return { instructions, bytes };
+    if(doSecondPass)
+        this.secondPass(haltOnError);
 }
 
 // Run the second pass on the instruction list
-export function secondPass(instructions, haltOnError)
+AssemblyState.prototype.secondPass = function(haltOnError = false)
 {
     let currIndex = baseAddr, instr;
+    symbols = this.symbols;
 
     symbols.forEach((record, name) => {
         record.references = record.references.filter(instr => !instr.removed);
@@ -173,14 +194,16 @@ export function secondPass(instructions, haltOnError)
     }
 
     // Error collection
-    for(let i = 0; i < instructions.length; i++)
+    let haltingErrors = [];
+    for(let i = 0; i < this.instructions.length; i++)
     {
-        for(instr of instructions[i])
+        for(instr of this.instructions[i])
         {
             let e = instr.error;
             if(e)
             {
-                if(haltOnError) throw `Error on line ${i + 1}: ${e.message}`;
+                if(haltOnError)
+                    haltingErrors.push(`Error on line ${i + 1}: ${e.message}`);
 
                 /* Errors whose pos can't be determined should be logged,
                 not marked (these are usually internal compiler errors) */
@@ -192,6 +215,9 @@ export function secondPass(instructions, haltOnError)
             }
         }
     }
+
+    if(haltingErrors.length > 0)
+        throw haltingErrors.join('\n');
     
-    return instr ? instr.address + instr.length - baseAddr : 0;
+    this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
 }

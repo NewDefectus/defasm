@@ -6,7 +6,7 @@ main {
     grid-template-rows: 5em max-content;
 }
 
-h1 {
+header {
     font-family:monospace;
     font-weight:normal;
     font-size: 4.5em;

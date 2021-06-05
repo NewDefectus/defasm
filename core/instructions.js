@@ -4,6 +4,7 @@ import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PRE
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
+import { symbols } from "./compiler.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -174,6 +175,7 @@ Instruction.prototype.interpret = function()
     this.endPos = codePos;
 
     this.removed = false; // Interpreting was successful, so don't mark as removed
+
     try
     {
         this.compile();
