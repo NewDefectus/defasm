@@ -141,6 +141,21 @@ function OpCatcher(format)
     }
 }
 
+OpCatcher.prototype.matchType = function(operand)
+{
+    // Check that the types match
+    if(operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory))
+        return false;
+
+    // In case of implicit operands, check that the values match
+    if(this.implicitValue !== null)
+    {
+        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
+        if(this.implicitValue !== opValue) return false;
+    }
+    return true;
+}
+
 /** Attempt to "catch" a given operand.
  * @param {Operand} operand
  * @param {number} prevSize
@@ -149,21 +164,14 @@ function OpCatcher(format)
  */
 OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
 {
-    // Check that the types match
-    if(operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory)) return null;
+    if(!this.matchType(operand))
+        return null;
 
     // Check that the sizes match
     let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM) opSize = enforcedSize;
-
-    // In case of implicit operands, check that the values match
-    if(this.implicitValue !== null)
-    {
-        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
-        if(this.implicitValue !== opValue) return null;
-    }
 
     if(isNaN(opSize))
     {
@@ -332,6 +340,29 @@ export function Operation(format)
     }
 }
 
+Operation.prototype.validateVEX = function(vexInfo)
+{
+    if(vexInfo.needed)
+    {
+        if(this.actuallyNotVex) vexInfo.needed = false;
+        else if(!this.allowVex) return false;
+        if(vexInfo.evex)
+        {
+            if(this.actuallyNotVex) return false;
+            if(this.evexPermits === null) return false;
+            if(!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0) return false;
+            if(!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== false) return false;
+            if(!(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0) return false;
+            if(!(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0) return false;
+            if(!(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing) return false;
+        }
+        else if(this.evexPermits & EVEXPERM_FORCE) vexInfo.evex = true;
+    }
+    else if(this.vexOnly) return false;
+    else if(this.evexPermits & EVEXPERM_FORCE) return false;
+    return true;
+}
+
 /**
  * @typedef {Object} vexData
  * @property {boolean} needed
@@ -351,25 +382,10 @@ export function Operation(format)
  */
 Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
 {
+    if(!this.validateVEX(vexInfo))
+        return null;
+
     let ipRelative = false;
-    if(vexInfo.needed)
-    {
-        if(this.actuallyNotVex) vexInfo.needed = false;
-        else if(!this.allowVex) return null;
-        if(vexInfo.evex)
-        {
-            if(this.actuallyNotVex) return null;
-            if(this.evexPermits === null) return null;
-            if(!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0) return null;
-            if(!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null) return null;
-            if(!(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0) return null;
-            if(!(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0) return null;
-            if(!(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing) return null;
-        }
-        else if(this.evexPermits & EVEXPERM_FORCE) vexInfo.evex = true;
-    }
-    else if(this.vexOnly) return null;
-    else if(this.evexPermits & EVEXPERM_FORCE) return null;
 
     let adjustByteOp = false, overallSize = 0, rexw = false;
 
@@ -619,4 +635,22 @@ Operation.prototype.generateRelative = function(operand, address)
         operand.virtualSize = small;
         operand.virtualValue = target - smallLen;
     }
+}
+
+/* Check if a list of operands has the right types for this operation */
+Operation.prototype.matchTypes = function(operands, vexInfo)
+{
+    if(!this.validateVEX(vexInfo))
+        return false;
+
+    let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
+    if(operands.length != opCatchers.length)
+        return false;
+
+    for(let i = 0; i < operands.length; i++)
+    {
+        if(!opCatchers[i].matchType(operands[i]))
+            return false;
+    }
+    return true;
 }

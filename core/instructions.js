@@ -4,7 +4,6 @@ import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PRE
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
-import { symbols } from "./compiler.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -208,11 +207,10 @@ Instruction.prototype.compile = function()
     }
 
     // Now, we'll find the matching operation for this operand list
-    let op, found = false, rexVal = 0x40, couldveBeenVex = false;
+    let op, found = false, rexVal = 0x40;
     
     for(let operation of operations)
     {
-        couldveBeenVex = couldveBeenVex || operation.allowVex;
         op = operation.fit(operands, this.address, enforcedSize, vexInfo);
         if(op !== null)
         {
@@ -223,9 +221,42 @@ Instruction.prototype.compile = function()
 
     if(!found)
     {
+        // Try to find why the error occurred
+        let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
+        let errorPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
+        let firstOrderPossible = false, secondOrderPossible = false;
+
+        for(let operation of operations)
+        {
+            couldveBeenVex = couldveBeenVex || operation.allowVex;
+            if(vexInfo.needed && !operation.allowVex)
+                continue;
+
+            let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
+            if(opCount > maxOperandCount)
+                maxOperandCount = opCount;
+            if(opCount < minOperandCount)
+                minOperandCount = opCount;
+
+            firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
+            operands.reverse();
+            secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
+            operands.reverse();
+        }
+
         if(vexInfo.needed && !couldveBeenVex)
             throw new ParserError("Unknown opcode", this.opcodePos);
-        throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
+
+        if(operands.length < minOperandCount)
+            throw new ParserError("Not enough operands", errorPos, this.endPos);
+        
+        if(operands.length > maxOperandCount)
+            throw new ParserError("Too many operands", errorPos, this.endPos);
+        
+        if(!firstOrderPossible && secondOrderPossible)
+            throw new ParserError("Wrong operand order", errorPos, this.endPos);
+        
+        throw new ParserError("Invalid operands", errorPos, this.endPos);
     }
 
     // Operation may be IP-relative (e.g. "call 5" needs the current IP)

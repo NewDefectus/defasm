@@ -41,7 +41,10 @@ function addInstruction(instr)
 AssemblyState.prototype.compile = function(source, { haltOnError = false, line = null, linesRemoved = 1, doSecondPass = true } = {})
 {
     if(line === null)
+    {
         linesRemoved = Infinity;
+        line = 1;
+    }
     else if(line < 1)
         throw "Invalid line";
     

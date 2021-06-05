@@ -11929,18 +11929,23 @@
         this.sizes = -1;
     }
   }
-  OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
+  OpCatcher.prototype.matchType = function(operand) {
     if (operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory))
+      return false;
+    if (this.implicitValue !== null) {
+      let opValue = operand.type === OPT.IMM ? Number(operand.value) : operand.reg;
+      if (this.implicitValue !== opValue)
+        return false;
+    }
+    return true;
+  };
+  OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
+    if (!this.matchType(operand))
       return null;
     let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     if (enforcedSize > 0 && operand.type >= OPT.IMM)
       opSize = enforcedSize;
-    if (this.implicitValue !== null) {
-      let opValue = operand.type === OPT.IMM ? Number(operand.value) : operand.reg;
-      if (this.implicitValue !== opValue)
-        return null;
-    }
     if (isNaN(opSize)) {
       if (this.defSize > 0)
         return this.defSize;
@@ -12074,34 +12079,39 @@
       this.vexBase |= 30720 | [15, 3896, 3898].indexOf(this.code >> 8) + 1 | [null, 102, 243, 242].indexOf(this.prefix) << 8;
     }
   }
-  Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo) {
-    let ipRelative = false;
+  Operation.prototype.validateVEX = function(vexInfo) {
     if (vexInfo.needed) {
       if (this.actuallyNotVex)
         vexInfo.needed = false;
       else if (!this.allowVex)
-        return null;
+        return false;
       if (vexInfo.evex) {
         if (this.actuallyNotVex)
-          return null;
+          return false;
         if (this.evexPermits === null)
-          return null;
+          return false;
         if (!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0)
-          return null;
-        if (!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null)
-          return null;
+          return false;
+        if (!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== false)
+          return false;
         if (!(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0)
-          return null;
+          return false;
         if (!(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0)
-          return null;
+          return false;
         if (!(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing)
-          return null;
+          return false;
       } else if (this.evexPermits & EVEXPERM_FORCE)
         vexInfo.evex = true;
     } else if (this.vexOnly)
-      return null;
+      return false;
     else if (this.evexPermits & EVEXPERM_FORCE)
+      return false;
+    return true;
+  };
+  Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo) {
+    if (!this.validateVEX(vexInfo))
       return null;
+    let ipRelative = false;
     let adjustByteOp = false, overallSize = 0, rexw = false;
     if (this.relativeSizes) {
       if (!(operands.length === 1 && operands[0].type === OPT.REL))
@@ -12314,6 +12324,18 @@
       operand.virtualSize = small;
       operand.virtualValue = target - smallLen;
     }
+  };
+  Operation.prototype.matchTypes = function(operands, vexInfo) {
+    if (!this.validateVEX(vexInfo))
+      return false;
+    let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
+    if (operands.length != opCatchers.length)
+      return false;
+    for (let i = 0; i < operands.length; i++) {
+      if (!opCatchers[i].matchType(operands[i]))
+        return false;
+    }
+    return true;
   };
 
   // core/mnemonicList.js
@@ -13989,9 +14011,8 @@ g nle`.split("\n");
         }
       }
     }
-    let op, found = false, rexVal = 64, couldveBeenVex = false;
+    let op, found = false, rexVal = 64;
     for (let operation of operations) {
-      couldveBeenVex = couldveBeenVex || operation.allowVex;
       op = operation.fit(operands, this.address, enforcedSize, vexInfo);
       if (op !== null) {
         found = true;
@@ -13999,9 +14020,32 @@ g nle`.split("\n");
       }
     }
     if (!found) {
+      let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
+      let errorPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
+      let firstOrderPossible = false, secondOrderPossible = false;
+      for (let operation of operations) {
+        couldveBeenVex = couldveBeenVex || operation.allowVex;
+        if (vexInfo.needed && !operation.allowVex)
+          continue;
+        let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
+        if (opCount > maxOperandCount)
+          maxOperandCount = opCount;
+        if (opCount < minOperandCount)
+          minOperandCount = opCount;
+        firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
+        operands.reverse();
+        secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
+        operands.reverse();
+      }
       if (vexInfo.needed && !couldveBeenVex)
         throw new ParserError("Unknown opcode", this.opcodePos);
-      throw new ParserError("Invalid operands", operands.length > 0 ? operands[0].startPos : this.opcodePos, this.endPos);
+      if (operands.length < minOperandCount)
+        throw new ParserError("Not enough operands", errorPos, this.endPos);
+      if (operands.length > maxOperandCount)
+        throw new ParserError("Too many operands", errorPos, this.endPos);
+      if (!firstOrderPossible && secondOrderPossible)
+        throw new ParserError("Wrong operand order", errorPos, this.endPos);
+      throw new ParserError("Invalid operands", errorPos, this.endPos);
     }
     this.ipRelative = this.ipRelative || op.ipRelative;
     if (op.rexw)
@@ -14203,9 +14247,10 @@ g nle`.split("\n");
     currAddr += instr.length;
   }
   AssemblyState.prototype.compile = function(source, {haltOnError = false, line = null, linesRemoved = 1, doSecondPass = true} = {}) {
-    if (line === null)
+    if (line === null) {
       linesRemoved = Infinity;
-    else if (line < 1)
+      line = 1;
+    } else if (line < 1)
       throw "Invalid line";
     if (linesRemoved < 1)
       throw "linesRemoved must be positive";
