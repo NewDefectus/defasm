@@ -4,6 +4,8 @@ import fs from "fs";
 import child_process from "child_process";
 import { AssemblyState, baseAddr } from "./compiler.js";
 
+export { AssemblyState };
+
 
 let args = process.argv.slice(2);
 let code = undefined;

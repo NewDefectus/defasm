@@ -13,7 +13,7 @@ var editor = new EditorView({
     dispatch: tr => {
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
         let result = editor.update([tr]);
-        byteCount.innerText = `${editor['asm-bytes']} byte${editor['asm-bytes'] != 1 ? 's' : ''}`;
+        byteCount.innerText = `${asmState.bytes} byte${asmState.bytes != 1 ? 's' : ''}`;
         return result;
     },
     parent: document.getElementById("inputAreaContainer"),
@@ -29,6 +29,8 @@ var editor = new EditorView({
         ]
     })
 });
+
+var asmState = editor['asm-state'];
 
 editor.contentDOM.setAttribute("data-gramm", "false"); // Disable Grammarly
 

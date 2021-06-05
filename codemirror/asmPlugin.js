@@ -5,7 +5,7 @@ import { AssemblyState }       from '@defasm/core/compiler.js';
 import { mnemonics }           from '@defasm/core/mnemonicList.js';
 import { registers, suffixes } from '@defasm/core/operands.js';
 import { prefixes }            from '@defasm/core/instructions.js';
-import { dirs }                from '@defasm/core/directives.js';
+import { directives }          from '@defasm/core/directives.js';
 
 import * as Terms from './parser.terms.js';
 
@@ -91,7 +91,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         this.state      = new AssemblyState();
 
         this.state.compile(view.state.sliceDoc());
-        view['asm-bytes'] = this.state.bytes;
+        view['asm-state'] = this.state;
         this.decorations = Decoration.set([]);
 
         // This timeout is required to let the content DOM's style be calculated
@@ -146,7 +146,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
                 let removedLines =
                     update.startState.doc.lineAt(toA).number
                     -
-                    update.startState.doc.lineAt(fromA).number;
+                    update.startState.doc.lineAt(fromA).number + 1;
                 let line = doc.lineAt(fromB);
                 fromB = line.from;
                 toB = doc.lineAt(toB).to;
@@ -155,7 +155,6 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         );
 
         this.state.secondPass();
-        update.view['asm-bytes'] = this.state.bytes;
         this.makeAsmDecorations(update.view);
     }
 
@@ -264,5 +263,5 @@ export function isRegister(reg)
 
 export function isDirective(dir)
 {
-    return dirs.hasOwnProperty(dir.slice(1)) ? Terms.Directive : -1;
+    return directives.hasOwnProperty(dir.slice(1)) ? Terms.Directive : -1;
 }

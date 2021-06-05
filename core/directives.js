@@ -7,7 +7,7 @@ import { Expression, unescapeString } from "./shuntingYard.js";
 const DIRECTIVE_BUFFER_SIZE = 15;
 const encoder = new TextEncoder();
 
-export const dirs = {
+export const directives = {
     byte:   1,
     short:  2,
     word:   2, // .word = .short
@@ -36,22 +36,22 @@ export function Directive(address, dir)
 
     try
     {
-        if(!dirs.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
-        switch(dirs[dir])
+        if(!directives.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
+        switch(directives[dir])
         {
-            case dirs.byte:     this.compileValues(1); break;
-            case dirs.word:     this.compileValues(2); break;
-            case dirs.int:      this.compileValues(4); break;
-            case dirs.quad:     this.compileValues(8); break;
-            case dirs.octa:     this.compileValues(16); break;
+            case directives.byte:     this.compileValues(1); break;
+            case directives.word:     this.compileValues(2); break;
+            case directives.int:      this.compileValues(4); break;
+            case directives.quad:     this.compileValues(8); break;
+            case directives.octa:     this.compileValues(16); break;
 
 
-            case dirs.float:    this.floatPrec = 1; this.compileValues(4); break;
-            case dirs.double:   this.floatPrec = 2; this.compileValues(8); break;
+            case directives.float:    this.floatPrec = 1; this.compileValues(4); break;
+            case directives.double:   this.floatPrec = 2; this.compileValues(8); break;
 
-            case dirs.asciz:
+            case directives.asciz:
                 appendNullByte = 1;
-            case dirs.ascii:
+            case directives.ascii:
                 let strBytes, temp;
                 this.bytes = new Uint8Array();
                 do

@@ -38,8 +38,16 @@ function addInstruction(instr)
 }
 
 // Compile Assembly from source code into machine code
-AssemblyState.prototype.compile = function(source, { haltOnError = false, line = 1, linesRemoved = 0, doSecondPass = true } = {})
+AssemblyState.prototype.compile = function(source, { haltOnError = false, line = null, linesRemoved = 1, doSecondPass = true } = {})
 {
+    if(line === null)
+        linesRemoved = Infinity;
+    else if(line < 1)
+        throw "Invalid line";
+    
+    if(linesRemoved < 1)
+        throw "linesRemoved must be positive";
+    
     let opcode, pos;
     lastInstr = null; currLineArr = [];
     symbols = this.symbols;
@@ -49,8 +57,13 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
 
     currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
 
+
+    // Make sure the instruction array reaches the given line
+    for(let i = this.instructions.length; i < line - 1; i++)
+        this.instructions[i] = [];
+
     // Remove instructions that were replaced
-    let removedInstrs = this.instructions.splice(line - 1, linesRemoved + 1, currLineArr);
+    let removedInstrs = this.instructions.splice(line - 1, linesRemoved, currLineArr);
     for(let removed of removedInstrs)
         for(let instr of removed)
         {
@@ -104,8 +117,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
         }
         catch(e)
         {
-            // In case of an error, just skip the current instruction and go on.
-            if(haltOnError) throw `Error on line ${line}: ${e.message}`;
+            if(haltOnError && !doSecondPass) throw `Error on line ${line}: ${e.message}`;
             if(e.pos == null || e.length == null)
                 console.error("Error on line " + line + ":\n", e);
             else
@@ -220,4 +232,18 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
         throw haltingErrors.join('\n');
     
     this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
+}
+
+AssemblyState.prototype.dump = function()
+{
+    let output = Buffer.alloc(this.bytes), i = 0;
+    for(let instrLine of this.instructions)
+    {
+        for(let instr of instrLine)
+        {
+            for(let j = 0; j < instr.length; j++)
+                output[i++] = instr.bytes[j];
+        }
+    }
+    return output;
 }
