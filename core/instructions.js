@@ -110,11 +110,19 @@ Instruction.prototype.interpret = function()
     // An optional "pseudo-operand" for rounding semantics may appear at the start
     if(token === '{')
     {
+        let roundingName = "", roundStart = codePos;
         vexInfo.evex = true;
-        vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
-        vexInfo.roundingPos = codePos;
-        if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode");
-        if(next() !== '}') throw new ParserError("Expected '}'");
+
+        while(next() !== '}')
+        {
+            if(token === '\n')
+                throw new ParserError("Expected '}'")
+            roundingName += token;
+        }
+
+        vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
+        vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
+        if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
         if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
     }
 

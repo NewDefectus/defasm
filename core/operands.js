@@ -81,7 +81,8 @@ export function parseRegister(expectedType = null)
     }
     else if(reg === registers.rip || reg === registers.eip)
     {
-        if(expectedType == null || !expectedType.includes(OPT.IP)) throw new ParserError("Can't use RIP here");
+        if(expectedType == null || !expectedType.includes(OPT.IP))
+            throw new ParserError(`Can't use %${reg === registers.eip ? 'e' : 'r'}ip here`);
         type = OPT.IP;
         size = reg == registers.eip ? 32 : 64;
         reg = 0;

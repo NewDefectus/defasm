@@ -11170,7 +11170,7 @@
   var lastLineIndex = 0;
   var prevCodePos;
   function loadCode(code) {
-    srcTokens = code.matchAll(/(["'])(\\.|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
+    srcTokens = code.matchAll(/(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
     next = defaultNext;
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};
@@ -11293,7 +11293,7 @@
         ungetToken();
     } else if (reg === registers.rip || reg === registers.eip) {
       if (expectedType == null || !expectedType.includes(OPT.IP))
-        throw new ParserError("Can't use RIP here");
+        throw new ParserError(`Can't use %${reg === registers.eip ? "e" : "r"}ip here`);
       type = OPT.IP;
       size = reg == registers.eip ? 32 : 64;
       reg = 0;
@@ -12092,7 +12092,7 @@
           return false;
         if (!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0)
           return false;
-        if (!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== false)
+        if (!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null)
           return false;
         if (!(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0)
           return false;
@@ -12886,8 +12886,8 @@ movupd
 66)0F11 Vxyz v > {kzw
 
 movups
-0F10 v Vxy > {kz
-0F11 Vxy v > {kz
+0F10 v Vxyz > {kz
+0F11 Vxyz v > {kz
 
 movzx:0FB6 rb$w Rwlq
 mpsadbw:66)0F3A42 ib v >V Vxy
@@ -13933,13 +13933,17 @@ g nle`.split("\n");
         mnemonics[opcode] = operations = operations.map((line) => new Operation(line.split(" ")));
     }
     if (token === "{") {
+      let roundingName = "", roundStart = codePos;
       vexInfo.evex = true;
-      vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(next());
-      vexInfo.roundingPos = codePos;
+      while (next() !== "}") {
+        if (token === "\n")
+          throw new ParserError("Expected '}'");
+        roundingName += token;
+      }
+      vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
+      vexInfo.roundingPos = {start: roundStart.start, length: codePos.start + codePos.length - roundStart.start};
       if (vexInfo.round < 0)
-        throw new ParserError("Invalid rounding mode");
-      if (next() !== "}")
-        throw new ParserError("Expected '}'");
+        throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
       if (next() === ",")
         next();
     }
@@ -15814,17 +15818,17 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = Parser.deserialize({
     version: 13,
-    states: "*UOQOPOOOiOPO'#CbOOOO'#Cn'#CnOqOPO'#CcO!POQO'#CcO!nOQO'#CiOOOO'#Cu'#CuO#VOPO'#CuOOOO'#Cm'#CmQQOPOOOOOO,58|,58|O#_OQO,59VOOOO-E6l-E6lO!POQO,58}OOOO'#Co'#CoO#mOQO'#CgO#_OQO'#CdO#{OSO'#CgO$aOPO'#CfO$oOWO'#CfO$zOPO'#CxOOOO,58},58}O%VOQO'#CeO%eOSO'#CeO%vOPO'#DSOOOO,59T,59TOOOO,59a,59aOOOO-E6k-E6kOOOO1G.q1G.qOOOO1G.i1G.iOOOO-E6m-E6mO&ROSO,59ROOOO,59O,59OOOOO'#Cp'#CpO&ROSO,59RO&gOQO,59RO$oOWO,59QO&uOPO'#DQO&}OPO,59QO'SOQO'#CrO'tOPO,59dO(POSO,59PO(POSO,59PO#_OQO,59PO(bOQO'#CsO(|OPO,59nO)XOSO1G.mO&gOQO1G.mOOOO-E6n-E6nOOOO1G.m1G.mO)mOPO1G.lO)rOWO'#CqO*QOPO,59lOOOO1G.l1G.lOOOO,59^,59^OOOO-E6p-E6pO*YOSO1G.kO#_OQO1G.kOOOO1G.k1G.kOOOO,59_,59_OOOO-E6q-E6qO&gOQO7+$XOOOO7+$X7+$XOOOO7+$W7+$WOOOO,59],59]OOOO-E6o-E6oO#_OQO7+$VOOOO7+$V7+$VOOOO<<Gs<<GsOOOO<<Gq<<Gq",
-    stateData: "*k~OPSOQQOSTO`VOjPOxVPyVP~OkYOwZO~OP]OQQOxVXyVX~ORdOjaOm`On^OoaOpaOscOxlPylP~O^hOjgOn^OogOpgOxvPyvP~OxjOyjO~OjgOn^OogOpgO~OjoOn^OooOpoO~OqqOrsOsZXuZXxZXyZX~OstOuYXxYXyYX~ORuO[uOqtP~OuwOxlXylX~OjyOn^OoyOpyO~OqqOr{OuXXxXXyXX~Ou|OxvXyvX~OqqOr!POsZauZaxZayZa~OjaOn^OoaOpaO~Ou!TOqtX~Oq!VO~OR!WOjaOm`On^OoaOpaOscOufXxfXyfX~OuwOxlayla~OqqOr!ZOuXaxXayXa~O^!]OjgOn^OogOpgOugXxgXygX~Ou|Oxvayva~OqqOr!_OsZiuZixZiyZi~Oq!aO~OR!bO[!bOqeXueX~Ou!TOqta~OqqOr!dOuXixXiyXi~O",
-    goto: "$ywPPPPPPx|!Q!X!Q!nP|P|P!|#S#Z#p$S$Y$`P$fPP$jPPPPPPP$pP$vTUOXTVOXSdS]R!WwQhTQlZQp`Q![{Q!]|Q!e!ZR!g!dUbS]wQ!RsQ!`!PR!f!_QXORkXSROXR[R[_S]sw!P!_^fTZ`{|!Z!dTn_fQraQzgQ!OoW!Qrz!O!YR!YyQ!UuR!c!UQxdR!XxQ}hR!^}TWOXQeSRm]QvcR!StRiT",
-    nodeNames: "\u26A0 Opcode Prefix Register Directive Program LabelDefinition InstructionStatement Immediate Expression Memory Relative Number DirectiveStatement FullString SymbolDefinition Comment",
-    maxTerm: 43,
+    states: "+pOQOPOOOlOPO'#CbOOOO'#Cp'#CpOtOPO'#CcOOOO'#Cd'#CdO!VOQO'#CcO!tOPO'#CcO#POQO'#CkOOOO'#Cw'#CwO#hOPO'#CwOOOO'#Co'#CoQQOPOOOOOO,58|,58|O#pOQO,59XOOOO-E6n-E6nO!VOQO,58}O$OOPO,58}OOOO'#Cq'#CqO$ZOQO'#ChO#pOQO'#CeO$iOSO'#ChO%QOQO'#CgO%cOWO'#CgO%nOQO'#C{OOOO,58},58}O%|OQO'#CfO&[OSO'#CfO&pOPO'#DXOOOO,59V,59VOOOO,59c,59cOOOO-E6m-E6mOOOO1G.s1G.sOOOO1G.i1G.iO!VOQO1G.iOOOO-E6o-E6oO&{OSO,59SOOOO,59P,59POOOO'#Cr'#CrO&{OSO,59SO'dOQO,59SO%cOWO,59RO'rOPO'#DTO'zOPO,59RO(POPO'#CjO(bOQO'#CtO)SOPO,59gO)SOPO,59gO)_OSO,59QO)_OSO,59QO#pOQO,59QO)sOQO'#CuO*_OPO,59sOOOO7+$T7+$TO*jOSO1G.nO'dOQO1G.nOOOO-E6p-E6pOOOO1G.n1G.nO+ROPO1G.mO+WOWO'#CsO+fOPO,59oOOOO1G.m1G.mOOOO,59U,59UO+nOPO,59UO+|OQO,59`OOOO-E6r-E6rO,[OPO1G/RO,gOSO1G.lO#pOQO1G.lOOOO1G.l1G.lOOOO,59a,59aOOOO-E6s-E6sO'dOQO7+$YOOOO7+$Y7+$YOOOO7+$X7+$XOOOO,59_,59_OOOO-E6q-E6qOOOO1G.p1G.pOOOO1G.z1G.zO#pOQO7+$WOOOO7+$W7+$WOOOO<<Gt<<GtOOOO<<Gr<<Gr",
+    stateData: ",{~OPTOQQOSVObXOlPOnSO}VP!OVP~Om[O|]O~OP_OQQOnSO}VX!OVX~ORgOldOpcOqaOrdOsdOvfO}oP!OoP~OP_O}VX!OVX~O`kOljOqaOrjOsjO}{P!O{P~O}mO!OmO~OljOqaOrjOsjO~OPqO}Va!OVa~OlsOqaOrsOssO~OtuOuwOv[Xx[Xy[X}[X!O[X~OvxOxZXyZX}ZX!OZX~ORyO]yOtwP~Ox|Oy{O}oX!OoX~Ol!POqaOr!POs!PO~OtuOu!ROxYX}YX!OYXyYX~Ox!SO}{X!O{X~OtuOu!WOv[ax[ay[a}[a!O[a~OldOqaOrdOsdO~Ox![OtwX~Ot!^O~OR!`Oz!_Ox^X}^X!O^X~OR!aOldOpcOqaOrdOsdOvfOxhX}hX!OhX~Ox|O}oa!Ooa~OtuOu!eOxYa}Ya!OYayYa~O`!gOljOqaOrjOsjOxiX}iX!OiX~Ox!SO}{a!O{a~OtuOu!iOv[ix[iy[i}[i!O[i~Ot!kO~OR!lO]!lOtgXxgX~Ox![Otwa~Oz!nOx^a}^a!O^a~Oy{Oxha}ha!Oha~Ox|O}oi!Ooi~OtuOu!pOxYi}Yi!OYiyYi~O",
+    goto: "%g|PPPPPP}!R!V!^!f!^!{P#[!RP!RP#b#h#o$V$i$o$yP%PPPP%TPPPPPPP%^PPP%dTWOZTXOZSUOZR`RUgT_qR!a|QkVQo]QtcQ!f!RQ!g!SQ!q!eR!s!pWeT_q|Q!YwQ!j!WR!r!iQ!OgR!o!aQZORnZSROZR^R^bT_qw|!W!i^iV]c!R!S!e!pTrbiQvdQ!QjQ!VsW!Xv!Q!V!dR!d!PQ!]yR!m!]Q}gS!b}!cR!c!OQ!TkR!h!TTYOZQhTQp_R!UqQzfR!ZxRlV",
+    nodeNames: "\u26A0 Opcode Prefix Register Directive Program LabelDefinition InstructionStatement VEXRound Immediate Expression Memory Relative Number VEXMask DirectiveStatement FullString SymbolDefinition Comment",
+    maxTerm: 48,
     skippedNodes: [0],
     repeatNodeCount: 7,
-    tokenData: "+t~RmYZ!|qr#Rrs#bst$Utu$auv$fvw&qwx&yxy'myz'rz{#]{|'w|}(O}!O'w!O!P(T!P!Q#]!Q!R)Z!R![(k![!]*X!]!^*^!^!_*c!_!`*q!`!a*y!c!}+U#Q#R#]#R#S+U#T#o+U#p#q+g#r#s+o~#ROy~U#YPrSnQ!_!`#]S#bOrS~#gU^~OY#bZr#brs#ys#O#b#O#P$O#P~#b~$OO^~~$RPO~#b~$ZQ`~OY$UZ~$U~$fOm~^$k]rSX^%dpq%d!c!}&`#R#S&`#T#o&`#y#z%d$f$g%d#BY#BZ%d$IS$I_%d$I|$JO%d$JT$JU%d$KV$KW%d&FU&FV%dY%g]X^%dpq%d!c!}&`#R#S&`#T#o&`#y#z%d$f$g%d#BY#BZ%d$IS$I_%d$I|$JO%d$JT$JU%d$KV$KW%d&FU&FV%dY&eSzY!Q![&`!c!}&`#R#S&`#T#o&`S&vPrSvw#]~'OUp~OY&yZw&ywx'bx#O&y#O#P'g#P~&y~'gOp~~'jPO~&y~'rOs~~'wOq~U(OOrSnQ~(TOu~Z([T[WoQ!O!P(k!Q![(k!c!}(x#R#S(x#T#o(xY(rQ[WoQ!O!P(k!Q![(kP(}S{P!Q![(x!c!}(x#R#S(x#T#o(xY)bR[WoQ!O!P(k!Q![(k#l#m)kY)nR!Q![)w!c!i)w#T#Z)wY*OR[WoQ!Q![)w!c!i)w#T#Z)w~*^Ok~~*cOx~S*hRrS!^!_#]!_!`#]!`!a#]T*vPwP!_!`#]S+OQrS!_!`#]!`!a#]~+ZSj~!Q![+U!c!}+U#R#S+U#T#o+US+lPrS#p#q#]Q+tOnQ",
+    tokenData: ",t~RoYZ#Sqr#Xrs#hst$[tu$guv$lvw&wwx'Pxy'syz'xz{#c{|'}|}(U}!O'}!O!P(Z!P!Q#c!Q!R)a!R![(q![!]*_!]!^*d!^!_*i!_!`*w!`!a+P!c!}+[#Q#R#c#R#S+[#T#o+[#o#p+m#p#q,b#q#r,j#r#s,o~#XO!O~U#`PuSqQ!_!`#cS#hOuS~#mU`~OY#hZr#hrs$Ps#O#h#O#P$U#P~#h~$UO`~~$XPO~#h~$aQb~OY$[Z~$[~$lOp~_$q]uSX^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ%m]X^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ&kS!PZ!Q![&f!c!}&f#R#S&f#T#o&fS&|PuSvw#c~'UUs~OY'PZw'Pwx'hx#O'P#O#P'm#P~'P~'mOs~~'pPO~'P~'xOv~~'}Ot~U(UOuSqQ~(ZOx~Z(bT]WrQ!O!P(q!Q![(q!c!})O#R#S)O#T#o)OY(xQ]WrQ!O!P(q!Q![(qP)TS!QP!Q![)O!c!})O#R#S)O#T#o)OY)hR]WrQ!O!P(q!Q![(q#l#m)qY)tR!Q![)}!c!i)}#T#Z)}Y*UR]WrQ!Q![)}!c!i)}#T#Z)}~*dOm~~*iO}~S*nRuS!^!_#c!_!`#c!`!a#cT*|P|P!_!`#cS+UQuS!_!`#c!`!a#c~+aSl~!Q![+[!c!}+[#R#S+[#T#o+[V+tRyUnPO#q+}#q#r,]#r~+}P,SRnPO#q+}#q#r,]#r~+}P,bOnPS,gPuS#p#q#c~,oOz~Q,tOqQ",
     tokenizers: [0, 1, 2, 3],
     topRules: {Program: [0, 5]},
-    specialized: [{term: 26, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 42, get: (value, stack) => isRegister(value, stack) << 1}, {term: 43, get: (value, stack) => isDirective(value, stack) << 1}],
+    specialized: [{term: 28, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 47, get: (value, stack) => isRegister(value, stack) << 1}, {term: 48, get: (value, stack) => isDirective(value, stack) << 1}],
     tokenPrec: 0
   });
 
@@ -15845,7 +15849,9 @@ g nle`.split("\n");
           Memory: tags.regexp,
           Relative: tags.regexp,
           Expression: tags.literal,
-          FullString: tags.string
+          FullString: tags.string,
+          VEXRound: tags.modifier,
+          VEXMask: tags.modifier
         })
       ]
     })

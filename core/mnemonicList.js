@@ -547,8 +547,8 @@ movupd
 66)0F11 Vxyz v > {kzw
 
 movups
-0F10 v Vxy > {kz
-0F11 Vxy v > {kz
+0F10 v Vxyz > {kz
+0F11 Vxyz v > {kz
 
 movzx:0FB6 rb$w Rwlq
 mpsadbw:66)0F3A42 ib v >V Vxy

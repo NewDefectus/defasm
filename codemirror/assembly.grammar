@@ -12,7 +12,7 @@ statement {
 
 
 InstructionStatement {
-  Prefix* (Opcode commaSep<Register | Immediate | Memory>)?
+  Prefix* VEXRound? (Opcode commaSep<(Register | Immediate | Memory) VEXMask?>)?
 }
 
 DirectiveStatement {
@@ -26,6 +26,9 @@ Immediate {
 Memory {
   Relative | Relative? '(' commaSep<Register | Number> ')'
 }
+
+VEXRound { decorator }
+VEXMask { '{' Register? '}'?}
 
 Relative { unary* (number | charString | word) ')'* (operator Relative)? }
 Expression { unary* (number | charString | word) ')'* (operator Expression)? }
@@ -43,6 +46,7 @@ SymbolDefinition { word '=' Expression }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
   number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
   Number { number }
+  decorator { '{' ![}]* '}'? }
   unary { '+' | '-' | '~' | '!' }
   operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
 }

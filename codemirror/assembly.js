@@ -20,7 +20,9 @@ const assemblyLang = LezerLanguage.define({
                 Memory: tags.regexp,
                 Relative: tags.regexp,
                 Expression: tags.literal,
-                FullString: tags.string
+                FullString: tags.string,
+                VEXRound: tags.modifier,
+                VEXMask: tags.modifier,
             })
         ]
     })

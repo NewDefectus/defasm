@@ -351,7 +351,7 @@ Operation.prototype.validateVEX = function(vexInfo)
             if(this.actuallyNotVex) return false;
             if(this.evexPermits === null) return false;
             if(!(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0) return false;
-            if(!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== false) return false;
+            if(!(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null) return false;
             if(!(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0) return false;
             if(!(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0) return false;
             if(!(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing) return false;
