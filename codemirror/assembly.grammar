@@ -24,14 +24,14 @@ Immediate {
 }
 
 Memory {
-  Relative | Relative? '(' commaSep<Register | Number> ')'
+  Relative | Relative? '(' ("" | Register ("," (Register | Number)?)*) ')'
 }
 
 VEXRound { decorator }
 VEXMask { '{' Register? '}'?}
 
-Relative { unary* (number | charString | word) ')'* (operator Relative)? }
-Expression { unary* (number | charString | word) ')'* (operator Expression)? }
+Relative { (unary | '(')* (number | charString | word) ')'* (operator Relative)? }
+Expression { (unary | '(')* (number | charString | word) ')'* (operator Expression)? }
 
 LabelDefinition { word ':' }
 SymbolDefinition { word '=' Expression }
@@ -46,9 +46,9 @@ SymbolDefinition { word '=' Expression }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
   number { ('0x' $[0-9a-fA-F]+) | $[0-9.]+ }
   Number { number }
-  decorator { '{' ![}]* '}'? }
   unary { '+' | '-' | '~' | '!' }
   operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
+  decorator { '{' ![}]* '}'? }
 }
 
 commaSep<content> {
