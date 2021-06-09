@@ -239,7 +239,12 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
 
 AssemblyState.prototype.dump = function()
 {
-    let output = Buffer.alloc(this.bytes), i = 0;
+    let output, i = 0;
+
+    // Use the available byte array type
+    try { output = Buffer.alloc(this.bytes); }
+    catch(e) { output = new Uint8Array(this.bytes); }
+
     for(let instrLine of this.instructions)
     {
         for(let instr of instrLine)

@@ -100,15 +100,12 @@ function assemble()
         outputFile = './' + outputFile;
     }
 
-    let instrLines, bytes = 0;
+    let state = new AssemblyState();
 
     try
     {
-        let state = new AssemblyState();
         state.compile(code, { haltOnError: true });
-        bytes = state.bytes;
-        writeSize(bytes);
-        instrLines = state.instructions;
+        writeSize(state.bytes);
     }
     catch(e)
     {
@@ -134,18 +131,13 @@ function assemble()
     elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18);
     elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x50);
     elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x58);
-    let size = BigInt(bytes + 0x78);
+    let size = BigInt(state.bytes + 0x78);
     elfHeader.writeBigInt64LE(size, 0x60); elfHeader.writeBigInt64LE(size, 0x68); // Write the size twice
     outputStream.write(elfHeader);
 
 
     // Write the code
-    for(let line of instrLines)
-    {
-        for(let instr of line)
-            outputStream.write(instr.bytes.slice(0, instr.length));
-    }
-
+    outputStream.write(state.dump());
 
     outputStream.on('close', () => {
         if(!execute) process.exit();
@@ -197,8 +189,8 @@ function assemble()
 
                     if(signal == "SIGTRAP" || signal == "SIGSYS") lastIP--; // Weird behavior with breakpoints
 
-                    for(errLine = 0; errLine < instrLines.length && lastIP >= 0; errLine++)
-                        instrLines[errLine].map(instr => lastIP -= instr.length);
+                    for(errLine = 0; errLine < state.instructions.length && lastIP >= 0; errLine++)
+                        state.instructions[errLine].map(instr => lastIP -= instr.length);
                     if(lastIP >= 0) pos = 'after';
                 }
             }

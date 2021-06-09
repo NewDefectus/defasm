@@ -13858,6 +13858,63 @@ g nle`.split("\n");
     }
   })));
 
+  // core/symbols.js
+  var recompQueue = [];
+  function Symbol2(address, name2, namePos, isLabel = false) {
+    this.address = address;
+    this.name = name2;
+    try {
+      this.expression = isLabel ? LabelExpression(this) : new Expression(this);
+      this.length = 0;
+      this.bytes = new Uint8Array();
+      this.value = this.expression.evaluate(address);
+    } catch (e) {
+      this.removed = true;
+      throw e;
+    }
+    if (symbols.has(name2)) {
+      let record = symbols.get(name2);
+      if (record.symbol) {
+        this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
+        this.duplicate = true;
+        record.references.push(this);
+      } else {
+        record.symbol = this;
+        this.duplicate = false;
+        for (let ref of record.references) {
+          if (!ref.removed) {
+            recompQueue.push(ref);
+            ref.wantsRecomp = true;
+          }
+        }
+      }
+    } else
+      symbols.set(name2, {
+        symbol: this,
+        references: []
+      });
+  }
+  Symbol2.prototype.recompile = function() {
+    let record = symbols.get(this.name);
+    if (this.duplicate && record.symbol)
+      return;
+    this.duplicate = false;
+    let originValue = this.error ? null : this.value;
+    this.error = null;
+    try {
+      this.value = this.expression.evaluate(this.address, true);
+    } catch (e) {
+      this.error = e;
+    }
+    if (originValue !== (this.error ? null : this.value)) {
+      record.symbol = this;
+      for (let ref of record.references) {
+        recompQueue.push(ref);
+        ref.wantsRecomp = true;
+      }
+    }
+  };
+
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
   var prefixes = {
@@ -13995,14 +14052,19 @@ g nle`.split("\n");
     this.outline = {operands, enforcedSize, operations, prefsToGen, vexInfo};
     this.endPos = codePos;
     this.removed = false;
-    try {
-      this.compile();
-    } catch (e) {
-      this.error = e;
-      this.length = 0;
+    if (this.needsRecompilation) {
+      this.wantsRecomp = true;
+      recompQueue.push(this);
+    } else {
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+        this.length = 0;
+      }
+      if (!this.needsRecompilation && !this.ipRelative)
+        this.outline = void 0;
     }
-    if (!this.needsRecompilation && !this.ipRelative)
-      this.outline = void 0;
   };
   Instruction.prototype.compile = function() {
     let {operands, enforcedSize, operations, prefsToGen, vexInfo} = this.outline;
@@ -14174,63 +14236,6 @@ g nle`.split("\n");
     return value < 0x100n ? 8 : value < 0x10000n ? 16 : value < 0x100000000n ? 32 : 64;
   }
 
-  // core/symbols.js
-  var recompQueue = [];
-  function Symbol2(address, name2, namePos, isLabel = false) {
-    this.address = address;
-    this.name = name2;
-    try {
-      this.expression = isLabel ? LabelExpression(this) : new Expression(this);
-      this.length = 0;
-      this.bytes = new Uint8Array();
-      this.value = this.expression.evaluate(address);
-    } catch (e) {
-      this.removed = true;
-      throw e;
-    }
-    if (symbols.has(name2)) {
-      let record = symbols.get(name2);
-      if (record.symbol) {
-        this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
-        this.duplicate = true;
-        record.references.push(this);
-      } else {
-        record.symbol = this;
-        this.duplicate = false;
-        for (let ref of record.references) {
-          if (!ref.removed) {
-            recompQueue.push(ref);
-            ref.wantsRecomp = true;
-          }
-        }
-      }
-    } else
-      symbols.set(name2, {
-        symbol: this,
-        references: []
-      });
-  }
-  Symbol2.prototype.recompile = function() {
-    let record = symbols.get(this.name);
-    if (this.duplicate && record.symbol)
-      return;
-    this.duplicate = false;
-    let originValue = this.error ? null : this.value;
-    this.error = null;
-    try {
-      this.value = this.expression.evaluate(this.address, true);
-    } catch (e) {
-      this.error = e;
-    }
-    if (originValue !== (this.error ? null : this.value)) {
-      record.symbol = this;
-      for (let ref of record.references) {
-        recompQueue.push(ref);
-        ref.wantsRecomp = true;
-      }
-    }
-  };
-
   // core/compiler.js
   var lastInstr;
   var currLineArr;
@@ -14395,7 +14400,12 @@ g nle`.split("\n");
     this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
   };
   AssemblyState.prototype.dump = function() {
-    let output = Buffer.alloc(this.bytes), i = 0;
+    let output, i = 0;
+    try {
+      output = Buffer.alloc(this.bytes);
+    } catch (e) {
+      output = new Uint8Array(this.bytes);
+    }
     for (let instrLine of this.instructions) {
       for (let instr of instrLine) {
         for (let j = 0; j < instr.length; j++)
