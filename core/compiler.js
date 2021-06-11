@@ -214,6 +214,10 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
     {
         for(instr of this.instructions[i])
         {
+            if(instr.outline && instr.outline.operands)
+                for(let op of instr.outline.operands)
+                    op.attemptedSizes = 0;
+
             let e = instr.error;
             if(e)
             {

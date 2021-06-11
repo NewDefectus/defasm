@@ -139,6 +139,7 @@ export function Operand(instr)
     this.type = null;
     this.size = NaN;
     this.prefs = 0;
+    this.attemptedSizes = 0;
 
     this.startPos = codePos;
     let indirect = token === '*';
@@ -221,4 +222,13 @@ export function Operand(instr)
         if(token !== ')') throw new ParserError("Expected ')'");
         next();
     }
+}
+
+Operand.prototype.sizeAllowed = function(size)
+{
+    return size >= this.size || !(this.attemptedSizes & 1 << (size >> 3));
+}
+Operand.prototype.unsignedSizeAllowed = function(size)
+{
+    return size >= this.unsignedSize || !(this.attemptedSizes & 1 << (size >> 3));
 }

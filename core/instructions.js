@@ -217,8 +217,13 @@ Instruction.prototype.compile = function()
         {
             if(op.type === OPT.IMM)
             {
-                op.size = inferImmSize(op.value);
-                op.unsignedSize = inferUnsignedImmSize(op.value);
+                let size = inferImmSize(op.value);
+                if(op.sizeAllowed(size))
+                    op.size = size;
+                
+                size = inferUnsignedImmSize(op.value);
+                if(op.unsignedSizeAllowed(size))
+                    op.unsignedSize = size;
             }
         }
     }

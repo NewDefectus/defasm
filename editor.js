@@ -11347,6 +11347,7 @@
     this.type = null;
     this.size = NaN;
     this.prefs = 0;
+    this.attemptedSizes = 0;
     this.startPos = codePos;
     let indirect = token === "*";
     if (indirect)
@@ -11425,6 +11426,12 @@
       next();
     }
   }
+  Operand.prototype.sizeAllowed = function(size) {
+    return size >= this.size || !(this.attemptedSizes & 1 << (size >> 3));
+  };
+  Operand.prototype.unsignedSizeAllowed = function(size) {
+    return size >= this.unsignedSize || !(this.attemptedSizes & 1 << (size >> 3));
+  };
 
   // core/shuntingYard.js
   var unaries = {
@@ -12179,6 +12186,7 @@
       catcher = opCatchers[i], operand = operands[i];
       size = correctedSizes[i];
       operand.size = size & ~7;
+      operand.attemptedSizes |= 1 << (operand.size >> 3);
       if (operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors)
         rexw = true;
       if (catcher.implicitValue === null) {
@@ -12315,7 +12323,7 @@
     }
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
-    if (absolute(target - smallLen) >= 1n << BigInt(small - 1)) {
+    if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small)) {
       if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
         throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
       operand.virtualSize = large;
@@ -14072,8 +14080,12 @@ g nle`.split("\n");
     if (enforcedSize === 0) {
       for (let op2 of operands) {
         if (op2.type === OPT.IMM) {
-          op2.size = inferImmSize(op2.value);
-          op2.unsignedSize = inferUnsignedImmSize(op2.value);
+          let size = inferImmSize(op2.value);
+          if (op2.sizeAllowed(size))
+            op2.size = size;
+          size = inferUnsignedImmSize(op2.value);
+          if (op2.unsignedSizeAllowed(size))
+            op2.unsignedSize = size;
         }
       }
     }
@@ -14383,6 +14395,9 @@ g nle`.split("\n");
     let haltingErrors = [];
     for (let i = 0; i < this.instructions.length; i++) {
       for (instr of this.instructions[i]) {
+        if (instr.outline && instr.outline.operands)
+          for (let op of instr.outline.operands)
+            op.attemptedSizes = 0;
         let e = instr.error;
         if (e) {
           if (haltOnError)

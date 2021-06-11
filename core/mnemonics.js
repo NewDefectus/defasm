@@ -176,7 +176,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     if(isNaN(opSize))
     {
         // For unknown-sized operands, if possible, choose the default size
-        if(this.defSize > 0) return this.defSize;
+        if(this.defSize > 0)
+            return this.defSize;
         else if(this.sizes === -2)
         {
             opSize = (prevSize & ~7) >> 1;
@@ -186,14 +187,16 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     }
     else if(this.type === OPT.IMM) // Allow immediates to be downcast if necessary
     {
-        if(this.defSize > 0 && this.defSize < opSize) return this.defSize;
+        if(this.defSize > 0 && this.defSize < opSize)
+            return this.defSize;
     }
 
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes === -1)
     {
         rawSize = prevSize & ~7;
-        if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize)) return prevSize;
+        if(opSize === rawSize || (operand.type === OPT.IMM && opSize < rawSize))
+            return prevSize;
         return null;
     }
 
@@ -201,7 +204,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     {
         rawSize = (prevSize & ~7) >> 1;
         if(rawSize < 128) rawSize = 128;
-        if(opSize === rawSize) return prevSize;
+        if(opSize === rawSize)
+            return prevSize;
         return null;
     }
 
@@ -220,7 +224,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             }
         }
         
-        if(!found) return null;
+        if(!found)
+            return null;
     }
 
     return size;
@@ -289,7 +294,8 @@ export function Operation(format)
 
     // What follows is a list of operand specifiers
     this.opCatchers = [];
-    if(format.length === 0) return;
+    if(format.length === 0)
+        return;
     this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
     this.vexOpCatchers = this.allowVex ? [] : null;
     this.checkableSizes = null;
@@ -472,6 +478,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
         catcher = opCatchers[i], operand = operands[i];
         size = correctedSizes[i];
         operand.size = size & ~7;
+        operand.attemptedSizes |= 1 << (operand.size >> 3);
 
         if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors) rexw = true;
         if(catcher.implicitValue === null)
@@ -623,7 +630,7 @@ Operation.prototype.generateRelative = function(operand, address)
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
 
-    if(absolute(target - smallLen) >= 1n << BigInt(small - 1))
+    if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small))
     {
         if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
             throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
