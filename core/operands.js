@@ -226,9 +226,17 @@ export function Operand(instr)
 
 Operand.prototype.sizeAllowed = function(size)
 {
-    return size >= this.size || !(this.attemptedSizes & 1 << (size >> 3));
+    return size >= this.size || this.sizeAvailable(size);
 }
 Operand.prototype.unsignedSizeAllowed = function(size)
 {
-    return size >= this.unsignedSize || !(this.attemptedSizes & 1 << (size >> 3));
+    return size >= this.unsignedSize || this.sizeAvailable(size);
+}
+Operand.prototype.sizeAvailable = function(size)
+{
+    return !(this.attemptedSizes & 1 << (size >> 4));
+}
+Operand.prototype.recordSizeUse = function(size)
+{
+    this.attemptedSizes |= 1 << (size >> 4);
 }

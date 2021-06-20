@@ -11427,10 +11427,16 @@
     }
   }
   Operand.prototype.sizeAllowed = function(size) {
-    return size >= this.size || !(this.attemptedSizes & 1 << (size >> 3));
+    return size >= this.size || this.sizeAvailable(size);
   };
   Operand.prototype.unsignedSizeAllowed = function(size) {
-    return size >= this.unsignedSize || !(this.attemptedSizes & 1 << (size >> 3));
+    return size >= this.unsignedSize || this.sizeAvailable(size);
+  };
+  Operand.prototype.sizeAvailable = function(size) {
+    return !(this.attemptedSizes & 1 << (size >> 4));
+  };
+  Operand.prototype.recordSizeUse = function(size) {
+    this.attemptedSizes |= 1 << (size >> 4);
   };
 
   // core/shuntingYard.js
@@ -11811,6 +11817,64 @@
     }
   };
 
+  // core/symbols.js
+  var recompQueue = [];
+  function queueRecomp(instr) {
+    if (!instr.wantsRecomp)
+      recompQueue.push(instr);
+    instr.wantsRecomp = true;
+  }
+  function Symbol2(address, name2, namePos, isLabel = false) {
+    this.address = address;
+    this.name = name2;
+    try {
+      this.expression = isLabel ? LabelExpression(this) : new Expression(this);
+      this.length = 0;
+      this.bytes = new Uint8Array();
+      this.value = this.expression.evaluate(address);
+    } catch (e) {
+      this.removed = true;
+      throw e;
+    }
+    if (symbols.has(name2)) {
+      let record = symbols.get(name2);
+      if (record.symbol) {
+        this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
+        this.duplicate = true;
+        record.references.push(this);
+      } else {
+        record.symbol = this;
+        this.duplicate = false;
+        for (let ref of record.references) {
+          if (!ref.removed)
+            queueRecomp(ref);
+        }
+      }
+    } else
+      symbols.set(name2, {
+        symbol: this,
+        references: []
+      });
+  }
+  Symbol2.prototype.recompile = function() {
+    let record = symbols.get(this.name);
+    if (this.duplicate && record.symbol)
+      return;
+    this.duplicate = false;
+    let originValue = this.error ? null : this.value;
+    this.error = null;
+    try {
+      this.value = this.expression.evaluate(this.address, true);
+    } catch (e) {
+      this.error = e;
+    }
+    if (originValue !== (this.error ? null : this.value)) {
+      record.symbol = this;
+      for (let ref of record.references)
+        queueRecomp(ref);
+    }
+  };
+
   // core/mnemonics.js
   var REG_MOD = -1;
   var REG_OP = -2;
@@ -11949,7 +12013,7 @@
   OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
     if (!this.matchType(operand))
       return null;
-    let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
+    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     if (enforcedSize > 0 && operand.type >= OPT.IMM)
       opSize = enforcedSize;
@@ -12115,15 +12179,14 @@
       return false;
     return true;
   };
-  Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo) {
+  Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo) {
     if (!this.validateVEX(vexInfo))
       return null;
-    let ipRelative = false;
     let adjustByteOp = false, overallSize = 0, rexw = false;
     if (this.relativeSizes) {
       if (!(operands.length === 1 && operands[0].type === OPT.REL))
         return null;
-      this.generateRelative(operands[0], address);
+      this.generateRelative(operands[0], instr);
     }
     if (this.checkableSizes) {
       if (enforcedSize === 0) {
@@ -12186,7 +12249,7 @@
       catcher = opCatchers[i], operand = operands[i];
       size = correctedSizes[i];
       operand.size = size & ~7;
-      operand.attemptedSizes |= 1 << (operand.size >> 3);
+      operand.recordSizeUse(operand.size);
       if (operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors)
         rexw = true;
       if (catcher.implicitValue === null) {
@@ -12197,7 +12260,7 @@
             value: operand.virtualValue,
             size
           });
-          ipRelative = true;
+          instr.ipRelative = true;
         } else if (catcher.forceRM)
           rm2 = operand;
         else if (catcher.vexOp) {
@@ -12305,17 +12368,16 @@
       reg,
       rm: rm2,
       vex: vexInfo.needed ? vex : null,
-      imms,
-      ipRelative
+      imms
     };
   };
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
-  Operation.prototype.generateRelative = function(operand, address) {
-    let target = operand.value - BigInt(address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+  Operation.prototype.generateRelative = function(operand, instr) {
+    let target = operand.value - BigInt(instr.address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     if (this.relativeSizes.length === 1) {
       let size = this.relativeSizes[0];
-      operand.virtualSize = size;
+      operand.size = size;
       operand.virtualValue = target - sizeLen(size);
       if (absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
         throw new ParserError(`Can't fit offset in ${size >> 3} byte${size != 8 ? "s" : ""}`, operand.startPos, operand.endPos);
@@ -12324,12 +12386,18 @@
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
     if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small)) {
-      if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
-        throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
-      operand.virtualSize = large;
-      operand.virtualValue = target - largeLen;
+      if (small != operand.size && operand.sizeAllowed(small)) {
+        operand.size = small;
+        operand.virtualValue = target - smallLen;
+        queueRecomp(instr);
+      } else {
+        if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
+          throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
+        operand.size = large;
+        operand.virtualValue = target - largeLen;
+      }
     } else {
-      operand.virtualSize = small;
+      operand.size = small;
       operand.virtualValue = target - smallLen;
     }
   };
@@ -13866,63 +13934,6 @@ g nle`.split("\n");
     }
   })));
 
-  // core/symbols.js
-  var recompQueue = [];
-  function Symbol2(address, name2, namePos, isLabel = false) {
-    this.address = address;
-    this.name = name2;
-    try {
-      this.expression = isLabel ? LabelExpression(this) : new Expression(this);
-      this.length = 0;
-      this.bytes = new Uint8Array();
-      this.value = this.expression.evaluate(address);
-    } catch (e) {
-      this.removed = true;
-      throw e;
-    }
-    if (symbols.has(name2)) {
-      let record = symbols.get(name2);
-      if (record.symbol) {
-        this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
-        this.duplicate = true;
-        record.references.push(this);
-      } else {
-        record.symbol = this;
-        this.duplicate = false;
-        for (let ref of record.references) {
-          if (!ref.removed) {
-            recompQueue.push(ref);
-            ref.wantsRecomp = true;
-          }
-        }
-      }
-    } else
-      symbols.set(name2, {
-        symbol: this,
-        references: []
-      });
-  }
-  Symbol2.prototype.recompile = function() {
-    let record = symbols.get(this.name);
-    if (this.duplicate && record.symbol)
-      return;
-    this.duplicate = false;
-    let originValue = this.error ? null : this.value;
-    this.error = null;
-    try {
-      this.value = this.expression.evaluate(this.address, true);
-    } catch (e) {
-      this.error = e;
-    }
-    if (originValue !== (this.error ? null : this.value)) {
-      record.symbol = this;
-      for (let ref of record.references) {
-        recompQueue.push(ref);
-        ref.wantsRecomp = true;
-      }
-    }
-  };
-
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
   var prefixes = {
@@ -14060,10 +14071,9 @@ g nle`.split("\n");
     this.outline = {operands, enforcedSize, operations, prefsToGen, vexInfo};
     this.endPos = codePos;
     this.removed = false;
-    if (this.needsRecompilation) {
-      this.wantsRecomp = true;
-      recompQueue.push(this);
-    } else {
+    if (this.needsRecompilation)
+      queueRecomp(this);
+    else {
       try {
         this.compile();
       } catch (e) {
@@ -14080,18 +14090,37 @@ g nle`.split("\n");
     if (enforcedSize === 0) {
       for (let op2 of operands) {
         if (op2.type === OPT.IMM) {
-          let size = inferImmSize(op2.value);
-          if (op2.sizeAllowed(size))
-            op2.size = size;
-          size = inferUnsignedImmSize(op2.value);
-          if (op2.unsignedSizeAllowed(size))
-            op2.unsignedSize = size;
+          if (!op2.expression.hasSymbols) {
+            op2.size = inferImmSize(op2.value);
+            op2.unsignedSize = inferUnsignedImmSize(op2.value);
+          } else {
+            let max = inferImmSize(op2.value);
+            for (let size = 8; size <= max; size *= 2) {
+              if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
+                op2.size = size;
+                op2.recordSizeUse(size);
+                if (size < max)
+                  queueRecomp(this);
+                break;
+              }
+            }
+            max = inferUnsignedImmSize(op2.value);
+            for (let size = 8; size < max; size *= 2) {
+              if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.unsignedSizeAllowed(size)) {
+                op2.unsignedSize = size;
+                op2.recordSizeUse(size);
+                if (size < max)
+                  queueRecomp(this);
+                break;
+              }
+            }
+          }
         }
       }
     }
     let op, found = false, rexVal = 64;
     for (let operation of operations) {
-      op = operation.fit(operands, this.address, enforcedSize, vexInfo);
+      op = operation.fit(operands, this, enforcedSize, vexInfo);
       if (op !== null) {
         found = true;
         break;
@@ -14125,7 +14154,6 @@ g nle`.split("\n");
         throw new ParserError("Wrong operand order", errorPos, this.endPos);
       throw new ParserError("Invalid operands", errorPos, this.endPos);
     }
-    this.ipRelative = this.ipRelative || op.ipRelative;
     if (op.rexw)
       rexVal |= 8, prefsToGen |= PREFIX_REX;
     let modRM = null, sib = null;
@@ -14133,7 +14161,7 @@ g nle`.split("\n");
       rexVal |= 1, prefsToGen |= PREFIX_REX;
     else if (op.rm !== null) {
       let extraRex;
-      [extraRex, modRM, sib] = makeModRM(op.rm, op.reg);
+      [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
       if (extraRex !== 0)
         rexVal |= extraRex, prefsToGen |= PREFIX_REX;
     }
@@ -14168,7 +14196,8 @@ g nle`.split("\n");
     for (let imm of op.imms)
       this.genInteger(imm.value, imm.size);
   };
-  function makeModRM(rm2, r) {
+  var SHORT_DISP = 128;
+  Instruction.prototype.makeModRM = function(rm2, r) {
     let modrm = 0, rex = 0;
     let rmReg = rm2.reg, rmReg2 = rm2.reg2, rReg = r.reg;
     if (rReg >= 8) {
@@ -14184,9 +14213,15 @@ g nle`.split("\n");
       modrm |= 192;
     else if (rmReg >= 0) {
       if (rm2.value !== null) {
-        if (inferImmSize(rm2.value) === 8) {
+        if (inferImmSize(rm2.value) === 8 && (rm2.dispSize == 8 || rm2.sizeAvailable(SHORT_DISP))) {
           rm2.dispSize = 8;
           modrm |= 64;
+          rm2.recordSizeUse(SHORT_DISP);
+        } else if (rm2.expression && rm2.expression.hasSymbols && rm2.dispSize != 8 && rm2.sizeAvailable(SHORT_DISP)) {
+          rm2.dispSize = 8;
+          modrm |= 64;
+          rm2.recordSizeUse(SHORT_DISP);
+          queueRecomp(this);
         } else {
           rm2.dispSize = 32;
           modrm |= 128;
@@ -14208,7 +14243,7 @@ g nle`.split("\n");
       return [rex, modrm | 4, rm2.shift << 6 | rmReg2 << 3 | rmReg];
     }
     return [rex, modrm | rmReg, null];
-  }
+  };
   function makeVexPrefix(vex, rex, isEvex) {
     if (isEvex) {
       vex ^= 524304;
@@ -14364,10 +14399,8 @@ g nle`.split("\n");
         if (record.references.length == 0)
           symbols.delete(name2);
         else
-          for (let ref of record.references) {
-            ref.wantsRecomp = true;
-            recompQueue.push(ref);
-          }
+          for (let ref of record.references)
+            queueRecomp(ref);
       }
     });
     while (instr = linkedInstrQueue.shift() || recompQueue.shift()) {
@@ -14377,15 +14410,13 @@ g nle`.split("\n");
         if ((instr.wantsRecomp || instr.ipRelative) && !instr.removed) {
           instr.removed = false;
           try {
-            instr.recompile();
             instr.wantsRecomp = false;
+            instr.recompile();
           } catch (e) {
             instr.error = e;
             if (instr.name)
-              for (let ref of symbols.get(instr.name).references) {
-                ref.wantsRecomp = true;
-                recompQueue.push(ref);
-              }
+              for (let ref of symbols.get(instr.name).references)
+                queueRecomp(ref);
           }
         }
         currIndex = instr.address + instr.length;

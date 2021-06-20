@@ -4,7 +4,7 @@ import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PRE
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
-import { recompQueue } from "./symbols.js";
+import { queueRecomp } from "./symbols.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -185,10 +185,7 @@ Instruction.prototype.interpret = function()
     this.removed = false; // Interpreting was successful, so don't mark as removed
 
     if(this.needsRecompilation)
-    {
-        this.wantsRecomp = true;
-        recompQueue.push(this);
-    }
+        queueRecomp(this);
     else
     {
         try
@@ -217,13 +214,44 @@ Instruction.prototype.compile = function()
         {
             if(op.type === OPT.IMM)
             {
-                let size = inferImmSize(op.value);
-                if(op.sizeAllowed(size))
-                    op.size = size;
-                
-                size = inferUnsignedImmSize(op.value);
-                if(op.unsignedSizeAllowed(size))
-                    op.unsignedSize = size;
+                if(!op.expression.hasSymbols)
+                {
+                    op.size = inferImmSize(op.value);
+                    op.unsignedSize = inferUnsignedImmSize(op.value);
+                }
+                else
+                {
+                    let max = inferImmSize(op.value);
+                    for(let size = 8; size <= max; size *= 2)
+                    {
+                        if((size != op.size || op.size == max) && op.sizeAllowed(size))
+                        {
+                            op.size = size;
+                            op.recordSizeUse(size);
+
+                            if(size < max)
+                                queueRecomp(this);
+
+                            break;
+                        }
+                    }
+
+                    max = inferUnsignedImmSize(op.value);
+
+                    for(let size = 8; size < max; size *= 2)
+                    {
+                        if((size != op.unsignedSize || op.unsignedSize == max) && op.unsignedSizeAllowed(size))
+                        {
+                            op.unsignedSize = size;
+                            op.recordSizeUse(size);
+
+                            if(size < max)
+                                queueRecomp(this);
+
+                            break;
+                        }
+                    }
+                }
             }
         }
     }
@@ -233,7 +261,7 @@ Instruction.prototype.compile = function()
     
     for(let operation of operations)
     {
-        op = operation.fit(operands, this.address, enforcedSize, vexInfo);
+        op = operation.fit(operands, this, enforcedSize, vexInfo);
         if(op !== null)
         {
             found = true;
@@ -281,8 +309,6 @@ Instruction.prototype.compile = function()
         throw new ParserError("Invalid operands", errorPos, this.endPos);
     }
 
-    // Operation may be IP-relative (e.g. "call 5" needs the current IP)
-    this.ipRelative = this.ipRelative || op.ipRelative;
     if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
     
     let modRM = null, sib = null;
@@ -290,7 +316,7 @@ Instruction.prototype.compile = function()
     else if(op.rm !== null)
     {
         let extraRex;
-        [extraRex, modRM, sib] = makeModRM(op.rm, op.reg);
+        [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
         if(extraRex !== 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
     }
 
@@ -320,8 +346,10 @@ Instruction.prototype.compile = function()
     for(let imm of op.imms) this.genInteger(imm.value, imm.size);
 }
 
+const SHORT_DISP = 128;
+
 // Generate the ModRM byte
-function makeModRM(rm, r)
+Instruction.prototype.makeModRM = function(rm, r)
 {
     let modrm = 0, rex = 0;
     // rm's and r's values may be edited, however the objects themselves shouldn't be modified
@@ -349,13 +377,23 @@ function makeModRM(rm, r)
     {
         if(rm.value !== null)
         {
-            if(inferImmSize(rm.value) === 8)
+            if(inferImmSize(rm.value) === 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
             {
                 rm.dispSize = 8;
                 modrm |= 0x40; // mod=01
+                rm.recordSizeUse(SHORT_DISP);
+            }
+            else if(rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
+            {
+                rm.dispSize = 8;
+                modrm |= 0x40; // mod=01
+                rm.recordSizeUse(SHORT_DISP);
+
+                queueRecomp(this);
             }
             else
             {
+                
                 rm.dispSize = 32;
                 modrm |= 0x80; // mod=10
             }

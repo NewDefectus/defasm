@@ -4,6 +4,13 @@ import { symbols } from "./compiler.js";
 
 export var recompQueue = [];
 
+export function queueRecomp(instr)
+{
+    if(!instr.wantsRecomp)
+        recompQueue.push(instr);
+    instr.wantsRecomp = true;
+}
+
 export function Symbol(address, name, namePos, isLabel = false)
 {
     this.address = address;
@@ -37,10 +44,7 @@ export function Symbol(address, name, namePos, isLabel = false)
             for(let ref of record.references)
             {
                 if(!ref.removed)
-                {
-                    recompQueue.push(ref);
-                    ref.wantsRecomp = true;
-                }
+                    queueRecomp(ref);
             }
         }
     }
@@ -74,9 +78,6 @@ Symbol.prototype.recompile = function()
     {
         record.symbol = this;
         for(let ref of record.references)
-        {
-            recompQueue.push(ref);
-            ref.wantsRecomp = true;
-        }
+            queueRecomp(ref);
     }
 }

@@ -1,5 +1,6 @@
 import { OPT } from "./operands.js";
 import { ParserError } from "./parser.js";
+import { queueRecomp } from "./symbols.js";
 
 const REG_MOD = -1, REG_OP = -2;
 const OPC = {
@@ -168,7 +169,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         return null;
 
     // Check that the sizes match
-    let opSize = this.type === OPT.REL ? operand.virtualSize : this.unsigned ? operand.unsignedSize : operand.size;
+    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM) opSize = enforcedSize;
@@ -382,16 +383,14 @@ Operation.prototype.validateVEX = function(vexInfo)
 
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands
- * @param {Number} address
+ * @param {Instruction} instr
  * @param {number} enforcedSize
  * @param {vexData} vexInfo
  */
-Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
+Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
 {
     if(!this.validateVEX(vexInfo))
         return null;
-
-    let ipRelative = false;
 
     let adjustByteOp = false, overallSize = 0, rexw = false;
 
@@ -399,7 +398,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
     {
         if(!(operands.length === 1 && operands[0].type === OPT.REL))
             return null;
-        this.generateRelative(operands[0], address);
+        this.generateRelative(operands[0], instr);
     }
 
     // Special case for the '-' implicit op catcher
@@ -478,7 +477,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
         catcher = opCatchers[i], operand = operands[i];
         size = correctedSizes[i];
         operand.size = size & ~7;
-        operand.attemptedSizes |= 1 << (operand.size >> 3);
+        operand.recordSizeUse(operand.size);
 
         if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors) rexw = true;
         if(catcher.implicitValue === null)
@@ -490,7 +489,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
                     value: operand.virtualValue,
                     size: size
                 });
-                ipRelative = true;
+                instr.ipRelative = true;
             }
             else if(catcher.forceRM) rm = operand;
             else if(catcher.vexOp)
@@ -601,8 +600,7 @@ Operation.prototype.fit = function(operands, address, enforcedSize, vexInfo)
         reg,
         rm,
         vex: vexInfo.needed ? vex : null,
-        imms,
-        ipRelative
+        imms
     };
 }
 
@@ -611,15 +609,15 @@ const absolute = x => x < 0n ? ~x : x;
 
 
 /* Predict a fitting value and size for a given relative operand */
-Operation.prototype.generateRelative = function(operand, address)
+Operation.prototype.generateRelative = function(operand, instr)
 {
-    let target = operand.value - BigInt(address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    let target = operand.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative
     if(this.relativeSizes.length === 1)
     {
         let size = this.relativeSizes[0];
-        operand.virtualSize = size;
+        operand.size = size;
         operand.virtualValue = target - sizeLen(size);
         if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
             throw new ParserError(`Can't fit offset in ${size >> 3} byte${size != 8 ? 's' : ''}`, operand.startPos, operand.endPos);
@@ -632,14 +630,23 @@ Operation.prototype.generateRelative = function(operand, address)
 
     if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small))
     {
-        if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
-            throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
-        operand.virtualSize = large;
-        operand.virtualValue = target - largeLen;
+        if(small != operand.size && operand.sizeAllowed(small))
+        {
+            operand.size = small;
+            operand.virtualValue = target - smallLen;
+            queueRecomp(instr);
+        }
+        else
+        {
+            if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
+                throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
+            operand.size = large;
+            operand.virtualValue = target - largeLen;
+        }
     }
     else
     {
-        operand.virtualSize = small;
+        operand.size = small;
         operand.virtualValue = target - smallLen;
     }
 }

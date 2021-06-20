@@ -1,7 +1,7 @@
 import { token, next, match, loadCode, ParserError, codePos } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
-import { Symbol, recompQueue } from "./symbols.js";
+import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
 
 var lastInstr, currLineArr, currAddr;
 var linkedInstrQueue = [];
@@ -168,10 +168,7 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
             if(record.references.length == 0)
                 symbols.delete(name);
             else for(let ref of record.references)
-            {
-                ref.wantsRecomp = true;
-                recompQueue.push(ref);
-            }
+                queueRecomp(ref);
         }
     });
 
@@ -187,8 +184,8 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
                 instr.removed = false;
                 try
                 {
-                    instr.recompile();
                     instr.wantsRecomp = false;
+                    instr.recompile();
                 }
                 catch(e)
                 {
@@ -197,10 +194,7 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
                     // When a symbol is invalidated, all references to it should be too
                     if(instr.name)
                         for(let ref of symbols.get(instr.name).references)
-                        {
-                            ref.wantsRecomp = true;
-                            recompQueue.push(ref);
-                        }
+                            queueRecomp(ref);
                 }
             }
             currIndex = instr.address + instr.length;
