@@ -11528,24 +11528,27 @@
         }
       } else if (isNaN(token)) {
         if (token.length > 1 && !isNaN(token.slice(0, -1))) {
+          value = token.includes(".") ? parseFloat(token) : parseInt(token);
           if (token.endsWith("d"))
-            floatPrec = 2, value = parseFloat(token);
+            floatPrec = 2;
           else if (token.endsWith("f"))
-            floatPrec = 1, value = parseFloat(token);
+            floatPrec = 1;
           else {
             codePos.start += codePos.length - 1;
             codePos.length = 1;
             throw new ParserError("Invalid number suffix");
           }
-        } else if (registers[token] !== void 0)
+        } else if (registers.hasOwnProperty(token))
           throw new ParserError("Registers must be prefixed with %");
         else {
           let symbol = {name: token, pos: codePos};
           next();
           return {value: symbol, floatPrec};
         }
-      } else if (token.includes(".") || asFloat)
+      } else if (token.includes("."))
         floatPrec = 1, value = parseFloat(token);
+      else if (asFloat)
+        floatPrec = 1, value = parseInt(token);
       else
         value = asFloat ? Number(token) : BigInt(token);
       if (next() === "f")

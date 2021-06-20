@@ -110,8 +110,9 @@ function parseNumber(asFloat = false)
         {
             if(token.length > 1 && !isNaN(token.slice(0, -1)))
             {
-                if(token.endsWith('d')) floatPrec = 2, value = parseFloat(token);
-                else if(token.endsWith('f')) floatPrec = 1, value = parseFloat(token);
+                value = token.includes('.') ? parseFloat(token) : parseInt(token);
+                if(token.endsWith('d')) floatPrec = 2;
+                else if(token.endsWith('f')) floatPrec = 1;
                 else
                 {
                     codePos.start += codePos.length - 1;
@@ -119,7 +120,7 @@ function parseNumber(asFloat = false)
                     throw new ParserError("Invalid number suffix");
                 }
             }
-            else if(registers[token] !== undefined) throw new ParserError("Registers must be prefixed with %");
+            else if(registers.hasOwnProperty(token)) throw new ParserError("Registers must be prefixed with %");
             else // Symbol
             {
                 let symbol = { name: token, pos: codePos };
@@ -127,7 +128,8 @@ function parseNumber(asFloat = false)
                 return { value: symbol, floatPrec };
             }
         }
-        else if(token.includes('.') || asFloat) floatPrec = 1, value = parseFloat(token);
+        else if(token.includes('.')) floatPrec = 1, value = parseFloat(token);
+        else if(asFloat) floatPrec = 1, value = parseInt(token);
         else value = asFloat ? Number(token) : BigInt(token);
 
         if(next() === 'f') floatPrec = 1, next();
