@@ -1,11 +1,10 @@
 import { token, next, ParserError }   from "./parser.js";
-import { Expression, unescapeString } from "./shuntingYard.js";
+import { Expression, readString } from "./shuntingYard.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
 
 const DIRECTIVE_BUFFER_SIZE = 15;
-const encoder = new TextEncoder();
 
 export const directives = {
     byte:   1,
@@ -58,7 +57,7 @@ export function Directive(address, dir)
                 {
                     if(next()[0] === '"')
                     {
-                        strBytes = encoder.encode(unescapeString(token));
+                        strBytes = readString(token);
                         temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                         temp.set(this.bytes);
                         temp.set(strBytes, this.length);

@@ -11492,7 +11492,8 @@
     t: "	",
     v: "\v"
   };
-  var unescapeString = (string2) => {
+  var encoder = new TextEncoder();
+  var readString = (string2) => {
     if (string2.length < 2 || string2[string2.length - 1] != string2[0])
       throw new ParserError("Incomplete string");
     string2 = string2.slice(1, -1).replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, (x) => {
@@ -11512,7 +11513,7 @@
         return String.fromCharCode(parseInt(x, 8) & 255);
       return stringEscapeSeqs[x] || x;
     });
-    return string2;
+    return encoder.encode(string2);
   };
   function parseNumber(asFloat = false) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
@@ -11520,11 +11521,10 @@
       if (token === "\n")
         throw new ParserError("Expected value, got none");
       if (token[0] === "'") {
-        let string2 = unescapeString(token);
-        let i = string2.length;
+        let bytes = readString(token), i = bytes.length;
         while (i--) {
           value <<= asFloat ? 8 : 8n;
-          value += asFloat ? string2.charCodeAt(i) : BigInt(string2.charCodeAt(i));
+          value += asFloat ? bytes[i] : BigInt(bytes[i]);
         }
       } else if (isNaN(token)) {
         if (token.length > 1 && !isNaN(token.slice(0, -1))) {
@@ -11697,7 +11697,6 @@
 
   // core/directives.js
   var DIRECTIVE_BUFFER_SIZE = 15;
-  var encoder = new TextEncoder();
   var directives = {
     byte: 1,
     short: 2,
@@ -11755,7 +11754,7 @@
           this.bytes = new Uint8Array();
           do {
             if (next()[0] === '"') {
-              strBytes = encoder.encode(unescapeString(token));
+              strBytes = readString(token);
               temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
               temp.set(this.bytes);
               temp.set(strBytes, this.length);

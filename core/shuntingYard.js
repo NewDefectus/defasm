@@ -61,7 +61,8 @@ const stringEscapeSeqs = {
 }
 
 
-export var unescapeString = string => {
+const encoder = new TextEncoder();
+export var readString = string => {
     if(string.length < 2 || string[string.length - 1] != string[0])
         throw new ParserError("Incomplete string");
     string = string.slice(1, -1)
@@ -83,7 +84,7 @@ export var unescapeString = string => {
             return String.fromCharCode(parseInt(x, 8) & 255);
         return stringEscapeSeqs[x] || x;
     });
-    return string;
+    return encoder.encode(string);
 }
 
 
@@ -97,13 +98,12 @@ function parseNumber(asFloat = false)
             throw new ParserError("Expected value, got none");
         if(token[0] === "'")
         {
-            let string = unescapeString(token); // Decode escape sequences
-            // Parse as character constant
-            let i = string.length;
+            let bytes = readString(token), i = bytes.length;
+            
             while(i--)
             {
                 value <<= asFloat ? 8 : 8n;
-                value += asFloat ? string.charCodeAt(i) : BigInt(string.charCodeAt(i));
+                value += asFloat ? bytes[i] : BigInt(bytes[i]);
             }
         }
         else if(isNaN(token))
