@@ -1,5 +1,6 @@
 import { token, next, ParserError }   from "./parser.js";
 import { Expression, readString } from "./shuntingYard.js";
+import { Statement } from "./statement.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -20,123 +21,137 @@ export const directives = {
     double: 7,
     asciz:  8,
     ascii:  9,
-    string: 9 // .string = .ascii
+    string: 9, // .string = .ascii
+    intel_syntax: 10,
+    att_syntax: 11
 }
 
-export function Directive(address, dir)
+export class Directive extends Statement
 {
-    this.bytes = new Uint8Array(DIRECTIVE_BUFFER_SIZE);
-    this.length = 0;
-    this.outline = null;
-    this.floatPrec = 0;
-    this.address = address;
-
-    let appendNullByte = 0;
-
-    try
+    constructor(prev, dir)
     {
-        if(!directives.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
-        switch(directives[dir])
-        {
-            case directives.byte:     this.compileValues(1); break;
-            case directives.word:     this.compileValues(2); break;
-            case directives.int:      this.compileValues(4); break;
-            case directives.quad:     this.compileValues(8); break;
-            case directives.octa:     this.compileValues(16); break;
+        super(prev, DIRECTIVE_BUFFER_SIZE);
+        this.outline = null;
+        this.floatPrec = 0;
 
+        let appendNullByte = 0;
 
-            case directives.float:    this.floatPrec = 1; this.compileValues(4); break;
-            case directives.double:   this.floatPrec = 2; this.compileValues(8); break;
-
-            case directives.asciz:
-                appendNullByte = 1;
-            case directives.ascii:
-                let strBytes, temp;
-                this.bytes = new Uint8Array();
-                do
-                {
-                    if(next()[0] === '"')
-                    {
-                        strBytes = readString(token);
-                        temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
-                        temp.set(this.bytes);
-                        temp.set(strBytes, this.length);
-                        this.bytes = temp;
-                        this.length = temp.length;
-                    }
-                    else throw new ParserError("Expected string");
-                } while(next() === ',');
-                break;
-        }
-    }
-    catch(e)
-    {
-        this.error = e;
-        while(token !== ';' && token !== '\n') next();
-    }
-}
-
-Directive.prototype.compileValues = function(valSize)
-{
-    this.valSize = valSize;
-    let value, expression, needsRecompilation = false;
-    this.outline = [];
-    try {
-        do
-        {
-            expression = new Expression(this, this.floatPrec);
-            value = expression.evaluate(this.address);
-            if(expression.hasSymbols)
-                needsRecompilation = true;
-
-            this.outline.push({ value, expression });
-            this.genValue(value);
-        } while(token === ',');
-    }
-    finally
-    {
-        if(!needsRecompilation) this.outline = null;
-    }
-}
-
-Directive.prototype.recompile = function()
-{
-    let op, outlineLength = this.outline.length;
-    this.length = 0;
-    this.error = null;
-
-    for(let i = 0; i < outlineLength; i++)
-    {
-        op = this.outline[i];
         try
         {
-            if(op.expression.hasSymbols)
-                op.value = op.expression.evaluate(this.address + i * this.valSize, true);
-            this.genValue(op.value);
+            if(!directives.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
+            switch(directives[dir])
+            {
+                case directives.byte:     this.compileValues(1); break;
+                case directives.word:     this.compileValues(2); break;
+                case directives.int:      this.compileValues(4); break;
+                case directives.quad:     this.compileValues(8); break;
+                case directives.octa:     this.compileValues(16); break;
+
+
+                case directives.float:    this.floatPrec = 1; this.compileValues(4); break;
+                case directives.double:   this.floatPrec = 2; this.compileValues(8); break;
+
+                case directives.asciz:
+                    appendNullByte = 1;
+                case directives.ascii:
+                    let strBytes, temp;
+                    this.bytes = new Uint8Array();
+                    do
+                    {
+                        if(next()[0] === '"')
+                        {
+                            strBytes = readString(token);
+                            temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+                            temp.set(this.bytes);
+                            temp.set(strBytes, this.length);
+                            this.bytes = temp;
+                            this.length = temp.length;
+                        }
+                        else throw new ParserError("Expected string");
+                    } while(next() === ',');
+                    break;
+
+                case directives.intel_syntax:
+                case directives.att_syntax:
+                    next();
+                    let prefix = token == '\n' ? dir == 'att_syntax' : token == 'prefix';
+                    if(token != 'prefix' && token != 'noprefix' && token != '\n')
+                        throw new ParserError("Expected 'prefix' or 'noprefix'");
+                    this.syntax = { intel: dir == 'intel_syntax', prefix };
+                    if(token != '\n')
+                        next();
+                    break;
+            }
         }
         catch(e)
         {
             this.error = e;
-            outlineLength = i;
-            i = -1;
-            this.length = 0;
+            while(token !== ';' && token !== '\n') next();
         }
     }
-}
 
-Directive.prototype.genValue = function(value)
-{
-    for(let i = 0; i < this.valSize; i++)
+    compileValues(valSize)
     {
-        this.bytes[this.length++] = Number(value & 0xffn);
-        value >>= 8n;
+        this.valSize = valSize;
+        let value, expression, needsRecompilation = false;
+        this.outline = [];
+        try {
+            do
+            {
+                expression = new Expression(this, this.floatPrec);
+                value = expression.evaluate(this.address);
+                if(expression.hasSymbols)
+                    needsRecompilation = true;
 
-        // Resize the array if necessary
-        if(this.length === this.bytes.length)
+                this.outline.push({ value, expression });
+                this.genValue(value);
+            } while(token === ',');
+        }
+        finally
         {
-            let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
-            temp.set(this.bytes);
-            this.bytes = temp;
+            if(!needsRecompilation) this.outline = null;
+        }
+    }
+
+    recompile()
+    {
+        let op, outlineLength = this.outline.length;
+        this.length = 0;
+        this.error = null;
+
+        for(let i = 0; i < outlineLength; i++)
+        {
+            op = this.outline[i];
+            try
+            {
+                if(op.expression.hasSymbols)
+                    op.value = op.expression.evaluate(this.address + i * this.valSize, true);
+                this.genValue(op.value);
+            }
+            catch(e)
+            {
+                this.error = e;
+                outlineLength = i;
+                i = -1;
+                this.length = 0;
+            }
+        }
+    }
+
+    genValue(value)
+    {
+        for(let i = 0; i < this.valSize; i++)
+        {
+            this.bytes[this.length++] = Number(value & 0xffn);
+            value >>= 8n;
+
+            // Resize the array if necessary
+            if(this.length === this.bytes.length)
+            {
+                let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
+                temp.set(this.bytes);
+                this.bytes = temp;
+            }
         }
     }
 }

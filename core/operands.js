@@ -1,5 +1,5 @@
-import { token, next, ungetToken, ParserError, codePos } from "./parser.js";
-import { Expression } from "./shuntingYard.js";
+import { token, next, ungetToken, ParserError, codePos, currSyntax } from "./parser.js";
+import { Expression, operators } from "./shuntingYard.js";
 
 // Operand types
 export const OPT = {
@@ -37,9 +37,35 @@ export const    PREFIX_REX = 1,
 
 export var regParsePos;
 
+export function isRegister(reg)
+{
+    reg = reg.toLowerCase();
+    if(registers.hasOwnProperty(reg))
+        return true;
+    if(reg[0] === 'r')
+    {
+        reg = reg.slice(1);
+        if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
+            return true;
+    }
+    else
+    {
+        let max = 32;
+        if(reg.startsWith("mm") || reg.startsWith("dr")) reg = reg.slice(2), max = 8;
+        else if(reg.startsWith("cr")) reg = reg.slice(2), max = 9;
+        else if(reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
+        else if(reg.startsWith("bnd")) reg = reg.slice(3), max = 4;
+        else if(reg[0] == 'k') reg = reg.slice(1), max = 8;
+        else return false;
+        if(!isNaN(reg) && (reg = parseInt(reg), reg >= 0 && reg < max))
+            return true;
+    }
+    return false;
+}
+
 export function parseRegister(expectedType = null)
 {
-    let reg = registers[next().toLowerCase()];
+    let reg = registers[(currSyntax.prefix ? next() : token).toLowerCase()];
     let size = 0, type = -1, prefs = 0;
     if(reg >= registers.al && reg <= registers.rdi)
     {
@@ -131,6 +157,7 @@ export function parseRegister(expectedType = null)
 }
 
 
+/** @param {Instruction} instr */
 export function Operand(instr)
 {
     this.reg = this.reg2 = -1;
@@ -146,82 +173,178 @@ export function Operand(instr)
     let indirect = token === '*';
     if(indirect) next();
 
-    if(token === '%') // Register
+    if(instr.syntax.prefix && isRegister(token))
+        throw new ParserError("Registers must be prefixed with '%'");
+
+    if(instr.syntax.prefix ? token === '%' : isRegister(token)) // Register
     {
         [this.reg, this.type, this.size, this.prefs] = parseRegister();
         this.endPos = regParsePos;
     }
-    else if(token === '$')// Immediate
+    else
     {
-        this.expression = new Expression(instr);
-        this.value = this.expression.evaluate(instr.address);
-        this.type = OPT.IMM;
-    }
-    else // Address
-    {
-        this.type = OPT.MEM;
-        this.expression = new Expression(instr, 0, true);
-        this.value = this.expression.evaluate(instr.address);
-        if(token !== '(')
+        if(instr.syntax.intel)
         {
-            if(!indirect)
+            this.type = OPT.IMM;
+            if(token !== '[')
             {
-                this.type = OPT.REL;
-                this.endPos = codePos;
+                this.expression = new Expression(instr, 0, true);
+                this.value = this.expression.evaluate(instr.address);
             }
-            return;
-        }
 
-        let tempSize, tempType;
-        if(next() === '%') [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
-        else if(token === ',')
-        {
-            this.reg = -1;
-            tempType = -1;
-            tempSize = 64;
-        }
-        else throw new ParserError("Expected register");
-        
-        if(tempType === OPT.VEC)
-        {
-            this.type = OPT.VMEM; this.size = tempSize;
-            if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
-            this.reg2 = this.reg;
-            this.reg = -1;
-        }
-        else
-        {
-            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
-            else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
-            if(tempType === OPT.IP) this.ripRelative = true;
-            else if(token === ',')
+            // Intel syntax
+            if(token === '[') // Memory
             {
-                if(next() !== '%') throw new ParserError("Expected register");
-                [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
+                this.type = OPT.MEM;
+                next();
+                if(instr.syntax.prefix ? token != '%' : !isRegister(token))
+                {
+                    let secExpr = new Expression(instr, 0, true);
+                    if(this.expression) // Combining the first and second expressions
+                    {
+                        this.expression.stack.push(...secExpr.stack, operators['+']);
+                        this.expression.floatPrec = Math.max(this.expression.floatPrec, secExpr.floatPrec);
+                        this.expression.hasSymbols = this.expression.hasSymbols || secExpr.hasSymbols;
+                        this.value = this.expression.evaluate(instr.address);
+                    }
+                    else
+                    {
+                        this.expression = secExpr;
+                        this.value = this.expression.evaluate(instr.address);
+                    }
+                    if(token == ']')
+                    {
+                        next();
+                        return;
+                    }
+                }
+
+                if(instr.syntax.prefix && token != '%')
+                    throw new ParserError("Expected register");
+
+                [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+
                 if(tempType === OPT.VEC)
                 {
                     this.type = OPT.VMEM; this.size = tempSize;
                     if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
+                    this.reg2 = this.reg;
+                    this.reg = -1;
                 }
                 else
                 {
-                    if(this.reg2 === 4) throw new ParserError("Memory index cannot be RSP", regParsePos);
                     if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
                     else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
+                    if(tempType === OPT.IP) this.ripRelative = true;
+                    else if(token === '+')
+                    {   
+                        next();
+                        if(instr.syntax.prefix && token != '%')
+                            throw new ParserError("Expected register");
+
+                        [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
+                        if(tempType === OPT.VEC)
+                        {
+                            this.type = OPT.VMEM; this.size = tempSize;
+                            if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
+                        }
+                        else
+                        {
+                            if(this.reg2 === 4) throw new ParserError("Memory index cannot be RSP", regParsePos);
+                            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                            else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
+                        }
+
+                        if(token === '*')
+                        {
+                            this.shift = "1248".indexOf(next());
+                            if(this.shift < 0) throw new ParserError("Scale must be 1, 2, 4, or 8");
+                            next();
+                        }
+                    }
                 }
 
-                if(token === ',')
-                {
-                    this.shift = "1248".indexOf(next());
-                    if(this.shift < 0) throw new ParserError("Scale must be 1, 2, 4, or 8");
-                    next();
-                }
+                if((this.reg & 7) === 5) this.value = this.value || 0n; 
+                if(token !== ']') throw new ParserError("Expected ']'");
+                next();
             }
-            else if(this.reg === 4) this.reg2 = 4;
         }
-        if((this.reg & 7) === 5) this.value = this.value || 0n; 
-        if(token !== ')') throw new ParserError("Expected ')'");
-        next();
+        else
+        {
+            // AT&T syntax
+            if(token === '$') // Immediate
+            {
+                this.expression = new Expression(instr);
+                this.value = this.expression.evaluate(instr.address);
+                this.type = OPT.IMM;
+            }
+            else // Address
+            {
+                this.type = OPT.MEM;
+                this.expression = new Expression(instr, 0, true);
+                this.value = this.expression.evaluate(instr.address);
+                if(token !== '(')
+                {
+                    if(!indirect)
+                    {
+                        this.type = OPT.REL;
+                        this.endPos = codePos;
+                    }
+                    return;
+                }
+
+                let tempSize, tempType;
+                if(next() === '%') [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+                else if(token === ',')
+                {
+                    this.reg = -1;
+                    tempType = -1;
+                    tempSize = 64;
+                }
+                else throw new ParserError("Expected register");
+                
+                if(tempType === OPT.VEC)
+                {
+                    this.type = OPT.VMEM; this.size = tempSize;
+                    if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
+                    this.reg2 = this.reg;
+                    this.reg = -1;
+                }
+                else
+                {
+                    if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                    else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
+                    if(tempType === OPT.IP) this.ripRelative = true;
+                    else if(token === ',')
+                    {
+                        if(next() !== '%') throw new ParserError("Expected register");
+                        [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
+                        if(tempType === OPT.VEC)
+                        {
+                            this.type = OPT.VMEM; this.size = tempSize;
+                            if(tempSize < 128) throw new ParserError("Invalid register size", regParsePos);
+                        }
+                        else
+                        {
+                            if(this.reg2 === 4) throw new ParserError("Memory index cannot be RSP", regParsePos);
+                            if(tempSize === 32) this.prefs |= PREFIX_ADDRSIZE;
+                            else if(tempSize !== 64) throw new ParserError("Invalid register size", regParsePos);
+                        }
+
+                        if(token === ',')
+                        {
+                            this.shift = "1248".indexOf(next());
+                            if(this.shift < 0) throw new ParserError("Scale must be 1, 2, 4, or 8");
+                            next();
+                        }
+                    }
+                    else if(this.reg === 4) this.reg2 = 4;
+                }
+                if((this.reg & 7) === 5) this.value = this.value || 0n; 
+                if(token !== ')') throw new ParserError("Expected ')'");
+                next();
+            }
+        }
     }
 }
 

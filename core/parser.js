@@ -6,9 +6,16 @@ var lastLineIndex = 0;
 
 var prevCodePos;
 
+export var currSyntax = { intel: false, prefix: true };
+export function setSyntax(syntax)
+{
+    currSyntax = syntax;
+}
+
 export function loadCode(code)
 {
-    srcTokens = code.matchAll(/(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|#.*|[\S\n]/g);
+    srcTokens = code.matchAll(/(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g);
+
     next = defaultNext;
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};
@@ -20,7 +27,11 @@ var defaultNext = () =>
     match.value[0] === '\n' ?
         lastLineIndex = match.value.index + 1 :
         codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
-    match.value[0][0] === '#' ? next() : match.value[0]);
+    match.value[0] === (currSyntax.intel ? ';' : '#') ? function(){
+        while(!match.done && match.value[0] !== '\n')
+            match = srcTokens.next();
+        return '\n';
+    }() : match.value[0]);
 
 export var next = defaultNext;
 

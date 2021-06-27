@@ -5,6 +5,7 @@ import { token, next, ungetToken, setToken, ParserError, codePos } from "./parse
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
+import { Statement } from "./statement.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -15,415 +16,417 @@ export const prefixes = {
     repz: 0xF3
 };
 
-export function Instruction(address, opcode, opcodePos)
-{
-    this.opcode = opcode;
-    this.opcodePos = opcodePos;
-    this.bytes = new Uint8Array(MAX_INSTR_SIZE);
-    this.length = 0;
-    this.address = address;
+const SHORT_DISP = 128;
 
-    this.interpret();
-}
-
-// Generate a single byte
-Instruction.prototype.genByte = function(byte)
+export class Instruction extends Statement
 {
-    this.bytes[this.length++] = Number(byte);
-}
-
-// Generate an integer with a given size
-Instruction.prototype.genInteger = function(byte, size)
-{
-    do
+    constructor(prev, opcode, opcodePos)
     {
-        this.genByte(byte & 0xffn);
-        byte >>= 8n;
-    } while(size -= 8);
-}
+        super(prev, MAX_INSTR_SIZE);
+        this.opcode = opcode;
+        this.opcodePos = opcodePos;
 
-// Generate Instruction.outline
-Instruction.prototype.interpret = function()
-{
-    let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
-    let vexInfo = {
-        needed: opcode[0] === 'v',
-        evex: false,
-        mask: 0,
-        zeroing: false,
-        round: null,
-        broadcast: null
-    };
-
-    let usesMemory = false;
-    this.needsRecompilation = false;
-    this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
-
-    // Prefix opcodes are interpreted as instructions that end with a semicolon
-    if(prefixes.hasOwnProperty(opcode))
-    {
-        this.genByte(prefixes[opcode]);
-        ungetToken();
-        setToken(';');
-        return;
+        this.interpret();
     }
 
-    // Finding the matching mnemonic for this opcode
-    if(!mnemonics.hasOwnProperty(opcode))
+    // Generate a single byte
+    genByte(byte)
     {
-        if(vexInfo.needed && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) // Make sure it's not a VEX instruction with a suffix
+        this.bytes[this.length++] = Number(byte);
+    }
+
+    // Generate an integer with a given size
+    genInteger(byte, size)
+    {
+        do
         {
-            opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+            this.genByte(byte & 0xffn);
+            byte >>= 8n;
+        } while(size -= 8);
+    }
+
+    // Generate Instruction.outline
+    interpret()
+    {
+        let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
+        let vexInfo = {
+            needed: opcode[0] === 'v',
+            evex: false,
+            mask: 0,
+            zeroing: false,
+            round: null,
+            broadcast: null
+        };
+
+        let usesMemory = false;
+        this.needsRecompilation = false;
+        this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
+
+        // Prefix opcodes are interpreted as instructions that end with a semicolon
+        if(prefixes.hasOwnProperty(opcode))
+        {
+            this.genByte(prefixes[opcode]);
+            ungetToken();
+            setToken(';');
+            return;
         }
-        if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
+
+        // Finding the matching mnemonic for this opcode
+        if(!mnemonics.hasOwnProperty(opcode))
         {
-            enforcedSize = suffixes[opcode[opcode.length - 1]];
-            opcode = opcode.slice(0, -1);
-            if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
-            if(enforcedSize === undefined)
+            if(vexInfo.needed && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) // Make sure it's not a VEX instruction with a suffix
             {
-                this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
-                this.opcodePos.length = 1;
-                throw new ParserError("Invalid opcode suffix", this.opcodePos);
+                opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
+            }
+            if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
+            {
+                enforcedSize = suffixes[opcode[opcode.length - 1]];
+                opcode = opcode.slice(0, -1);
+                if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
+                if(enforcedSize === undefined)
+                {
+                    this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
+                    this.opcodePos.length = 1;
+                    throw new ParserError("Invalid opcode suffix", this.opcodePos);
+                }
             }
         }
-    }
 
-    /** @type { Operation[] } */
-    let operations = mnemonics[opcode];
-    /** @type { Operand[] } */
-    let operands = [];
+        /** @type { Operation[] } */
+        let operations = mnemonics[opcode];
+        /** @type { Operand[] } */
+        let operands = [];
 
-    if(typeof operations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
-    {
-        if(operations[0][0] === '#') // References other mnemonic
+        if(typeof operations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
         {
-            let otherOpcode = operations[0].slice(1);
-            if(typeof mnemonics[otherOpcode][0] === "string")
+            if(operations[0][0] === '#') // References other mnemonic
             {
-                mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
+                let otherOpcode = operations[0].slice(1);
+                if(typeof mnemonics[otherOpcode][0] === "string")
+                {
+                    mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
+                }
+                mnemonics[opcode] = operations = mnemonics[otherOpcode];
             }
-            mnemonics[opcode] = operations = mnemonics[otherOpcode];
-        }
-        else mnemonics[opcode] = operations = operations.map(line => new Operation(line.split(' ')));
-    }
-
-    // An optional "pseudo-operand" for rounding semantics may appear at the start
-    if(token === '{')
-    {
-        let roundingName = "", roundStart = codePos;
-        vexInfo.evex = true;
-
-        while(next() !== '}')
-        {
-            if(token === '\n')
-                throw new ParserError("Expected '}'")
-            roundingName += token;
+            else mnemonics[opcode] = operations = operations.map(line => new Operation(line.split(' ')));
         }
 
-        vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-        vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
-        if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
-        if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
-    }
-
-    // Collecting the operands
-    while(token !== ';' && token !== '\n')
-    {
-        operand = new Operand(this);
-        if(token === ':') // Segment specification for addressing
+        // An optional "pseudo-operand" for rounding semantics may appear at the start
+        if(token === '{')
         {
-            if(operand.type !== OPT.SEG)
-                throw new ParserError("Incorrect prefix");
-            prefsToGen |= (operand.reg + 1) << 3;
-            next();
-            operand = new Operand(this);
-            if(operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
-                throw new ParserError("Segment prefix must be followed by memory reference");
-        }
-
-        if(operand.expression && operand.expression.hasSymbols)
-            this.needsRecompilation = true;
-
-        operands.push(operand);
-        prefsToGen |= operand.prefs;
-
-        if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512) vexInfo.evex = true;
-        if(operand.type === OPT.MEM) usesMemory = true;
-
-        while(token === '{') // Decorator (mask or broadcast specifier)
-        {
+            let roundingName = "", roundStart = codePos;
             vexInfo.evex = true;
-            if(next() === '%') // Opmask
+
+            while(next() !== '}')
             {
-                vexInfo.mask = parseRegister([OPT.MASK])[0];
-                if((vexInfo.mask & 7) === 0) throw new ParserError("Can't use %k0 as writemask", regParsePos);
+                if(token === '\n')
+                    throw new ParserError("Expected '}'")
+                roundingName += token;
             }
-            else if(token === 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
-            else if(operand.type === OPT.MEM)
+
+            vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
+            vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
+            if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
+            if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
+        }
+
+        // Collecting the operands
+        while(token !== ';' && token !== '\n')
+        {
+            operand = new Operand(this);
+            if(token === ':') // Segment specification for addressing
             {
-                vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
-                if(vexInfo.broadcast < 0) throw new ParserError("Invalid broadcast mode");
-                vexInfo.broadcastPos = codePos;
+                if(operand.type !== OPT.SEG)
+                    throw new ParserError("Incorrect prefix");
+                prefsToGen |= (operand.reg + 1) << 3;
+                next();
+                operand = new Operand(this);
+                if(operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
+                    throw new ParserError("Segment prefix must be followed by memory reference");
+            }
+
+            if(operand.expression && operand.expression.hasSymbols)
+                this.needsRecompilation = true;
+
+            operands.push(operand);
+            prefsToGen |= operand.prefs;
+
+            if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512) vexInfo.evex = true;
+            if(operand.type === OPT.MEM) usesMemory = true;
+
+            while(token == '{') // Decorator (mask or broadcast specifier)
+            {
+                vexInfo.evex = true;
+                if(this.syntax.prefix ? next() == '%' : next()[0] == 'k') // Opmask
+                {
+                    vexInfo.mask = parseRegister([OPT.MASK])[0];
+                    if((vexInfo.mask & 7) == 0) throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
+                }
+                else if(token == 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
+                else if(operand.type == OPT.MEM)
+                {
+                    vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
+                    if(vexInfo.broadcast < 0) throw new ParserError("Invalid broadcast mode");
+                    vexInfo.broadcastPos = codePos;
+                    next();
+                }
+                else throw new ParserError("Invalid decorator");
+                
+                if(token !== '}') throw new ParserError("Expected '}'");
                 next();
             }
-            else throw new ParserError("Invalid decorator");
-            
-            if(token !== '}') throw new ParserError("Expected '}'");
+
+            if(token !== ',') break;
             next();
         }
+        this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
+        if(this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
+            operands.reverse();
 
-        if(token !== ',') break;
-        next();
-    }
+        if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
-    if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+        this.outline = { operands, enforcedSize, operations, prefsToGen, vexInfo };
+        this.endPos = codePos;
 
-    this.outline = { operands, enforcedSize, operations, prefsToGen, vexInfo };
-    this.endPos = codePos;
+        this.removed = false; // Interpreting was successful, so don't mark as removed
 
-    this.removed = false; // Interpreting was successful, so don't mark as removed
-
-    if(this.needsRecompilation)
-        queueRecomp(this);
-    else
-    {
-        try
+        if(this.needsRecompilation)
+            queueRecomp(this);
+        else
         {
-            this.compile();
-        }
-        catch(e)
-        {
-            this.error = e;
-            this.length = 0;
-        }
-        if(!this.needsRecompilation && !this.ipRelative)
-            this.outline = undefined;
-    }
-}
-
-Instruction.prototype.compile = function()
-{
-    let { operands, enforcedSize, operations, prefsToGen, vexInfo } = this.outline;
-    this.length = 0;
-
-    // Before we compile, we'll get the immediates' sizes
-    if(enforcedSize === 0)
-    {
-        for(let op of operands)
-        {
-            if(op.type === OPT.IMM)
+            try
             {
-                if(!op.expression.hasSymbols)
+                this.compile();
+            }
+            catch(e)
+            {
+                this.error = e;
+                this.length = 0;
+            }
+            if(!this.needsRecompilation && !this.ipRelative)
+                this.outline = undefined;
+        }
+    }
+
+    compile()
+    {
+        let { operands, enforcedSize, operations, prefsToGen, vexInfo } = this.outline;
+        this.length = 0;
+
+        // Before we compile, we'll get the immediates' sizes
+        if(enforcedSize === 0)
+        {
+            for(let op of operands)
+            {
+                if(op.type === OPT.IMM)
                 {
-                    op.size = inferImmSize(op.value);
-                    op.unsignedSize = inferUnsignedImmSize(op.value);
+                    if(!op.expression.hasSymbols)
+                    {
+                        op.size = inferImmSize(op.value);
+                        op.unsignedSize = inferUnsignedImmSize(op.value);
+                    }
+                    else
+                    {
+                        let max = inferImmSize(op.value);
+                        for(let size = 8; size <= max; size *= 2)
+                        {
+                            if((size != op.size || op.size == max) && op.sizeAllowed(size))
+                            {
+                                op.size = size;
+                                op.recordSizeUse(size);
+
+                                if(size < max)
+                                    queueRecomp(this);
+
+                                break;
+                            }
+                        }
+
+                        max = inferUnsignedImmSize(op.value);
+
+                        for(let size = 8; size <= max; size *= 2)
+                        {
+                            if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
+                            {
+                                op.unsignedSize = size;
+                                op.recordSizeUse(size, true);
+                                if(size < max)
+                                    queueRecomp(this);
+
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Now, we'll find the matching operation for this operand list
+        let op, found = false, rexVal = 0x40;
+        
+        for(let operation of operations)
+        {
+            op = operation.fit(operands, this, enforcedSize, vexInfo);
+            if(op !== null)
+            {
+                found = true;
+                break;
+            }
+        }
+
+        if(!found)
+        {
+            // Try to find why the error occurred
+            let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
+            let firstOrderPossible = false, secondOrderPossible = false;
+
+            for(let operation of operations)
+            {
+                couldveBeenVex = couldveBeenVex || operation.allowVex;
+                if(vexInfo.needed && !operation.allowVex)
+                    continue;
+
+                let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
+                if(opCount > maxOperandCount)
+                    maxOperandCount = opCount;
+                if(opCount < minOperandCount)
+                    minOperandCount = opCount;
+
+                firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
+                operands.reverse();
+                secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
+                operands.reverse();
+            }
+
+            if(vexInfo.needed && !couldveBeenVex)
+                throw new ParserError("Unknown opcode", this.opcodePos);
+
+            if(operands.length < minOperandCount)
+                throw new ParserError("Not enough operands", this.operandStartPos, this.endPos);
+            
+            if(operands.length > maxOperandCount)
+                throw new ParserError("Too many operands", this.operandStartPos, this.endPos);
+            
+            if(!firstOrderPossible && secondOrderPossible)
+                throw new ParserError("Wrong operand order", this.operandStartPos, this.endPos);
+            
+            throw new ParserError("Invalid operands", this.operandStartPos, this.endPos);
+        }
+
+        if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+        
+        let modRM = null, sib = null;
+        if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
+        else if(op.rm !== null)
+        {
+            let extraRex;
+            [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
+            if(extraRex !== 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
+        }
+
+        // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
+        if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
+        let opcode = op.opcode;
+
+        // Time to generate!
+        if(prefsToGen >= PREFIX_SEG) this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
+        if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
+        if(op.size === 16) this.genByte(0x66);
+        if(op.prefix !== null) this.genByte(op.prefix);
+        if(op.vex !== null) makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
+        else
+        {
+            if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
+            // Generate the upper bytes of the opcode if needed
+            if(opcode > 0xffff) this.genByte(opcode >> 16);
+            if(opcode > 0xff) this.genByte(opcode >> 8);
+        }
+        this.genByte(opcode);
+        if(modRM !== null) this.genByte(modRM);
+        if(sib !== null) this.genByte(sib);
+
+        // Generating the displacement and immediate
+        if(op.rm !== null && op.rm.value !== null) this.genInteger(op.rm.value, op.rm.dispSize || 32);
+        for(let imm of op.imms) this.genInteger(imm.value, imm.size);
+    }
+
+    // Generate the ModRM byte
+    makeModRM(rm, r)
+    {
+        let modrm = 0, rex = 0;
+        // rm's and r's values may be edited, however the objects themselves shouldn't be modified
+        let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
+
+        // Encoding the "reg" field
+        if(rReg >= 8)
+        {
+            rex |= 4; // rex.R extension
+            rReg &= 7;
+        }
+        modrm |= rReg << 3;
+
+        // Special case for RIP-relative addressing
+        if(rm.ripRelative)
+        {
+            rm.value = rm.value || 0n;
+            // mod = 00, reg = (reg), rm = 101
+            return [rex, modrm | 5, null];
+        }
+
+        // Encoding the "mod" (modifier) field
+        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
+        else if(rmReg >= 0)
+        {
+            if(rm.value !== null)
+            {
+                if(inferImmSize(rm.value) === 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
+                {
+                    rm.dispSize = 8;
+                    modrm |= 0x40; // mod=01
+                    rm.recordSizeUse(SHORT_DISP);
+                }
+                else if(rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
+                {
+                    rm.dispSize = 8;
+                    modrm |= 0x40; // mod=01
+                    rm.recordSizeUse(SHORT_DISP);
+
+                    queueRecomp(this);
                 }
                 else
                 {
-                    let max = inferImmSize(op.value);
-                    for(let size = 8; size <= max; size *= 2)
-                    {
-                        if((size != op.size || op.size == max) && op.sizeAllowed(size))
-                        {
-                            op.size = size;
-                            op.recordSizeUse(size);
-
-                            if(size < max)
-                                queueRecomp(this);
-
-                            break;
-                        }
-                    }
-
-                    max = inferUnsignedImmSize(op.value);
-
-                    for(let size = 8; size <= max; size *= 2)
-                    {
-                        if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
-                        {
-                            op.unsignedSize = size;
-                            op.recordSizeUse(size, true);
-
-                            if(size < max)
-                                queueRecomp(this);
-
-                            break;
-                        }
-                    }
+                    
+                    rm.dispSize = 32;
+                    modrm |= 0x80; // mod=10
                 }
             }
         }
-    }
-
-    // Now, we'll find the matching operation for this operand list
-    let op, found = false, rexVal = 0x40;
-    
-    for(let operation of operations)
-    {
-        op = operation.fit(operands, this, enforcedSize, vexInfo);
-        if(op !== null)
+        else // mod = 00
         {
-            found = true;
-            break;
+            // These are the respective "none" type registers
+            rmReg = 5;
+            if(rmReg2 < 0) rmReg2 = 4;
+            rm.value = rm.value || 0n;
         }
-    }
+        
+        // Encoding the "rm" field
+        rex |= rmReg >> 3; // rex.B extension
+        rmReg &= 7;
 
-    if(!found)
-    {
-        // Try to find why the error occurred
-        let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
-        let errorPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
-        let firstOrderPossible = false, secondOrderPossible = false;
-
-        for(let operation of operations)
+        // Encoding an SIB byte if necessary
+        if(rmReg2 >= 0)
         {
-            couldveBeenVex = couldveBeenVex || operation.allowVex;
-            if(vexInfo.needed && !operation.allowVex)
-                continue;
-
-            let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
-            if(opCount > maxOperandCount)
-                maxOperandCount = opCount;
-            if(opCount < minOperandCount)
-                minOperandCount = opCount;
-
-            firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
-            operands.reverse();
-            secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
-            operands.reverse();
-        }
-
-        if(vexInfo.needed && !couldveBeenVex)
-            throw new ParserError("Unknown opcode", this.opcodePos);
-
-        if(operands.length < minOperandCount)
-            throw new ParserError("Not enough operands", errorPos, this.endPos);
-        
-        if(operands.length > maxOperandCount)
-            throw new ParserError("Too many operands", errorPos, this.endPos);
-        
-        if(!firstOrderPossible && secondOrderPossible)
-            throw new ParserError("Wrong operand order", errorPos, this.endPos);
-        
-        throw new ParserError("Invalid operands", errorPos, this.endPos);
-    }
-
-    if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
-    
-    let modRM = null, sib = null;
-    if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
-    else if(op.rm !== null)
-    {
-        let extraRex;
-        [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
-        if(extraRex !== 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
-    }
-
-    // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-    if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
-    let opcode = op.opcode;
-
-    // Time to generate!
-    if(prefsToGen >= PREFIX_SEG) this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
-    if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
-    if(op.size === 16) this.genByte(0x66);
-    if(op.prefix !== null) this.genByte(op.prefix);
-    if(op.vex !== null) makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
-    else
-    {
-        if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
-        // Generate the upper bytes of the opcode if needed
-        if(opcode > 0xffff) this.genByte(opcode >> 16);
-        if(opcode > 0xff) this.genByte(opcode >> 8);
-    }
-    this.genByte(opcode);
-    if(modRM !== null) this.genByte(modRM);
-    if(sib !== null) this.genByte(sib);
-
-    // Generating the displacement and immediate
-    if(op.rm !== null && op.rm.value !== null) this.genInteger(op.rm.value, op.rm.dispSize || 32);
-    for(let imm of op.imms) this.genInteger(imm.value, imm.size);
-}
-
-const SHORT_DISP = 128;
-
-// Generate the ModRM byte
-Instruction.prototype.makeModRM = function(rm, r)
-{
-    let modrm = 0, rex = 0;
-    // rm's and r's values may be edited, however the objects themselves shouldn't be modified
-    let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
-
-    // Encoding the "reg" field
-    if(rReg >= 8)
-    {
-        rex |= 4; // rex.R extension
-        rReg &= 7;
-    }
-    modrm |= rReg << 3;
-
-    // Special case for RIP-relative addressing
-    if(rm.ripRelative)
-    {
-        rm.value = rm.value || 0n;
-        // mod = 00, reg = (reg), rm = 101
-        return [rex, modrm | 5, null];
-    }
-
-    // Encoding the "mod" (modifier) field
-    if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
-    else if(rmReg >= 0)
-    {
-        if(rm.value !== null)
-        {
-            if(inferImmSize(rm.value) === 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
+            if(rmReg2 >= 8)
             {
-                rm.dispSize = 8;
-                modrm |= 0x40; // mod=01
-                rm.recordSizeUse(SHORT_DISP);
+                rex |= 2; // rex.X extension
+                rmReg2 &= 7;
             }
-            else if(rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
-            {
-                rm.dispSize = 8;
-                modrm |= 0x40; // mod=01
-                rm.recordSizeUse(SHORT_DISP);
-
-                queueRecomp(this);
-            }
-            else
-            {
-                
-                rm.dispSize = 32;
-                modrm |= 0x80; // mod=10
-            }
+            
+            // rm=100 signifies an SIB byte
+            return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
         }
+        return [rex, modrm | rmReg, null];
     }
-    else // mod = 00
-    {
-        // These are the respective "none" type registers
-        rmReg = 5;
-        if(rmReg2 < 0) rmReg2 = 4;
-        rm.value = rm.value || 0n;
-    }
-    
-    // Encoding the "rm" field
-    rex |= rmReg >> 3; // rex.B extension
-    rmReg &= 7;
-
-    // Encoding an SIB byte if necessary
-    if(rmReg2 >= 0)
-    {
-        if(rmReg2 >= 8)
-        {
-            rex |= 2; // rex.X extension
-            rmReg2 &= 7;
-        }
-        
-        // rm=100 signifies an SIB byte
-        return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
-    }
-    return [rex, modrm | rmReg, null];
 }
 
 // Generate the VEX/EVEX prefix

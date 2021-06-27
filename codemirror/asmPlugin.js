@@ -221,7 +221,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
 
 /* Auxiliary functions for the Assembly grammar, to help identify registered keywords */
 
-export function isOpcode(opcode)
+export function CM_isOpcode(opcode)
 {
     opcode = opcode.toLowerCase();
     if(prefixes.hasOwnProperty(opcode))
@@ -236,32 +236,12 @@ export function isOpcode(opcode)
     return relativeMnemonics.includes(opcode) ? Terms.RelOpcode : Terms.Opcode;
 }
 
-export function isRegister(reg)
+export function CM_isRegister(reg)
 {
-    reg = reg.slice(1).trim().toLowerCase();
-    if(registers.hasOwnProperty(reg))
-        return Terms.Register;
-    if(reg[0] === 'r')
-    {
-        reg = reg.slice(1);
-        if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
-            return Terms.Register;
-    }
-    else
-    {
-        let max = 32;
-        if(reg.startsWith("mm") || reg.startsWith("dr")) reg = reg.slice(2), max = 8;
-        else if(reg.startsWith("cr")) reg = reg.slice(2), max = 9;
-        else if(reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
-        else if(reg.startsWith("bnd")) reg = reg.slice(3), max = 4;
-        else if(reg[0] == 'k') reg = reg.slice(1), max = 8;
-        if(!isNaN(reg) && (reg = parseInt(reg), reg >= 0 && reg < max))
-            return Terms.Register;
-    }
-    return -1;
+    return isRegister(reg.slice(1).trim()) ? Terms.Register : -1;
 }
 
-export function isDirective(dir)
+export function CM_isDirective(dir)
 {
     return directives.hasOwnProperty(dir.slice(1)) ? Terms.Directive : -1;
 }

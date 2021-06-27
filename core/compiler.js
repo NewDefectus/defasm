@@ -2,14 +2,15 @@ import { token, next, match, loadCode, ParserError, codePos } from "./parser.js"
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
+import { Statement } from "./statement.js";
 
-var lastInstr, currLineArr, currAddr;
+var lastInstr, currLineArr;
 var linkedInstrQueue = [];
 
 /**
  * @typedef {Object} SymbolRecord
  * @property {?Symbol} symbol The symbol instruction this record belongs to, if it exists
- * @property {Instruction[]} references List of instructions that reference this symbol
+ * @property {Statement[]} references List of instructions that reference this symbol
  */
 
 /** @type {Map<string, SymbolRecord>} */
@@ -22,7 +23,7 @@ export function AssemblyState()
     /** @type {Map<string, SymbolRecord>} */
     this.symbols = new Map();
 
-    /** @type {Instruction[][]} */
+    /** @type {Statement[][]} */
     this.instructions = [];
 
     this.bytes = 0;
@@ -30,11 +31,8 @@ export function AssemblyState()
 
 function addInstruction(instr)
 {
-    if(lastInstr)
-        lastInstr.next = instr;
     currLineArr.push(instr);
     lastInstr = instr;
-    currAddr += instr.length;
 }
 
 // Compile Assembly from source code into machine code
@@ -57,8 +55,6 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
 
     for(let i = 1; i < line && i <= this.instructions.length; i++)
         for(lastInstr of this.instructions[i - 1]);
-
-    currAddr = lastInstr ? lastInstr.address + lastInstr.length : baseAddr;
 
 
     // Make sure the instruction array reaches the given line
@@ -91,22 +87,22 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             if(token !== '\n' && token !== ';')
             {
                 if(token[0] === '.') // Assembly directive
-                    addInstruction(new Directive(currAddr, token.slice(1)));
+                    addInstruction(new Directive(lastInstr, token.slice(1)));
                 else // Instruction, label or symbol
                 {
                     opcode = token;
                     switch(next())
                     {
                         case ':': // Label definition
-                            addInstruction(new Symbol(currAddr, opcode, pos, true));
+                            addInstruction(new Symbol(lastInstr, opcode, pos, true));
                             continue;
                         
                         case '=': // Symbol definition
-                            addInstruction(new Symbol(currAddr, opcode, pos));
+                            addInstruction(new Symbol(lastInstr, opcode, pos));
                             break;
                         
                         default: // Instruction
-                            addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));
+                            addInstruction(new Instruction(lastInstr, opcode.toLowerCase(), pos));
                             break;
                     }
                 }
@@ -124,7 +120,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             if(e.pos == null || e.length == null)
                 console.error("Error on line " + line + ":\n", e);
             else
-                addInstruction({length: 0, bytes: new Uint8Array(), error: e, address: currAddr });
+                addInstruction(new Statement(lastInstr, 0, e));
             while(token !== '\n' && token !== ';') next();
             if(token === '\n' && !match.done) this.instructions.splice(line++, 0, currLineArr = []);
         }

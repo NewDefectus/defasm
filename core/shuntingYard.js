@@ -1,6 +1,7 @@
-import { registers } from "./operands.js";
-import { codePos, next, ParserError, setToken, token, ungetToken } from "./parser.js";
+import { isRegister, registers } from "./operands.js";
+import { codePos, currSyntax, next, ParserError, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./compiler.js";
+import { Statement } from "./statement.js";
 
 export var unaries = {
     '+': a=>a,
@@ -128,7 +129,10 @@ function parseNumber(asFloat = false)
                     throw new ParserError("Invalid number suffix");
                 }
             }
-            else if(registers.hasOwnProperty(token)) throw new ParserError("Registers must be prefixed with %");
+            else if(isRegister(token))
+            {
+                throw new ParserError("Can't use registers in an expression");
+            }
             else // Symbol
             {
                 let symbol = { name: token, pos: codePos };
@@ -180,6 +184,7 @@ export function LabelExpression(instr)
 }
 
 
+/** @param {Statement} instr */
 export function Expression(instr, minFloatPrec = 0, expectMemory = false)
 {
     this.hasSymbols = false;
@@ -204,13 +209,18 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 if(expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket) break;
                 throw new ParserError("Missing left operand");
             }
+            let opToken = token;
+            next();
+
+            if(opToken == '+' && (currSyntax.prefix ? token == '%' : isRegister(token)))
+                break;
             lastWasNum = false;
 
-            let op = Object.assign({pos: codePos}, operators[token]);
+            let op = Object.assign({pos: codePos}, operators[opToken]);
+
             while(lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
                 this.stack.push(opStack.pop());
             opStack.push(op);
-            next();
         }
         else if(unaries.hasOwnProperty(token)) throw new ParserError("Unary operator can't be used here");
         else if(token === '(')
@@ -235,6 +245,8 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             lastWasNum = true;
             next();
         }
+        else if(token === '[' || token === ']')
+            break;
         else // Number
         {
             if(lastWasNum)
