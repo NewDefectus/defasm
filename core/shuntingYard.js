@@ -129,10 +129,6 @@ function parseNumber(asFloat = false)
                     throw new ParserError("Invalid number suffix");
                 }
             }
-            else if(isRegister(token))
-            {
-                throw new ParserError("Can't use registers in an expression");
-            }
             else // Symbol
             {
                 let symbol = { name: token, pos: codePos };
@@ -247,6 +243,12 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         }
         else if(token === '[' || token === ']')
             break;
+        else if(isRegister(token))
+        {
+            if(!lastWasNum && expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
+                break;
+            throw new ParserError("Can't use registers in an expression");
+        }
         else // Number
         {
             if(lastWasNum)

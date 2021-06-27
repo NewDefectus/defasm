@@ -295,7 +295,7 @@ export function Operand(instr)
                 }
 
                 let tempSize, tempType;
-                if(next() === '%') [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+                if(instr.syntax.prefix ? next() === '%' : isRegister(next())) [this.reg, tempType, tempSize] = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
                 else if(token === ',')
                 {
                     this.reg = -1;
@@ -318,7 +318,7 @@ export function Operand(instr)
                     if(tempType === OPT.IP) this.ripRelative = true;
                     else if(token === ',')
                     {
-                        if(next() !== '%') throw new ParserError("Expected register");
+                        if(instr.syntax.prefix ? next() !== '%' : !isRegister(next())) throw new ParserError("Expected register");
                         [this.reg2, tempType, tempSize] = parseRegister([OPT.REG, OPT.VEC]);
                         if(tempType === OPT.VEC)
                         {
