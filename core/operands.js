@@ -28,6 +28,7 @@ export const registers = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 
 export const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
+export const sizePtrs = {"byte": 8, "word": 16, "dword": 32, "qword": 64, "tword": 80, "xmmword": 128, "ymmword": 256, "zmmword": 512};
 
 export const    PREFIX_REX = 1,
                 PREFIX_NOREX = 2,

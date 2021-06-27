@@ -1,6 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizePtrs } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
@@ -80,8 +80,11 @@ export class Instruction extends Statement
             }
             if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
             {
-                enforcedSize = suffixes[opcode[opcode.length - 1]];
-                opcode = opcode.slice(0, -1);
+                if(!this.syntax.intel)
+                {
+                    enforcedSize = suffixes[opcode[opcode.length - 1]];
+                    opcode = opcode.slice(0, -1);
+                }
                 if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
                 if(enforcedSize === undefined)
                 {
@@ -133,6 +136,17 @@ export class Instruction extends Statement
         // Collecting the operands
         while(token !== ';' && token !== '\n')
         {
+            if(this.syntax.intel)
+            {
+                let sizePtr = token.toLowerCase();
+                if(sizePtrs.hasOwnProperty(sizePtr))
+                {
+                    if(next().toLowerCase() != 'ptr')
+                        throw new ParserError("Expected 'PTR'");
+                    enforcedSize = sizePtrs[sizePtr];
+                    next();
+                }
+            }
             operand = new Operand(this);
             if(token === ':') // Segment specification for addressing
             {
