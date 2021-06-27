@@ -108,11 +108,13 @@ function parseNumber(asFloat = false)
         }
         else if(isNaN(token))
         {
-            if(token.length > 1 && !isNaN(token.slice(0, -1)))
+            let suffix = token[token.length - 1];
+            let mainToken = token.slice(0, -1);
+            if(token.length > 1 && !isNaN(mainToken))
             {
-                value = token.includes('.') ? parseFloat(token) : parseInt(token);
-                if(token.endsWith('d')) floatPrec = 2;
-                else if(token.endsWith('f')) floatPrec = 1;
+                value = token.includes('.') ? parseFloat(mainToken) : parseInt(mainToken);
+                if(suffix == 'd') floatPrec = 2;
+                else if(suffix == 'f') floatPrec = 1;
                 else
                 {
                     codePos.start += codePos.length - 1;
@@ -128,9 +130,25 @@ function parseNumber(asFloat = false)
                 return { value: symbol, floatPrec };
             }
         }
-        else if(token.includes('.')) floatPrec = 1, value = parseFloat(token);
         else if(asFloat) floatPrec = 1, value = parseInt(token);
-        else value = asFloat ? Number(token) : BigInt(token);
+        else if(token.match(/\d(.\d)?e\d/) && !asFloat)
+        {
+            let eIndex = token.indexOf('e');
+            let base = token.slice(0, eIndex);
+            let exponent = BigInt(token.slice(eIndex + 1));
+
+            let dotIndex = base.indexOf('.'), divisor = 1n;
+
+            if(dotIndex > 0)
+                divisor = 10n ** BigInt(base.length - dotIndex - 1);
+            base = BigInt(base.replace('.', ''));
+
+            value = base * 10n ** exponent / divisor;
+        }
+        else if(token.includes('.'))
+            floatPrec = 1, value = parseFloat(token);
+        else
+            value = asFloat ? Number(token) : BigInt(token);
 
         if(next() === 'f') floatPrec = 1, next();
         else if(token === 'd') floatPrec = 2, next();
@@ -139,7 +157,7 @@ function parseNumber(asFloat = false)
     }
     catch(e)
     {
-        if(e.pos === undefined) throw new ParserError("Couldn't parse immediate: " + e);
+        if(e.pos === undefined) throw new ParserError(e);
         throw e;
     }
 }

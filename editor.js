@@ -11527,11 +11527,13 @@
           value += asFloat ? bytes[i] : BigInt(bytes[i]);
         }
       } else if (isNaN(token)) {
-        if (token.length > 1 && !isNaN(token.slice(0, -1))) {
-          value = token.includes(".") ? parseFloat(token) : parseInt(token);
-          if (token.endsWith("d"))
+        let suffix = token[token.length - 1];
+        let mainToken = token.slice(0, -1);
+        if (token.length > 1 && !isNaN(mainToken)) {
+          value = token.includes(".") ? parseFloat(mainToken) : parseInt(mainToken);
+          if (suffix == "d")
             floatPrec = 2;
-          else if (token.endsWith("f"))
+          else if (suffix == "f")
             floatPrec = 1;
           else {
             codePos.start += codePos.length - 1;
@@ -11545,10 +11547,19 @@
           next();
           return {value: symbol, floatPrec};
         }
+      } else if (asFloat)
+        floatPrec = 1, value = parseInt(token);
+      else if (token.match(/\d(.\d)?e\d/) && !asFloat) {
+        let eIndex = token.indexOf("e");
+        let base2 = token.slice(0, eIndex);
+        let exponent = BigInt(token.slice(eIndex + 1));
+        let dotIndex = base2.indexOf("."), divisor = 1n;
+        if (dotIndex > 0)
+          divisor = 10n ** BigInt(base2.length - dotIndex - 1);
+        base2 = BigInt(base2.replace(".", ""));
+        value = base2 * 10n ** exponent / divisor;
       } else if (token.includes("."))
         floatPrec = 1, value = parseFloat(token);
-      else if (asFloat)
-        floatPrec = 1, value = parseInt(token);
       else
         value = asFloat ? Number(token) : BigInt(token);
       if (next() === "f")
@@ -11558,7 +11569,7 @@
       return {value, floatPrec};
     } catch (e) {
       if (e.pos === void 0)
-        throw new ParserError("Couldn't parse immediate: " + e);
+        throw new ParserError(e);
       throw e;
     }
   }
@@ -15883,7 +15894,7 @@ g nle`.split("\n");
     maxTerm: 47,
     skippedNodes: [0],
     repeatNodeCount: 7,
-    tokenData: ",t~RoYZ#Sqr#Xrs#hst$[tu$guv$lvw&wwx'Pxy'syz'xz{#c{|'}|}(U}!O'}!O!P(Z!P!Q#c!Q!R)a!R![(q![!]*_!]!^*d!^!_*i!_!`*w!`!a+P!c!}+[#Q#R#c#R#S+[#T#o+[#o#p+m#p#q,b#q#r,j#r#s,o~#XO}~U#`PvSqQ!_!`#cS#hOvS~#mU`~OY#hZr#hrs$Ps#O#h#O#P$U#P~#h~$UO`~~$XPO~#h~$aQb~OY$[Z~$[~$lOp~_$q]vSX^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ%m]X^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ&kS!OZ!Q![&f!c!}&f#R#S&f#T#o&fS&|PvSvw#c~'UUt~OY'PZw'Pwx'hx#O'P#O#P'm#P~'P~'mOt~~'pPO~'P~'xOr~~'}Ou~U(UOvSqQ~(ZOw~Z(bT]WsQ!O!P(q!Q![(q!c!})O#R#S)O#T#o)OY(xQ]WsQ!O!P(q!Q![(qP)TS!PP!Q![)O!c!})O#R#S)O#T#o)OY)hR]WsQ!O!P(q!Q![(q#l#m)qY)tR!Q![)}!c!i)}#T#Z)}Y*UR]WsQ!Q![)}!c!i)}#T#Z)}~*dOm~~*iO|~S*nRvS!^!_#c!_!`#c!`!a#cT*|P{P!_!`#cS+UQvS!_!`#c!`!a#c~+aSl~!Q![+[!c!}+[#R#S+[#T#o+[V+tRxUnPO#q+}#q#r,]#r~+}P,SRnPO#q+}#q#r,]#r~+}P,bOnPS,gPvS#p#q#c~,oOy~Q,tOqQ",
+    tokenData: ".Y~RoYZ#Sqr#Xrs#hst$[tu$guv$lvw&wwx'Pxy'syz'xz{#c{|'}|}(U}!O'}!O!P(Z!P!Q#c!Q!R*r!R![(w![!]+s!]!^+x!^!_+}!_!`,]!`!a,e!c!},p#Q#R#c#R#S,p#T#o,p#o#p-R#p#q-v#q#r.O#r#s.T~#XO}~U#`PvSqQ!_!`#cS#hOvS~#mU`~OY#hZr#hrs$Ps#O#h#O#P$U#P~#h~$UO`~~$XPO~#h~$aQb~OY$[Z~$[~$lOp~_$q]vSX^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ%m]X^%jpq%j!c!}&f#R#S&f#T#o&f#y#z%j$f$g%j#BY#BZ%j$IS$I_%j$I|$JO%j$JT$JU%j$KV$KW%j&FU&FV%jZ&kS!OZ!Q![&f!c!}&f#R#S&f#T#o&fS&|PvSvw#c~'UUt~OY'PZw'Pwx'hx#O'P#O#P'm#P~'P~'mOt~~'pPO~'P~'xOr~~'}Ou~U(UOvSqQ~(ZOw~Z(bV]WsQ!O!P(w!Q![(w!c!})i#R#S)i#T#X)i#X#Y)z#Y#o)iY)OR]WsQ!O!P(w!Q![(w#X#Y)XY)[P!Q![)_Y)fP]WsQ!Q![)_P)nS!PP!Q![)i!c!})i#R#S)i#T#o)iZ*PS!PP!Q![*]!c!})i#R#S)i#T#o)iZ*fS]W!PPsQ!Q![*]!c!})i#R#S)i#T#o)iY*yS]WsQ!O!P(w!Q![(w#X#Y)X#l#m+VY+YR!Q![+c!c!i+c#T#Z+cY+jR]WsQ!Q![+c!c!i+c#T#Z+c~+xOm~~+}O|~S,SRvS!^!_#c!_!`#c!`!a#cT,bP{P!_!`#cS,jQvS!_!`#c!`!a#c~,uSl~!Q![,p!c!},p#R#S,p#T#o,pV-YRxUnPO#q-c#q#r-q#r~-cP-hRnPO#q-c#q#r-q#r~-cP-vOnPS-{PvS#p#q#c~.TOy~Q.YOqQ",
     tokenizers: [0, 1, 2, 3],
     topRules: {Program: [0, 5]},
     specialized: [{term: 28, get: (value, stack) => isOpcode(value, stack) << 1}, {term: 46, get: (value, stack) => isRegister(value, stack) << 1}, {term: 47, get: (value, stack) => isDirective(value, stack) << 1}],
