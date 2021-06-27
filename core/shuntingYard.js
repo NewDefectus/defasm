@@ -50,14 +50,14 @@ for(let i = 0; i < operators.length; i++)
 operators = Object.assign({}, ...operators);
 
 const stringEscapeSeqs = {
-    'a': '\x07',
-    'b': '\x08',
-    'e': '\x1B',
-    'f': '\x0C',
-    'n': '\x0A',
-    'r': '\x0D',
-    't': '\x09',
-    'v': '\x0B',
+    'a': 0x07,
+    'b': 0x08,
+    'e': 0x1B,
+    'f': 0x0C,
+    'n': 0x0A,
+    'r': 0x0D,
+    't': 0x09,
+    'v': 0x0B,
 }
 
 
@@ -65,26 +65,32 @@ const encoder = new TextEncoder();
 export var readString = string => {
     if(string.length < 2 || string[string.length - 1] != string[0])
         throw new ParserError("Incomplete string");
-    string = string.slice(1, -1)
-    .replace(/\\(x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.|$)/ig, x => {
-        x = x.slice(1);
-        if(x == '')
-            throw new ParserError("Incomplete string");
-        if(x.match(/x[0-9a-f]{1,2}/i))
-            return String.fromCharCode(parseInt(x.slice(1), 16));
-        if(x.match(/u[0-9a-f]{1,8}/i))
+    let output = [];
+    let matches = string.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.?))|[^\\]+/ig);
+    if(matches)
+        matches.forEach(x => {
+        if(x[0] == '\\')
         {
-            try {
-                return String.fromCodePoint(parseInt(x.slice(1), 16));
-            } catch(e) {
-                return '';
-            }
+            x = x.slice(1);
+            if(x == '')
+                throw new ParserError("Incomplete string");
+
+            if(x.match(/x[0-9a-f]{1,2}/i))
+                output.push(parseInt(x.slice(1), 16));
+            else if(x.match(/u[0-9a-f]{1,8}/i))
+                output.push(...encoder.encode(String.fromCodePoint(parseInt(x.slice(1), 16))));
+            else if(x.match(/[0-7]{1,3}/))
+                output.push(parseInt(x, 8) & 255);
+            else if(stringEscapeSeqs.hasOwnProperty(x))
+                output.push(stringEscapeSeqs[x]);
+            else
+                output.push(...encoder.encode(x));
         }
-        if(x.match(/[0-7]{1,3}/))
-            return String.fromCharCode(parseInt(x, 8) & 255);
-        return stringEscapeSeqs[x] || x;
+        else
+            output.push(...encoder.encode(x));
     });
-    return encoder.encode(string);
+
+    return new Uint8Array(output);
 }
 
 
