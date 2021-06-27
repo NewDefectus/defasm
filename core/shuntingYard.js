@@ -112,7 +112,7 @@ function parseNumber(asFloat = false)
             let mainToken = token.slice(0, -1);
             if(token.length > 1 && !isNaN(mainToken))
             {
-                value = token.includes('.') ? parseFloat(mainToken) : parseInt(mainToken);
+                value = Number(mainToken);
                 if(suffix == 'd') floatPrec = 2;
                 else if(suffix == 'f') floatPrec = 1;
                 else
@@ -130,7 +130,7 @@ function parseNumber(asFloat = false)
                 return { value: symbol, floatPrec };
             }
         }
-        else if(asFloat) floatPrec = 1, value = parseInt(token);
+        else if(asFloat) floatPrec = 1, value = Number(token);
         else if(token.match(/\d(.\d)?e\d/) && !asFloat)
         {
             let eIndex = token.indexOf('e');
