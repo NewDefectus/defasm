@@ -1,4 +1,4 @@
-import { OPT } from "./operands.js";
+import { OPT, suffixes } from "./operands.js";
 import { ParserError } from "./parser.js";
 import { queueRecomp } from "./symbols.js";
 
@@ -21,7 +21,6 @@ const OPC = {
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-const sizeIds = {"b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
 const SIZETYPE_EXPLICITSUF = 1;
 const SIZETYPE_IMPLICITENC = 2;
 
@@ -71,9 +70,9 @@ function getSizes(format, defaultCatcher = null)
             defaultSize = true, sizeChar = format[++i];
 
         if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
-            defaultSize = true, size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
+            defaultSize = true, size |= suffixes[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
         else
-            size |= sizeIds[sizeChar];
+            size |= suffixes[sizeChar];
         
         if(defaultSize) defaultCatcher(size);    
         
