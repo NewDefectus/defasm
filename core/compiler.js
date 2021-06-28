@@ -158,7 +158,6 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
 // Run the second pass on the instruction list
 AssemblyState.prototype.secondPass = function(haltOnError = false)
 {
-    console.log("SECOND PASS");
     let currIndex = baseAddr, instr;
     symbols = this.symbols;
 

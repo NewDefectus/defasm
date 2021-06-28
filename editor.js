@@ -14526,7 +14526,6 @@ g nle`.split("\n");
       this.secondPass(haltOnError);
   };
   AssemblyState.prototype.secondPass = function(haltOnError = false) {
-    console.log("SECOND PASS");
     let currIndex = baseAddr, instr;
     symbols = this.symbols;
     symbols.forEach((record, name2) => {
