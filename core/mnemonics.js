@@ -477,7 +477,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
         catcher = opCatchers[i], operand = operands[i];
         size = correctedSizes[i];
         operand.size = size & ~7;
-        operand.recordSizeUse(operand.size);
+        operand.recordSizeUse(operand.size, catcher.unsigned);
 
         if(operand.size === 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors) rexw = true;
         if(catcher.implicitValue === null)
@@ -628,9 +628,9 @@ Operation.prototype.generateRelative = function(operand, instr)
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
 
-    if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small))
+    if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false))
     {
-        if(small != operand.size && operand.sizeAllowed(small))
+        if(small != operand.size && operand.sizeAllowed(small, false))
         {
             operand.size = small;
             operand.virtualValue = target - smallLen;

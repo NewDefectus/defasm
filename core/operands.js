@@ -140,6 +140,7 @@ export function Operand(instr)
     this.size = NaN;
     this.prefs = 0;
     this.attemptedSizes = 0;
+    this.attemptedUnsignedSizes = 0;
 
     this.startPos = codePos;
     let indirect = token === '*';
@@ -224,19 +225,18 @@ export function Operand(instr)
     }
 }
 
-Operand.prototype.sizeAllowed = function(size)
+Operand.prototype.sizeAllowed = function(size, unsigned = false)
 {
-    return size >= this.size || this.sizeAvailable(size);
+    return size >= (unsigned ? this.unsignedSize : this.size) || this.sizeAvailable(size, unsigned);
 }
-Operand.prototype.unsignedSizeAllowed = function(size)
+Operand.prototype.sizeAvailable = function(size, unsigned = false)
 {
-    return size >= this.unsignedSize || this.sizeAvailable(size);
+    return !((unsigned ? this.attemptedUnsignedSizes : this.attemptedSizes) & 1 << (size >> 4));
 }
-Operand.prototype.sizeAvailable = function(size)
+Operand.prototype.recordSizeUse = function(size, unsigned = false)
 {
-    return !(this.attemptedSizes & 1 << (size >> 4));
-}
-Operand.prototype.recordSizeUse = function(size)
-{
-    this.attemptedSizes |= 1 << (size >> 4);
+    if(unsigned)
+        this.attemptedUnsignedSizes |= 1 << (size >> 4);
+    else
+        this.attemptedSizes |= 1 << (size >> 4);
 }

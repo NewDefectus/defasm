@@ -238,12 +238,12 @@ Instruction.prototype.compile = function()
 
                     max = inferUnsignedImmSize(op.value);
 
-                    for(let size = 8; size < max; size *= 2)
+                    for(let size = 8; size <= max; size *= 2)
                     {
-                        if((size != op.unsignedSize || op.unsignedSize == max) && op.unsignedSizeAllowed(size))
+                        if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
                         {
                             op.unsignedSize = size;
-                            op.recordSizeUse(size);
+                            op.recordSizeUse(size, true);
 
                             if(size < max)
                                 queueRecomp(this);
