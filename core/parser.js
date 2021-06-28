@@ -6,7 +6,8 @@ var lastLineIndex = 0;
 
 var prevCodePos;
 
-export var currSyntax = { intel: false, prefix: true };
+export const defaultSyntax = { intel: false, prefix: true }
+export var currSyntax = defaultSyntax;
 export function setSyntax(syntax)
 {
     currSyntax = syntax;

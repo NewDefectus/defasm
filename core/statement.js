@@ -1,5 +1,5 @@
 import { baseAddr } from "./compiler";
-import { setSyntax } from "./parser";
+import { defaultSyntax } from "./parser";
 
 export class Statement
 {
@@ -29,10 +29,8 @@ export class Statement
         }
         else
         {
-            this.syntax = { intel: false, prefix: true };
+            this.syntax = defaultSyntax;
             this.address = baseAddr;
         }
-
-        setSyntax(this.syntax);
     }
 }

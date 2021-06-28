@@ -1,4 +1,4 @@
-import { token, next, match, loadCode, ParserError, codePos } from "./parser.js";
+import { token, next, match, loadCode, ParserError, codePos, currSyntax, setSyntax, defaultSyntax } from "./parser.js";
 import { Directive } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
@@ -26,6 +26,9 @@ export function AssemblyState()
     /** @type {Statement[][]} */
     this.instructions = [];
 
+    /** @type {string[]} */
+    this.source = [];
+
     this.bytes = 0;
 }
 
@@ -33,6 +36,7 @@ function addInstruction(instr)
 {
     currLineArr.push(instr);
     lastInstr = instr;
+    setSyntax(instr.syntax);
 }
 
 // Compile Assembly from source code into machine code
@@ -48,6 +52,8 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
     
     if(linesRemoved < 1)
         throw "linesRemoved must be positive";
+    
+    this.source.splice(line - 1, linesRemoved, ...source.split('\n'));
     
     let opcode, pos;
     lastInstr = null; currLineArr = [];
@@ -78,6 +84,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
         }
 
     loadCode(source);
+    setSyntax(lastInstr ? lastInstr.syntax : defaultSyntax);
 
     while(next(), !match.done)
     {
@@ -97,7 +104,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
                             addInstruction(new Symbol(lastInstr, opcode, pos, true));
                             continue;
                         
-                        case '=': // Symbol definition
+                        case currSyntax.intel ? 'equ' : '=': // Symbol definition
                             addInstruction(new Symbol(lastInstr, opcode, pos));
                             break;
                         
@@ -126,6 +133,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
         }
     }
 
+    // Link the last instruction to the next
     while(line < this.instructions.length)
     {
         if(this.instructions[line].length > 0)
@@ -135,6 +143,19 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             {
                 lastInstr.next = instr;
                 linkedInstrQueue.push(lastInstr);
+
+                if(lastInstr.syntax.prefix != instr.syntax.prefix || lastInstr.syntax.intel != instr.syntax.intel)
+                {
+                    // Syntax has been changed, we have to recompile some of the source
+                    let recompSource = [];
+                    for(let i = line; i < this.instructions.length; i++)
+                    {
+                        recompSource.push(this.source[i]);
+                        if(this.instructions[i].some(instr => instr.switchSyntax))
+                            break;
+                    }
+                    this.compile(recompSource.join('\n'), { haltOnError, line: line + 1, linesRemoved: recompSource.length, doSecondPass: false });
+                }
             }
             else
             {

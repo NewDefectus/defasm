@@ -21,7 +21,7 @@ export class Symbol extends Statement
         try
         {
             this.expression = isLabel ? LabelExpression(this) : new Expression(this);
-            this.value = this.expression.evaluate(address);
+            this.value = this.expression.evaluate(this.address);
         }
         catch(e)
         {

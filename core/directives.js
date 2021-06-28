@@ -78,6 +78,7 @@ export class Directive extends Statement
                     if(token != 'prefix' && token != 'noprefix' && token != '\n')
                         throw new ParserError("Expected 'prefix' or 'noprefix'");
                     this.syntax = { intel: dir == 'intel_syntax', prefix };
+                    this.switchSyntax = true;
                     if(token != '\n')
                         next();
                     break;
