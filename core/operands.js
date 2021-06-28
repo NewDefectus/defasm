@@ -189,8 +189,18 @@ export function Operand(instr, forceImmToRel = false)
             this.type = forceImmToRel ? OPT.REL : OPT.IMM;
             if(token !== '[')
             {
+                let mayBeRel = true;
+                if(token.toLowerCase() === 'offset')
+                {
+                    next();
+                    this.type = OPT.IMM;
+                    mayBeRel = false;
+                }
                 this.expression = new Expression(instr, 0, true);
                 this.value = this.expression.evaluate(instr.address);
+
+                if(mayBeRel && this.expression.hasSymbols)
+                    this.type = OPT.REL;
             }
 
             // Intel syntax
