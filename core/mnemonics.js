@@ -308,6 +308,7 @@ export function Operation(format)
         this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
     
     this.allVectors = false;
+    this.relativeSizes = null;
 
     for(let operand of format)
     {

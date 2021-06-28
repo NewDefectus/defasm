@@ -133,6 +133,8 @@ export class Instruction extends Statement
             if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
         }
 
+        let forceImmToRel = this.syntax.intel && operations[0].relativeSizes !== null;
+
         // Collecting the operands
         while(token !== ';' && token !== '\n')
         {
@@ -147,14 +149,14 @@ export class Instruction extends Statement
                     next();
                 }
             }
-            operand = new Operand(this);
+            operand = new Operand(this, forceImmToRel);
             if(token === ':') // Segment specification for addressing
             {
                 if(operand.type !== OPT.SEG)
                     throw new ParserError("Incorrect prefix");
                 prefsToGen |= (operand.reg + 1) << 3;
                 next();
-                operand = new Operand(this);
+                operand = new Operand(this, forceImmToRel);
                 if(operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
                     throw new ParserError("Segment prefix must be followed by memory reference");
             }

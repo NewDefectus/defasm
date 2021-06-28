@@ -28,7 +28,7 @@ export const registers = Object.assign({}, ...[
 ].map((x, i) => ({[x]: i})));
 
 export const suffixes = {"b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512};
-export const sizePtrs = {"byte": 8, "word": 16, "dword": 32, "qword": 64, "tword": 80, "xmmword": 128, "ymmword": 256, "zmmword": 512};
+export const sizePtrs = {"byte": 8, "word": 16, "dword": 32, "qword": 64, "tbyte": 80, "oword": 128, "xmmword": 128, "ymmword": 256, "zmmword": 512};
 
 export const    PREFIX_REX = 1,
                 PREFIX_NOREX = 2,
@@ -159,7 +159,7 @@ export function parseRegister(expectedType = null)
 
 
 /** @param {Instruction} instr */
-export function Operand(instr)
+export function Operand(instr, forceImmToRel = false)
 {
     this.reg = this.reg2 = -1;
     this.shift = 0;
@@ -186,7 +186,7 @@ export function Operand(instr)
     {
         if(instr.syntax.intel)
         {
-            this.type = OPT.IMM;
+            this.type = forceImmToRel ? OPT.REL : OPT.IMM;
             if(token !== '[')
             {
                 this.expression = new Expression(instr, 0, true);
