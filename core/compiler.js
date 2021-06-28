@@ -164,25 +164,25 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             {
                 lastInstr.next = instr;
                 linkedInstrQueue.push(lastInstr);
-
-                if(lastInstr.syntax.prefix != instr.syntax.prefix || lastInstr.syntax.intel != instr.syntax.intel)
-                {
-                    // Syntax has been changed, we have to recompile some of the source
-                    let recompSource = [];
-                    for(let i = line; i < this.instructions.length; i++)
-                    {
-                        recompSource.push(this.source[i]);
-                        if(this.instructions[i].some(instr => instr.switchSyntax))
-                            break;
-                    }
-                    this.compile(recompSource.join('\n'), { haltOnError, line: line + 1, linesRemoved: recompSource.length, doSecondPass: false });
-                }
             }
             else
             {
                 if(instr.address !== baseAddr)
                     linkedInstrQueue.push(instr);
                 instr.address = baseAddr;
+            }
+
+            if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
+            {
+                // Syntax has been changed, we have to recompile some of the source
+                let recompSource = [];
+                for(let i = line; i < this.instructions.length; i++)
+                {
+                    recompSource.push(this.source[i]);
+                    if(this.instructions[i].some(instr => instr.switchSyntax))
+                        break;
+                }
+                this.compile(recompSource.join('\n'), { haltOnError, line: line + 1, linesRemoved: recompSource.length, doSecondPass: false });
             }
             break;
         }
