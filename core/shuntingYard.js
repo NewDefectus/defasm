@@ -188,7 +188,6 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
     this.floatPrec = minFloatPrec;
 
     let opStack = [], lastOp, lastWasNum = false;
-    if(!expectMemory) next();
 
     while(token !== ',' && token !== '\n' && token !== ';')
     {

@@ -24,7 +24,16 @@ export const directives = {
     string: 9, // .string = .ascii
     intel_syntax: 10,
     att_syntax: 11
-}
+};
+
+export const intelDirectives = {
+    db: 0,
+    dw: directives.word,
+    dd: directives.long,
+    dq: directives.quad,
+    ".intel_syntax": directives.intel_syntax,
+    ".att_syntax": directives.att_syntax
+};
 
 export class Directive extends Statement
 {
@@ -35,12 +44,15 @@ export class Directive extends Statement
         this.floatPrec = 0;
 
         let appendNullByte = 0;
+        dir = dir.toLowerCase();
 
         try
         {
-            if(!directives.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
-            switch(directives[dir])
+            let dirs = this.syntax.intel ? intelDirectives : directives;
+            if(!dirs.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
+            switch(dirs[dir])
             {
+                case intelDirectives.db:  this.compileValues(1, true); break;
                 case directives.byte:     this.compileValues(1); break;
                 case directives.word:     this.compileValues(2); break;
                 case directives.int:      this.compileValues(4); break;
@@ -91,7 +103,7 @@ export class Directive extends Statement
         }
     }
 
-    compileValues(valSize)
+    compileValues(valSize, acceptStrings = false)
     {
         this.valSize = valSize;
         let value, expression, needsRecompilation = false;
@@ -99,13 +111,24 @@ export class Directive extends Statement
         try {
             do
             {
-                expression = new Expression(this, this.floatPrec);
-                value = expression.evaluate(this.address);
-                if(expression.hasSymbols)
-                    needsRecompilation = true;
+                if(next()[0] === '"')
+                {
+                    if(acceptStrings)
+                        readString(token).forEach(byte => this.genValue(BigInt(byte)));
+                    else
+                        throw new ParserError("Unexpected string");
+                    next();
+                }
+                else
+                {
+                    expression = new Expression(this, this.floatPrec);
+                    value = expression.evaluate(this.address);
+                    if(expression.hasSymbols)
+                        needsRecompilation = true;
 
-                this.outline.push({ value, expression });
-                this.genValue(value);
+                    this.outline.push({ value, expression });
+                    this.genValue(value);
+                }
             } while(token === ',');
         }
         finally

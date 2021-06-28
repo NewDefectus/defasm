@@ -1,5 +1,5 @@
 import { Expression, LabelExpression } from "./shuntingYard.js";
-import { ParserError } from "./parser.js";
+import { next, ParserError } from "./parser.js";
 import { symbols } from "./compiler.js";
 import { Statement } from "./statement.js";
 
@@ -20,7 +20,7 @@ export class Symbol extends Statement
         this.name = name;
         try
         {
-            this.expression = isLabel ? LabelExpression(this) : new Expression(this);
+            this.expression = isLabel ? LabelExpression(this) : (next(), new Expression(this));
             this.value = this.expression.evaluate(this.address);
         }
         catch(e)

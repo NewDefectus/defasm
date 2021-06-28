@@ -275,6 +275,7 @@ export function Operand(instr, forceImmToRel = false)
             // AT&T syntax
             if(token === '$') // Immediate
             {
+                next();
                 this.expression = new Expression(instr);
                 this.value = this.expression.evaluate(instr.address);
                 this.type = OPT.IMM;

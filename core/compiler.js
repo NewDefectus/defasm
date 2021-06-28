@@ -1,5 +1,5 @@
 import { token, next, match, loadCode, ParserError, codePos, currSyntax, setSyntax, defaultSyntax } from "./parser.js";
-import { Directive } from "./directives.js";
+import { Directive, intelDirectives } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
@@ -93,25 +93,27 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             pos = codePos;
             if(token !== '\n' && token !== ';')
             {
-                if(token[0] === '.') // Assembly directive
-                    addInstruction(new Directive(lastInstr, token.slice(1)));
+                if(currSyntax.intel ? intelDirectives.hasOwnProperty(token.toLowerCase()) : token[0] === '.') // Assembly directive
+                    addInstruction(new Directive(lastInstr, currSyntax.intel ? token : token.slice(1)));
                 else // Instruction, label or symbol
                 {
                     opcode = token;
-                    switch(next())
+                    next();
+
+                    if(token == ':') // Label definition
                     {
-                        case ':': // Label definition
-                            addInstruction(new Symbol(lastInstr, opcode, pos, true));
-                            continue;
-                        
-                        case currSyntax.intel ? 'equ' : '=': // Symbol definition
-                            addInstruction(new Symbol(lastInstr, opcode, pos));
-                            break;
-                        
-                        default: // Instruction
-                            addInstruction(new Instruction(lastInstr, opcode.toLowerCase(), pos));
-                            break;
+                        addInstruction(new Symbol(lastInstr, opcode, pos, true));
+                        continue;
                     }
+                    else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
+                        addInstruction(new Symbol(lastInstr, opcode, pos));
+                    else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"
+                    {
+                        addInstruction(new Symbol(lastInstr, opcode, pos, true));
+                        addInstruction(new Directive(lastInstr, token));
+                    }
+                    else // Instruction
+                        addInstruction(new Instruction(lastInstr, opcode.toLowerCase(), pos));
                 }
             }
 
