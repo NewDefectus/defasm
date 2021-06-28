@@ -8,6 +8,8 @@ import { Statement } from "./statement.js";
 const DIRECTIVE_BUFFER_SIZE = 15;
 
 export const directives = {
+    equ:    -1,
+    set:    -1,
     byte:   1,
     short:  2,
     word:   2, // .word = .short
@@ -27,6 +29,7 @@ export const directives = {
 };
 
 export const intelDirectives = {
+    '%assign': -1,
     db: 0,
     dw: directives.word,
     dd: directives.long,
@@ -50,7 +53,8 @@ export class Directive extends Statement
         {
             let dirs = this.syntax.intel ? intelDirectives : directives;
             if(!dirs.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
-            switch(dirs[dir])
+            dir = dirs[dir];
+            switch(dir)
             {
                 case intelDirectives.db:  this.compileValues(1, true); break;
                 case directives.byte:     this.compileValues(1); break;
@@ -86,10 +90,10 @@ export class Directive extends Statement
                 case directives.intel_syntax:
                 case directives.att_syntax:
                     next();
-                    let prefix = token == '\n' ? dir == 'att_syntax' : token == 'prefix';
+                    let prefix = token == '\n' ? dir == directives.att_syntax : token == 'prefix';
                     if(token != 'prefix' && token != 'noprefix' && token != '\n')
                         throw new ParserError("Expected 'prefix' or 'noprefix'");
-                    this.syntax = { intel: dir == 'intel_syntax', prefix };
+                    this.syntax = { intel: dir == directives.intel_syntax, prefix };
                     this.switchSyntax = true;
                     if(token != '\n')
                         next();

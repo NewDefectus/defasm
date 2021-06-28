@@ -93,8 +93,27 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             pos = codePos;
             if(token !== '\n' && token !== ';')
             {
-                if(currSyntax.intel ? intelDirectives.hasOwnProperty(token.toLowerCase()) : token[0] === '.') // Assembly directive
-                    addInstruction(new Directive(lastInstr, currSyntax.intel ? token : token.slice(1)));
+                let lowerTok = token.toLowerCase();
+                if(currSyntax.intel ?
+                    intelDirectives.hasOwnProperty(lowerTok)
+                    || token == '%' && (lowerTok = '%' + next().toLowerCase())
+                    :
+                    token[0] == '.') // Assembler directive
+                {
+                    if(currSyntax.intel ?
+                        lowerTok == '%assign'
+                        :
+                        lowerTok == '.equ' || lowerTok == '.set')
+                    {
+                        opcode = next();
+                        pos = codePos;
+                        if(!currSyntax.intel && next() !== ',')
+                            throw new ParserError("Expected ','");
+                        addInstruction(new Symbol(lastInstr, opcode, pos));
+                    }
+                    else
+                        addInstruction(new Directive(lastInstr, currSyntax.intel ? token : token.slice(1)));
+                }
                 else // Instruction, label or symbol
                 {
                     opcode = token;
