@@ -5,12 +5,16 @@
     "prepare": "npm run build"
   },
   "dependencies": {
-    "@codemirror/closebrackets": "^0.18.0",
-    "@codemirror/commands": "^0.18.2",
-    "@codemirror/gutter": "^0.18.2",
-    "@codemirror/history": "^0.18.1",
+    "@codemirror/closebrackets": "",
+    "@codemirror/commands": "",
+    "@codemirror/gutter": "",
+    "@codemirror/history": "",
+    "@codemirror/highlight": "",
+    "@codemirror/language": "",
+    "@codemirror/tooltip": "",
+    "@codemirror/view": "",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",
-    "esbuild": "^0.11.18"
+    "esbuild": ""
   }
 }
