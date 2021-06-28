@@ -173,7 +173,7 @@ export function LabelExpression(instr)
 {
     let result = Object.create(Expression.prototype);
     result.hasSymbols = true;
-    result.stack = [{ name: '.', pos: null }];
+    result.stack = [{ isIP: true, pos: null }];
     result.floatPrec = 0;
     instr.ipRelative = true;
     return result;
@@ -260,8 +260,11 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             let value = imm.value;
             if(value.name)
             {
-                if(value.name === '.')
+                if(value.name === (instr.syntax.intel ? '$' : '.'))
+                {
                     instr.ipRelative = true;
+                    value.isIP = true;
+                }
                 else if(symbols.has(value.name))
                     symbols.get(value.name).references.push(instr);
                 else
@@ -320,20 +323,17 @@ Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
         }
         else
         {
-            if(op.name) // Symbols
+            if(op.isIP) // Current address symbol
+                op = BigInt(currIndex);
+            else if(op.name) // Symbols
             {
-                if(op.name === '.')
-                    op = BigInt(currIndex);
+                let record = symbols.get(op.name);
+                if(record.symbol !== null && !record.symbol.error)
+                    op = symbols.get(op.name).symbol.value;
+                else if(!requireSymbols)
+                    op = 1n;
                 else
-                {
-                    let record = symbols.get(op.name);
-                    if(record.symbol !== null && !record.symbol.error)
-                        op = symbols.get(op.name).symbol.value;
-                    else if(!requireSymbols)
-                        op = 1n;
-                    else
-                        throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
-                }
+                    throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
             }
             stack[len++] = op;
         }
