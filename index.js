@@ -1985,15 +1985,13 @@
     get length() {
       return this.to[this.to.length - 1];
     }
-    findIndex(pos, end, side = end * 1e9, startAt = 0) {
-      if (pos <= 0)
-        return startAt;
-      let arr = end < 0 ? this.to : this.from;
+    findIndex(pos, side, end, startAt = 0) {
+      let arr = end ? this.to : this.from;
       for (let lo = startAt, hi = arr.length; ; ) {
         if (lo == hi)
           return lo;
         let mid = lo + hi >> 1;
-        let diff = arr[mid] - pos || (end < 0 ? this.value[mid].startSide : this.value[mid].endSide) - side;
+        let diff = arr[mid] - pos || (end ? this.value[mid].endSide : this.value[mid].startSide) - side;
         if (mid == lo)
           return diff >= 0 ? lo : hi;
         if (diff >= 0)
@@ -2003,7 +2001,7 @@
       }
     }
     between(offset, from, to, f) {
-      for (let i = this.findIndex(from, -1), e = this.findIndex(to, 1, void 0, i); i < e; i++)
+      for (let i = this.findIndex(from, -1e9, true), e = this.findIndex(to, 1e9, false, i); i < e; i++)
         if (f(this.from[i] + offset, this.to[i] + offset, this.value[i]) === false)
           return false;
     }
@@ -2178,12 +2176,22 @@
     }
     static of(ranges, sort = false) {
       let build = new RangeSetBuilder();
-      for (let range of ranges instanceof Range ? [ranges] : sort ? ranges.slice().sort(cmpRange) : ranges)
+      for (let range of ranges instanceof Range ? [ranges] : sort ? lazySort(ranges) : ranges)
         build.add(range.from, range.to, range.value);
       return build.finish();
     }
   };
   RangeSet.empty = /* @__PURE__ */ new RangeSet([], [], null, -1);
+  function lazySort(ranges) {
+    if (ranges.length > 1)
+      for (let prev = ranges[0], i = 1; i < ranges.length; i++) {
+        let cur = ranges[i];
+        if (cmpRange(prev, cur) > 0)
+          return ranges.slice().sort(cmpRange);
+        prev = cur;
+      }
+    return ranges;
+  }
   RangeSet.empty.nextLayer = RangeSet.empty;
   var RangeSetBuilder = class {
     constructor() {
@@ -2302,7 +2310,7 @@
         this.chunkIndex++;
         forward = false;
       }
-      let rangeIndex = this.chunkIndex == this.layer.chunk.length ? 0 : this.layer.chunk[this.chunkIndex].findIndex(pos - this.layer.chunkPos[this.chunkIndex], -1, side);
+      let rangeIndex = this.chunkIndex == this.layer.chunk.length ? 0 : this.layer.chunk[this.chunkIndex].findIndex(pos - this.layer.chunkPos[this.chunkIndex], side, true);
       if (!forward || this.rangeIndex < rangeIndex)
         this.rangeIndex = rangeIndex;
       this.next();
@@ -11371,7 +11379,7 @@
     "sil",
     "dil"
   ].map((x, i) => ({ [x]: i })));
-  var suffixes = { "b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80 };
+  var suffixes = { "b": 8, "w": 16, "l": 32, "d": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512 };
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
@@ -12028,7 +12036,6 @@
     g: OPT.VMEM
   };
   var opCatcherCache = {};
-  var sizeIds = { "b": 8, "w": 16, "l": 32, "q": 64, "t": 80, "x": 128, "y": 256, "z": 512 };
   var SIZETYPE_EXPLICITSUF = 1;
   var SIZETYPE_IMPLICITENC = 2;
   var EVEXPERM_MASK = 1;
@@ -12085,9 +12092,9 @@
       if (sizeChar === "#")
         defaultSize = true, sizeChar = format[++i];
       if (sizeChar < "a")
-        defaultSize = true, size |= sizeIds[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
+        defaultSize = true, size |= suffixes[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
       else
-        size |= sizeIds[sizeChar];
+        size |= suffixes[sizeChar];
       if (defaultSize)
         defaultCatcher(size);
       sizes.push(size);
