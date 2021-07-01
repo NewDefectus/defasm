@@ -12,7 +12,11 @@ statement {
 
 
 InstructionStatement {
-  Prefix* VEXRound? (Opcode commaSep<(Register | Immediate | Memory) VEXMask?>)?
+  Prefix* VEXRound? (
+    (Opcode commaSep<(Register | Immediate | Relative | Memory) VEXMask?>)
+    |
+    (RelOpcode (('*' (Register | Relative | Memory)) | Register | Expression | Memory))
+  )?
 }
 
 DirectiveStatement {
@@ -24,7 +28,7 @@ Immediate {
 }
 
 Memory {
-  Relative | Relative? '(' ("" | Register ("," (Register | Number)?)*) ')'
+  Relative? '(' ("" | Register ("," (Register | Number)?)*) ')'
 }
 
 VEXRound { decorator }
@@ -55,6 +59,6 @@ commaSep<content> {
   "" | content ("," content?)*
 }
 
-@external specialize {word} isOpcode from "./asmPlugin" { Opcode, Prefix }
-@external specialize {register} isRegister from "./asmPlugin" { Register }
-@external specialize {directive} isDirective from "./asmPlugin" { Directive }
+@external specialize {word} CM_isOpcode from "./asmPlugin" { Opcode, RelOpcode, Prefix }
+@external specialize {register} CM_isRegister from "./asmPlugin" { Register }
+@external specialize {directive} CM_isDirective from "./asmPlugin" { Directive }

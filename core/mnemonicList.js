@@ -1433,10 +1433,18 @@ xsetbv:0F01D1
 xtest:0F01D6
 `;
 
+export var relativeMnemonics = [];
+
 /** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
 export var mnemonics = {};
-mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => { lines = x.split(/[\n:]/); mnemonics[lines.shift()] = lines; });
+mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
+    lines = x.split(/[\n:]/);
+    let name = lines.shift();
+    mnemonics[name] = lines;
+    if(lines[0].includes('j'))
+        relativeMnemonics.push(name);
+});
 
 
 let hex = num => num.toString(16);
@@ -1491,6 +1499,7 @@ conditionals.forEach((names, i) => {
 
     // jxx instructions
     mnemonics['j' + firstName] = [hex(0x70 + i) + "+3856 jbl"];
+    relativeMnemonics.push('j' + firstName);
 
     // cmovxx instructions
     mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r Rwlq"];
@@ -1501,6 +1510,7 @@ conditionals.forEach((names, i) => {
     // Aliases
     names.forEach(name => {
         mnemonics['j' + name] = ['#j' + firstName];
+        relativeMnemonics.push('j' + name);
         mnemonics['cmov' + name] = ['#cmov' + firstName];
         mnemonics['set' + name] = ["#set" + firstName]
     });

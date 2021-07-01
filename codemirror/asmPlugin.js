@@ -1,11 +1,11 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 import { hoverTooltip }                                               from '@codemirror/tooltip';
 
-import { AssemblyState }       from '@defasm/core/compiler.js';
-import { mnemonics }           from '@defasm/core/mnemonicList.js';
-import { registers, suffixes } from '@defasm/core/operands.js';
-import { prefixes }            from '@defasm/core/instructions.js';
-import { directives }          from '@defasm/core/directives.js';
+import { AssemblyState }                from '@defasm/core/compiler.js';
+import { mnemonics, relativeMnemonics } from '@defasm/core/mnemonicList.js';
+import { isRegister}                    from '@defasm/core/operands.js';
+import { prefixes }                     from '@defasm/core/instructions.js';
+import { directives }                   from '@defasm/core/directives.js';
 
 import * as Terms from './parser.terms.js';
 
@@ -233,7 +233,7 @@ export function isOpcode(opcode)
         if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
             return -1;
     }
-    return Terms.Opcode;
+    return relativeMnemonics.includes(opcode) ? Terms.RelOpcode : Terms.Opcode;
 }
 
 export function isRegister(reg)
