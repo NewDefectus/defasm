@@ -80,9 +80,18 @@ export const tokenizer = new ExternalTokenizer(
                     if(opcode[0] === 'v' && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
                         opcode = opcode.slice(1);
                     if(!mnemonics.hasOwnProperty(opcode) && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+                    {
+                        if(tok != 'offset' && (stack.context.intel && tok == '$' || tok.match(/^[a-z_.][\w.]*$/i)))
+                            token.accept(Terms.word, end);
                         return;
+                    }
                 }
-                token.accept(relativeMnemonics.includes(opcode) ? Terms.RelOpcode : Terms.Opcode, end);
+                token.accept(relativeMnemonics.includes(opcode)
+                ?
+                    stack.context.intel ? Terms.IRelOpcode : Terms.RelOpcode
+                :
+                    stack.context.intel ? Terms.IOpcode : Terms.Opcode,
+                end);
             }
         }
     }, {
