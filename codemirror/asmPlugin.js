@@ -5,7 +5,90 @@ import { AssemblyState }                from '@defasm/core/compiler.js';
 import { mnemonics, relativeMnemonics } from '@defasm/core/mnemonicList.js';
 import { isRegister}                    from '@defasm/core/operands.js';
 import { prefixes }                     from '@defasm/core/instructions.js';
-import { directives }                   from '@defasm/core/directives.js';
+import { directives, intelDirectives }                   from '@defasm/core/directives.js';
+
+import { ContextTracker, ExternalTokenizer } from 'lezer';
+
+var allTokens, tok, loadStart, end;
+
+function load(input, start)
+{
+    allTokens = input.lineAfter(loadStart = start).matchAll(/[.\w]+|\S/g) || [];
+}
+
+function next()
+{
+    let match = allTokens.next();
+    if(!match.done)
+        end = loadStart + match.value.index + match.value[0].length;
+    return tok = match.done ? '\n' : match.value[0];
+}
+
+export const ctxTracker = new ContextTracker({
+    start: { intel: false, prefix: true },
+    shift: (ctx, term, input, stack) => {
+        if(term != Terms.Directive)
+            return ctx;
+        load(input, stack.ruleStart);
+        let result = {}, syntax = next();
+        if(syntax == ".intel_syntax")
+        {
+            result.intel = true;
+            result.prefix = false;
+        }
+        else if(syntax == ".att_syntax")
+        {
+            result.intel = false;
+            result.prefix = true;
+        }
+        else
+            return ctx;
+        let pref = next();
+        if(pref == 'prefix')
+            result.prefix = true;
+        else if(pref == 'noprefix')
+            result.prefix = false;
+        else if(pref != '\n')
+            return ctx;
+        
+        return result;
+    },
+    hash: ctx => (ctx.intel ? 1 : 0) | (ctx.prefix ? 2 : 0),
+    strict: false
+});
+
+export const tokenizer = new ExternalTokenizer(
+    (input, token, stack) => {
+        load(input, token.start);
+        next();
+
+        if(tok == (stack.context.intel ? ';' : '#'))
+            token.accept(Terms.Comment, token.start + input.lineAfter(token.start).length);
+        else if((stack.context.intel ? intelDirectives : directives).hasOwnProperty(stack.context.intel ? tok : tok.slice(1)))
+            token.accept(Terms.Directive, end);
+        else if((!stack.context.prefix || (tok == '%' && next())) && isRegister(tok))
+            token.accept(Terms.Register, end);
+        else
+        {
+            let opcode = tok.toLowerCase();
+            if(prefixes.hasOwnProperty(opcode))
+                token.accept(Terms.Prefix, end);
+            else
+            {
+                if(!mnemonics.hasOwnProperty(opcode))
+                {
+                    if(opcode[0] === 'v' && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+                        opcode = opcode.slice(1);
+                    if(!mnemonics.hasOwnProperty(opcode) && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+                        return;
+                }
+                token.accept(relativeMnemonics.includes(opcode) ? Terms.RelOpcode : Terms.Opcode, end);
+            }
+        }
+    }, {
+        contextual: false
+    }
+)
 
 import * as Terms from './parser.terms.js';
 
@@ -217,31 +300,3 @@ export const asmPlugin = ViewPlugin.fromClass(class {
     }
 
 }, { decorations: view => view.decorations });
-
-
-/* Auxiliary functions for the Assembly grammar, to help identify registered keywords */
-
-export function CM_isOpcode(opcode)
-{
-    opcode = opcode.toLowerCase();
-    if(prefixes.hasOwnProperty(opcode))
-        return Terms.Prefix;
-    if(!mnemonics.hasOwnProperty(opcode))
-    {
-        if(opcode[0] === 'v' && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
-            opcode = opcode.slice(1);
-        if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
-            return -1;
-    }
-    return relativeMnemonics.includes(opcode) ? Terms.RelOpcode : Terms.Opcode;
-}
-
-export function CM_isRegister(reg)
-{
-    return isRegister(reg.slice(1).trim()) ? Terms.Register : -1;
-}
-
-export function CM_isDirective(dir)
-{
-    return directives.hasOwnProperty(dir.slice(1)) ? Terms.Directive : -1;
-}

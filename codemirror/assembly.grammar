@@ -1,4 +1,6 @@
 @top Program { statement+ }
+@external tokens tokenizer from "./asmPlugin" { Register, Directive, Comment, Opcode, RelOpcode, Prefix }
+@context ctxTracker from "./asmPlugin"
 
 statement {
   LabelDefinition |
@@ -42,10 +44,6 @@ SymbolDefinition { word '=' Expression }
 
 @tokens {
   word { $[a-zA-Z_] $[a-zA-Z_0-9]* }
-
-  register { '%' std.whitespace* word }
-  directive { '.' word }
-  Comment { '#' ![\n]* }
   charString { "'" (![\\\n'] | "\\" _)* "'"? }
   FullString { '"' (![\\\n"] | "\\" _)* '"'? }
   number { ('0x' $[0-9a-fA-F]+) | ('0o' $[0-7]+) | ('0b' $[0-1]+) | $[0-9.]+ ('e' $[0-9]+)? }
@@ -58,7 +56,3 @@ SymbolDefinition { word '=' Expression }
 commaSep<content> {
   "" | content ("," content?)*
 }
-
-@external specialize {word} CM_isOpcode from "./asmPlugin" { Opcode, RelOpcode, Prefix }
-@external specialize {register} CM_isRegister from "./asmPlugin" { Register }
-@external specialize {directive} CM_isDirective from "./asmPlugin" { Directive }
