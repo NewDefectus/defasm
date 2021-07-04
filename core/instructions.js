@@ -80,11 +80,8 @@ export class Instruction extends Statement
             }
             if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
             {
-                if(!this.syntax.intel)
-                {
-                    enforcedSize = suffixes[opcode[opcode.length - 1]];
-                    opcode = opcode.slice(0, -1);
-                }
+                enforcedSize = suffixes[opcode[opcode.length - 1]];
+                opcode = opcode.slice(0, -1);
                 if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
                 if(enforcedSize === undefined)
                 {

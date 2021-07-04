@@ -95,7 +95,7 @@ function tokenize(ctx, input)
     {
         if(opcode[0] === 'v' && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
             opcode = opcode.slice(1);
-        if(!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+        if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
         {
             if(ctx.intel && sizePtrs.hasOwnProperty(tok))
             {
