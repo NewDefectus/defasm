@@ -75,6 +75,9 @@ function tokenize(ctx, input)
         return Terms.Comment;
     }
 
+    if(tok == '=' || ctx.intel && tok == 'equ')
+        return Terms.symEquals;
+
     if(ctx.intel ?
         intelDirectives.hasOwnProperty(tok)
         :

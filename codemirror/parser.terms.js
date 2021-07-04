@@ -11,6 +11,7 @@ export const
   word = 34,
   Ptr = 9,
   Offset = 10,
+  symEquals = 35,
   Program = 11,
   LabelDefinition = 12,
   InstructionStatement = 13,

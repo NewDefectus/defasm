@@ -10,7 +10,8 @@
   Prefix,
   word,
   Ptr,
-  Offset
+  Offset,
+  symEquals
 }
 
 @tokens {
@@ -69,7 +70,7 @@ Expression { (unary | '(')* (number | charString | word) ')'* (operator Expressi
 iMemExpr { (unary | '(')* (Register | number | charString | word) ')'* (operator iMemExpr)? }
 
 LabelDefinition { word ':' }
-SymbolDefinition { word '=' Expression }
+SymbolDefinition { word symEquals Expression }
 
 commaSep<content> {
   "" | content ("," content?)*
