@@ -18,6 +18,25 @@ export const prefixes = {
 
 const SHORT_DISP = 128;
 
+/* Parse an optional "pseudo-operand" for rounding semantics may appear
+at the start or end of the operand list, depending on the syntax */
+function parseRoundingMode(vexInfo)
+{
+    let roundingName = "", roundStart = codePos;
+    vexInfo.evex = true;
+
+    while(next() != '}')
+    {
+        if(token == '\n')
+            throw new ParserError("Expected '}'")
+        roundingName += token;
+    }
+
+    vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
+    vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
+    if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
+}
+
 export class Instruction extends Statement
 {
     constructor(prev, opcode, opcodePos)
@@ -111,32 +130,27 @@ export class Instruction extends Statement
             else mnemonics[opcode] = operations = operations.map(line => new Operation(line.split(' ')));
         }
 
-        // An optional "pseudo-operand" for rounding semantics may appear at the start
-        if(token === '{')
+        if(!this.syntax.intel && token == '{')
         {
-            let roundingName = "", roundStart = codePos;
-            vexInfo.evex = true;
-
-            while(next() !== '}')
-            {
-                if(token === '\n')
-                    throw new ParserError("Expected '}'")
-                roundingName += token;
-            }
-
-            vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-            vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
-            if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
-            if(next() === ',') next(); // Comma after the round mode specifier is supported but not required
+            parseRoundingMode(vexInfo);
+            if(next() != ',')
+                throw new ParserError("Expected ','");
+            next();
         }
 
         let forceImmToRel = this.syntax.intel && operations[0].relativeSizes !== null;
 
         // Collecting the operands
-        while(token !== ';' && token !== '\n')
+        while(token != ';' && token != '\n')
         {
             if(this.syntax.intel)
             {
+                if(token == '{')
+                {
+                    parseRoundingMode(vexInfo);
+                    next();
+                    break;
+                }
                 let sizePtr = token;
                 if(sizePtrs.hasOwnProperty(sizePtr.toLowerCase()))
                 {
@@ -153,14 +167,14 @@ export class Instruction extends Statement
                 }
             }
             operand = new Operand(this, forceImmToRel);
-            if(token === ':') // Segment specification for addressing
+            if(token == ':') // Segment specification for addressing
             {
-                if(operand.type !== OPT.SEG)
+                if(operand.type != OPT.SEG)
                     throw new ParserError("Incorrect prefix");
                 prefsToGen |= (operand.reg + 1) << 3;
                 next();
                 operand = new Operand(this, forceImmToRel);
-                if(operand.type !== OPT.MEM && operand.type !== OPT.REL && operand.type !== OPT.VMEM)
+                if(operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
                     throw new ParserError("Segment prefix must be followed by memory reference");
             }
 
@@ -170,8 +184,8 @@ export class Instruction extends Statement
             operands.push(operand);
             prefsToGen |= operand.prefs;
 
-            if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size === 512) vexInfo.evex = true;
-            if(operand.type === OPT.MEM) usesMemory = true;
+            if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512) vexInfo.evex = true;
+            if(operand.type == OPT.MEM) usesMemory = true;
 
             while(token == '{') // Decorator (mask or broadcast specifier)
             {

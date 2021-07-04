@@ -20,7 +20,7 @@ function next()
 {
     let match = allTokens.next();
     if(!match.done)
-        end = loadStart + match.value.index + match.value[0].length;
+        end = match.value.index + match.value[0].length;
     return tok = match.done ? '\n' : match.value[0].toLowerCase();
 }
 
@@ -71,12 +71,24 @@ function tokenize(ctx, input)
 
     if(tok == (ctx.intel ? ';' : '#'))
     {
-        end = loadStart + input.lineAfter(loadStart).length;
+        end = input.lineAfter(loadStart).length;
         return Terms.Comment;
     }
 
     if(tok == '=' || ctx.intel && tok == 'equ')
         return Terms.symEquals;
+    
+    if(tok == '{')
+    {
+        let line = input.lineAfter(loadStart), pos = line.indexOf('}') + 1;
+        let initEnd = pos || line.length;
+        if((!ctx.prefix || next() == '%') && isRegister(next()))
+        {
+            return null;
+        }
+        end = initEnd;
+        return Terms.VEXRound;
+    }
 
     if(ctx.intel ?
         intelDirectives.hasOwnProperty(tok)
@@ -125,7 +137,7 @@ export const tokenizer = new ExternalTokenizer(
         next();
         let type = tokenize(stack.context, input);
         if(type !== null)
-            token.accept(type, end);
+            token.accept(type, loadStart + end);
     }, {
         contextual: false
     }

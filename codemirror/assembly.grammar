@@ -11,7 +11,8 @@
   word,
   Ptr,
   Offset,
-  symEquals
+  symEquals,
+  VEXRound
 }
 
 @tokens {
@@ -20,7 +21,6 @@
   number { ('0x' $[0-9a-fA-F]+) | ('0o' $[0-7]+) | ('0b' $[0-1]+) | $[0-9.]+ ('e' $[0-9]+)? }
   unary { '+' | '-' | '~' | '!' }
   operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
-  decorator { '{' ![}]* '}'? }
 }
 
 statement {
@@ -34,10 +34,10 @@ statement {
 
 
 InstructionStatement {
-  Prefix* VEXRound? (
-    (Opcode commaSep<(Register | Immediate | Relative | Memory) VEXMask?>)
+  Prefix* (
+    (Opcode VEXRound? commaSep<(Register | Immediate | Relative | Memory) VEXRound? VEXMask? VEXRound?>)
     |
-    (IOpcode commaSep<Ptr? (Register | (Offset Expression) | IImmediate | IMemory) VEXMask?>)
+    (IOpcode commaSep<Ptr? (Register | (Offset Expression) | IImmediate | IMemory) VEXRound? VEXMask? VEXRound?>)
     |
     (RelOpcode (('*' (Register | Relative | Memory)) | Register | Expression | Memory))
     |
@@ -61,8 +61,7 @@ IMemory {
   Relative? '[' iMemExpr ']'
 }
 
-VEXRound { decorator }
-VEXMask { '{' Register? '}'?}
+VEXMask { '{' Register '}' }
 
 IImmediate[@dynamicPrecedence=1] { (unary | '(')* (number | charString) ')'* (operator IImmediate)? ~immSplit }
 Relative { (unary | '(')* (number | charString | word) ')'* (operator Relative)? ~immSplit }
