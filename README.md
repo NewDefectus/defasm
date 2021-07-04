@@ -1,7 +1,7 @@
 # DefAssembler
-DefAssembler is an x86-64 assembler written in JavaScript. It aims to be relatively lightweight, easy to use, and efficient. For a quick demonstration, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defAsm/). Note that the assembler only supports [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax), so if you're wondering why your code isn't compiling, you might be using the wrong syntax (Intel).
+DefAssembler is an x86-64 assembler written in JavaScript. It aims to be relatively lightweight, easy to use, and efficient. For a quick demonstration, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defAsm/). Note that the assembler parses [AT&T syntax](https://en.wikibooks.org/wiki/X86_Assembly/GAS_Syntax) by default - to enable Intel syntax, use the `.intel_syntax` directive.
 
-DefAssembler is available in two npm packages, `@defasm/core` and `@defasm/codemirror`, both of which are available in this repository. DefAssembler is also the assembler used by [Code Golf](https://code.golf/ng/fizz-buzz#assembly).
+DefAssembler is available in two npm packages, `@defasm/core` and `@defasm/codemirror`, both of which are developed under this repository. DefAssembler is also the assembler used by [Code Golf](https://code.golf/ng/fizz-buzz#assembly).
 
 # Features
 
@@ -12,11 +12,43 @@ When executing the code, after a crash, the assembler will attempt to gather mor
 
 The command-line utility is functional only on Linux.
 
+## Intel and AT&T syntax support
+DefAssembler parses AT&T syntax by default, however Intel syntax is also supported. To switch between the two, you can use the `.att_syntax` and `.intel_syntax` directives respectively in your code. For example:
+
+```
+.att_syntax # AT&T syntax
+push %rax
+movb $4, (%rsi, %rbx, 4)
+textA: .string "Hello, world!"
+textALen = . - textA
+
+.intel_syntax ; Intel syntax
+push rax
+mov BYTE PTR [rsi + rbx * 4], 4
+textB db "Hello, world!"
+textBLen equ $ - textB
+```
+
+
+These directives apply until the end of the code or until the next appearance of a syntax directive. Note that adding or removing these directives before other instructions will cause those instructions to recompile.
+
+Additionally, if you wish to control whether registers must be prefixed with '%', you may use either the `prefix` or `noprefix` keywords after either of the aforementioned directives. For instance, the above example may be rewritten with the prefix requirements inverted:
+
+```
+.att_syntax noprefix
+push rax
+movb $4, (rsi, rbx, 4)
+
+.intel_syntax prefix
+push %rax
+mov BYTE PTR [%rsi + %rbx * 4], 4
+```
+
 ## JavaScript exports
 `@defasm/core` also exports a JavaScript prototype called `AssemblyState`; it represents the assembler's state, and as such contains the following data:
 * `instructions` - a two-dimensional array of assembled instructions where each row corresponds to a line of source code (note that the instructions also form a linked list).
 * `symbols` - a map from a symbol name to the symbol's definition (if it exists) and its references.
-* `bytes` - the number of bytes generated after the last compilation.
+* `bytes` - the number of bytes generated after the last call to `secondPass`.
 
 `AssemblyState` has 3 methods:
 * `compile` - usually assembles a given string of source code and discards the previous state; however, it can also be configured to insert (and/or remove) lines of code and update the state appropriately. The assembler aims to perform as few recompilations as possible, so you can rest assured this function is fairly efficient.

@@ -12,11 +12,43 @@ When executing the code, after a crash, the assembler will attempt to gather mor
 
 The command-line utility is functional only on Linux.
 
+## Intel and AT&T syntax support
+DefAssembler parses AT&T syntax by default, however Intel syntax is also supported. To switch between the two, you can use the `.att_syntax` and `.intel_syntax` directives respectively in your code. For example:
+
+```
+.att_syntax # AT&T syntax
+push %rax
+movb $4, (%rsi, %rbx, 4)
+textA: .string "Hello, world!"
+textALen = . - textA
+
+.intel_syntax ; Intel syntax
+push rax
+mov BYTE PTR [rsi + rbx * 4], 4
+textB db "Hello, world!"
+textBLen equ $ - textB
+```
+
+
+These directives apply until the end of the code or until the next appearance of a syntax directive. Note that adding or removing these directives before other instructions will cause those instructions to recompile.
+
+Additionally, if you wish to control whether registers must be prefixed with '%', you may use either the `prefix` or `noprefix` keywords after either of the aforementioned directives. For instance, the above example may be rewritten with the prefix requirements inverted:
+
+```
+.att_syntax noprefix
+push rax
+movb $4, (rsi, rbx, 4)
+
+.intel_syntax prefix
+push %rax
+mov BYTE PTR [%rsi + %rbx * 4], 4
+```
+
 ## JavaScript exports
 The package also exports a JavaScript prototype called `AssemblyState`; it represents the assembler's state, and as such contains the following data:
 * `instructions` - a two-dimensional array of assembled instructions where each row corresponds to a line of source code (note that the instructions also form a linked list).
 * `symbols` - a map from a symbol name to the symbol's definition (if it exists) and its references.
-* `bytes` - the number of bytes generated after the last compilation.
+* `bytes` - the number of bytes generated after the last call to `secondPass`.
 
 `AssemblyState` has 3 methods:
 * `compile` - usually assembles a given string of source code and discards the previous state; however, it can also be configured to insert (and/or remove) lines of code and update the state appropriately. The assembler aims to perform as few recompilations as possible, so you can rest assured this function is fairly efficient.
