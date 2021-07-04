@@ -101,7 +101,8 @@ export class Instruction extends Statement
             {
                 enforcedSize = suffixes[opcode[opcode.length - 1]];
                 opcode = opcode.slice(0, -1);
-                if(!mnemonics.hasOwnProperty(opcode)) throw new ParserError("Unknown opcode", this.opcodePos);
+                if(!mnemonics.hasOwnProperty(opcode))
+                    throw new ParserError("Unknown opcode", this.opcodePos);
                 if(enforcedSize === undefined)
                 {
                     this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
