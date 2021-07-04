@@ -140,13 +140,19 @@ export class Instruction extends Statement
         {
             if(this.syntax.intel)
             {
-                let sizePtr = token.toLowerCase();
-                if(sizePtrs.hasOwnProperty(sizePtr))
+                let sizePtr = token;
+                if(sizePtrs.hasOwnProperty(sizePtr.toLowerCase()))
                 {
-                    if(next().toLowerCase() != 'ptr')
-                        throw new ParserError("Expected 'PTR'");
-                    enforcedSize = sizePtrs[sizePtr];
-                    next();
+                    if(next().toLowerCase() == 'ptr')
+                    {
+                        enforcedSize = sizePtrs[sizePtr.toLowerCase()];
+                        next();
+                    }
+                    else
+                    {
+                        ungetToken();
+                        setToken(sizePtr);
+                    }
                 }
             }
             operand = new Operand(this, forceImmToRel);

@@ -1,4 +1,4 @@
-@top Program { statement+ }
+@top Program { statement ((';' | '\n') statement)*  }
 
 @context ctxTracker from "./asmPlugin"
 @external tokens tokenizer from "./asmPlugin" {
@@ -8,14 +8,19 @@
   Opcode, IOpcode,
   RelOpcode, IRelOpcode,
   Prefix,
-  word
+  word,
+  Ptr,
+  Offset
 }
 
-
-
-
-Offset { 'offset' Expression }
-Ptr { ('T'? 'BYTE' | ('D'|'Q'|'O'|'XMM'|'YMM'|'ZMM')? 'WORD') 'PTR' }
+@tokens {
+  charString { "'" (![\\\n'] | "\\" _)* "'"? }
+  FullString { '"' (![\\\n"] | "\\" _)* '"'? }
+  number { ('0x' $[0-9a-fA-F]+) | ('0o' $[0-7]+) | ('0b' $[0-1]+) | $[0-9.]+ ('e' $[0-9]+)? }
+  unary { '+' | '-' | '~' | '!' }
+  operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
+  decorator { '{' ![}]* '}'? }
+}
 
 statement {
   LabelDefinition |
@@ -23,7 +28,7 @@ statement {
   InstructionStatement |
   DirectiveStatement |
   SymbolDefinition
-  ) Comment? (';' | '\n')
+  ) Comment?
 }
 
 
@@ -31,7 +36,7 @@ InstructionStatement {
   Prefix* VEXRound? (
     (Opcode commaSep<(Register | Immediate | Relative | Memory) VEXMask?>)
     |
-    (IOpcode commaSep<Ptr? (Register | Offset | IImmediate | IMemory) VEXMask?>)
+    (IOpcode commaSep<Ptr? (Register | (Offset Expression) | IImmediate | IMemory) VEXMask?>)
     |
     (RelOpcode (('*' (Register | Relative | Memory)) | Register | Expression | Memory))
     |
@@ -48,7 +53,7 @@ Immediate {
 }
 
 Memory {
-  Relative? '(' ("" | Register ("," (Register | Number)?)*) ')'
+  Relative? '(' ("" | Register ("," (Register | number)?)*) ')'
 }
 
 IMemory {
@@ -65,16 +70,6 @@ iMemExpr { (unary | '(')* (Register | number | charString | word) ')'* (operator
 
 LabelDefinition { word ':' }
 SymbolDefinition { word '=' Expression }
-
-@tokens {
-  charString { "'" (![\\\n'] | "\\" _)* "'"? }
-  FullString { '"' (![\\\n"] | "\\" _)* '"'? }
-  number { ('0x' $[0-9a-fA-F]+) | ('0o' $[0-7]+) | ('0b' $[0-1]+) | $[0-9.]+ ('e' $[0-9]+)? }
-  Number { number }
-  unary { '+' | '-' | '~' | '!' }
-  operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
-  decorator { '{' ![}]* '}'? }
-}
 
 commaSep<content> {
   "" | content ("," content?)*

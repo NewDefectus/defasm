@@ -3,7 +3,7 @@ import { hoverTooltip }                                               from '@cod
 
 import { AssemblyState }                from '@defasm/core/compiler.js';
 import { mnemonics, relativeMnemonics } from '@defasm/core/mnemonicList.js';
-import { isRegister}                    from '@defasm/core/operands.js';
+import { isRegister, sizePtrs}                    from '@defasm/core/operands.js';
 import { prefixes }                     from '@defasm/core/instructions.js';
 import { directives, intelDirectives }                   from '@defasm/core/directives.js';
 
@@ -21,7 +21,7 @@ function next()
     let match = allTokens.next();
     if(!match.done)
         end = loadStart + match.value.index + match.value[0].length;
-    return tok = match.done ? '\n' : match.value[0];
+    return tok = match.done ? '\n' : match.value[0].toLowerCase();
 }
 
 export const ctxTracker = new ContextTracker({
@@ -57,43 +57,72 @@ export const ctxTracker = new ContextTracker({
     strict: false
 });
 
+function tokenize(ctx, input)
+{
+    if(tok == '%' && (ctx.prefix || ctx.intel))
+    {
+        next();
+        if(ctx.prefix && isRegister(tok))
+            return Terms.Register;
+        if(ctx.intel && intelDirectives.hasOwnProperty('%' + tok))
+            return Terms.Directive;
+        return null;
+    }
+
+    if(tok == (ctx.intel ? ';' : '#'))
+    {
+        end = loadStart + input.lineAfter(loadStart).length;
+        return Terms.Comment;
+    }
+
+    if(ctx.intel ?
+        intelDirectives.hasOwnProperty(tok)
+        :
+        tok[0] == '.' && directives.hasOwnProperty(tok.slice(1)))
+        return Terms.Directive;
+
+    if(!ctx.prefix && isRegister(tok))
+        return Terms.Register;
+
+    if(ctx.intel && tok == 'offset')
+        return Terms.Offset;
+
+    if(prefixes.hasOwnProperty(tok))
+        return Terms.Prefix;
+
+    let opcode = tok;
+    if(!mnemonics.hasOwnProperty(opcode))
+    {
+        if(opcode[0] === 'v' && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+            opcode = opcode.slice(1);
+        if(!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+        {
+            if(ctx.intel && sizePtrs.hasOwnProperty(tok))
+            {
+                let prevTok = tok, prevEnd = end;
+                if('ptr'.startsWith(next()))
+                    return Terms.Ptr;
+                tok = prevTok, end = prevEnd;
+            }
+            if(ctx.intel && tok == '$' || tok.match(/^[a-z_.][\w.]*$/))
+                return Terms.word;
+            return null;
+        }
+    }
+    return relativeMnemonics.includes(opcode)
+    ?
+        ctx.intel ? Terms.IRelOpcode : Terms.RelOpcode
+    :
+        ctx.intel ? Terms.IOpcode : Terms.Opcode;
+}
+
 export const tokenizer = new ExternalTokenizer(
     (input, token, stack) => {
         load(input, token.start);
         next();
-
-        if(tok == (stack.context.intel ? ';' : '#'))
-            token.accept(Terms.Comment, token.start + input.lineAfter(token.start).length);
-        else if((stack.context.intel ? intelDirectives : directives).hasOwnProperty(stack.context.intel ? tok : tok.slice(1)))
-            token.accept(Terms.Directive, end);
-        else if((!stack.context.prefix || (tok == '%' && next())) && isRegister(tok))
-            token.accept(Terms.Register, end);
-        else
-        {
-            let opcode = tok.toLowerCase();
-            if(prefixes.hasOwnProperty(opcode))
-                token.accept(Terms.Prefix, end);
-            else
-            {
-                if(!mnemonics.hasOwnProperty(opcode))
-                {
-                    if(opcode[0] === 'v' && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
-                        opcode = opcode.slice(1);
-                    if(!mnemonics.hasOwnProperty(opcode) && (stack.context.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
-                    {
-                        if(tok != 'offset' && (stack.context.intel && tok == '$' || tok.match(/^[a-z_.][\w.]*$/i)))
-                            token.accept(Terms.word, end);
-                        return;
-                    }
-                }
-                token.accept(relativeMnemonics.includes(opcode)
-                ?
-                    stack.context.intel ? Terms.IRelOpcode : Terms.RelOpcode
-                :
-                    stack.context.intel ? Terms.IOpcode : Terms.Opcode,
-                end);
-            }
-        }
+        let type = tokenize(stack.context, input);
+        if(type !== null)
+            token.accept(type, end);
     }, {
         contextual: false
     }

@@ -89,9 +89,9 @@ export class Directive extends Statement
 
                 case directives.intel_syntax:
                 case directives.att_syntax:
-                    next();
-                    let prefix = token == '\n' ? dir == directives.att_syntax : token == 'prefix';
-                    if(token != 'prefix' && token != 'noprefix' && token != '\n')
+                    let prefSpecifier = next().toLowerCase();
+                    let prefix = prefSpecifier == '\n' ? dir == directives.att_syntax : prefSpecifier == 'prefix';
+                    if(prefSpecifier != 'prefix' && prefSpecifier != 'noprefix' && prefSpecifier != '\n')
                         throw new ParserError("Expected 'prefix' or 'noprefix'");
                     this.syntax = { intel: dir == directives.intel_syntax, prefix };
                     this.switchSyntax = true;

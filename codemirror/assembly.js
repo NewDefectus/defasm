@@ -20,7 +20,6 @@ const assemblyLang = LezerLanguage.define({
                 SymbolDefinition: tags.definition(tags.macroName),
                 Immediate: tags.literal,
                 IImmediate: tags.literal,
-                Number: tags.literal,
                 Memory: tags.regexp,
                 IMemory: tags.regexp,
                 Relative: tags.regexp,
@@ -28,11 +27,13 @@ const assemblyLang = LezerLanguage.define({
                 FullString: tags.string,
                 VEXRound: tags.modifier,
                 VEXMask: tags.modifier,
-                Offset: tags.typeOperator
+                Offset: tags.emphasis,
+                Ptr: tags.emphasis
             })
         ]
     })
 });
+
 
 const asmTheme = EditorView.baseTheme({
     '.cm-asm-dump': {
