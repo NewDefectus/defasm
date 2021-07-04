@@ -1,4 +1,4 @@
-import { token, next, ParserError }   from "./parser.js";
+import { token, next, ParserError, setSyntax, currSyntax }   from "./parser.js";
 import { Expression, readString } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
 
@@ -89,11 +89,19 @@ export class Directive extends Statement
 
                 case directives.intel_syntax:
                 case directives.att_syntax:
+                    let intel = dir == directives.intel_syntax;
+                    // Set the syntax now so we can correctly skip comments
+                    setSyntax({ prefix: currSyntax.prefix, intel });
+                    let prefix = !intel;
                     let prefSpecifier = next().toLowerCase();
-                    let prefix = prefSpecifier == '\n' ? dir == directives.att_syntax : prefSpecifier == 'prefix';
-                    if(prefSpecifier != 'prefix' && prefSpecifier != 'noprefix' && prefSpecifier != '\n')
+
+                    if(prefSpecifier == 'prefix')
+                        prefix = true;
+                    else if(prefSpecifier == 'noprefix')
+                        prefix = false;
+                    else if(prefSpecifier != '\n')
                         throw new ParserError("Expected 'prefix' or 'noprefix'");
-                    this.syntax = { intel: dir == directives.intel_syntax, prefix };
+                    this.syntax = { intel, prefix };
                     this.switchSyntax = true;
                     if(token != '\n')
                         next();

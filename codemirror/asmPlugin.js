@@ -48,7 +48,7 @@ export const ctxTracker = new ContextTracker({
             result.prefix = true;
         else if(pref == 'noprefix')
             result.prefix = false;
-        else if(pref != '\n')
+        else if(pref != '\n' && pref != (result.intel ? ';' : '#'))
             return ctx;
         
         return result;
