@@ -1,4 +1,4 @@
-import { isRegister, registers } from "./operands.js";
+import { isRegister } from "./operands.js";
 import { codePos, currSyntax, next, ParserError, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./compiler.js";
 import { Statement } from "./statement.js";
@@ -201,7 +201,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             if(!lastWasNum)
             {
                 // If expecting memory e.g. (%rax) the '%' goes in here
-                if(expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket) break;
+                if(!instr.syntax.intel && expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket) break;
                 throw new ParserError("Missing left operand");
             }
             let opToken = token;
@@ -241,7 +241,11 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             next();
         }
         else if(token === '[' || token === ']')
+        {
+            if(!lastWasNum)
+                throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
             break;
+        }
         else if(isRegister(token))
         {
             if(!lastWasNum && expectMemory && opStack.length > 0 && opStack[opStack.length - 1].bracket)
@@ -257,23 +261,6 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             let imm = parseNumber(this.floatPrec !== 0);
             if(imm.floatPrec > this.floatPrec) this.floatPrec = imm.floatPrec;
             let value = imm.value;
-            if(value.name)
-            {
-                if(value.name === (instr.syntax.intel ? '$' : '.'))
-                {
-                    instr.ipRelative = true;
-                    value.isIP = true;
-                }
-                else if(symbols.has(value.name))
-                    symbols.get(value.name).references.push(instr);
-                else
-                    symbols.set(value.name, {
-                        symbol: null,
-                        references: [instr]
-                    });
-                this.hasSymbols = true;
-            }
-
             this.stack.push(value);
         }
     }
@@ -295,6 +282,26 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         if(opStack[opStack.length - 1].bracket)
             throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
         this.stack.push(opStack.pop());
+    }
+
+    for(let value of this.stack)
+    {
+        if(value.name)
+        {
+            if(value.name === (instr.syntax.intel ? '$' : '.'))
+            {
+                instr.ipRelative = true;
+                value.isIP = true;
+            }
+            else if(symbols.has(value.name))
+                symbols.get(value.name).references.push(instr);
+            else
+                symbols.set(value.name, {
+                    symbol: null,
+                    references: [instr]
+                });
+            this.hasSymbols = true;
+        }
     }
 
     if(this.floatPrec !== 0)

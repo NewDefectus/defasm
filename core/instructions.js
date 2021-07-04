@@ -206,11 +206,12 @@ export class Instruction extends Statement
                 }
                 else throw new ParserError("Invalid decorator");
                 
-                if(token !== '}') throw new ParserError("Expected '}'");
+                if(token != '}') throw new ParserError("Expected '}'");
                 next();
             }
 
-            if(token !== ',') break;
+            if(token != ',')
+                break;
             next();
         }
         this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;

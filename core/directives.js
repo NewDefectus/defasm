@@ -74,7 +74,7 @@ export class Directive extends Statement
                     this.bytes = new Uint8Array();
                     do
                     {
-                        if(next()[0] === '"')
+                        if(next()[0] == '"')
                         {
                             strBytes = readString(token);
                             temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
@@ -84,7 +84,7 @@ export class Directive extends Statement
                             this.length = temp.length;
                         }
                         else throw new ParserError("Expected string");
-                    } while(next() === ',');
+                    } while(next() == ',');
                     break;
 
                 case directives.intel_syntax:
@@ -111,7 +111,7 @@ export class Directive extends Statement
         catch(e)
         {
             this.error = e;
-            while(token !== ';' && token !== '\n') next();
+            while(token != ';' && token != '\n') next();
         }
     }
 
@@ -145,7 +145,8 @@ export class Directive extends Statement
         }
         finally
         {
-            if(!needsRecompilation) this.outline = null;
+            if(!needsRecompilation)
+                this.outline = null;
         }
     }
 

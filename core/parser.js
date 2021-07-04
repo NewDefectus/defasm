@@ -31,7 +31,8 @@ var defaultNext = () =>
     match.value[0] === (currSyntax.intel ? ';' : '#') ? function(){
         while(!match.done && match.value[0] !== '\n')
             match = srcTokens.next();
-        lastLineIndex = match.value.index + 1;
+        if(!match.done)
+            lastLineIndex = match.value.index + 1;
         return '\n';
     }() : match.value[0]);
 

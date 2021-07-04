@@ -75,6 +75,9 @@ function tokenize(ctx, input)
         return Terms.Comment;
     }
 
+    if(tok == ';')
+        return Terms.statementSeparator;
+
     if(tok == '=' || ctx.intel && tok == 'equ')
         return Terms.symEquals;
     
