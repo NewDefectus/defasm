@@ -122,9 +122,14 @@ function tokenize(ctx, input)
                     return Terms.Ptr;
                 tok = prevTok, end = prevEnd;
             }
-            if(ctx.intel && tok == '$' || tok.match(/^[a-z_.][\w.]*$/))
-                return Terms.word;
-            return null;
+            switch(isNumber(tok, ctx.intel))
+            {
+                case NUM_INVALID:
+                    return null;
+                case NUM_SYMBOL:
+                    return Terms.word;
+            }
+            return Terms.number;
         }
     }
     return relativeMnemonics.includes(opcode)
@@ -147,6 +152,7 @@ export const tokenizer = new ExternalTokenizer(
 )
 
 import * as Terms from './parser.terms.js';
+import { isNumber, NUM_INVALID, NUM_SYMBOL } from '@defasm/core/shuntingYard';
 
 class AsmDumpWidget extends WidgetType
 {

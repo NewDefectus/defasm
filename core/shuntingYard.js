@@ -94,6 +94,44 @@ export var readString = string => {
     return new Uint8Array(output);
 }
 
+export const NUM_INVALID = null,
+             NUM_PREC_SUFFIX = 1,
+             NUM_H_SUFFIX = 2,
+             NUM_E_EXPR = 4,
+             NUM_SYMBOL = 8;
+
+export function isNumber(number, intel)
+{
+    let match = null, type = 0;
+    number = number.toLowerCase();
+
+    if(number == (intel ? '$' : '.') || number[0].match(/[a-z_]/i))
+        return NUM_SYMBOL;
+    
+    if(number[0].match(/[^0-9.]/))
+        return NUM_INVALID;
+    
+    if(intel)
+        match = number.match(/^[0-9][0-9a-f]*h(.)?$/);
+
+    if(match)
+        type = NUM_H_SUFFIX;
+    else
+    {
+        match = number.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);   
+        if(!match)
+        {
+            match = number.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
+            if(match)
+                type = NUM_E_EXPR;
+            else
+                return NUM_INVALID;
+        }
+    }
+    
+    return type | (match[1] ? NUM_PREC_SUFFIX : 0);
+}
+
 
 function parseNumber(asFloat = false)
 {
@@ -113,13 +151,27 @@ function parseNumber(asFloat = false)
                 value += asFloat ? bytes[i] : BigInt(bytes[i]);
             }
         }
-        else if(isNaN(token))
+        else
         {
-            let suffix = token[token.length - 1];
-            let mainToken = token.slice(0, -1);
-            if(token.length > 1 && !isNaN(mainToken))
+            let numType = isNumber(token, currSyntax.intel);
+            if(numType == NUM_SYMBOL) // Symbol
             {
-                value = Number(mainToken);
+                let symbol = { name: token, pos: codePos };
+                next();
+                return { value: symbol, floatPrec };
+            }
+
+            if(numType === NUM_INVALID)
+                throw new ParserError("Invalid number");
+
+            let mainToken = token;
+            if(numType & NUM_H_SUFFIX)
+                mainToken = '0x' + mainToken.replace(/h/i, '');
+
+            if(numType & NUM_PREC_SUFFIX)
+            {
+                let suffix = mainToken[mainToken.length - 1].toLowerCase();
+
                 if(suffix == 'd') floatPrec = 2;
                 else if(suffix == 'f') floatPrec = 1;
                 else
@@ -128,33 +180,29 @@ function parseNumber(asFloat = false)
                     codePos.length = 1;
                     throw new ParserError("Invalid number suffix");
                 }
+
+                value = Number(mainToken.slice(0, -1));
             }
-            else // Symbol
+            else if(asFloat) floatPrec = 1, value = Number(mainToken);
+            else if(numType & NUM_E_EXPR)
             {
-                let symbol = { name: token, pos: codePos };
-                next();
-                return { value: symbol, floatPrec };
+                let eIndex = token.indexOf('e');
+                let base = token.slice(0, eIndex);
+                let exponent = BigInt(token.slice(eIndex + 1));
+
+                let dotIndex = base.indexOf('.'), divisor = 1n;
+
+                if(dotIndex > 0)
+                    divisor = 10n ** BigInt(base.length - dotIndex - 1);
+                base = BigInt(base.replace('.', ''));
+
+                value = base * 10n ** exponent / divisor;
             }
+            else if(mainToken.includes('.'))
+                floatPrec = 1, value = parseFloat(mainToken);
+            else
+                value = asFloat ? Number(mainToken) : BigInt(mainToken);
         }
-        else if(asFloat) floatPrec = 1, value = Number(token);
-        else if(token.match(/\d(.\d)?e\d/) && !asFloat)
-        {
-            let eIndex = token.indexOf('e');
-            let base = token.slice(0, eIndex);
-            let exponent = BigInt(token.slice(eIndex + 1));
-
-            let dotIndex = base.indexOf('.'), divisor = 1n;
-
-            if(dotIndex > 0)
-                divisor = 10n ** BigInt(base.length - dotIndex - 1);
-            base = BigInt(base.replace('.', ''));
-
-            value = base * 10n ** exponent / divisor;
-        }
-        else if(token.includes('.'))
-            floatPrec = 1, value = parseFloat(token);
-        else
-            value = asFloat ? Number(token) : BigInt(token);
 
         if(next() === 'f') floatPrec = 1, next();
         else if(token === 'd') floatPrec = 2, next();
