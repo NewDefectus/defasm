@@ -473,10 +473,10 @@
     }
   };
   var Line = class {
-    constructor(from, to, number2, text) {
+    constructor(from, to, number3, text) {
       this.from = from;
       this.to = to;
-      this.number = number2;
+      this.number = number3;
       this.text = text;
     }
     get length() {
@@ -5989,8 +5989,8 @@
         return new BlockInfo(from2, to - from2, 0, 0, BlockType.Text);
       }
       let { firstLine, lineHeight } = this.lines(doc2, offset);
-      let { from, length, number: number2 } = doc2.lineAt(value);
-      return new BlockInfo(from, length, top2 + lineHeight * (number2 - firstLine), lineHeight, BlockType.Text);
+      let { from, length, number: number3 } = doc2.lineAt(value);
+      return new BlockInfo(from, length, top2 + lineHeight * (number3 - firstLine), lineHeight, BlockType.Text);
     }
     forEachLine(from, to, doc2, top2, offset, f) {
       let { firstLine, lineHeight } = this.lines(doc2, offset);
@@ -10206,9 +10206,9 @@
     }
   });
   var NumberMarker = class extends GutterMarker {
-    constructor(number2) {
+    constructor(number3) {
       super();
-      this.number = number2;
+      this.number = number3;
     }
     eq(other) {
       return this.number == other.number;
@@ -10217,8 +10217,8 @@
       return document.createTextNode(this.number);
     }
   };
-  function formatNumber(view, number2) {
-    return view.state.facet(lineNumberConfig).formatNumber(number2, view.state);
+  function formatNumber(view, number3) {
+    return view.state.facet(lineNumberConfig).formatNumber(number3, view.state);
   }
   var lineNumberGutter = /* @__PURE__ */ gutter({
     class: "cm-lineNumbers",
@@ -11792,6 +11792,34 @@
       });
     return new Uint8Array(output);
   };
+  var NUM_INVALID = null;
+  var NUM_PREC_SUFFIX = 1;
+  var NUM_H_SUFFIX = 2;
+  var NUM_E_EXPR = 4;
+  var NUM_SYMBOL = 8;
+  function isNumber(number3, intel) {
+    let match2 = null, type = 0;
+    number3 = number3.toLowerCase();
+    if (number3 == (intel ? "$" : ".") || number3[0].match(/[a-z_]/i))
+      return NUM_SYMBOL;
+    if (number3[0].match(/[^0-9.]/))
+      return NUM_INVALID;
+    if (intel)
+      match2 = number3.match(/^[0-9][0-9a-f]*h(.)?$/);
+    if (match2)
+      type = NUM_H_SUFFIX;
+    else {
+      match2 = number3.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);
+      if (!match2) {
+        match2 = number3.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
+        if (match2)
+          type = NUM_E_EXPR;
+        else
+          return NUM_INVALID;
+      }
+    }
+    return type | (match2[1] ? NUM_PREC_SUFFIX : 0);
+  }
   function parseNumber(asFloat = false) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
     try {
@@ -11803,11 +11831,20 @@
           value <<= asFloat ? 8 : 8n;
           value += asFloat ? bytes[i] : BigInt(bytes[i]);
         }
-      } else if (isNaN(token)) {
-        let suffix = token[token.length - 1];
-        let mainToken = token.slice(0, -1);
-        if (token.length > 1 && !isNaN(mainToken)) {
-          value = Number(mainToken);
+      } else {
+        let numType = isNumber(token, currSyntax.intel);
+        if (numType == NUM_SYMBOL) {
+          let symbol = { name: token, pos: codePos };
+          next();
+          return { value: symbol, floatPrec };
+        }
+        if (numType === NUM_INVALID)
+          throw new ParserError("Invalid number");
+        let mainToken = token;
+        if (numType & NUM_H_SUFFIX)
+          mainToken = "0x" + mainToken.replace(/h/i, "");
+        if (numType & NUM_PREC_SUFFIX) {
+          let suffix = mainToken[mainToken.length - 1].toLowerCase();
           if (suffix == "d")
             floatPrec = 2;
           else if (suffix == "f")
@@ -11817,26 +11854,23 @@
             codePos.length = 1;
             throw new ParserError("Invalid number suffix");
           }
-        } else {
-          let symbol = { name: token, pos: codePos };
-          next();
-          return { value: symbol, floatPrec };
-        }
-      } else if (asFloat)
-        floatPrec = 1, value = Number(token);
-      else if (token.match(/\d(.\d)?e\d/) && !asFloat) {
-        let eIndex = token.indexOf("e");
-        let base2 = token.slice(0, eIndex);
-        let exponent = BigInt(token.slice(eIndex + 1));
-        let dotIndex = base2.indexOf("."), divisor = 1n;
-        if (dotIndex > 0)
-          divisor = 10n ** BigInt(base2.length - dotIndex - 1);
-        base2 = BigInt(base2.replace(".", ""));
-        value = base2 * 10n ** exponent / divisor;
-      } else if (token.includes("."))
-        floatPrec = 1, value = parseFloat(token);
-      else
-        value = asFloat ? Number(token) : BigInt(token);
+          value = Number(mainToken.slice(0, -1));
+        } else if (asFloat)
+          floatPrec = 1, value = Number(mainToken);
+        else if (numType & NUM_E_EXPR) {
+          let eIndex = token.indexOf("e");
+          let base2 = token.slice(0, eIndex);
+          let exponent = BigInt(token.slice(eIndex + 1));
+          let dotIndex = base2.indexOf("."), divisor = 1n;
+          if (dotIndex > 0)
+            divisor = 10n ** BigInt(base2.length - dotIndex - 1);
+          base2 = BigInt(base2.replace(".", ""));
+          value = base2 * 10n ** exponent / divisor;
+        } else if (mainToken.includes("."))
+          floatPrec = 1, value = parseFloat(mainToken);
+        else
+          value = asFloat ? Number(mainToken) : BigInt(mainToken);
+      }
       if (next() === "f")
         floatPrec = 1, next();
       else if (token === "d")
@@ -16111,6 +16145,7 @@ g nle`.split("\n");
   var symEquals = 35;
   var VEXRound = 11;
   var statementSeparator = 36;
+  var number2 = 37;
 
   // codemirror/asmPlugin.js
   var allTokens;
@@ -16198,9 +16233,13 @@ g nle`.split("\n");
             return Ptr;
           tok = prevTok, end = prevEnd;
         }
-        if (ctx.intel && tok == "$" || tok.match(/^[a-z_.][\w.]*$/))
-          return word;
-        return null;
+        switch (isNumber(tok, ctx.intel)) {
+          case NUM_INVALID:
+            return null;
+          case NUM_SYMBOL:
+            return word;
+        }
+        return number2;
       }
     }
     return relativeMnemonics.includes(opcode) ? ctx.intel ? IRelOpcode : RelOpcode : ctx.intel ? IOpcode : Opcode;
@@ -16352,18 +16391,18 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = Parser.deserialize({
     version: 13,
-    states: "9[OQOROOOuORO'#CiOOOP'#Cu'#CuO}ORO'#CjO#QORO'#CjO#XORO'#CjO$eORO'#CjO$oORO'#CjO%[ORO'#CrOOOP'#DR'#DRO%oORO'#DRQ%}OROOOOOP,59T,59TO$yORO,59`OOOP-E6s-E6sO&VORO,59UO#XORO,59UO&oORO,59UO&yORO,59UO$yORO'#CkO'TORO'#DTOOOP,59U,59UO!lORO,59UOOOP'#Cv'#CvO'lORO'#CnO'}OTO'#CnO(oOTO'#CpO)ZORO'#CoO)oOQO'#CoO)tORO'#D`O$yORO'#D`O*qORO'#D`O*{ORO'#CvO+dORO'#ClO,WOTO'#ClO,eOQO'#CqO,{ORO,59UO-SORO'#ClO-eOTO'#ClO-uORO'#DeOOOP,59^,59^OOOP,59m,59mOQORO'#C|Q%}OROOOOOP1G.z1G.zOOOP1G.p1G.pO!lORO1G.pO.WORO1G.pOOOP,59V,59VO._OPO'#CmO.dORO'#CxO.{ORO,59oO/^ORO,59oO/hORO,59oOOOP-E6t-E6tO/oOTO,59YO0aOTO,59[OOOP'#Cw'#CwO/oOTO,59YO0{ORO,59YO0aOTO,59[O1^ORO,59[O1oORO'#DbO2TOSO'#DbO2`OQO,59ZO)ZORO,59ZO2eORO'#CyO3RORO,59zO3dORO,59zO3nORO,59zO3uORO,59zO$yORO,59zOOOP,59],59]O4POQO,59]O4XOTO,59WO4XOTO,59WO4sORO,59WO5UORO,59]O5^ORO'#CpO(oOTO'#CpO5oORO1G.pO6QOTO,59WO6QOTO,59WO$yORO,59WO6oORO'#C{O7VORO,5:POOOP,59h,59hOOOP-E6z-E6zOOOP7+$[7+$[O7hORO7+$[O7yOQO,59XO8OORO,59dOOOP-E6v-E6vO8gORO1G/ZO8gORO1G/ZO8xORO1G/ZO9POTO1G.tO0{ORO1G.tO9qOTO1G.vO1^ORO1G.vOOOP-E6u-E6uOOOP1G.t1G.tOOOP1G.v1G.vO:]OSO,59|O:]OSO,59|O)ZORO,59|OOOP1G.u1G.uO:hOQO1G.uO:mORO,59eO$yORO,59eO;UORO,59eOOOP-E6w-E6wO;`ORO1G/fO;`ORO1G/fO;qORO1G/fO;xORO1G/fO<SORO1G/fO<^ORO'#CzO<lOQO1G.wOOOP1G.w1G.wO=VOTO1G.rO4sORO1G.rOOOP1G.r1G.rO<lOQO1G.wO0aOTO,59[O0aOTO,59[O=dOTO1G.rO$yORO1G.rOOOP,59g,59gOOOP-E6y-E6yOOOP1G.s1G.sO>YORO1G/OO=tORO1G/OO>aORO7+$uO>aORO7+$uO0{ORO7+$`OOOP7+$`7+$`OOOP7+$b7+$bO1^ORO7+$bO>rOSO1G/hO)ZORO1G/hOOOO1G/h1G/hOOOP7+$a7+$aO?cORO1G/PO>}ORO1G/PO?jORO1G/PO$yORO1G/PO@RORO7+%QO@RORO7+%QO@dORO7+%QO@kORO7+%QOOOO,59f,59fOOOO-E6x-E6xOOOP7+$c7+$cO4sORO7+$^OOOP7+$^7+$^O@uOQO7+$cO9qOTO1G.vO$yORO7+$^OOOP7+$j7+$jO@}ORO7+$jOAcORO<<HaOOOP<<Gz<<GzOOOP<<G|<<G|O)ZORO7+%SOOOO7+%S7+%SOOOP7+$k7+$kOAtORO7+$kOBYORO7+$kOBaORO7+$kOBxORO<<HlOBxORO<<HlOCZORO<<HlOOOP<<Gx<<GxOOOP<<G}<<G}OOOP<<HU<<HUOOOO<<Hn<<HnOOOP<<HV<<HVOCbORO<<HVOCvORO<<HVOC}OROAN>WOC}OROAN>WOOOPAN=qAN=qOD`OROAN=qODtOROG23rOOOPG23]G23]",
-    stateData: "EV~OQWOSSOTTOUUOVVOWQOrPOR^Pq^Pt^P!Y^P~Os]Ov[O~OS_OT`OUaOVbOWQOR^Xq^Xt^X!Y^X~OPdOxcORwPqwPtwP!YwP~OZfO~P!lOPmOXoOYnOrjOygOzgO{iO|iO!TkOR!SPq!SPt!SP!Y!SP~OPeOrrOygO{rO|rO~OzpO!WtO~P$SOzgO!TkO~P$SOrvOygOzgO{vO|vO~OgwOR!XPq!XPt!XP!Y!XP~P$yORyOquXtuX!YuX~OtzO!YzO~OZ!OO~P!lOP}OrrOygO{rO|rO~OzpO!W!PO~P&^OzgO!TkO~P&^OZ!UO!P!RO!R!SORwXqwXtwX!YwX~Or!YOygOzgO{!XO|!XO~O}!ZO!O!]ORbXZbXqbXtbX!PbX!RbX!TdX!YbX~O}!ZO!O!_O!TdXRdXqdXtdXzdX!YdX~OP!aOr!aOygOzgO{!aO|!aO~O!T!cO~OZ!fO!P!RO!R!dOR!SXq!SXt!SX!Y!SX~OrjOygOzgO{iO|iO!TkO~OP!hOY!iO~P*]OP!kO}!jOrjXyjXzjX{jX|jX~Or!lOygOzgO{!lO|!lO~O}!ZOR`Xq`Xt`X!Y`X~O!O!nOzdX!TdX~P+uOz!oO~OrjOygOzpO{!qO|!qO~OP}O~P,jOr!sOygOzgO{!sO|!sO~O!O!uO!R`XZ`X!P`X~P+uO!R!vOR!XXq!XXt!XX!Y!XX~OP!zO~P,jOP!|O~OP!}OxcORlXqlXtlX!RlX!YlX~O!R!SORwaqwatwa!Ywa~OZ#QO!P!RO~P.{OZ#QO~P.{O}!ZO!O#TORbaZbaqbatba!Pba!Rba!Tda!Yba~O}!ZO!O#VO!TdaRdaqdatdazda!Yda~OrjOygOzgO{iO|iO~OrjOygOzgO{!qO|!qO~OP#ZOr#ZOygOzgO{#ZO|#ZO~O}!ZO!O#]O!V!UX~O!V#^O~OP#`OX#bOY#aORmXqmXtmX!RmX!YmX~P*]O!R!dOR!Saq!Sat!Sa!Y!Sa~OZ#eO!P!RO~P3ROZ#eO~P3ROZ#gO!P!RO~P3RO}#kO!R#iO~O}!ZO!O#mOR`aq`at`azda!Y`a!Tda~OrrOygOzgO{rO|rO~OP#oO}#kO~Or!YOygOzgO{#pO|#pO~Oz!oOR^iq^it^i!Y^i~O}!ZO!O#sOR`aq`at`a!R`a!Y`aZ`a!P`a~Og#tORoXqoXtoX!RoX!YoX~P$yO!R!vOR!Xaq!Xat!Xa!Y!Xa~Oz!oOR^qq^qt^q!Y^q~O!Q#vO~OZ#wO!P!RORlaqlatla!Rla!Yla~O!R!SORwiqwitwi!Ywi~OZ#zO~P8gO}!ZO!O#{ORbiZbiqbitbi!Pbi!Rbi!Tdi!Ybi~O}!ZO!O$OO!TdiRdiqditdizdi!Ydi~O}!ZO!O$QO!V!Ua~O!V$SO~OZ$TO!P!RORmaqmatma!Rma!Yma~OP$VOY$WO~P*]O!R!dOR!Siq!Sit!Si!Y!Si~OZ$YO~P;`OZ$YO!P!RO~P;`OZ$[O!P!RO~P;`OP$]O{$]O}nX!RnX~O}$_O!R#iO~O}!ZOR`iq`it`i!Y`i~O!O$`Ozdi!Tdi~P<tO!O$dO!R`iZ`i!P`i~P<tOZ$eORliqlitli!Rli!Yli~O!P!RO~P=tO!R!SORwqqwqtwq!Ywq~O}!ZO!O$jO!V!Ui~OZ$lORmiqmitmi!Rmi!Ymi~O!P!RO~P>}OZ$nO!P!RORmiqmitmi!Rmi!Ymi~O!R!dOR!Sqq!Sqt!Sq!Y!Sq~OZ$qO~P@ROZ$qO!P!RO~P@RO}$tO!R#iO~OZ$uORlqqlqtlq!Rlq!Ylq~O!R!SORwyqwytwy!Ywy~OZ$wORmqqmqtmq!Rmq!Ymq~O!P!RO~PAtOZ$yO!P!RORmqqmqtmq!Rmq!Ymq~O!R!dOR!Syq!Syt!Sy!Y!Sy~OZ${O~PBxOZ$|ORmyqmytmy!Rmy!Ymy~O!P!RO~PCbO!R!dOR!S!Rq!S!Rt!S!R!Y!S!R~OZ%PORm!Rqm!Rtm!R!Rm!R!Ym!R~O!R!dOR!S!Zq!S!Zt!S!Z!Y!S!Z~O",
-    goto: "+X!YPPPPPPPPPPPPP!Z!_!c!l#j$d$z%_&R!_P!_&]&d'k(o)T)w*R*XPPPP*_P*ePPPPPPPPPP*oP*uPP+UTXOzTYOzWdS_f!OR!}!SSeUVQwWQ|]S}abQ!QcQ!hnQ#h!iS#n!n!uQ#t!vQ$V#aS$a#m#sQ$o$WT$s$`$dQ!VdQ!gmQ#R!US#f!f!hQ#x!}Q$U#`S$Z#g#hQ$f#wS$m$T$VQ$r$[S$x$n$oR$}$ySmT`Q!hoQ#X!]Q#`!dQ#|#TQ$V#bR$h#{QeVSmT`Q}bQ!hoQ#`!dR$V#b^lTV`bo!d#bSsUaQ!rtQ!{!PU#Y!]!_!nU#}#T#V#mV$i#{$O$`QeUS}atR!z!PSROzR^R`hT`o!]!d#T#b#{^qUVab!n#m$`fuW]cn!i!u!v#a#s$W$dY!Whqu!`!pY!`k!c#]$Q$jZ!pt!P!_#V$OQ![iQ!^jQ!mrQ!tvQ#S!XQ#U!Yh#W![!^!m!t#S#U#[#l#q#r$P$cQ#[!aQ#l!lQ#q!qQ#r!sQ$P#ZR$c#pQ!TdW#O!T#P#y$gS#P!U!VS#y#Q#RR$g#zQ!em[#c!e#d$X$p$z%OU#d!f!g!hW$X#e#f#g#hU$p$Y$Z$[S$z$q$rR%O${Q#j!kS$^#j$bR$b#oQ!wwR#u!wQ{ZR!y{QZOR!xzQeSS}_fR!z!OQeTR}`Q!bkQ#_!cQ$R#]Q$k$QR$v$jRxW",
-    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound Program LabelDefinition InstructionStatement Immediate Expression VEXMask IImmediate IMemory Relative Memory DirectiveStatement FullString SymbolDefinition",
+    states: "9OOQOROOOuORO'#CiOOOP'#Cu'#CuO}ORO'#CjO#aORO'#CjO#hORO'#CjO$tORO'#CjO%OORO'#CjO%kORO'#CrOOOP'#DS'#DSO&OORO'#DSQ&^OROOOOOP,59T,59TO%YORO,59`OOOP-E6s-E6sO&fORO,59UO#hORO,59UO'OORO,59UO'YORO,59UOOOP'#Cv'#CvO'dORO'#CvO'{ORO'#CmO%YORO'#CkO(^OTO'#CmO)jORO'#DUO)RORO'#DUOOOP,59U,59UO!lORO,59UO)qORO'#CmO*SOTO'#CmO*tORO'#CqO+YOQO'#CqO+_ORO'#D`O%YORO'#D`O,[ORO'#D`O,fORO'#ClO-YOTO'#ClO-gOQO'#CnO-}ORO,59UO.UORO'#ClO.gOTO'#ClO.wORO'#DeOOOP,59^,59^OOOP,59n,59nOQORO'#C|Q&^OROOOOOP1G.z1G.zOOOP1G.p1G.pO!lORO1G.pO/YORO1G.pOOOP,59Y,59YO/aOQO,59YOOOP-E6t-E6tO/iOTO,59XOOOP,59V,59VOOOP'#Cw'#CwO/iOTO,59XO0^ORO,59XO0oORO,59YO0wOPO'#CoO0|ORO'#CyO1gORO,59pO1xORO,59pO2SORO,59pO2ZOTO,59XO2ZOTO,59XO2{ORO,59XO3^ORO'#DbO3rOSO'#DbO3}OQO,59]O*tORO,59]O4SORO'#CzO4pORO,59zO5RORO,59zO5]ORO,59zO5dORO,59zO%YORO,59zO5nOTO,59WO5nOTO,59WO6YORO,59WO6kORO1G.pO6|OTO,59WO6|OTO,59WO%YORO,59WO7kORO'#C{O8RORO,5:POOOP,59h,59hOOOP-E6z-E6zOOOP7+$[7+$[O8dORO7+$[O8uORO'#CxO9TOQO1G.tOOOP1G.t1G.tO9]OTO1G.sO0^ORO1G.sOOOP-E6u-E6uOOOP1G.s1G.sO9TOQO1G.tO:QOQO,59ZO:nORO,59eO:VORO,59eOOOP-E6w-E6wO:uORO1G/[O:uORO1G/[O;WORO1G/[O;_OTO1G.sO2{ORO1G.sOOOP1G.v1G.vO<POSO,59|O<POSO,59|O*tORO,59|OOOP1G.w1G.wO<[OQO1G.wO<aORO,59fO%YORO,59fO<xORO,59fOOOP-E6x-E6xO=SORO1G/fO=SORO1G/fO=eORO1G/fO=lORO1G/fO=vORO1G/fO>cOTO1G.rO6YORO1G.rOOOP1G.r1G.rO>pOTO1G.rO%YORO1G.rOOOP,59g,59gOOOP-E6y-E6yOOOO,59d,59dOOOO-E6v-E6vOOOP7+$`7+$`O0^ORO7+$_OOOP7+$_7+$_O?QOQO7+$`OOOP1G.u1G.uO?nORO1G/PO?YORO1G/PO?uORO7+$vO?uORO7+$vO2{ORO7+$_OOOP7+$b7+$bO@WOSO1G/hO*tORO1G/hOOOO1G/h1G/hOOOP7+$c7+$cO@wORO1G/QO@cORO1G/QOAOORO1G/QO%YORO1G/QOAgORO7+%QOAgORO7+%QOAxORO7+%QOBPORO7+%QO6YORO7+$^OOOP7+$^7+$^O%YORO7+$^OOOP<<Gy<<GyOOOP<<Gz<<GzOOOP7+$k7+$kOBZORO7+$kOBoORO<<HbOOOP<<G|<<G|O*tORO7+%SOOOO7+%S7+%SOOOP7+$l7+$lOCQORO7+$lOCfORO7+$lOCmORO7+$lODUORO<<HlODUORO<<HlODgORO<<HlOOOP<<Gx<<GxOOOP<<HV<<HVOOOO<<Hn<<HnOOOP<<HW<<HWODnORO<<HWOESORO<<HWOEZOROAN>WOEZOROAN>WOOOPAN=rAN=rOElOROAN=rOFQOROG23rOOOPG23^G23^",
+    stateData: "Fc~OQWOSSOTTOUUOVVOWQOrPOR^Pq^Pt^P!Y^P~Os]Ow[O~OS_OT`OUaOVbOWQOR^Xq^Xt^X!Y^X~OPiOrgOugOyfOzcO{dO|gORxPqxPtxP!YxP~OZkO~P!lOPpOXrOYqOrgOumOzcO{cO|mO!TnOR!SPq!SPt!SP!Y!SP~OPjOrtOutOzcO|tO~O{dO!WvO~P$cO{cO!TnO~P$cOrxOuxOzcO{cO|xO~OgyOR!XPq!XPt!XP!Y!XP~P%YOR{OqvXtvX!YvX~Ot|O!Y|O~OZ!QO~P!lOP!POrtOutOzcO|tO~O{dO!W!RO~P&mO{cO!TnO~P&mOP!TO}!SOrjXujXzjX{jX|jX~Or!VOu!VOzcO{cO|!VO~O}!XO!O!ZORaXZaXqaXtaX{aX!PaX!QaX!YaX!TaX~OZ!`O!P!^O!Q!]ORxXqxXtxX!YxX~O{![O~P)ROr!VOu!bOzcO{cO|!bO~O}!XO!O!dORdXZdXqdXtdX!PdX!QdX!TaX!YdX~OP!fOr!fOu!fOzcO{cO|!fO~O!T!hO~OZ!kO!P!iO!Q!]OR!SXq!SXt!SX!Y!SX~OrgOumOzcO{cO|mO!TnO~OP!mOY!nO~P+vOr!oOu!oOzcO{cO|!oO~O}!XOR`Xq`Xt`X!Y`X~O!O!qO{aX!TaX~P,wO{![O~OrgOugOzcO{dO|gO~OP!PO~P-lOr!sOu!sOzcO{cO|!sO~O!O!uO!P`XZ`X!Q`X~P,wO!P!vOR!XXq!XXt!XX!Y!XX~OP!zO~P-lO}#OO!P!|O~O}!XO!O#QORaaZaaqaataa{aa!Paa!Qaa!Yaa!Taa~OrgOugOzcO{cO|gO~OP#TO}#OO~OP#UO~OP#WOyfORmXqmXtmX!PmX!YmX~P-lO!P!^ORxaqxatxa!Yxa~OZ#ZO!Q!]O~P1gOZ#ZO~P1gO}!XO!O#^ORdaZdaqdatda!Pda!Qda!Taa!Yda~OrgOumOzcO{cO|mO~OP#`Or#`Ou#`OzcO{cO|#`O~O}!XO!O#bO!V!UX~O!V#cO~OP#eOX#gOY#fORnXqnXtnX!PnX!YnX~P+vO!P!iOR!Saq!Sat!Sa!Y!Sa~OZ#jO!Q!]O~P4pOZ#jO~P4pOZ#lO!Q!]O~P4pO}!XO!O#oOR`aq`at`a{aa!Y`a!Taa~OrtOutOzcO{cO|tO~O{![OR^iq^it^i!Y^i~O}!XO!O#rOR`aq`at`a!P`a!Y`aZ`a!Q`a~Og#sORoXqoXtoX!PoX!YoX~P%YO!P!vOR!Xaq!Xat!Xa!Y!Xa~O{![OR^qq^qt^q!Y^q~OP#uOu#uO}lX!PlX~O}#wO!P!|O~O}!XO!O#xORaiZaiqaitai{ai!Pai!Qai!Yai!Tai~O!R#{O~OZ#|O!Q!]ORmaqmatma!Pma!Yma~O{![O~P:VO!P!^ORxiqxitxi!Yxi~OZ$PO~P:uO}!XO!O$QORdiZdiqditdi!Pdi!Qdi!Tai!Ydi~O}!XO!O$TO!V!Ua~O!V$VO~OZ$WO!Q!]ORnaqnatna!Pna!Yna~OP$YOY$ZO~P+vO!P!iOR!Siq!Sit!Si!Y!Si~OZ$]O~P=SOZ$]O!Q!]O~P=SOZ$_O!Q!]O~P=SO}!XOR`iq`it`i!Y`i~O!O$`O{ai!Tai~P>QO!O$bO!P`iZ`i!Q`i~P>QO}$dO!P!|O~OZ$eORmiqmitmi!Pmi!Ymi~O!Q!]O~P?YO!P!^ORxqqxqtxq!Yxq~O}!XO!O$iO!V!Ui~OZ$kORniqnitni!Pni!Yni~O!Q!]O~P@cOZ$mO!Q!]ORniqnitni!Pni!Yni~O!P!iOR!Sqq!Sqt!Sq!Y!Sq~OZ$pO~PAgOZ$pO!Q!]O~PAgOZ$sORmqqmqtmq!Pmq!Ymq~O!P!^ORxyqxytxy!Yxy~OZ$uORnqqnqtnq!Pnq!Ynq~O!Q!]O~PCQOZ$wO!Q!]ORnqqnqtnq!Pnq!Ynq~O!P!iOR!Syq!Syt!Sy!Y!Sy~OZ$yO~PDUOZ$zORnyqnytny!Pny!Yny~O!Q!]O~PDnO!P!iOR!S!Rq!S!Rt!S!R!Y!S!R~OZ$}ORn!Rqn!Rtn!R!Pn!R!Yn!R~O!P!iOR!S!Zq!S!Zt!S!Z!Y!S!Z~O",
+    goto: "+k!YPPPPPPPPPPPPP!Z!_!c!l#j$g$z%v&^!_P!_&q&x(U)Q)[)q*e*kPPPPP*qP*wPPPPPPPPP+RP+XPP+hTXO|TYO|WiS_k!QR#W!^SjUVQyWQ!O]S!PabQ!WfQ!mqQ#m!nS#p!q!uQ#s!vQ$Y#fS$a#o#rQ$n$ZT$r$`$bWhS_k!Q^oTV`br!i#gSuUaQ!rvQ!{!RU#S!Z!d!qQ#V!^U#y#Q#^#oV$c#x$Q$`WiS_k!QQjUS!PavQ!z!RR#W!^S!ahiQ!lpQ#[!`S#k!k!mS#}#V#WQ$X#eS$^#l#mQ$f#|S$l$W$YQ$q$_S$v$m$nR${$wSpT`Q!mrQ#_!dQ#e!iQ$R#^Q$Y#gR$h$QQjVSpT`Q!PbQ!mrQ#e!iR$Y#gSRO|R^RdeS_kv!Q!R!Z!^#Q#x`lT`r!d!i#^#g$Q^sUVab!q#o$`fwW]fq!n!u!v#f#r$Z$bY!Uelsw!eZ!en!h#b$T$iQ!YgQ!cmQ!ptQ!txQ#P!Vd#R!Y!c!p!t#P#]#a#n#q$SQ#]!bQ#a!fQ#n!oQ#q!sR$S#`Q!}!TS#v!}#zR#z#TS!_hiW#X!_#Y$O$gS#Y!`!aS$O#Z#[R$g$PQ!jp[#h!j#i$[$o$x$|U#i!k!l!mW$[#j#k#l#mU$o$]$^$_S$x$p$qR$|$yQ!wyR#t!wQ}ZR!y}QZOR!x|QjSS!P_kR!z!QQjTR!P`Q!gnQ#d!hQ$U#bQ$j$TR$t$iRzW",
+    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound Program LabelDefinition InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement FullString SymbolDefinition",
     maxTerm: 56,
     context: ctxTracker,
     skippedNodes: [0],
     repeatNodeCount: 8,
-    tokenData: ")g~RlYZ!yqr#Ors#_tu$Ruv#Yvw$Wwx$`xy%Syz%Xz{%^{|%e|}%l}!O%e!O!P%q!P!Q#Y!Q!R&_!R![%q![!](O!^!_(T!_!`(c!`!a(i!}#O(t#P#Q(y#Q#R#Y#o#p)O#p#q)T#q#r)]#r#s)b~#OO!Y~R#VP!OQyP!_!`#YQ#_O!OQ~#dUg~OY#_Zr#_rs#vs#O#_#O#P#{#P~#_~#{Og~~$OPO~#_~$WOx~Q$]P!OQvw#Y~$eU|~OY$`Zw$`wx$wx#O$`#O#P$|#P~$`~$|O|~~%PPO~$`~%XOz~~%^O}~R%eO!WP!OQR%lO!OQyP~%qO!R~~%vR{~!O!P%q!Q![%q#X#Y&P~&SP!Q![&V~&[P{~!Q![&V~&dU{~!O!P%q!Q![%q#U#V&v#X#Y&P#c#d'U#l#m'd~&yP!Q!S&|~'RP{~!Q!S&|~'XP!Q!Y'[~'aP{~!Q!Y'[~'gR!Q!['p!c!i'p#T#Z'p~'uR{~!Q!['p!c!i'p#T#Z'p~(TOv~Q(YR!OQ!^!_#Y!_!`#Y!`!a#YQ(fP!_!`#YQ(nQ!OQ!_!`#Y!`!a#Y~(yO!T~~)OO!V~~)TO!P~Q)YP!OQ#p#q#Y~)bO!Q~P)gOyP",
+    tokenData: "'P~RiYZ!pqr!urs#Utu#xuv#Pvw#}wx$Vxy$yyz%Oz{%T{|%[|}%c}!O%[!P!Q#P![!]%h!^!_%m!_!`%{!`!a&R!}#O&^#P#Q&c#Q#R#P#o#p&h#p#q&m#q#r&u#r#s&z~!uO!Y~R!|P!OQzP!_!`#PQ#UO!OQ~#ZUg~OY#UZr#Urs#ms#O#U#O#P#r#P~#U~#rOg~~#uPO~#U~#}Oy~Q$SP!OQvw#P~$[U|~OY$VZw$Vwx$nx#O$V#O#P$s#P~$V~$sO|~~$vPO~$V~%OO{~~%TO}~R%[O!WP!OQR%cO!OQzP~%hO!P~~%mOw~Q%rR!OQ!^!_#P!_!`#P!`!a#PQ&OP!_!`#PQ&WQ!OQ!_!`#P!`!a#P~&cO!T~~&hO!V~~&mO!Q~Q&rP!OQ#p#q#P~&zO!R~P'POzP",
     tokenizers: [tokenizer, 0, 1],
     topRules: { "Program": [0, 12] },
-    dynamicPrecedences: { "18": 1 },
+    dynamicPrecedences: { "20": 1 },
     tokenPrec: 0
   });
 
