@@ -20,6 +20,7 @@ export function loadCode(code)
     next = defaultNext;
     lastLineIndex = 0;
     prevCodePos = codePos = {start: 0, length: 0};
+    next();
 }
 
 var defaultNext = () =>

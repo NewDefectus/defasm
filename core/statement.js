@@ -1,5 +1,5 @@
-import { baseAddr } from "./compiler";
-import { defaultSyntax } from "./parser";
+import { baseAddr } from "./compiler.js";
+import { defaultSyntax } from "./parser.js";
 
 export class Statement
 {

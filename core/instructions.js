@@ -2,7 +2,7 @@ const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizePtrs } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
-import { mnemonics } from "./mnemonicList.js";
+import { fetchMnemonic, mnemonics } from "./mnemonicList.js";
 import { Operation } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
@@ -34,7 +34,8 @@ function parseRoundingMode(vexInfo)
 
     vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
     vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
-    if(vexInfo.round < 0) throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
+    if(vexInfo.round < 0)
+        throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
 }
 
 export class Instruction extends Statement
@@ -112,24 +113,9 @@ export class Instruction extends Statement
             }
         }
 
-        /** @type { Operation[] } */
-        let operations = mnemonics[opcode];
         /** @type { Operand[] } */
         let operands = [];
-
-        if(typeof operations[0] === "string") // If the mnemonic hasn't been decoded yet, decode it
-        {
-            if(operations[0][0] === '#') // References other mnemonic
-            {
-                let otherOpcode = operations[0].slice(1);
-                if(typeof mnemonics[otherOpcode][0] === "string")
-                {
-                    mnemonics[otherOpcode] = mnemonics[otherOpcode].map(line => new Operation(line.split(' ')));
-                }
-                mnemonics[opcode] = operations = mnemonics[otherOpcode];
-            }
-            else mnemonics[opcode] = operations = operations.map(line => new Operation(line.split(' ')));
-        }
+        let operations = fetchMnemonic(opcode);
 
         if(!this.syntax.intel && token == '{')
         {

@@ -86,7 +86,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
     loadCode(source);
     setSyntax(lastInstr ? lastInstr.syntax : defaultSyntax);
 
-    while(next(), !match.done)
+    while(!match.done)
     {
         try
         {
@@ -122,6 +122,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
                     if(token == ':') // Label definition
                     {
                         addInstruction(new Symbol(lastInstr, opcode, pos, true));
+                        next();
                         continue;
                     }
                     else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
@@ -140,7 +141,8 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             {
                 if(!match.done) this.instructions.splice(line++, 0, currLineArr = []);
             }
-            else if(token !== ';') throw new ParserError("Expected end of line");
+            else if(token !== ';')
+                throw new ParserError("Expected end of line");
         }
         catch(e)
         {
@@ -152,6 +154,7 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             while(token !== '\n' && token !== ';') next();
             if(token === '\n' && !match.done) this.instructions.splice(line++, 0, currLineArr = []);
         }
+        next();
     }
 
     // Link the last instruction to the next

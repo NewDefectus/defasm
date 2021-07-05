@@ -293,6 +293,7 @@ export function Operation(format)
     }
 
     // What follows is a list of operand specifiers
+    /** @type { OpCatcher[] } */
     this.opCatchers = [];
     if(format.length === 0)
         return;

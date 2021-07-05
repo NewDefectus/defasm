@@ -1556,3 +1556,18 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
         ];
     }
 })));
+
+/** @returns { Operation[] } */
+export function fetchMnemonic(opcode)
+{
+    let operations = mnemonics[opcode];
+
+    if(typeof operations[0] == "string") // If the mnemonic hasn't been decoded yet, decode it
+    {
+        if(operations[0][0] == '#') // References other mnemonic
+            return mnemonics[opcode] = fetchMnemonic(operations[0].slice(1));
+        return mnemonics[opcode] = operations.map(line => new Operation(line.split(' ')));
+    }
+
+    return operations;
+}
