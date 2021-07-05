@@ -11434,14 +11434,6 @@
       if (size == 8 && reg >= registers.ah && reg <= registers.bh)
         prefs |= PREFIX_NOREX;
       reg &= 7;
-    } else if (reg >= registers.mm0 && reg <= registers.mm7) {
-      type = OPT.MMX;
-      size = 64;
-      reg -= registers.mm0;
-    } else if (reg >= registers.xmm0 && reg <= registers.xmm7) {
-      type = OPT.SSE;
-      size = 128;
-      reg -= registers.xmm0;
     } else if (reg >= registers.es && reg <= registers.gs) {
       type = OPT.SEG;
       size = 32;
@@ -11854,73 +11846,79 @@
     let opStack = [], lastOp, lastWasNum = false, inParentheses = 0;
     this.regBase = null;
     this.regIndex = null;
-    this.shift = 0;
+    this.shift = null;
     this.prefs = 0;
     Expression.prototype.recordIntelRegister = function() {
+      let multiplier = null, multiplierPos = null;
       if (inParentheses)
         throw new ParserError("Can't use registers within parentheses");
       if (opStack.length > 0) {
         let prevOp = opStack[opStack.length - 1];
-        if (prevOp.func != operators["+"].func)
-          throw new ParserError("Invalid operation on register (expected '+')", prevOp.pos);
+        if (prevOp.func == operators["*"].func) {
+          multiplierPos = prevOp.pos;
+          let prevVal = this.stack.pop();
+          multiplier = "1248".indexOf(prevVal.toString());
+          if (multiplier < 0)
+            throw new ParserError("Scale must be 1, 2, 4, or 8");
+        } else if (prevOp.func != operators["+"].func)
+          throw new ParserError("Invalid operation on register (expected '+' or '*')", prevOp.pos);
+      }
+      if (this.regBase && this.regBase.type == OPT.IP)
+        throw new ParserError("Can't use RIP with other registers");
+      let tempReg = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+      if (token == "*") {
+        multiplierPos = codePos;
+        if (multiplier !== null)
+          throw new ParserError("Can't multiply a register more than once");
+        multiplier = "1248".indexOf(next());
+        if (multiplier < 0)
+          throw new ParserError("Scale must be 1, 2, 4, or 8");
+        next();
+      }
+      if (tempReg.type == OPT.VEC) {
+        if (tempReg.size < 128)
+          throw new ParserError("Invalid register size", regParsePos);
+        if (this.regIndex)
+          throw new ParserError("Index register already set", regParsePos);
+        this.regIndex = this.regBase;
+        this.regBase = null;
+      } else {
+        if (tempReg.size == 32)
+          this.prefs |= PREFIX_ADDRSIZE;
+        else if (tempReg.size != 64)
+          throw new ParserError("Invalid register size", regParsePos);
+        if (tempReg.type == OPT.IP && (this.regBase || this.regIndex))
+          throw new ParserError("Can't use RIP with other registers", regParsePos);
       }
       if (this.regBase) {
         if (this.regIndex)
-          throw new ParserError("Index register already set");
-        if (this.regBase.type == OPT.IP)
-          throw new ParserError("Can't use another register along with RIP");
-        this.regIndex = parseRegister([OPT.REG, OPT.VEC]);
-        if (this.regIndex.type == OPT.VEC) {
-          if (this.regIndex.size < 128)
-            throw new ParserError("Invalid register size", regParsePos);
-        } else {
-          if (this.regIndex.size == 32)
-            this.prefs |= PREFIX_ADDRSIZE;
-          else if (this.regIndex.size != 64)
-            throw new ParserError("Invalid register size", regParsePos);
-          if (this.regIndex.reg == 4) {
-            if (this.regBase.reg != 4 && token != "*")
-              [this.regIndex, this.regBase] = [this.regBase, this.regIndex];
-            else
-              throw new ParserError("Memory index cannot be RSP", regParsePos);
-          }
+          throw new ParserError("Index register already set", regParsePos);
+        this.regIndex = tempReg;
+        if (tempReg.type != OPT.VEC && tempReg.reg == 4) {
+          if (this.regBase.reg != 4 && multiplier === null)
+            [this.regIndex, this.regBase] = [this.regBase, this.regIndex];
+          else
+            throw new ParserError("Memory index cannot be RSP", regParsePos);
         }
       } else {
-        this.regBase = parseRegister(this.regIndex ? [OPT.REG, OPT.VEC] : [OPT.REG, OPT.IP, OPT.VEC]);
-        if (this.regBase.type == OPT.VEC) {
-          if (this.regBase.size < 128)
-            throw new ParserError("Invalid register size", regParsePos);
+        this.regBase = tempReg;
+        if (multiplier !== null) {
           if (this.regIndex)
-            throw new ParserError("Index register already set", regParsePos);
-          this.regIndex = this.regBase;
-          this.regBase = null;
-        } else {
-          if (this.regBase.size == 32)
-            this.prefs |= PREFIX_ADDRSIZE;
-          else if (this.regBase.size != 64)
-            throw new ParserError("Invalid register size", regParsePos);
-        }
-        if (token == "*") {
-          if (this.regIndex)
-            throw new ParserError("Can't scale multiple registers");
+            throw new ParserError("Can't scale multiple registers", multiplierPos);
           this.regIndex = this.regBase;
           this.regBase = null;
           if (this.regIndex.reg == 4)
             throw new ParserError("Memory index cannot be RSP", regParsePos);
-          if (this.regIndex.type == OPT.IP)
-            throw new ParserError(`Can't scale ${instr.syntax.prefix ? "%" : ""}${regIndex.reg == registers.eip ? "e" : "r"}ip`);
+          if (tempReg.type == OPT.IP)
+            throw new ParserError(`Can't scale ${instr.syntax.prefix ? "%" : ""}${tempReg.size == 32 ? "e" : "r"}ip`, multiplierPos);
         }
-      }
-      if (token == "*") {
-        this.shift = "1248".indexOf(next());
-        if (this.shift < 0)
-          throw new ParserError("Scale must be 1, 2, 4, or 8");
-        next();
       }
       if (token != "]" && token != "+" && token != "-")
         throw new ParserError("Expected ']', '+' or '-'");
       lastWasNum = true;
       this.stack.push(0n);
+      if (multiplier !== null)
+        this.shift = multiplier;
     };
     while (token != "," && token != "\n" && token != ";") {
       if (!lastWasNum && unaries.hasOwnProperty(token)) {
@@ -12023,6 +12021,8 @@
     }
     if (this.floatPrec !== 0)
       this.stack = this.stack.map((num) => typeof num === "bigint" ? Number(num) : num);
+    if (this.shift === null)
+      this.shift = 0;
   }
   Expression.prototype.evaluate = function(currIndex, requireSymbols = false) {
     if (this.stack.length === 0)
