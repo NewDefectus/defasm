@@ -11983,7 +11983,7 @@
         if (!lastWasNum)
           throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
         break;
-      } else if (isRegister(token)) {
+      } else if (!instr.syntax.prefix && isRegister(token)) {
         if (expectMemory) {
           if (instr.syntax.intel) {
             this.recordIntelRegister();
@@ -14818,6 +14818,7 @@ g nle`.split("\n");
             next();
             if (token == ":") {
               addInstruction(new Symbol2(lastInstr, opcode, pos, true));
+              next();
               continue;
             } else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
               addInstruction(new Symbol2(lastInstr, opcode, pos));
