@@ -163,7 +163,7 @@ export function Operand(instr, forceImmToRel = false)
 
     this.startPos = codePos;
     let indirect = token == '*';
-    if(indirect)
+    if(indirect && !instr.syntax.intel)
         next();
 
     if(instr.syntax.prefix && isRegister(token))

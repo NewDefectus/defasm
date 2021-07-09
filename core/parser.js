@@ -23,19 +23,27 @@ export function loadCode(code)
     next();
 }
 
-var defaultNext = () =>
-    token = (match = srcTokens.next()).done ? '\n' :
-    (prevCodePos = codePos,
-    match.value[0] === '\n' ?
-        lastLineIndex = match.value.index + 1 :
-        codePos = {start: match.value.index - lastLineIndex, length: match.value[0].length},
-    match.value[0] === (currSyntax.intel ? ';' : '#') ? function(){
-        while(!match.done && match.value[0] !== '\n')
+var defaultNext = () => {
+    match = srcTokens.next();
+    if(match.done)
+        return token = '\n';
+    
+    prevCodePos = codePos;
+    token = match.value[0];
+    if(token == '\n')
+        lastLineIndex = match.value.index + 1;
+    else if(token == (currSyntax.intel ? ';' : '#'))
+    {
+        while(!match.done && match.value[0] != '\n')
             match = srcTokens.next();
         if(!match.done)
             lastLineIndex = match.value.index + 1;
-        return '\n';
-    }() : match.value[0]);
+        token = '\n';
+    }
+    else
+        codePos = { start: match.value.index - lastLineIndex, length: token.length };
+    return token;
+}
 
 export var next = defaultNext;
 

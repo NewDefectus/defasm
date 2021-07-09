@@ -299,14 +299,9 @@ export function Operation(format)
         return;
     this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
     this.vexOpCatchers = this.allowVex ? [] : null;
-    this.checkableSizes = null;
-    this.defaultCheckableSize = null;
     this.maxSize = 0;
 
     let opCatcher;
-
-    if(format[0][0] === '-')
-        this.checkableSizes = getSizes(format.shift().slice(1), s => this.defaultCheckableSize = s);
     
     this.allVectors = false;
     this.relativeSizes = null;
@@ -400,37 +395,6 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
         if(!(operands.length === 1 && operands[0].type === OPT.REL))
             return null;
         this.generateRelative(operands[0], instr);
-    }
-
-    // Special case for the '-' implicit op catcher
-    if(this.checkableSizes)
-    {
-        if(enforcedSize === 0)
-        {
-            if(this.defaultCheckableSize === null) return null;
-            overallSize = this.defaultCheckableSize;
-            if(this.checkableSizes.includes(8) && overallSize > 8) adjustByteOp = true;
-        }
-        else
-        {
-            let foundSize = false;
-            for(let checkableSize of this.checkableSizes)
-            {
-                if(enforcedSize === (checkableSize & ~7))
-                {
-                    if(this.checkableSizes.includes(8) && enforcedSize > 8) adjustByteOp = true;
-                    overallSize = checkableSize;
-                    foundSize = true;
-                    break;
-                }
-            }
-            if(!foundSize) return null;
-        }
-
-        if(overallSize & SIZETYPE_IMPLICITENC) overallSize = 0;
-        overallSize &= ~7;
-        if(overallSize === 64) rexw = true;
-        enforcedSize = 0;
     }
 
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;

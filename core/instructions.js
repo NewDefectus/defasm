@@ -3,7 +3,6 @@ const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizePtrs } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { fetchMnemonic, mnemonics } from "./mnemonicList.js";
-import { Operation } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 
@@ -68,9 +67,9 @@ export class Instruction extends Statement
     // Generate Instruction.outline
     interpret()
     {
-        let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
+        let opcode = this.opcode, operand = null, prefsToGen = 0;
         let vexInfo = {
-            needed: opcode[0] === 'v',
+            needed: opcode[0] == 'v',
             evex: false,
             mask: 0,
             zeroing: false,
@@ -91,31 +90,33 @@ export class Instruction extends Statement
             return;
         }
 
-        // Finding the matching mnemonic for this opcode
-        if(!mnemonics.hasOwnProperty(opcode))
-        {
-            if(vexInfo.needed && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) // Make sure it's not a VEX instruction with a suffix
-            {
-                opcode = opcode.slice(1); // First try to chip off the 'v' prefix for VEX operations
-            }
-            if(!mnemonics.hasOwnProperty(opcode)) // If that doesn't work, try chipping off the opcode size suffix
-            {
-                enforcedSize = suffixes[opcode[opcode.length - 1]];
-                opcode = opcode.slice(0, -1);
-                if(!mnemonics.hasOwnProperty(opcode))
-                    throw new ParserError("Unknown opcode", this.opcodePos);
-                if(enforcedSize === undefined)
-                {
-                    this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
-                    this.opcodePos.length = 1;
-                    throw new ParserError("Invalid opcode suffix", this.opcodePos);
-                }
-            }
-        }
-
         /** @type { Operand[] } */
         let operands = [];
         let operations = fetchMnemonic(opcode);
+
+        if(vexInfo.needed)
+            operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
+        
+        if(!this.syntax.intel)
+        {
+            let size = suffixes[opcode[opcode.length - 1]];
+            opcode = opcode.slice(0, -1);
+            if(size !== undefined)
+            {
+                if(mnemonics.hasOwnProperty(opcode))
+                    operations = [...operations, {size}, ...fetchMnemonic(opcode)];
+            }
+            else if(mnemonics.hasOwnProperty(opcode))
+            {
+                this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
+                this.opcodePos.length = 1;
+                throw new ParserError("Invalid opcode suffix", this.opcodePos);
+            }
+        }
+            
+
+        if(operations.length === 0)
+            throw new ParserError("Unknown opcode", this.opcodePos);
 
         if(!this.syntax.intel && token == '{')
         {
@@ -125,7 +126,7 @@ export class Instruction extends Statement
             next();
         }
 
-        let forceImmToRel = this.syntax.intel && operations[0].relativeSizes !== null;
+        let forceImmToRel = this.syntax.intel && operations.some(x => x.relativeSizes !== null);
 
         // Collecting the operands
         while(token != ';' && token != '\n')
@@ -143,7 +144,7 @@ export class Instruction extends Statement
                 {
                     if(next().toLowerCase() == 'ptr')
                     {
-                        enforcedSize = sizePtrs[sizePtr.toLowerCase()];
+                        operations = [{size: sizePtrs[sizePtr.toLowerCase()]}, ...operations];
                         next();
                     }
                     else
@@ -180,19 +181,23 @@ export class Instruction extends Statement
                 if(this.syntax.prefix ? next() == '%' : next()[0] == 'k') // Opmask
                 {
                     vexInfo.mask = parseRegister([OPT.MASK])[0];
-                    if((vexInfo.mask & 7) == 0) throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
+                    if((vexInfo.mask & 7) == 0)
+                        throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
                 }
                 else if(token == 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
                 else if(operand.type == OPT.MEM)
                 {
                     vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
-                    if(vexInfo.broadcast < 0) throw new ParserError("Invalid broadcast mode");
+                    if(vexInfo.broadcast < 0)
+                        throw new ParserError("Invalid broadcast mode");
                     vexInfo.broadcastPos = codePos;
                     next();
                 }
-                else throw new ParserError("Invalid decorator");
+                else
+                    throw new ParserError("Invalid decorator");
                 
-                if(token != '}') throw new ParserError("Expected '}'");
+                if(token != '}')
+                    throw new ParserError("Expected '}'");
                 next();
             }
 
@@ -204,9 +209,10 @@ export class Instruction extends Statement
         if(this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
             operands.reverse();
 
-        if(usesMemory && vexInfo.round !== null) throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+        if(usesMemory && vexInfo.round !== null)
+            throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
-        this.outline = { operands, enforcedSize, operations, prefsToGen, vexInfo };
+        this.outline = { operands, operations, prefsToGen, vexInfo };
         this.endPos = codePos;
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
@@ -231,51 +237,49 @@ export class Instruction extends Statement
 
     compile()
     {
-        let { operands, enforcedSize, operations, prefsToGen, vexInfo } = this.outline;
+        let { operands, operations, prefsToGen, vexInfo } = this.outline;
+        let enforcedSize = 0;
         this.length = 0;
 
         // Before we compile, we'll get the immediates' sizes
-        if(enforcedSize === 0)
+        for(let op of operands)
         {
-            for(let op of operands)
+            if(op.type === OPT.IMM)
             {
-                if(op.type === OPT.IMM)
+                if(!op.expression.hasSymbols)
                 {
-                    if(!op.expression.hasSymbols)
+                    op.size = inferImmSize(op.value);
+                    op.unsignedSize = inferUnsignedImmSize(op.value);
+                }
+                else
+                {
+                    let max = inferImmSize(op.value);
+                    for(let size = 8; size <= max; size *= 2)
                     {
-                        op.size = inferImmSize(op.value);
-                        op.unsignedSize = inferUnsignedImmSize(op.value);
-                    }
-                    else
-                    {
-                        let max = inferImmSize(op.value);
-                        for(let size = 8; size <= max; size *= 2)
+                        if((size != op.size || op.size == max) && op.sizeAllowed(size))
                         {
-                            if((size != op.size || op.size == max) && op.sizeAllowed(size))
-                            {
-                                op.size = size;
-                                op.recordSizeUse(size);
+                            op.size = size;
+                            op.recordSizeUse(size);
 
-                                if(size < max)
-                                    queueRecomp(this);
+                            if(size < max)
+                                queueRecomp(this);
 
-                                break;
-                            }
+                            break;
                         }
+                    }
 
-                        max = inferUnsignedImmSize(op.value);
+                    max = inferUnsignedImmSize(op.value);
 
-                        for(let size = 8; size <= max; size *= 2)
+                    for(let size = 8; size <= max; size *= 2)
+                    {
+                        if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
                         {
-                            if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
-                            {
-                                op.unsignedSize = size;
-                                op.recordSizeUse(size, true);
-                                if(size < max)
-                                    queueRecomp(this);
+                            op.unsignedSize = size;
+                            op.recordSizeUse(size, true);
+                            if(size < max)
+                                queueRecomp(this);
 
-                                break;
-                            }
+                            break;
                         }
                     }
                 }
@@ -287,6 +291,11 @@ export class Instruction extends Statement
         
         for(let operation of operations)
         {
+            if(operation.size !== undefined)
+            {
+                enforcedSize = operation.size;
+                continue;
+            }
             op = operation.fit(operands, this, enforcedSize, vexInfo);
             if(op !== null)
             {
@@ -303,6 +312,8 @@ export class Instruction extends Statement
 
             for(let operation of operations)
             {
+                if(operation.size !== undefined)
+                    continue;
                 couldveBeenVex = couldveBeenVex || operation.allowVex;
                 if(vexInfo.needed && !operation.allowVex)
                     continue;

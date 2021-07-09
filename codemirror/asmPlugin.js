@@ -86,9 +86,7 @@ function tokenize(ctx, input)
         let line = input.lineAfter(loadStart), pos = line.indexOf('}') + 1;
         let initEnd = pos || line.length;
         if((!ctx.prefix || next() == '%') && isRegister(next()))
-        {
             return null;
-        }
         end = initEnd;
         return Terms.VEXRound;
     }
@@ -111,9 +109,9 @@ function tokenize(ctx, input)
     let opcode = tok;
     if(!mnemonics.hasOwnProperty(opcode))
     {
-        if(opcode[0] === 'v' && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+        if(opcode[0] == 'v' && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
             opcode = opcode.slice(1);
-        if(!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1)))
+        if(!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
         {
             if(ctx.intel && sizePtrs.hasOwnProperty(tok))
             {
@@ -146,6 +144,7 @@ export const tokenizer = new ExternalTokenizer(
         let type = tokenize(stack.context, input);
         if(type !== null)
             token.accept(type, loadStart + end);
+        
     }, {
         contextual: false
     }

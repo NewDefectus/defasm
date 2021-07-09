@@ -103,9 +103,10 @@ cmpps
 0FC2 ib v >V Vxy
 0FC2 ib v >Vxyz *KB {kbsf
 
-cmps:A6 -bwlq
+cmps{bwq:A6
 
 cmpsd
+A7
 F2)0FC2 ib v >V Vx
 F2)0FC2 ib v >Vx *KB {ksfw
 
@@ -324,7 +325,7 @@ EC R_2W R_0bwl
 
 inc:FE.0 rbwlq
 incssp:F3)0FAE.5 R~l~q
-ins:6C -bwl
+ins{bwd:6C
 insertps:66)0F3A21 ib v >V Vx {
 
 int
@@ -337,7 +338,7 @@ int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
-iret:CF -wLq
+iret{wDq:CF
 jecxz:67)E3 jb
 
 jmp
@@ -384,7 +385,7 @@ lfs:0FB4 m Rwlq
 lgs:0FB5 m Rwlq
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
-lods:AC -bwlq
+lods{bwdq:AC
 loop:E2 jb
 loope:E1 jb
 loopne:E0 jb
@@ -422,14 +423,6 @@ C7.0 Il Rq
 C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
-0F6E r~l~q VQ
-0F7E VQ r~l~q
-66)0F6E r~l~q VX > {
-66)0F7E VX r~l~q > {
-0F6F v V~$q
-0F7F V~$q v
-F3)0F7E -$q v Vx > {w
-66)0FD6 -$q Vx v > {w
 8C s ^Rwlq
 8C s mW
 8E ^RWlq s
@@ -450,6 +443,12 @@ movaps
 movbe
 0F38F0 m Rwlq
 0F38F1 Rwlq m
+
+movd
+0F6E rL VQ
+0F7E VQ rL
+66)0F6E rL Vx > {
+66)0F7E Vx rL > {
 
 movddup:F2)0F12 v Vxyz > {kzw
 movdiri:0F38F9 Rlq m
@@ -519,10 +518,22 @@ movntpd:66)0F2B Vxyz m > {w
 movntps:0F2B Vxyz m > {
 
 movntq:0FE7 VQ m
+
+movq
+0F6E ^R Vq
+0F7E Vq ^R
+66)0F6E ^R#q VX > {
+66)0F7E VX ^R#q > {
+0F6F vQ V
+0F7F VQ v
+F3)0F7E v Vx > {w
+66)0FD6 Vx v > {w
+
 movq2dq:F3)0FD6 ^VQ Vx
-movs:A4 -bwlq
+movs{bwq:A4
 
 movsd
+A5
 F2)0F10 ^Vx >V V {kzw
 F2)0F10 m Vx > {kzw
 F2)0F11 Vx m > {kw
@@ -577,7 +588,7 @@ out
 E6 R_0bwl ib
 EE R_0bwl R_2W
 
-outs:6E -bwl
+outs{bwd:6E
 
 pabsb:0F381C v Vqxyz > {kz
 pabsd:0F381E v Vqxyz > {kzb
@@ -743,7 +754,10 @@ pop
 0FA9 s_5
 
 popcnt:F3)0FB8 r Rwlq
-popf:9D -wQ
+
+popf:9D
+popfq:#popf
+popfw:66)9D
 
 por:0FEB v >V Vqxy
 pord:66)0FEB v >Vxyz V {kzbf
@@ -857,7 +871,9 @@ FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
 
-pushf:9C -wQ
+pushf:9C
+pushfq:#pushf
+pushfw:66)9C
 
 pxor:0FEF v >V Vqxy
 pxord:66)0FEF v >Vxyz V {kzbf
@@ -900,7 +916,7 @@ sahf:9E
 sal:#shl
 sarx:V F3)0F38F7 >Rlq r R
 saveprevssp:F3)0F01EA.52
-scas:AE -bwlq
+scas{bwdq:AE
 setssbsy:F3)0F01E8
 sfence:0FAEF8
 sgdt:0F01.0 m
@@ -941,7 +957,7 @@ stc:F9
 std:FD
 sti:FB
 stmxcsr:0FAE.3 m >
-stos:AA -bwlq
+stos{bwdq:AA
 str:0F00.1 rwLq
 
 subpd:66)0F5C v >V Vxyz {kzrBw
@@ -952,8 +968,8 @@ subss:F3)0F5C v >V Vx {kzr
 swapgs:0F01F8
 syscall:0F05
 sysenter:0F34
-sysexit:0F35 -Lq
-sysret:0F07 -Lq
+sysexit{Dq:0F35
+sysret{Dq:0F07
 
 test
 A8 i R_0bwl
@@ -1441,9 +1457,48 @@ export var mnemonics = {};
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     lines = x.split(/[\n:]/);
     let name = lines.shift();
-    mnemonics[name] = lines;
-    if(lines[0].includes('j'))
-        relativeMnemonics.push(name);
+    if(name.includes('{'))
+    {
+        let suffixes;
+        [name, suffixes] = name.split('{');
+        let higherOpcode = (parseInt(lines[0], 16) + (suffixes.includes('b') ? 1 : 0)).toString(16);
+        for(let suffix of suffixes)
+        {
+            let fullName = name + suffix.toLowerCase();
+            if(suffix <= 'Z')
+            {
+                mnemonics[name] = lines;
+                mnemonics[fullName] = ['#' + name];
+            }
+            else
+            {
+                switch(suffix.toLowerCase())
+                {
+                    case 'b':
+                        mnemonics[fullName] = lines;
+                        break;
+                    
+                    case 'w':
+                        mnemonics[fullName] = ['66)' + lines[0]];
+                        break;
+                    
+                    case 'd':
+                        mnemonics[fullName] = [higherOpcode];
+                        break;
+
+                    case 'q':
+                        mnemonics[fullName] = ['48)' + higherOpcode];
+                        break;
+                }
+            }
+        }
+    }
+    else
+    {
+        mnemonics[name] = lines;
+        if(lines[0].includes('j'))
+            relativeMnemonics.push(name);
+    }
 });
 
 
@@ -1560,6 +1615,8 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
 /** @returns { Operation[] } */
 export function fetchMnemonic(opcode)
 {
+    if(!mnemonics.hasOwnProperty(opcode))
+        return [];
     let operations = mnemonics[opcode];
 
     if(typeof operations[0] == "string") // If the mnemonic hasn't been decoded yet, decode it
