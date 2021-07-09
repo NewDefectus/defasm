@@ -1,4 +1,12 @@
 (() => {
+  var __defProp = Object.defineProperty;
+  var __markAsModule = (target) => __defProp(target, "__esModule", { value: true });
+  var __export = (target, all) => {
+    __markAsModule(target);
+    for (var name2 in all)
+      __defProp(target, name2, { get: all[name2], enumerable: true });
+  };
+
   // node_modules/@codemirror/text/dist/index.js
   var extend = /* @__PURE__ */ "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((s) => s ? parseInt(s, 36) : 1);
   for (let i = 1; i < extend.length; i++)
@@ -11318,13 +11326,24 @@
     prevCodePos = codePos = { start: 0, length: 0 };
     next();
   }
-  var defaultNext = () => token = (match = srcTokens.next()).done ? "\n" : (prevCodePos = codePos, match.value[0] === "\n" ? lastLineIndex = match.value.index + 1 : codePos = { start: match.value.index - lastLineIndex, length: match.value[0].length }, match.value[0] === (currSyntax.intel ? ";" : "#") ? function() {
-    while (!match.done && match.value[0] !== "\n")
-      match = srcTokens.next();
-    if (!match.done)
+  var defaultNext = () => {
+    match = srcTokens.next();
+    if (match.done)
+      return token = "\n";
+    prevCodePos = codePos;
+    token = match.value[0];
+    if (token == "\n")
       lastLineIndex = match.value.index + 1;
-    return "\n";
-  }() : match.value[0]);
+    else if (token == (currSyntax.intel ? ";" : "#")) {
+      while (!match.done && match.value[0] != "\n")
+        match = srcTokens.next();
+      if (!match.done)
+        lastLineIndex = match.value.index + 1;
+      token = "\n";
+    } else
+      codePos = { start: match.value.index - lastLineIndex, length: token.length };
+    return token;
+  };
   var next = defaultNext;
   function ungetToken() {
     let t2 = token, p = codePos, oldNext = next;
@@ -11520,7 +11539,7 @@
     this.attemptedUnsignedSizes = 0;
     this.startPos = codePos;
     let indirect = token == "*";
-    if (indirect)
+    if (indirect && !instr.syntax.intel)
       next();
     if (instr.syntax.prefix && isRegister(token))
       throw new ParserError("Registers must be prefixed with '%'");
@@ -12546,12 +12565,8 @@
       return;
     this.allowVex = !this.forceVex && format.some((op) => op.includes(">"));
     this.vexOpCatchers = this.allowVex ? [] : null;
-    this.checkableSizes = null;
-    this.defaultCheckableSize = null;
     this.maxSize = 0;
     let opCatcher;
-    if (format[0][0] === "-")
-      this.checkableSizes = getSizes(format.shift().slice(1), (s) => this.defaultCheckableSize = s);
     this.allVectors = false;
     this.relativeSizes = null;
     for (let operand of format) {
@@ -12625,34 +12640,6 @@
       if (!(operands.length === 1 && operands[0].type === OPT.REL))
         return null;
       this.generateRelative(operands[0], instr);
-    }
-    if (this.checkableSizes) {
-      if (enforcedSize === 0) {
-        if (this.defaultCheckableSize === null)
-          return null;
-        overallSize = this.defaultCheckableSize;
-        if (this.checkableSizes.includes(8) && overallSize > 8)
-          adjustByteOp = true;
-      } else {
-        let foundSize = false;
-        for (let checkableSize of this.checkableSizes) {
-          if (enforcedSize === (checkableSize & ~7)) {
-            if (this.checkableSizes.includes(8) && enforcedSize > 8)
-              adjustByteOp = true;
-            overallSize = checkableSize;
-            foundSize = true;
-            break;
-          }
-        }
-        if (!foundSize)
-          return null;
-      }
-      if (overallSize & SIZETYPE_IMPLICITENC)
-        overallSize = 0;
-      overallSize &= ~7;
-      if (overallSize === 64)
-        rexw = true;
-      enforcedSize = 0;
     }
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
     if (operands.length !== opCatchers.length)
@@ -12956,9 +12943,10 @@ cmpps
 0FC2 ib v >V Vxy
 0FC2 ib v >Vxyz *KB {kbsf
 
-cmps:A6 -bwlq
+cmps{bwq:A6
 
 cmpsd
+A7
 F2)0FC2 ib v >V Vx
 F2)0FC2 ib v >Vx *KB {ksfw
 
@@ -13177,7 +13165,7 @@ EC R_2W R_0bwl
 
 inc:FE.0 rbwlq
 incssp:F3)0FAE.5 R~l~q
-ins:6C -bwl
+ins{bwd:6C
 insertps:66)0F3A21 ib v >V Vx {
 
 int
@@ -13190,7 +13178,7 @@ int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
-iret:CF -wLq
+iret{wDq:CF
 jecxz:67)E3 jb
 
 jmp
@@ -13237,7 +13225,7 @@ lfs:0FB4 m Rwlq
 lgs:0FB5 m Rwlq
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
-lods:AC -bwlq
+lods{bwdq:AC
 loop:E2 jb
 loope:E1 jb
 loopne:E0 jb
@@ -13275,14 +13263,6 @@ C7.0 Il Rq
 C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
-0F6E r~l~q VQ
-0F7E VQ r~l~q
-66)0F6E r~l~q VX > {
-66)0F7E VX r~l~q > {
-0F6F v V~$q
-0F7F V~$q v
-F3)0F7E -$q v Vx > {w
-66)0FD6 -$q Vx v > {w
 8C s ^Rwlq
 8C s mW
 8E ^RWlq s
@@ -13303,6 +13283,12 @@ movaps
 movbe
 0F38F0 m Rwlq
 0F38F1 Rwlq m
+
+movd
+0F6E rL VQ
+0F7E VQ rL
+66)0F6E rL Vx > {
+66)0F7E Vx rL > {
 
 movddup:F2)0F12 v Vxyz > {kzw
 movdiri:0F38F9 Rlq m
@@ -13372,10 +13358,22 @@ movntpd:66)0F2B Vxyz m > {w
 movntps:0F2B Vxyz m > {
 
 movntq:0FE7 VQ m
+
+movq
+0F6E ^R Vq
+0F7E Vq ^R
+66)0F6E ^R#q VX > {
+66)0F7E VX ^R#q > {
+0F6F vQ V
+0F7F VQ v
+F3)0F7E v Vx > {w
+66)0FD6 Vx v > {w
+
 movq2dq:F3)0FD6 ^VQ Vx
-movs:A4 -bwlq
+movs{bwq:A4
 
 movsd
+A5
 F2)0F10 ^Vx >V V {kzw
 F2)0F10 m Vx > {kzw
 F2)0F11 Vx m > {kw
@@ -13430,7 +13428,7 @@ out
 E6 R_0bwl ib
 EE R_0bwl R_2W
 
-outs:6E -bwl
+outs{bwd:6E
 
 pabsb:0F381C v Vqxyz > {kz
 pabsd:0F381E v Vqxyz > {kzb
@@ -13596,7 +13594,10 @@ pop
 0FA9 s_5
 
 popcnt:F3)0FB8 r Rwlq
-popf:9D -wQ
+
+popf:9D
+popfq:#popf
+popfw:66)9D
 
 por:0FEB v >V Vqxy
 pord:66)0FEB v >Vxyz V {kzbf
@@ -13710,7 +13711,9 @@ FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
 
-pushf:9C -wQ
+pushf:9C
+pushfq:#pushf
+pushfw:66)9C
 
 pxor:0FEF v >V Vqxy
 pxord:66)0FEF v >Vxyz V {kzbf
@@ -13753,7 +13756,7 @@ sahf:9E
 sal:#shl
 sarx:V F3)0F38F7 >Rlq r R
 saveprevssp:F3)0F01EA.52
-scas:AE -bwlq
+scas{bwdq:AE
 setssbsy:F3)0F01E8
 sfence:0FAEF8
 sgdt:0F01.0 m
@@ -13794,7 +13797,7 @@ stc:F9
 std:FD
 sti:FB
 stmxcsr:0FAE.3 m >
-stos:AA -bwlq
+stos{bwdq:AA
 str:0F00.1 rwLq
 
 subpd:66)0F5C v >V Vxyz {kzrBw
@@ -13805,8 +13808,8 @@ subss:F3)0F5C v >V Vx {kzr
 swapgs:0F01F8
 syscall:0F05
 sysenter:0F34
-sysexit:0F35 -Lq
-sysret:0F07 -Lq
+sysexit{Dq:0F35
+sysret{Dq:0F07
 
 test
 A8 i R_0bwl
@@ -14290,9 +14293,37 @@ xtest:0F01D6
   mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach((x) => {
     lines = x.split(/[\n:]/);
     let name2 = lines.shift();
-    mnemonics[name2] = lines;
-    if (lines[0].includes("j"))
-      relativeMnemonics.push(name2);
+    if (name2.includes("{")) {
+      let suffixes2;
+      [name2, suffixes2] = name2.split("{");
+      let higherOpcode = (parseInt(lines[0], 16) + (suffixes2.includes("b") ? 1 : 0)).toString(16);
+      for (let suffix of suffixes2) {
+        let fullName = name2 + suffix.toLowerCase();
+        if (suffix <= "Z") {
+          mnemonics[name2] = lines;
+          mnemonics[fullName] = ["#" + name2];
+        } else {
+          switch (suffix.toLowerCase()) {
+            case "b":
+              mnemonics[fullName] = lines;
+              break;
+            case "w":
+              mnemonics[fullName] = ["66)" + lines[0]];
+              break;
+            case "d":
+              mnemonics[fullName] = [higherOpcode];
+              break;
+            case "q":
+              mnemonics[fullName] = ["48)" + higherOpcode];
+              break;
+          }
+        }
+      }
+    } else {
+      mnemonics[name2] = lines;
+      if (lines[0].includes("j"))
+        relativeMnemonics.push(name2);
+    }
   });
   var hex = (num) => num.toString(16);
   var arithmeticMnemonics = "add or adc sbb and sub xor cmp".split(" ");
@@ -14378,6 +14409,8 @@ g nle`.split("\n");
     }
   })));
   function fetchMnemonic(opcode) {
+    if (!mnemonics.hasOwnProperty(opcode))
+      return [];
     let operations = mnemonics[opcode];
     if (typeof operations[0] == "string") {
       if (operations[0][0] == "#")
@@ -14428,9 +14461,9 @@ g nle`.split("\n");
       } while (size -= 8);
     }
     interpret() {
-      let opcode = this.opcode, operand = null, enforcedSize = 0, prefsToGen = 0;
+      let opcode = this.opcode, operand = null, prefsToGen = 0;
       let vexInfo = {
-        needed: opcode[0] === "v",
+        needed: opcode[0] == "v",
         evex: false,
         mask: 0,
         zeroing: false,
@@ -14446,31 +14479,31 @@ g nle`.split("\n");
         setToken(";");
         return;
       }
-      if (!mnemonics.hasOwnProperty(opcode)) {
-        if (vexInfo.needed && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) {
-          opcode = opcode.slice(1);
-        }
-        if (!mnemonics.hasOwnProperty(opcode)) {
-          enforcedSize = suffixes[opcode[opcode.length - 1]];
-          opcode = opcode.slice(0, -1);
-          if (!mnemonics.hasOwnProperty(opcode))
-            throw new ParserError("Unknown opcode", this.opcodePos);
-          if (enforcedSize === void 0) {
-            this.opcodePos.start += this.opcodePos.length - 1;
-            this.opcodePos.length = 1;
-            throw new ParserError("Invalid opcode suffix", this.opcodePos);
-          }
-        }
-      }
       let operands = [];
       let operations = fetchMnemonic(opcode);
+      if (vexInfo.needed)
+        operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
+      if (!this.syntax.intel) {
+        let size = suffixes[opcode[opcode.length - 1]];
+        opcode = opcode.slice(0, -1);
+        if (size !== void 0) {
+          if (mnemonics.hasOwnProperty(opcode))
+            operations = [...operations, { size }, ...fetchMnemonic(opcode)];
+        } else if (mnemonics.hasOwnProperty(opcode)) {
+          this.opcodePos.start += this.opcodePos.length - 1;
+          this.opcodePos.length = 1;
+          throw new ParserError("Invalid opcode suffix", this.opcodePos);
+        }
+      }
+      if (operations.length === 0)
+        throw new ParserError("Unknown opcode", this.opcodePos);
       if (!this.syntax.intel && token == "{") {
         parseRoundingMode(vexInfo);
         if (next() != ",")
           throw new ParserError("Expected ','");
         next();
       }
-      let forceImmToRel = this.syntax.intel && operations[0].relativeSizes !== null;
+      let forceImmToRel = this.syntax.intel && operations.some((x) => x.relativeSizes !== null);
       while (token != ";" && token != "\n") {
         if (this.syntax.intel) {
           if (token == "{") {
@@ -14481,7 +14514,7 @@ g nle`.split("\n");
           let sizePtr = token;
           if (sizePtrs.hasOwnProperty(sizePtr.toLowerCase())) {
             if (next().toLowerCase() == "ptr") {
-              enforcedSize = sizePtrs[sizePtr.toLowerCase()];
+              operations = [{ size: sizePtrs[sizePtr.toLowerCase()] }, ...operations];
               next();
             } else {
               ungetToken();
@@ -14536,7 +14569,7 @@ g nle`.split("\n");
         operands.reverse();
       if (usesMemory && vexInfo.round !== null)
         throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
-      this.outline = { operands, enforcedSize, operations, prefsToGen, vexInfo };
+      this.outline = { operands, operations, prefsToGen, vexInfo };
       this.endPos = codePos;
       this.removed = false;
       if (this.needsRecompilation)
@@ -14553,34 +14586,33 @@ g nle`.split("\n");
       }
     }
     compile() {
-      let { operands, enforcedSize, operations, prefsToGen, vexInfo } = this.outline;
+      let { operands, operations, prefsToGen, vexInfo } = this.outline;
+      let enforcedSize = 0;
       this.length = 0;
-      if (enforcedSize === 0) {
-        for (let op2 of operands) {
-          if (op2.type === OPT.IMM) {
-            if (!op2.expression.hasSymbols) {
-              op2.size = inferImmSize(op2.value);
-              op2.unsignedSize = inferUnsignedImmSize(op2.value);
-            } else {
-              let max = inferImmSize(op2.value);
-              for (let size = 8; size <= max; size *= 2) {
-                if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
-                  op2.size = size;
-                  op2.recordSizeUse(size);
-                  if (size < max)
-                    queueRecomp(this);
-                  break;
-                }
+      for (let op2 of operands) {
+        if (op2.type === OPT.IMM) {
+          if (!op2.expression.hasSymbols) {
+            op2.size = inferImmSize(op2.value);
+            op2.unsignedSize = inferUnsignedImmSize(op2.value);
+          } else {
+            let max = inferImmSize(op2.value);
+            for (let size = 8; size <= max; size *= 2) {
+              if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
+                op2.size = size;
+                op2.recordSizeUse(size);
+                if (size < max)
+                  queueRecomp(this);
+                break;
               }
-              max = inferUnsignedImmSize(op2.value);
-              for (let size = 8; size <= max; size *= 2) {
-                if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.sizeAllowed(size, true)) {
-                  op2.unsignedSize = size;
-                  op2.recordSizeUse(size, true);
-                  if (size < max)
-                    queueRecomp(this);
-                  break;
-                }
+            }
+            max = inferUnsignedImmSize(op2.value);
+            for (let size = 8; size <= max; size *= 2) {
+              if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.sizeAllowed(size, true)) {
+                op2.unsignedSize = size;
+                op2.recordSizeUse(size, true);
+                if (size < max)
+                  queueRecomp(this);
+                break;
               }
             }
           }
@@ -14588,6 +14620,10 @@ g nle`.split("\n");
       }
       let op, found = false, rexVal = 64;
       for (let operation of operations) {
+        if (operation.size !== void 0) {
+          enforcedSize = operation.size;
+          continue;
+        }
         op = operation.fit(operands, this, enforcedSize, vexInfo);
         if (op !== null) {
           found = true;
@@ -14598,6 +14634,8 @@ g nle`.split("\n");
         let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
         let firstOrderPossible = false, secondOrderPossible = false;
         for (let operation of operations) {
+          if (operation.size !== void 0)
+            continue;
           couldveBeenVex = couldveBeenVex || operation.allowVex;
           if (vexInfo.needed && !operation.allowVex)
             continue;
@@ -16194,6 +16232,37 @@ g nle`.split("\n");
   }
 
   // codemirror/parser.terms.js
+  var parser_terms_exports = {};
+  __export(parser_terms_exports, {
+    Comment: () => Comment,
+    Directive: () => Directive2,
+    DirectiveStatement: () => DirectiveStatement,
+    Expression: () => Expression2,
+    FullString: () => FullString,
+    IImmediate: () => IImmediate,
+    IMemory: () => IMemory,
+    IOpcode: () => IOpcode,
+    IRelOpcode: () => IRelOpcode,
+    Immediate: () => Immediate,
+    InstructionStatement: () => InstructionStatement,
+    LabelDefinition: () => LabelDefinition,
+    Memory: () => Memory,
+    Offset: () => Offset,
+    Opcode: () => Opcode,
+    Prefix: () => Prefix,
+    Program: () => Program,
+    Ptr: () => Ptr,
+    Register: () => Register,
+    RelOpcode: () => RelOpcode,
+    Relative: () => Relative,
+    SymbolDefinition: () => SymbolDefinition,
+    VEXMask: () => VEXMask,
+    VEXRound: () => VEXRound,
+    number: () => number2,
+    statementSeparator: () => statementSeparator,
+    symEquals: () => symEquals,
+    word: () => word
+  });
   var Register = 1;
   var Directive2 = 2;
   var Comment = 3;
@@ -16209,6 +16278,19 @@ g nle`.split("\n");
   var VEXRound = 11;
   var statementSeparator = 36;
   var number2 = 37;
+  var Program = 12;
+  var LabelDefinition = 13;
+  var InstructionStatement = 14;
+  var Immediate = 15;
+  var Expression2 = 16;
+  var Relative = 17;
+  var Memory = 18;
+  var VEXMask = 19;
+  var IImmediate = 20;
+  var IMemory = 21;
+  var DirectiveStatement = 22;
+  var FullString = 23;
+  var SymbolDefinition = 24;
 
   // codemirror/asmPlugin.js
   var allTokens;
@@ -16271,9 +16353,8 @@ g nle`.split("\n");
     if (tok == "{") {
       let line = input.lineAfter(loadStart), pos = line.indexOf("}") + 1;
       let initEnd = pos || line.length;
-      if ((!ctx.prefix || next2() == "%") && isRegister(next2())) {
+      if ((!ctx.prefix || next2() == "%") && isRegister(next2()))
         return null;
-      }
       end = initEnd;
       return VEXRound;
     }
@@ -16287,9 +16368,9 @@ g nle`.split("\n");
       return Prefix;
     let opcode = tok;
     if (!mnemonics.hasOwnProperty(opcode)) {
-      if (opcode[0] === "v" && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+      if (opcode[0] == "v" && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
         opcode = opcode.slice(1);
-      if (!mnemonics.hasOwnProperty(opcode) && !mnemonics.hasOwnProperty(opcode.slice(0, -1))) {
+      if (!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1)))) {
         if (ctx.intel && sizePtrs.hasOwnProperty(tok)) {
           let prevTok = tok, prevEnd = end;
           if ("ptr".startsWith(next2()))
@@ -16311,8 +16392,10 @@ g nle`.split("\n");
     load(input, token2.start);
     next2();
     let type = tokenize(stack.context, input);
-    if (type !== null)
+    if (type !== null) {
+      console.log(tok, Object.keys(parser_terms_exports).find((t2) => parser_terms_exports[t2] == type));
       token2.accept(type, loadStart + end);
+    }
   }, {
     contextual: false
   });
