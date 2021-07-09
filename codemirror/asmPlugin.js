@@ -139,6 +139,8 @@ function tokenize(ctx, input)
 
 export const tokenizer = new ExternalTokenizer(
     (input, token, stack) => {
+        if(input.read(token.start, token.start + 1).match(/\s/))
+            return;
         load(input, token.start);
         next();
         let type = tokenize(stack.context, input);
