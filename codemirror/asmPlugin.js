@@ -47,7 +47,7 @@ export const ctxTracker = new ContextTracker({
             result.prefix = true;
         else if(pref == 'noprefix')
             result.prefix = false;
-        else if(pref != '\n' && pref != (result.intel ? ';' : '#'))
+        else if(pref != '\n' && pref != ';' && (result.intel || pref != '#'))
             return ctx;
         
         return result;
@@ -116,14 +116,13 @@ function tokenize(ctx, input)
         {
             if(ctx.intel && sizeHints.hasOwnProperty(tok))
             {
-                let prevTok = tok, prevEnd = end;
+                let prevEnd = end;
                 if(",;\n{:".includes(next()))
                 {
                     end = prevEnd;
                     return Terms.word;
                 }
 
-                
                 if(tok == 'ptr')
                 {
                     let nextPrevEnd = end;

@@ -99,11 +99,11 @@ export class Directive extends Statement
                         prefix = true;
                     else if(prefSpecifier == 'noprefix')
                         prefix = false;
-                    else if(prefSpecifier != '\n')
+                    else if(prefSpecifier != '\n' && prefSpecifier != ';')
                         throw new ParserError("Expected 'prefix' or 'noprefix'");
                     this.syntax = { intel, prefix };
                     this.switchSyntax = true;
-                    if(token != '\n')
+                    if(token != '\n' && token != ';')
                         next();
                     break;
             }
