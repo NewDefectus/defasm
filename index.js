@@ -12911,9 +12911,9 @@ call
 E8 jl
 FF.2 rQ
 
-cbtw:66)98
-cltd:99
-cltq:48)98
+cbtw/cbw:66)98
+cltd/cdq:99
+cltq/cdqe:48)98
 clac:0F01CA
 clc:F8
 cld:FC
@@ -12981,9 +12981,9 @@ cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
 cvtss2si:F3)0F2C v#x Rlq > {s
 
-cqto:48)99
-cwtd:66)99
-cwtl:98
+cqto/cqo:48)99
+cwtd/cwd:66)99
+cwtl/cwde:98
 dec:FE.1 rbwlq
 div:F6.6 rbwlq
 
@@ -14281,6 +14281,7 @@ xtest:0F01D6
 `;
   var relativeMnemonics = [];
   var mnemonics = {};
+  var intelDifferences = {};
   mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach((x) => {
     lines = x.split(/[\n:]/);
     let name2 = lines.shift();
@@ -14311,6 +14312,11 @@ xtest:0F01D6
         }
       }
     } else {
+      if (name2.includes("/")) {
+        let intelName;
+        [name2, intelName] = name2.split("/");
+        intelDifferences[intelName] = name2;
+      }
       mnemonics[name2] = lines;
       if (lines[0].includes("j"))
         relativeMnemonics.push(name2);
@@ -14399,7 +14405,18 @@ g nle`.split("\n");
       ];
     }
   })));
-  function fetchMnemonic(opcode) {
+  function mnemonicExists(opcode, intel) {
+    if (mnemonics.hasOwnProperty(opcode))
+      return !intel || !Object.values(intelDifferences).includes(opcode);
+    return intel && intelDifferences.hasOwnProperty(opcode);
+  }
+  function fetchMnemonic(opcode, intel) {
+    if (intel) {
+      if (intelDifferences.hasOwnProperty(opcode))
+        opcode = intelDifferences[opcode];
+      else if (Object.values(intelDifferences).includes(opcode))
+        return [];
+    }
     if (!mnemonics.hasOwnProperty(opcode))
       return [];
     let operations = mnemonics[opcode];
@@ -14471,16 +14488,16 @@ g nle`.split("\n");
         return;
       }
       let operands = [];
-      let operations = fetchMnemonic(opcode);
+      let operations = fetchMnemonic(opcode, this.syntax.intel);
       if (vexInfo.needed)
         operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
       if (!this.syntax.intel) {
         let size = suffixes[opcode[opcode.length - 1]];
         opcode = opcode.slice(0, -1);
         if (size !== void 0) {
-          if (mnemonics.hasOwnProperty(opcode))
-            operations = [...operations, { size }, ...fetchMnemonic(opcode)];
-        } else if (mnemonics.hasOwnProperty(opcode)) {
+          if (mnemonicExists(opcode, false))
+            operations = [...operations, { size }, ...fetchMnemonic(opcode, false)];
+        } else if (mnemonicExists(opcode, false)) {
           this.opcodePos.start += this.opcodePos.length - 1;
           this.opcodePos.length = 1;
           throw new ParserError("Invalid opcode suffix", this.opcodePos);
@@ -16314,10 +16331,10 @@ g nle`.split("\n");
     if (prefixes.hasOwnProperty(tok))
       return Prefix;
     let opcode = tok;
-    if (!mnemonics.hasOwnProperty(opcode)) {
-      if (opcode[0] == "v" && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+    if (!mnemonicExists(opcode, ctx.intel)) {
+      if (opcode[0] == "v" && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
         opcode = opcode.slice(1);
-      if (!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1)))) {
+      if (!mnemonicExists(opcode, ctx.intel) && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false))) {
         if (ctx.intel && sizePtrs.hasOwnProperty(tok)) {
           let prevTok = tok, prevEnd = end;
           if ("ptr".startsWith(next2()))
