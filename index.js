@@ -11414,8 +11414,31 @@
     "sil",
     "dil"
   ].map((x, i) => ({ [x]: i })));
-  var suffixes = { b: 8, w: 16, l: 32, d: 32, q: 64, t: 80, x: 128, y: 256, z: 512 };
-  var sizeHints = { byte: 8, word: 16, dword: 32, far: 48, fword: 48, qword: 64, tbyte: 80, oword: 128, xmmword: 128, ymmword: 256, zmmword: 512 };
+  var suffixes = {
+    b: 8,
+    w: 16,
+    l: 32,
+    d: 32,
+    q: 64,
+    t: 80,
+    x: 128,
+    y: 256,
+    z: 512
+  };
+  var sizeHints = {
+    byte: 8,
+    word: 16,
+    long: 32,
+    dword: 32,
+    far: 48,
+    fword: 48,
+    qword: 64,
+    tbyte: 80,
+    oword: 128,
+    xmmword: 128,
+    ymmword: 256,
+    zmmword: 512
+  };
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
