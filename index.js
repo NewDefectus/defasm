@@ -12786,8 +12786,6 @@
       return;
     }
     let [small, large] = this.relativeSizes;
-    if (enforcedSize != small && enforcedSize != large)
-      throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
     if (enforcedSize == small) {
       operand.size = small;
@@ -12795,7 +12793,9 @@
     } else if (enforcedSize == large) {
       operand.size = large;
       operand.virtualValue = target - largeLen;
-    } else if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false)) {
+    } else if (enforcedSize != 0)
+      throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
+    else if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false)) {
       if (small != operand.size && operand.sizeAllowed(small, false)) {
         operand.size = small;
         operand.virtualValue = target - smallLen;
