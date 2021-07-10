@@ -39,7 +39,7 @@ let syntaxes = [
     {intel: true,   prefix: false}];
 
 
-(async () =>
+exports.run = async function()
 {
     await import("@defasm/core");
     const { loadCode, setSyntax } = await import("@defasm/core/parser.js");
@@ -53,10 +53,22 @@ let syntaxes = [
         {
             loadCode(test[i]);
             setSyntax(syntaxes[i]);
-            console.assert(new Operand({syntax: syntaxes[i]}).type === expectedType, test);
+            let type = new Operand({syntax: syntaxes[i]}).type;
+            if(type !== expectedType)
+                throw `${test[i]} (.${
+                    syntaxes[i].intel ? 'intel' : 'att'
+                }_syntax ${
+                    syntaxes[i].prefix ? '' : 'no'
+                }prefix) got ${
+                    Object.keys(OPT).find(x => OPT[x] == type)
+                }, expected ${
+                    Object.keys(OPT).find(x => OPT[x] == expectedType)
+                }`;
         }
     }
+}
 
-
-    process.exit(0);
-})().catch(x => { console.error(x); process.exit(1); });
+if(require.main === module)
+{
+    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
+}

@@ -627,9 +627,8 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
         return false;
 
     for(let i = 0; i < operands.length; i++)
-    {
         if(!opCatchers[i].matchType(operands[i]))
             return false;
-    }
+    
     return true;
 }

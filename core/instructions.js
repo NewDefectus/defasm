@@ -361,25 +361,37 @@ export class Instruction extends Statement
         let opcode = op.opcode;
 
         // Time to generate!
-        if(prefsToGen >= PREFIX_SEG) this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
-        if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
-        if(op.size === 16) this.genByte(0x66);
-        if(op.prefix !== null) this.genByte(op.prefix);
-        if(op.vex !== null) makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
+        if(prefsToGen >= PREFIX_SEG)
+            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
+        if(prefsToGen & PREFIX_ADDRSIZE)
+            this.genByte(0x67);
+        if(op.size == 16)
+            this.genByte(0x66);
+        if(op.prefix !== null)
+            this.genByte(op.prefix);
+        if(op.vex !== null)
+            makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
         else
         {
-            if(prefsToGen & PREFIX_REX) this.genByte(rexVal);
+            if(prefsToGen & PREFIX_REX)
+                this.genByte(rexVal);
             // Generate the upper bytes of the opcode if needed
-            if(opcode > 0xffff) this.genByte(opcode >> 16);
-            if(opcode > 0xff) this.genByte(opcode >> 8);
+            if(opcode > 0xffff)
+                this.genByte(opcode >> 16);
+            if(opcode > 0xff)
+                this.genByte(opcode >> 8);
         }
         this.genByte(opcode);
-        if(modRM !== null) this.genByte(modRM);
-        if(sib !== null) this.genByte(sib);
+        if(modRM !== null)
+            this.genByte(modRM);
+        if(sib !== null)
+            this.genByte(sib);
 
         // Generating the displacement and immediate
-        if(op.rm !== null && op.rm.value !== null) this.genInteger(op.rm.value, op.rm.dispSize || 32);
-        for(let imm of op.imms) this.genInteger(imm.value, imm.size);
+        if(op.rm !== null && op.rm.value !== null)
+            this.genInteger(op.rm.value, op.rm.dispSize || 32);
+        for(let imm of op.imms)
+            this.genInteger(imm.value, imm.size);
     }
 
     // Generate the ModRM byte
@@ -427,7 +439,6 @@ export class Instruction extends Statement
                 }
                 else
                 {
-                    
                     rm.dispSize = 32;
                     modrm |= 0x80; // mod=10
                 }
