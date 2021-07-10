@@ -12800,7 +12800,7 @@
     let target = operand.value - BigInt(instr.address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     if (this.relativeSizes.length == 1) {
       let size = this.relativeSizes[0];
-      if (size != enforcedSize)
+      if (enforcedSize && enforcedSize != size)
         throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
       operand.size = size;
       operand.virtualValue = target - sizeLen(size);
