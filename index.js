@@ -12824,10 +12824,9 @@
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
     if (operands.length != opCatchers.length)
       return false;
-    for (let i = 0; i < operands.length; i++) {
+    for (let i = 0; i < operands.length; i++)
       if (!opCatchers[i].matchType(operands[i]))
         return false;
-    }
     return true;
   };
 
@@ -14669,7 +14668,7 @@ g nle`.split("\n");
         this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen >> 3) - 1]);
       if (prefsToGen & PREFIX_ADDRSIZE)
         this.genByte(103);
-      if (op.size === 16)
+      if (op.size == 16)
         this.genByte(102);
       if (op.prefix !== null)
         this.genByte(op.prefix);
