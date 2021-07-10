@@ -12218,11 +12218,11 @@
               prefix = true;
             else if (prefSpecifier == "noprefix")
               prefix = false;
-            else if (prefSpecifier != "\n")
+            else if (prefSpecifier != "\n" && prefSpecifier != ";")
               throw new ParserError("Expected 'prefix' or 'noprefix'");
             this.syntax = { intel, prefix };
             this.switchSyntax = true;
-            if (token != "\n")
+            if (token != "\n" && token != ";")
               next();
             break;
         }
@@ -16318,7 +16318,7 @@ g nle`.split("\n");
         result.prefix = true;
       else if (pref == "noprefix")
         result.prefix = false;
-      else if (pref != "\n" && pref != (result.intel ? ";" : "#"))
+      else if (pref != "\n" && pref != ";" && (result.intel || pref != "#"))
         return ctx;
       return result;
     },
@@ -16366,7 +16366,7 @@ g nle`.split("\n");
         opcode = opcode.slice(0, -1);
       else if (!mnemonicExists(opcode, ctx.intel)) {
         if (ctx.intel && sizeHints.hasOwnProperty(tok)) {
-          let prevTok = tok, prevEnd = end;
+          let prevEnd = end;
           if (",;\n{:".includes(next2())) {
             end = prevEnd;
             return word;
