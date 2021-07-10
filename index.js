@@ -14519,7 +14519,7 @@ g nle`.split("\n");
         if (size !== void 0) {
           if (mnemonicExists(opcode, false))
             operations = [...operations, { size }, ...fetchMnemonic(opcode, false)];
-        } else if (mnemonicExists(opcode, false)) {
+        } else if (operations.length == 0 && mnemonicExists(opcode, false)) {
           this.opcodePos.start += this.opcodePos.length - 1;
           this.opcodePos.length = 1;
           throw new ParserError("Invalid opcode suffix", this.opcodePos);
