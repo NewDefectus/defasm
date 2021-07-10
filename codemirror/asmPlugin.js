@@ -3,7 +3,7 @@ import { hoverTooltip }                                               from '@cod
 
 import { AssemblyState }                     from '@defasm/core/compiler.js';
 import { mnemonicExists, relativeMnemonics } from '@defasm/core/mnemonicList.js';
-import { isRegister, sizePtrs}               from '@defasm/core/operands.js';
+import { isRegister, sizeHints }             from '@defasm/core/operands.js';
 import { prefixes }                          from '@defasm/core/instructions.js';
 import { directives, intelDirectives }       from '@defasm/core/directives.js';
 import { ContextTracker, ExternalTokenizer } from 'lezer';
@@ -112,12 +112,25 @@ function tokenize(ctx, input)
             opcode = opcode.slice(1);
         if(!mnemonicExists(opcode, ctx.intel) && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
         {
-            if(ctx.intel && sizePtrs.hasOwnProperty(tok))
+            if(ctx.intel && sizeHints.hasOwnProperty(tok))
             {
                 let prevTok = tok, prevEnd = end;
-                if('ptr'.startsWith(next()))
+                if(",;\n{:".includes(next()))
+                {
+                    end = prevEnd;
+                    return Terms.word;
+                }
+
+                
+                if(tok == 'ptr')
+                {
+                    let nextPrevEnd = end;
+                    end = ",;\n{:".includes(next()) ? prevEnd : nextPrevEnd;
                     return Terms.Ptr;
-                tok = prevTok, end = prevEnd;
+                }
+
+                end = prevEnd;
+                return Terms.Ptr;
             }
             switch(isNumber(tok, ctx.intel))
             {

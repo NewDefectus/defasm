@@ -79,6 +79,7 @@ bzhi:V 0F38F5 Rlq r >R
 call
 E8 jl
 FF.2 rQ
+FF.3 mf
 
 cbtw/cbw:66)98
 cltd/cdq:99
@@ -344,6 +345,7 @@ jecxz:67)E3 jb
 jmp
 EB-2 jbl
 FF.4 rQ
+FF.5 mf
 
 jrcxz:E3 jb
 
@@ -373,6 +375,7 @@ kxor:Vl 0F47 ^Kbwlq >K K
 
 lahf:9F
 lar:0F02 rW Rwlq
+lcall/:FF.3 m
 lddqu:F2)0FF0 m Vxy >
 ldmxcsr:0FAE.2 m >
 lea:8D m Rwlq
@@ -380,7 +383,7 @@ leave:C9
 lfence:0FAEE8
 lgdt:0F01.2 m
 lidt:0F01.3 m
-ljmp:FF.5 m
+ljmp/:FF.5 m
 lfs:0FB4 m Rwlq
 lgs:0FB5 m Rwlq
 lldt:0F00.2 rW
@@ -1454,7 +1457,7 @@ export var relativeMnemonics = [];
 /** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
 export var mnemonics = {};
-var intelDifferences = {};
+var intelDifferences = {}, intelInvalids = [];
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     lines = x.split(/[\n:]/);
     let name = lines.shift();
@@ -1500,7 +1503,9 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
         {
             let intelName;
             [name, intelName] = name.split('/');
-            intelDifferences[intelName] = name;
+            if(intelName)
+                intelDifferences[intelName] = name;
+            intelInvalids.push(name);
         }
         mnemonics[name] = lines;
         if(lines[0].includes('j'))
@@ -1622,7 +1627,7 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
 export function mnemonicExists(opcode, intel)
 {
     if(mnemonics.hasOwnProperty(opcode))
-        return !intel || !Object.values(intelDifferences).includes(opcode);
+        return !intel || !intelInvalids.includes(opcode);
 
     return intel && intelDifferences.hasOwnProperty(opcode);
 }
@@ -1634,7 +1639,7 @@ export function fetchMnemonic(opcode, intel)
     {
         if(intelDifferences.hasOwnProperty(opcode))
             opcode = intelDifferences[opcode];
-        else if(Object.values(intelDifferences).includes(opcode))
+        else if(intelInvalids.includes(opcode))
             return [];
     }
     if(!mnemonics.hasOwnProperty(opcode))

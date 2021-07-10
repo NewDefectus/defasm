@@ -25,10 +25,10 @@ export function loadCode(code)
 
 var defaultNext = () => {
     match = srcTokens.next();
+    prevCodePos = codePos;
     if(match.done)
         return token = '\n';
     
-    prevCodePos = codePos;
     token = match.value[0];
     if(token == '\n')
         lastLineIndex = match.value.index + 1;

@@ -141,18 +141,21 @@ AssemblyState.prototype.compile = function(source, { haltOnError = false, line =
             {
                 if(!match.done) this.instructions.splice(line++, 0, currLineArr = []);
             }
-            else if(token !== ';')
+            else if(token != ';')
                 throw new ParserError("Expected end of line");
         }
         catch(e)
         {
-            if(haltOnError && !doSecondPass) throw `Error on line ${line}: ${e.message}`;
+            if(haltOnError && !doSecondPass)
+                throw `Error on line ${line}: ${e.message}`;
             if(e.pos == null || e.length == null)
                 console.error("Error on line " + line + ":\n", e);
             else
                 addInstruction(new Statement(lastInstr, 0, e));
-            while(token !== '\n' && token !== ';') next();
-            if(token === '\n' && !match.done) this.instructions.splice(line++, 0, currLineArr = []);
+            while(token != '\n' && token != ';')
+                next();
+            if(token == '\n' && !match.done)
+                this.instructions.splice(line++, 0, currLineArr = []);
         }
         next();
     }

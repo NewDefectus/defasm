@@ -1,6 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizePtrs } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
@@ -140,17 +140,27 @@ export class Instruction extends Statement
                     break;
                 }
                 let sizePtr = token;
-                if(sizePtrs.hasOwnProperty(sizePtr.toLowerCase()))
+                if(sizeHints.hasOwnProperty(sizePtr.toLowerCase()))
                 {
-                    if(next().toLowerCase() == 'ptr')
+                    let following = next();
+                    if(following.toLowerCase() == 'ptr')
                     {
-                        operations = [{size: sizePtrs[sizePtr.toLowerCase()]}, ...operations];
-                        next();
+                        operations = [{size: sizeHints[sizePtr.toLowerCase()]}, ...operations];
+                        if(",;\n{:".includes(next()))
+                        {
+                            ungetToken();
+                            setToken(following);
+                        }
                     }
                     else
                     {
-                        ungetToken();
-                        setToken(sizePtr);
+                        if(",;\n{:".includes(following)) // It's just a symbol
+                        {
+                            ungetToken();
+                            setToken(sizePtr);
+                        }
+                        else
+                            operations = [{size: sizeHints[sizePtr.toLowerCase()]}, ...operations];
                     }
                 }
             }
