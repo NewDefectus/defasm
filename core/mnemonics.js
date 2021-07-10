@@ -401,7 +401,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
     {
         if(!(operands.length == 1 && operands[0].type == OPT.REL))
             return null;
-        this.generateRelative(operands[0], instr);
+        this.generateRelative(operands[0], instr, enforcedSize);
     }
 
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
@@ -614,14 +614,16 @@ const absolute = x => x < 0n ? ~x : x;
 
 
 /* Predict a fitting value and size for a given relative operand */
-Operation.prototype.generateRelative = function(operand, instr)
+Operation.prototype.generateRelative = function(operand, instr, enforcedSize)
 {
     let target = operand.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative
-    if(this.relativeSizes.length === 1)
+    if(this.relativeSizes.length == 1)
     {
         let size = this.relativeSizes[0];
+        if(enforcedSize && enforcedSize != size)
+            throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
         operand.size = size;
         operand.virtualValue = target - sizeLen(size);
         if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
@@ -633,7 +635,19 @@ Operation.prototype.generateRelative = function(operand, instr)
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
 
-    if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false))
+    if(enforcedSize == small)
+    {
+        operand.size = small;
+        operand.virtualValue = target - smallLen;
+    }
+    else if(enforcedSize == large)
+    {
+        operand.size = large;
+            operand.virtualValue = target - largeLen;
+    }
+    else if(enforcedSize != 0)
+        throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
+    else if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false))
     {
         if(small != operand.size && operand.sizeAllowed(small, false))
         {

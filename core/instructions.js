@@ -104,9 +104,9 @@ export class Instruction extends Statement
             if(size !== undefined)
             {
                 if(mnemonicExists(opcode, false))
-                    operations = [...operations, {size}, ...fetchMnemonic(opcode, false)];
+                    operations = [...operations, { size }, ...fetchMnemonic(opcode, false)];
             }
-            else if(mnemonicExists(opcode, false))
+            else if(operations.length == 0 && mnemonicExists(opcode, false))
             {
                 this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
                 this.opcodePos.length = 1;
@@ -115,7 +115,7 @@ export class Instruction extends Statement
         }
             
 
-        if(operations.length === 0)
+        if(operations.length == 0)
             throw new ParserError("Unknown opcode", this.opcodePos);
 
         if(!this.syntax.intel && token == '{')
@@ -182,8 +182,10 @@ export class Instruction extends Statement
             operands.push(operand);
             prefsToGen |= operand.prefs;
 
-            if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512) vexInfo.evex = true;
-            if(operand.type == OPT.MEM) usesMemory = true;
+            if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
+                vexInfo.evex = true;
+            if(operand.type == OPT.MEM)
+                usesMemory = true;
 
             while(token == '{') // Decorator (mask or broadcast specifier)
             {
@@ -194,7 +196,8 @@ export class Instruction extends Statement
                     if((vexInfo.mask & 7) == 0)
                         throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
                 }
-                else if(token == 'z') vexInfo.zeroing = true, next(); // Zeroing-masking
+                else if(token == 'z')
+                    vexInfo.zeroing = true, next(); // Zeroing-masking
                 else if(operand.type == OPT.MEM)
                 {
                     vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
@@ -252,44 +255,47 @@ export class Instruction extends Statement
         this.length = 0;
 
         // Before we compile, we'll get the immediates' sizes
-        for(let op of operands)
+        if(!operations.some(x => x.size !== undefined))
         {
-            if(op.type === OPT.IMM)
+            for(let op of operands)
             {
-                if(!op.expression.hasSymbols)
+                if(op.type == OPT.IMM)
                 {
-                    op.size = inferImmSize(op.value);
-                    op.unsignedSize = inferUnsignedImmSize(op.value);
-                }
-                else
-                {
-                    let max = inferImmSize(op.value);
-                    for(let size = 8; size <= max; size *= 2)
+                    if(!op.expression.hasSymbols)
                     {
-                        if((size != op.size || op.size == max) && op.sizeAllowed(size))
-                        {
-                            op.size = size;
-                            op.recordSizeUse(size);
-
-                            if(size < max)
-                                queueRecomp(this);
-
-                            break;
-                        }
+                        op.size = inferImmSize(op.value);
+                        op.unsignedSize = inferUnsignedImmSize(op.value);
                     }
-
-                    max = inferUnsignedImmSize(op.value);
-
-                    for(let size = 8; size <= max; size *= 2)
+                    else
                     {
-                        if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
+                        let max = inferImmSize(op.value);
+                        for(let size = 8; size <= max; size *= 2)
                         {
-                            op.unsignedSize = size;
-                            op.recordSizeUse(size, true);
-                            if(size < max)
-                                queueRecomp(this);
+                            if((size != op.size || op.size == max) && op.sizeAllowed(size))
+                            {
+                                op.size = size;
+                                op.recordSizeUse(size);
 
-                            break;
+                                if(size < max)
+                                    queueRecomp(this);
+
+                                break;
+                            }
+                        }
+
+                        max = inferUnsignedImmSize(op.value);
+
+                        for(let size = 8; size <= max; size *= 2)
+                        {
+                            if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
+                            {
+                                op.unsignedSize = size;
+                                op.recordSizeUse(size, true);
+                                if(size < max)
+                                    queueRecomp(this);
+
+                                break;
+                            }
                         }
                     }
                 }
@@ -355,10 +361,12 @@ export class Instruction extends Statement
             throw new ParserError("Invalid operands", this.operandStartPos, this.endPos);
         }
 
-        if(op.rexw) rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+        if(op.rexw)
+            rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
         
         let modRM = null, sib = null;
-        if(op.extendOp) rexVal |= 1, prefsToGen |= PREFIX_REX;
+        if(op.extendOp)
+            rexVal |= 1, prefsToGen |= PREFIX_REX;
         else if(op.rm !== null)
         {
             let extraRex;
@@ -367,7 +375,8 @@ export class Instruction extends Statement
         }
 
         // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-        if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX) throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
+        if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
+            throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
         let opcode = op.opcode;
 
         // Time to generate!
@@ -458,7 +467,8 @@ export class Instruction extends Statement
         {
             // These are the respective "none" type registers
             rmReg = 5;
-            if(rmReg2 < 0) rmReg2 = 4;
+            if(rmReg2 < 0)
+                rmReg2 = 4;
             rm.value = rm.value || 0n;
         }
         
@@ -486,23 +496,19 @@ export class Instruction extends Statement
 function makeVexPrefix(vex, rex, isEvex)
 {
     if(isEvex)
-    {
         vex ^= 0x80010; // Invert the V' and R' bits
-    }
+
     let vex1 = vex & 255, vex2 = vex >> 8, vex3 = vex >> 16;
     // The first 3 fields are identical to the last 3 in rex (R, X, B), but inverted
     vex1 |= ((~rex & 7) << 5);
     vex2 |= (((rex & 8)) << 4); // VEX.w = REX.w
 
     if(isEvex)
-    {
         return [0x62, vex1, vex2, vex3];
-    }
 
     if((vex1 & 0x7F) == 0x61 && (vex2 & 0x80) == 0) // In certain cases, we can compress the prefix to 2 bytes
-    {
         return [0xC5, vex2 | (vex1 & 0x80)];
-    }
+
     return [0xC4, vex1, vex2];
 }
 

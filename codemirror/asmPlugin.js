@@ -110,7 +110,9 @@ function tokenize(ctx, input)
     {
         if(opcode[0] == 'v' && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
             opcode = opcode.slice(1);
-        if(!mnemonicExists(opcode, ctx.intel) && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
+        if(!ctx.intel && mnemonicExists(opcode.slice(0, -1), false))
+            opcode = opcode.slice(0, -1);
+        else if(!mnemonicExists(opcode, ctx.intel))
         {
             if(ctx.intel && sizeHints.hasOwnProperty(tok))
             {
