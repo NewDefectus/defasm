@@ -2,7 +2,7 @@ const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizePtrs } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
-import { fetchMnemonic, mnemonics } from "./mnemonicList.js";
+import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 
@@ -92,7 +92,7 @@ export class Instruction extends Statement
 
         /** @type { Operand[] } */
         let operands = [];
-        let operations = fetchMnemonic(opcode);
+        let operations = fetchMnemonic(opcode, this.syntax.intel);
 
         if(vexInfo.needed)
             operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
@@ -103,10 +103,10 @@ export class Instruction extends Statement
             opcode = opcode.slice(0, -1);
             if(size !== undefined)
             {
-                if(mnemonics.hasOwnProperty(opcode))
-                    operations = [...operations, {size}, ...fetchMnemonic(opcode)];
+                if(mnemonicExists(opcode, false))
+                    operations = [...operations, {size}, ...fetchMnemonic(opcode, false)];
             }
-            else if(mnemonics.hasOwnProperty(opcode))
+            else if(mnemonicExists(opcode, false))
             {
                 this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
                 this.opcodePos.length = 1;

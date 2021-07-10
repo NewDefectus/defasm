@@ -1,12 +1,11 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 import { hoverTooltip }                                               from '@codemirror/tooltip';
 
-import { AssemblyState }                from '@defasm/core/compiler.js';
-import { mnemonics, relativeMnemonics } from '@defasm/core/mnemonicList.js';
-import { isRegister, sizePtrs}                    from '@defasm/core/operands.js';
-import { prefixes }                     from '@defasm/core/instructions.js';
-import { directives, intelDirectives }                   from '@defasm/core/directives.js';
-
+import { AssemblyState }                     from '@defasm/core/compiler.js';
+import { mnemonicExists, relativeMnemonics } from '@defasm/core/mnemonicList.js';
+import { isRegister, sizePtrs}               from '@defasm/core/operands.js';
+import { prefixes }                          from '@defasm/core/instructions.js';
+import { directives, intelDirectives }       from '@defasm/core/directives.js';
 import { ContextTracker, ExternalTokenizer } from 'lezer';
 
 var allTokens, tok, loadStart, end;
@@ -107,11 +106,11 @@ function tokenize(ctx, input)
         return Terms.Prefix;
 
     let opcode = tok;
-    if(!mnemonics.hasOwnProperty(opcode))
+    if(!mnemonicExists(opcode, ctx.intel))
     {
-        if(opcode[0] == 'v' && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+        if(opcode[0] == 'v' && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
             opcode = opcode.slice(1);
-        if(!mnemonics.hasOwnProperty(opcode) && (ctx.intel || !mnemonics.hasOwnProperty(opcode.slice(0, -1))))
+        if(!mnemonicExists(opcode, ctx.intel) && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
         {
             if(ctx.intel && sizePtrs.hasOwnProperty(tok))
             {

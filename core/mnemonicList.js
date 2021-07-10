@@ -80,9 +80,9 @@ call
 E8 jl
 FF.2 rQ
 
-cbtw:66)98
-cltd:99
-cltq:48)98
+cbtw/cbw:66)98
+cltd/cdq:99
+cltq/cdqe:48)98
 clac:0F01CA
 clc:F8
 cld:FC
@@ -150,9 +150,9 @@ cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
 cvtss2si:F3)0F2C v#x Rlq > {s
 
-cqto:48)99
-cwtd:66)99
-cwtl:98
+cqto/cqo:48)99
+cwtd/cwd:66)99
+cwtl/cwde:98
 dec:FE.1 rbwlq
 div:F6.6 rbwlq
 
@@ -1454,6 +1454,7 @@ export var relativeMnemonics = [];
 /** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
 export var mnemonics = {};
+var intelDifferences = {};
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     lines = x.split(/[\n:]/);
     let name = lines.shift();
@@ -1495,6 +1496,12 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     }
     else
     {
+        if(name.includes('/'))
+        {
+            let intelName;
+            [name, intelName] = name.split('/');
+            intelDifferences[intelName] = name;
+        }
         mnemonics[name] = lines;
         if(lines[0].includes('j'))
             relativeMnemonics.push(name);
@@ -1612,9 +1619,24 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
     }
 })));
 
-/** @returns { Operation[] } */
-export function fetchMnemonic(opcode)
+export function mnemonicExists(opcode, intel)
 {
+    if(mnemonics.hasOwnProperty(opcode))
+        return !intel || !Object.values(intelDifferences).includes(opcode);
+
+    return intel && intelDifferences.hasOwnProperty(opcode);
+}
+
+/** @returns { Operation[] } */
+export function fetchMnemonic(opcode, intel)
+{
+    if(intel)
+    {
+        if(intelDifferences.hasOwnProperty(opcode))
+            opcode = intelDifferences[opcode];
+        else if(Object.values(intelDifferences).includes(opcode))
+            return [];
+    }
     if(!mnemonics.hasOwnProperty(opcode))
         return [];
     let operations = mnemonics[opcode];
