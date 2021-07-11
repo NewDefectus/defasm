@@ -1,5 +1,4 @@
 "use strict";
-
 // Instruction resizing test
 
 function validate(state)

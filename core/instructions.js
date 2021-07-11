@@ -255,47 +255,44 @@ export class Instruction extends Statement
         this.length = 0;
 
         // Before we compile, we'll get the immediates' sizes
-        if(!operations.some(x => x.size !== undefined))
+        for(let op of operands)
         {
-            for(let op of operands)
+            if(op.type == OPT.IMM)
             {
-                if(op.type == OPT.IMM)
+                if(!op.expression.hasSymbols)
                 {
-                    if(!op.expression.hasSymbols)
+                    op.size = inferImmSize(op.value);
+                    op.unsignedSize = inferUnsignedImmSize(op.value);
+                }
+                else
+                {
+                    let max = inferImmSize(op.value);
+                    for(let size = 8; size <= max; size *= 2)
                     {
-                        op.size = inferImmSize(op.value);
-                        op.unsignedSize = inferUnsignedImmSize(op.value);
-                    }
-                    else
-                    {
-                        let max = inferImmSize(op.value);
-                        for(let size = 8; size <= max; size *= 2)
+                        if((size != op.size || op.size == max) && op.sizeAllowed(size))
                         {
-                            if((size != op.size || op.size == max) && op.sizeAllowed(size))
-                            {
-                                op.size = size;
-                                op.recordSizeUse(size);
+                            op.size = size;
+                            op.recordSizeUse(size);
 
-                                if(size < max)
-                                    queueRecomp(this);
+                            if(size < max)
+                                queueRecomp(this);
 
-                                break;
-                            }
+                            break;
                         }
+                    }
 
-                        max = inferUnsignedImmSize(op.value);
+                    max = inferUnsignedImmSize(op.value);
 
-                        for(let size = 8; size <= max; size *= 2)
+                    for(let size = 8; size <= max; size *= 2)
+                    {
+                        if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
                         {
-                            if((size != op.unsignedSize || op.unsignedSize == max) && op.sizeAllowed(size, true))
-                            {
-                                op.unsignedSize = size;
-                                op.recordSizeUse(size, true);
-                                if(size < max)
-                                    queueRecomp(this);
+                            op.unsignedSize = size;
+                            op.recordSizeUse(size, true);
+                            if(size < max)
+                                queueRecomp(this);
 
-                                break;
-                            }
+                            break;
                         }
                     }
                 }

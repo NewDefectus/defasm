@@ -23,7 +23,7 @@ const sizers = Object.assign({f: 48}, suffixes);
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-const SIZETYPE_EXPLICITSUF = 1;
+export const SIZETYPE_EXPLICITSUF = 1;
 const SIZETYPE_IMPLICITENC = 2;
 
 const EVEXPERM_MASK = 1;
@@ -64,11 +64,11 @@ function getSizes(format, defaultCatcher = null)
         defaultSize = false;
         size = 0;
         sizeChar = format[i];
-        if(sizeChar === '~') // ~ prefix means this size must be explicitly chosen with a suffix
+        if(sizeChar == '~') // ~ prefix means this size must be explicitly chosen with a suffix
             size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
-        if(sizeChar === '$') // $ prefix means this size should be encoded without a prefix
+        if(sizeChar == '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
-        if(sizeChar === '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
+        if(sizeChar == '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
             defaultSize = true, sizeChar = format[++i];
 
         if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
@@ -76,7 +76,8 @@ function getSizes(format, defaultCatcher = null)
         else
             size |= sizers[sizeChar];
         
-        if(defaultSize) defaultCatcher(size);    
+        if(defaultSize)
+            defaultCatcher(size);    
         
         sizes.push(size);
     }
@@ -93,25 +94,27 @@ function OpCatcher(format)
     this.sizes = [];
 
     // First is the operand type
-    this.forceRM = format[0] === '^';
-    this.vexOpImm = format[0] === '<';
-    this.vexOp = this.vexOpImm || format[0] === '>';
-    if(this.forceRM || this.vexOp) format = format.slice(1);
-    this.carrySizeInference = format[0] !== '*';
-    if(!this.carrySizeInference) format = format.slice(1);
+    this.forceRM = format[0] == '^';
+    this.vexOpImm = format[0] == '<';
+    this.vexOp = this.vexOpImm || format[0] == '>';
+    if(this.forceRM || this.vexOp)
+        format = format.slice(1);
+    this.carrySizeInference = format[0] != '*';
+    if(!this.carrySizeInference)
+        format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbkm".includes(opType);
-    this.unsigned = opType === 'i';
+    this.unsigned = opType == 'i';
     this.type = OPC[opType.toLowerCase()];
-    this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
+    this.forceRM = this.forceRM || this.acceptsMemory || this.type == OPT.VMEM;
 
-    this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
+    this.carrySizeInference = this.carrySizeInference && this.type != OPT.IMM && this.type != OPT.MEM;
     
 
 
     // Optional argument: value for implicit operands
     this.implicitValue = null;
-    if(format[1] === '_')
+    if(format[1] == '_')
     {
         this.implicitValue = parseInt(format[2]);
         i = 3;
@@ -120,12 +123,12 @@ function OpCatcher(format)
     // Next are the sizes
     this.defSize = -1;
 
-    if(format[i] === '!')
+    if(format[i] == '!')
     {
         this.sizes = 0;
         this.hasByteSize = false;
     }
-    else if(format[i] === '/')
+    else if(format[i] == '/')
     {
         this.sizes = -2;
         this.hasByteSize = false;
@@ -136,24 +139,27 @@ function OpCatcher(format)
         this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
     }
 
-    if(this.sizes.length === 0)
+    if(this.sizes.length == 0)
     {
-        if(this.type > OPT.MEM) this.sizes = 0; // Meaning, size doesn't matter
-        else this.sizes = -1; // Meaning, use the previously parsed size to catch
+        if(this.type > OPT.MEM)
+            this.sizes = 0; // Meaning, size doesn't matter
+        else
+            this.sizes = -1; // Meaning, use the previously parsed size to catch
     }
 }
 
 OpCatcher.prototype.matchType = function(operand)
 {
     // Check that the types match
-    if(operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory))
+    if(operand.type != this.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && this.acceptsMemory))
         return false;
 
     // In case of implicit operands, check that the values match
     if(this.implicitValue !== null)
     {
-        let opValue = (operand.type === OPT.IMM ? Number(operand.value) : operand.reg);
-        if(this.implicitValue !== opValue) return false;
+        let opValue = (operand.type == OPT.IMM ? Number(operand.value) : operand.reg);
+        if(this.implicitValue !== opValue)
+            return false;
     }
     return true;
 }
@@ -187,8 +193,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             if(opSize < 128)
                 opSize = 128;
         }
-        else
-            opSize = prevSize & ~7; // If a default size isn't available, use the previous size
+        else // If a default size isn't available, use the previous size
+            opSize = prevSize & ~7;
     }
     else if(this.type == OPT.IMM && this.defSize > 0 && this.defSize < opSize) // Allow immediates to be downcast if necessary
         return this.defSize;
@@ -205,7 +211,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     if(this.sizes == -2)
     {
         rawSize = (prevSize & ~7) >> 1;
-        if(rawSize < 128) rawSize = 128;
+        if(rawSize < 128)
+            rawSize = 128;
         if(opSize == rawSize)
             return prevSize;
         return null;
@@ -244,8 +251,8 @@ export function Operation(format)
     this.actuallyNotVex = false;
 
     // Interpreting the opcode
-    this.vexOnly = format[0][0] === 'v';
-    this.forceVex = format[0][0] === 'V';
+    this.vexOnly = format[0][0] == 'v';
+    this.forceVex = format[0][0] == 'V';
     if(this.vexOnly || this.forceVex)
     {
         if(format[0].includes('w')) this.vexBase |= 0x8000;
@@ -261,15 +268,17 @@ export function Operation(format)
 
     // Op difference (the value to add to the opcode if the size isn't 8)
     let adderSeparator = opcode.indexOf('+');
-    if(adderSeparator < 0) adderSeparator = opcode.indexOf('-');
+    if(adderSeparator < 0)
+        adderSeparator = opcode.indexOf('-');
     if(adderSeparator >= 0)
     {
         this.opDiff = parseInt(opcode.slice(adderSeparator));
         opcode = opcode.slice(0, adderSeparator);
     }
-    else this.opDiff = 1;
+    else
+        this.opDiff = 1;
 
-    if(opcode[2] === ')') // Prefix followed by ')'
+    if(opcode[2] == ')') // Prefix followed by ')'
     {
         this.code = parseInt(opcode.slice(3), 16);
         this.prefix = parseInt(opcode.slice(0, 2), 16);
@@ -289,17 +298,20 @@ export function Operation(format)
     }
     else
     {
-        if(extension[0] === 'o') this.extension = REG_OP;
-        else this.extension = parseInt(extension[0]);
+        if(extension[0] == 'o')
+            this.extension = REG_OP;
+        else
+            this.extension = parseInt(extension[0]);
         this.modExtension = extension[1] ? parseInt(extension[1]) : null;
     }
 
     // What follows is a list of operand specifiers
     /** @type { OpCatcher[] } */
     this.opCatchers = [];
-    if(format.length === 0)
+    if(format.length == 0)
         return;
     this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
+    /** @type { OpCatcher[] } */
     this.vexOpCatchers = this.allowVex ? [] : null;
     this.maxSize = 0;
 
@@ -310,28 +322,31 @@ export function Operation(format)
 
     for(let operand of format)
     {
-        if(operand === '>') // Empty VEX operands shouldn't be counted
+        if(operand == '>') // Empty VEX operands shouldn't be counted
             continue;
-        if(operand[0] === '{') // EVEX permits
+        if(operand[0] == '{') // EVEX permits
         {
             this.evexPermits = parseEvexPermits(operand.slice(1));
             continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
+        if(opCatcher.type == OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
+        if(opCatcher.type == OPT.REG) this.maskSizing |= 2;
+        if(opCatcher.type == OPT.REL) this.relativeSizes = opCatcher.sizes;
         if(!opCatcher.vexOp || this.forceVex) this.opCatchers.push(opCatcher);
-        if(opCatcher.type === OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
-        if(opCatcher.type === OPT.REG) this.maskSizing |= 2;
         if(this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
-        if(opCatcher.type === OPT.REL) this.relativeSizes = opCatcher.sizes;
 
         if(Array.isArray(opCatcher.sizes))
         {
             let had64 = false;
             for(let size of opCatcher.sizes)
             {
-                if(size > this.maxSize) this.maxSize = size & ~7;
-                if((size & ~7) === 64) had64 = true;
-                else if(had64 && (size & ~7) > 64) this.allVectors = true;
+                if(size > this.maxSize)
+                    this.maxSize = size & ~7;
+                if((size & ~7) == 64)
+                    had64 = true;
+                else if(had64 && (size & ~7) > 64)
+                    this.allVectors = true;
             }
         }
     }
@@ -419,8 +434,6 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
                 return null;
         }
         correctedSizes[i] = size;
-        if(size == 64 && catcher.copySize !== undefined)
-            size = catcher.copySize;
         if(!catcher.carrySizeInference)
             size = prevSize; // Size shouldn't be inferred from some operands
         prevSize = size;
@@ -433,7 +446,8 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
         if(correctedSizes[i] < 0)
         {
             size = opCatchers[i].catch(operands[i], size, enforcedSize);
-            if(size === null) return null;
+            if(size === null)
+                return null;
             correctedSizes[i] = size;
         }
     }
@@ -474,7 +488,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
             else if(catcher.vexOp)
             {
                 if(catcher.vexOpImm)
-                    imms.push({value: BigInt(operand.reg << 4), size: 8});
+                    imms.push({ value: BigInt(operand.reg << 4), size: 8 });
                 else
                     vex = (vex & ~0x7800) | ((~operand.reg & 15) << 11);
 
@@ -508,7 +522,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
             if(this.modExtension === null)
                 rm = reg;
             else
-                rm = {type: OPT.MEM, reg: this.modExtension, value: null};
+                rm = { type: OPT.MEM, reg: this.modExtension, value: null };
         }
         reg = {reg: this.extension};
     }

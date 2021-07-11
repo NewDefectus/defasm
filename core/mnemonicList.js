@@ -869,14 +869,13 @@ punpcklqdq:66)0F6C v >V Vxyz {kzBw
 
 push
 50.o RwQ
-6A-2 Ib~wl
+6A-2 Ibl
 FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
 
-pushf:9C
-pushfq:#pushf
-pushfw:66)9C
+pushf{wQ}:9C
+pushw:66)6A-2 Ib$w
 
 pxor:0FEF v >V Vqxy
 pxord:66)0FEF v >Vxyz V {kzbf
