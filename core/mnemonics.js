@@ -23,8 +23,7 @@ const sizers = Object.assign({f: 48}, suffixes);
 
 // To reduce memory use, operand catchers are cached and reused in the future
 var opCatcherCache = {};
-export const SIZETYPE_EXPLICITSUF = 1;
-const SIZETYPE_IMPLICITENC = 2;
+const SIZETYPE_IMPLICITENC = 1;
 
 const EVEXPERM_MASK = 1;
 const EVEXPERM_ZEROING = 2;
@@ -64,8 +63,6 @@ function getSizes(format, defaultCatcher = null)
         defaultSize = false;
         size = 0;
         sizeChar = format[i];
-        if(sizeChar == '~') // ~ prefix means this size must be explicitly chosen with a suffix
-            size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
         if(sizeChar == '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
         if(sizeChar == '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
@@ -110,8 +107,6 @@ function OpCatcher(format)
 
     this.carrySizeInference = this.carrySizeInference && this.type != OPT.IMM && this.type != OPT.MEM;
     
-
-
     // Optional argument: value for implicit operands
     this.implicitValue = null;
     if(format[1] == '_')
@@ -229,11 +224,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
             rawSize = size & ~7;
             if(opSize == rawSize || ((this.type == OPT.IMM || this.type == OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
             {
-                if(!(size & SIZETYPE_EXPLICITSUF) || enforcedSize == rawSize)
-                {
-                    found = true;
-                    break;
-                }
+                found = true;
+                break;
             }
         }
         

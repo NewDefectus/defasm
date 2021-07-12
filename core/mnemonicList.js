@@ -325,7 +325,8 @@ E4 ib R_0bwl
 EC R_2W R_0bwl
 
 inc:FE.0 rbwlq
-incssp:F3)0FAE.5 R~l~q
+incsspd:F3)0FAE.5 Rl
+incsspq:F3)0FAE.5 Rq
 ins{bwd:6C
 insertps:66)0F3A21 ib v >V Vx {
 
@@ -892,7 +893,8 @@ rdpkru:0F01EE
 rdpmc:0F33
 rdrand:0FC7.6 Rwlq
 rdseed:0FC7.7 Rwlq
-rdssp:F3)0F1E.1 R~l~q
+rdsspd:F3)0F1E.1 Rl
+rdsspq:F3)0F1E.1 Rq
 rdtsc:0F31
 rdtscp:0F01F9
 
@@ -1416,8 +1418,10 @@ wrfsbase:F3)0FAE.2 Rlq
 wrgsbase:F3)0FAE.3 Rlq
 wrmsr:0F30
 wrpkru:0F01EF
-wrss:0F38F6 R~l~q r
-wruss:66)0F38F5 R~l~q r
+wrssd:0F38F6 Rl r
+wrssq:0F38F6 Rq r
+wrussd:66)0F38F5 Rl r
+wrussq:66)0F38F5 Rq r
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
 xbegin:C7F8 jwl

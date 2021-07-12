@@ -89,7 +89,8 @@ export function isRegister(reg)
 
 export function parseRegister(expectedType = null)
 {
-    let reg = registers[(currSyntax.prefix ? next() : token).toLowerCase()];
+    let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
+    let reg = registers[regToken];
     let size = 0, type = -1, prefs = 0;
     if(reg >= registers.al && reg <= registers.rdi)
     {
@@ -132,29 +133,29 @@ export function parseRegister(expectedType = null)
         prefs |= PREFIX_REX;
         reg -= registers.spl - 4;
     }
-    else if(token[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
+    else if(regToken[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
     {
-        reg = parseInt(token.slice(1));
+        reg = parseInt(regToken.slice(1));
         if(isNaN(reg) || reg < 0 || reg >= 16)
             throw new ParserError("Unknown register");
         type = OPT.REG;
 
-        size = suffixes[token[token.length - 1]] || 64;
+        size = suffixes[regToken[regToken.length - 1]] || 64;
     }
     else
     {
         let max = 32;
-        if(token.startsWith("bnd")) reg = token.slice(3), type = OPT.BND, max = 4;
-        else if(token[0] == 'k') reg = token.slice(1), type = OPT.MASK, max = 8, size = NaN;
-        else if(token.startsWith("dr")) reg = token.slice(2), type = OPT.DBG, max = 8;
-        else if(token.startsWith("cr")) reg = token.slice(2), type = OPT.CTRL, max = 9;
+        if(token.startsWith("bnd")) reg = regToken.slice(3), type = OPT.BND, max = 4;
+        else if(regToken[0] == 'k') reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
+        else if(regToken.startsWith("dr")) reg = regToken.slice(2), type = OPT.DBG, max = 8;
+        else if(regToken.startsWith("cr")) reg = regToken.slice(2), type = OPT.CTRL, max = 9;
         else
         {
             type = OPT.VEC;
-            if(token.startsWith("mm")) reg = token.slice(2), size = 64, max = 8;
-            else if(token.startsWith("xmm")) reg = token.slice(3), size = 128;
-            else if(token.startsWith("ymm")) reg = token.slice(3), size = 256;
-            else if(token.startsWith("zmm")) reg = token.slice(3), size = 512;
+            if(regToken.startsWith("mm")) reg = regToken.slice(2), size = 64, max = 8;
+            else if(regToken.startsWith("xmm")) reg = regToken.slice(3), size = 128;
+            else if(regToken.startsWith("ymm")) reg = regToken.slice(3), size = 256;
+            else if(regToken.startsWith("zmm")) reg = regToken.slice(3), size = 512;
             else
                 throw new ParserError("Unknown register");
         }

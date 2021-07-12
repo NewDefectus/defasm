@@ -8,7 +8,7 @@ exports.run = async function()
 {
     const { AssemblyState } = await import("@defasm/core");
     const { mnemonics, fetchMnemonic, relativeMnemonics } = await import("@defasm/core/mnemonicList.js");
-    const { SIZETYPE_EXPLICITSUF, EVEXPERM_FORCE } = await import("@defasm/core/mnemonics.js");
+    const { EVEXPERM_FORCE } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
     const { readFileSync, writeFileSync } = require('fs');
 
@@ -99,8 +99,7 @@ exports.run = async function()
             for(let size of sizes)
             {
                 let type = forceMemory ? OPT.MEM : catcher.type;
-                if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != catcher.defSize
-                || size & SIZETYPE_EXPLICITSUF)
+                if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != catcher.defSize)
                 {
                     sizeSuffix = suffixNames[size & ~7];
                 }
