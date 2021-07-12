@@ -684,7 +684,7 @@ pextrw
 0FC5 ib ^Vqx R! > {
 66)0F3A15 ib Vx m > {
 
-pextrq:66)0F3A16 ib Vx rq > {
+pextrq:66)0F3A16 ib Vx r#q > {
 
 phaddw:0F3801 v >V Vqxy
 phaddd:0F3802 v >V Vqxy
@@ -1079,8 +1079,8 @@ vfixupimmps:66)0F3A54 ib v >Vxyz V {kzbsf
 vfixupimmsd:66)0F3A55 ib v >Vx V {kzsfw
 vfixupimmss:66)0F3A55 ib v >Vx V {kzsf
 
-vfpclasspd:66)0F3A66 ib vxyz *KB > {kBfw
-vfpclassps:66)0F3A66 ib vxyz *KB > {kbf
+vfpclasspd:66)0F3A66 iB vxyz *KB > {kBfw
+vfpclassps:66)0F3A66 iB vxyz *KB > {kbf
 vfpclasssd:66)0F3A67 ib v#x *KB > {kfw
 vfpclassss:66)0F3A67 ib v#x *KB > {kf
 

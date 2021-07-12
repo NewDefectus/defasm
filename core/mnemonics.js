@@ -34,7 +34,7 @@ const EVEXPERM_BROADCAST = 12;
 const EVEXPERM_SAE = 16;
 const EVEXPERM_ROUNDING = 32;
 const EVEXPERM_FORCEW = 64;
-const EVEXPERM_FORCE = 128;
+export const EVEXPERM_FORCE = 128;
 
 function parseEvexPermits(string)
 {
@@ -180,7 +180,11 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     let rawSize, size = 0, found = false;
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM)
+    {
+        if(operand.type == OPT.MASK && this.defSize > 0)
+            return this.defSize;
         opSize = enforcedSize;
+    }
 
     if(isNaN(opSize))
     {

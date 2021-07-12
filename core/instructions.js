@@ -92,25 +92,29 @@ export class Instruction extends Statement
 
         /** @type { Operand[] } */
         let operands = [];
-        let operations = fetchMnemonic(opcode, this.syntax.intel);
+        let operations = [];
 
-        if(vexInfo.needed)
-            operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
-        
-        if(!this.syntax.intel)
+        let possibleOpcodes = vexInfo.needed ? [opcode, opcode.slice(1)] : [opcode];
+
+        for(let subOpcode of possibleOpcodes)
         {
-            let size = suffixes[opcode[opcode.length - 1]];
-            opcode = opcode.slice(0, -1);
-            if(size !== undefined)
+            operations = [...operations, ...fetchMnemonic(subOpcode, this.syntax.intel)];
+            
+            if(!this.syntax.intel)
             {
-                if(mnemonicExists(opcode, false))
-                    operations = [...operations, { size }, ...fetchMnemonic(opcode, false)];
-            }
-            else if(operations.length == 0 && mnemonicExists(opcode, false))
-            {
-                this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
-                this.opcodePos.length = 1;
-                throw new ParserError("Invalid opcode suffix", this.opcodePos);
+                let size = suffixes[subOpcode[subOpcode.length - 1]];
+                subOpcode = subOpcode.slice(0, -1);
+                if(size !== undefined)
+                {
+                    if(mnemonicExists(subOpcode, false))
+                        operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
+                }
+                else if(operations.length == 0 && mnemonicExists(subOpcode, false))
+                {
+                    this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
+                    this.opcodePos.length = 1;
+                    throw new ParserError("Invalid opcode suffix", this.opcodePos);
+                }
             }
         }
             
