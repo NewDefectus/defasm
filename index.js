@@ -12415,11 +12415,11 @@
       defaultSize = false;
       size = 0;
       sizeChar = format[i];
-      if (sizeChar === "~")
+      if (sizeChar == "~")
         size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
-      if (sizeChar === "$")
+      if (sizeChar == "$")
         size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
-      if (sizeChar === "#")
+      if (sizeChar == "#")
         defaultSize = true, sizeChar = format[++i];
       if (sizeChar < "a")
         defaultSize = true, size |= sizers[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
@@ -12435,37 +12435,37 @@
     opCatcherCache[format] = this;
     let i = 1;
     this.sizes = [];
-    this.forceRM = format[0] === "^";
-    this.vexOpImm = format[0] === "<";
-    this.vexOp = this.vexOpImm || format[0] === ">";
+    this.forceRM = format[0] == "^";
+    this.vexOpImm = format[0] == "<";
+    this.vexOp = this.vexOpImm || format[0] == ">";
     if (this.forceRM || this.vexOp)
       format = format.slice(1);
-    this.carrySizeInference = format[0] !== "*";
+    this.carrySizeInference = format[0] != "*";
     if (!this.carrySizeInference)
       format = format.slice(1);
     let opType = format[0];
     this.acceptsMemory = "rvbkm".includes(opType);
-    this.unsigned = opType === "i";
+    this.unsigned = opType == "i";
     this.type = OPC[opType.toLowerCase()];
-    this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
-    this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
+    this.forceRM = this.forceRM || this.acceptsMemory || this.type == OPT.VMEM;
+    this.carrySizeInference = this.carrySizeInference && this.type != OPT.IMM && this.type != OPT.MEM;
     this.implicitValue = null;
-    if (format[1] === "_") {
+    if (format[1] == "_") {
       this.implicitValue = parseInt(format[2]);
       i = 3;
     }
     this.defSize = -1;
-    if (format[i] === "!") {
+    if (format[i] == "!") {
       this.sizes = 0;
       this.hasByteSize = false;
-    } else if (format[i] === "/") {
+    } else if (format[i] == "/") {
       this.sizes = -2;
       this.hasByteSize = false;
     } else {
       this.sizes = getSizes(format.slice(i), (size) => this.defSize = size);
       this.hasByteSize = this.sizes.some((x) => (x & 8) === 8);
     }
-    if (this.sizes.length === 0) {
+    if (this.sizes.length == 0) {
       if (this.type > OPT.MEM)
         this.sizes = 0;
       else
@@ -12473,10 +12473,10 @@
     }
   }
   OpCatcher.prototype.matchType = function(operand) {
-    if (operand.type !== this.type && !((operand.type === OPT.MEM || operand.type === OPT.REL) && this.acceptsMemory))
+    if (operand.type != this.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && this.acceptsMemory))
       return false;
     if (this.implicitValue !== null) {
-      let opValue = operand.type === OPT.IMM ? Number(operand.value) : operand.reg;
+      let opValue = operand.type == OPT.IMM ? Number(operand.value) : operand.reg;
       if (this.implicitValue !== opValue)
         return false;
     }
@@ -12487,8 +12487,11 @@
       return null;
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
-    if (enforcedSize > 0 && operand.type >= OPT.IMM)
+    if (enforcedSize > 0 && operand.type >= OPT.IMM) {
+      if (operand.type == OPT.MASK && this.defSize > 0)
+        return this.defSize;
       opSize = enforcedSize;
+    }
     if (isNaN(opSize)) {
       if (this.defSize > 0)
         return this.defSize;
@@ -12534,8 +12537,8 @@
     this.maskSizing = 0;
     this.evexPermits = null;
     this.actuallyNotVex = false;
-    this.vexOnly = format[0][0] === "v";
-    this.forceVex = format[0][0] === "V";
+    this.vexOnly = format[0][0] == "v";
+    this.forceVex = format[0][0] == "V";
     if (this.vexOnly || this.forceVex) {
       if (format[0].includes("w"))
         this.vexBase |= 32768;
@@ -12556,7 +12559,7 @@
       opcode = opcode.slice(0, adderSeparator);
     } else
       this.opDiff = 1;
-    if (opcode[2] === ")") {
+    if (opcode[2] == ")") {
       this.code = parseInt(opcode.slice(3), 16);
       this.prefix = parseInt(opcode.slice(0, 2), 16);
       this.maskSizing = 4;
@@ -12568,14 +12571,14 @@
       this.extension = REG_MOD;
       this.modExtension = null;
     } else {
-      if (extension[0] === "o")
+      if (extension[0] == "o")
         this.extension = REG_OP;
       else
         this.extension = parseInt(extension[0]);
       this.modExtension = extension[1] ? parseInt(extension[1]) : null;
     }
     this.opCatchers = [];
-    if (format.length === 0)
+    if (format.length == 0)
       return;
     this.allowVex = !this.forceVex && format.some((op) => op.includes(">"));
     this.vexOpCatchers = this.allowVex ? [] : null;
@@ -12584,29 +12587,29 @@
     this.allVectors = false;
     this.relativeSizes = null;
     for (let operand of format) {
-      if (operand === ">")
+      if (operand == ">")
         continue;
-      if (operand[0] === "{") {
+      if (operand[0] == "{") {
         this.evexPermits = parseEvexPermits(operand.slice(1));
         continue;
       }
       opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
+      if (opCatcher.type == OPT.MASK && opCatcher.carrySizeInference)
+        this.maskSizing |= 1;
+      if (opCatcher.type == OPT.REG)
+        this.maskSizing |= 2;
+      if (opCatcher.type == OPT.REL)
+        this.relativeSizes = opCatcher.sizes;
       if (!opCatcher.vexOp || this.forceVex)
         this.opCatchers.push(opCatcher);
-      if (opCatcher.type === OPT.MASK && opCatcher.carrySizeInference)
-        this.maskSizing |= 1;
-      if (opCatcher.type === OPT.REG)
-        this.maskSizing |= 2;
       if (this.vexOpCatchers !== null)
         this.vexOpCatchers.push(opCatcher);
-      if (opCatcher.type === OPT.REL)
-        this.relativeSizes = opCatcher.sizes;
       if (Array.isArray(opCatcher.sizes)) {
         let had64 = false;
         for (let size of opCatcher.sizes) {
           if (size > this.maxSize)
             this.maxSize = size & ~7;
-          if ((size & ~7) === 64)
+          if ((size & ~7) == 64)
             had64 = true;
           else if (had64 && (size & ~7) > 64)
             this.allVectors = true;
@@ -12653,8 +12656,6 @@
           return null;
       }
       correctedSizes[i] = size;
-      if (size == 64 && catcher.copySize !== void 0)
-        size = catcher.copySize;
       if (!catcher.carrySizeInference)
         size = prevSize;
       prevSize = size;
@@ -13531,7 +13532,7 @@ pextrw
 0FC5 ib ^Vqx R! > {
 66)0F3A15 ib Vx m > {
 
-pextrq:66)0F3A16 ib Vx rq > {
+pextrq:66)0F3A16 ib Vx r#q > {
 
 phaddw:0F3801 v >V Vqxy
 phaddd:0F3802 v >V Vqxy
@@ -13716,14 +13717,13 @@ punpcklqdq:66)0F6C v >V Vxyz {kzBw
 
 push
 50.o RwQ
-6A-2 Ib~wl
+6A-2 Ibl
 FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
 
-pushf:9C
-pushfq:#pushf
-pushfw:66)9C
+pushf{wQ}:9C
+pushw:66)6A-2 Ib$w
 
 pxor:0FEF v >V Vqxy
 pxord:66)0FEF v >Vxyz V {kzbf
@@ -13927,8 +13927,8 @@ vfixupimmps:66)0F3A54 ib v >Vxyz V {kzbsf
 vfixupimmsd:66)0F3A55 ib v >Vx V {kzsfw
 vfixupimmss:66)0F3A55 ib v >Vx V {kzsf
 
-vfpclasspd:66)0F3A66 ib vxyz *KB > {kBfw
-vfpclassps:66)0F3A66 ib vxyz *KB > {kbf
+vfpclasspd:66)0F3A66 iB vxyz *KB > {kBfw
+vfpclassps:66)0F3A66 iB vxyz *KB > {kbf
 vfpclasssd:66)0F3A67 ib v#x *KB > {kfw
 vfpclassss:66)0F3A67 ib v#x *KB > {kf
 
@@ -14510,19 +14510,21 @@ g nle`.split("\n");
         return;
       }
       let operands = [];
-      let operations = fetchMnemonic(opcode, this.syntax.intel);
-      if (vexInfo.needed)
-        operations = operations.concat(fetchMnemonic(opcode = opcode.slice(1)));
-      if (!this.syntax.intel) {
-        let size = suffixes[opcode[opcode.length - 1]];
-        opcode = opcode.slice(0, -1);
-        if (size !== void 0) {
-          if (mnemonicExists(opcode, false))
-            operations = [...operations, { size }, ...fetchMnemonic(opcode, false)];
-        } else if (operations.length == 0 && mnemonicExists(opcode, false)) {
-          this.opcodePos.start += this.opcodePos.length - 1;
-          this.opcodePos.length = 1;
-          throw new ParserError("Invalid opcode suffix", this.opcodePos);
+      let operations = [];
+      let possibleOpcodes = vexInfo.needed ? [opcode, opcode.slice(1)] : [opcode];
+      for (let subOpcode of possibleOpcodes) {
+        operations = [...operations, ...fetchMnemonic(subOpcode, this.syntax.intel)];
+        if (!this.syntax.intel) {
+          let size = suffixes[subOpcode[subOpcode.length - 1]];
+          subOpcode = subOpcode.slice(0, -1);
+          if (size !== void 0) {
+            if (mnemonicExists(subOpcode, false))
+              operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
+          } else if (operations.length == 0 && mnemonicExists(subOpcode, false)) {
+            this.opcodePos.start += this.opcodePos.length - 1;
+            this.opcodePos.length = 1;
+            throw new ParserError("Invalid opcode suffix", this.opcodePos);
+          }
         }
       }
       if (operations.length == 0)
@@ -14626,32 +14628,30 @@ g nle`.split("\n");
       let { operands, operations, prefsToGen, vexInfo } = this.outline;
       let enforcedSize = 0;
       this.length = 0;
-      if (!operations.some((x) => x.size !== void 0)) {
-        for (let op2 of operands) {
-          if (op2.type == OPT.IMM) {
-            if (!op2.expression.hasSymbols) {
-              op2.size = inferImmSize(op2.value);
-              op2.unsignedSize = inferUnsignedImmSize(op2.value);
-            } else {
-              let max = inferImmSize(op2.value);
-              for (let size = 8; size <= max; size *= 2) {
-                if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
-                  op2.size = size;
-                  op2.recordSizeUse(size);
-                  if (size < max)
-                    queueRecomp(this);
-                  break;
-                }
+      for (let op2 of operands) {
+        if (op2.type == OPT.IMM) {
+          if (!op2.expression.hasSymbols) {
+            op2.size = inferImmSize(op2.value);
+            op2.unsignedSize = inferUnsignedImmSize(op2.value);
+          } else {
+            let max = inferImmSize(op2.value);
+            for (let size = 8; size <= max; size *= 2) {
+              if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
+                op2.size = size;
+                op2.recordSizeUse(size);
+                if (size < max)
+                  queueRecomp(this);
+                break;
               }
-              max = inferUnsignedImmSize(op2.value);
-              for (let size = 8; size <= max; size *= 2) {
-                if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.sizeAllowed(size, true)) {
-                  op2.unsignedSize = size;
-                  op2.recordSizeUse(size, true);
-                  if (size < max)
-                    queueRecomp(this);
-                  break;
-                }
+            }
+            max = inferUnsignedImmSize(op2.value);
+            for (let size = 8; size <= max; size *= 2) {
+              if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.sizeAllowed(size, true)) {
+                op2.unsignedSize = size;
+                op2.recordSizeUse(size, true);
+                if (size < max)
+                  queueRecomp(this);
+                break;
               }
             }
           }
