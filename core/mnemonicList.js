@@ -130,9 +130,9 @@ F2)0F38F0 rbq Rq
 
 cvtdq2pd:F3)0FE6 v/ Vxyz > {kzb
 cvtdq2ps:0F5B v Vxyz > {kzbr
-cvtpd2dq:F2)0FE6 vXyz V/ > {kzBrw
+cvtpd2dq:F2)0FE6 vxyz V/ > {kzBrw
 cvtpd2pi:66)0F2D vX VQ
-cvtpd2ps:66)0F5A vXyz V/ > {kzBrw
+cvtpd2ps:66)0F5A vxyz V/ > {kzBrw
 cvtpi2pd:66)0F2A vQ Vx
 cvtpi2ps:0F2A vQ Vx
 cvtps2dq:66)0F5B v Vxyz > {kzbr
@@ -144,7 +144,7 @@ cvtsi2sd:F2)0F2A rlq >Vx Vx {r
 cvtsi2ss:F3)0F2A rlq >Vx Vx {r
 cvtss2sd:F3)0F5A v >Vx Vx {kzs
 cvtss2si:F3)0F2D v#x Rlq > {r
-cvttpd2dq:66)0FE6 vXyz V/ > {kzBsw
+cvttpd2dq:66)0FE6 vxyz V/ > {kzBsw
 cvttpd2pi:66)0F2C vX VQ
 cvttps2dq:F3)0F5B v Vxyz > {kzbs
 cvttps2pi:0F2C vX VQ

@@ -24,35 +24,22 @@ exports.run = async function()
         
         switch(type)
         {
-            case OPT.REG:
-                return '%' + regNames[Math.log2(size / 8) * 8 + id];
-            case OPT.VEC:
-                return '%' + vecNames[size] + id;
-            case OPT.VMEM:
-                return '(,%' + vecNames[size] + id + ')';
-            case OPT.IMM:
-                return value === null ? '$' + (1 << (size - 4)) : '$' + value;
-            case OPT.MASK:
-                return '%k' + id;
-            case OPT.REL:
-                return '.';
-            case OPT.MEM:
-                return '(%' + regNames[24 + id] +')';
-            case OPT.ST:
-                return '%st' + (id ? '(' + id + ')' : '');
-            case OPT.SEG:
-                return '%' + regNames[32 + id];
-            case OPT.IP:
-                return size == 32 ? '%eip' : '%rip';
-            case OPT.BND:
-                return '%bnd' + id;
-            case OPT.CTRL:
-                return '%cr' + id;
-            case OPT.DBG:
-                return '%dr' + id;
-            default:
-                throw "Unknown operand type";
+            case OPT.REG:  return '%' + regNames[Math.log2(size / 8) * 8 + id];
+            case OPT.VEC:  return '%' + vecNames[size] + id;
+            case OPT.VMEM: return '(,%' + vecNames[size] + id + ')';
+            case OPT.IMM:  return value === null ? '$' + (1 << (size - 4)) : '$' + value;
+            case OPT.MASK: return '%k' + id;
+            case OPT.REL:  return '.';
+            case OPT.MEM:  return '(%' + regNames[24 + id] +')';
+            case OPT.ST:   return '%st' + (id ? '(' + id + ')' : '');
+            case OPT.SEG:  return '%' + regNames[32 + id];
+            case OPT.IP:   return size == 32 ? '%eip' : '%rip';
+            case OPT.BND:  return '%bnd' + id;
+            case OPT.CTRL: return '%cr' + id;
+            case OPT.DBG:  return '%dr' + id;
         }
+
+        throw "Unknown operand type";
     }
 
     let source = "";
@@ -99,7 +86,8 @@ exports.run = async function()
             for(let size of sizes)
             {
                 let type = forceMemory ? OPT.MEM : catcher.type;
-                if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != catcher.defSize)
+                let sizeSuffixOriginal = sizeSuffix;
+                if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != (isVex ? catcher.defVexSize : catcher.defSize))
                 {
                     sizeSuffix = suffixNames[size & ~7];
                 }
@@ -118,6 +106,7 @@ exports.run = async function()
                 }
                 else
                     recurseOperands(opcode, opCatchers, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+                sizeSuffix = sizeSuffixOriginal;
             }
 
             if(!forceMemory && catcher.acceptsMemory && catcher.type != OPT.MEM && catcher.type != OPT.VMEM && catcher.type != OPT.REL)
@@ -152,7 +141,7 @@ exports.run = async function()
         }
     }
     
-    //writeFileSync("allOpcodeTestSource.s", source);
+    writeFileSync("allOpcodeTestSource.s", source);
 
     let state = new AssemblyState();
     state.compile(source, { haltOnError: true });

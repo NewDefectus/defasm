@@ -116,7 +116,7 @@ function OpCatcher(format)
     }
 
     // Next are the sizes
-    this.defSize = -1;
+    this.defSize = this.defVexSize = -1;
 
     if(format[i] == '!')
     {
@@ -130,7 +130,7 @@ function OpCatcher(format)
     }
     else
     {
-        this.sizes = getSizes(format.slice(i), size => this.defSize = size);
+        this.sizes = getSizes(format.slice(i), size => this.defSize = this.defVexSize = size);
         this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
     }
 
@@ -163,9 +163,10 @@ OpCatcher.prototype.matchType = function(operand)
  * @param {Operand} operand
  * @param {number} prevSize
  * @param {number} enforcedSize
+ * @param {boolean} isVex
  * @returns {number|null} The operand's corrected size on success, null on failure
  */
-OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
+OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex)
 {
     if(!this.matchType(operand))
         return null;
@@ -173,19 +174,20 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
     // Check that the sizes match
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
+    let defSize = isVex ? this.defVexSize : this.defSize;
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM)
     {
-        if(operand.type == OPT.MASK && this.defSize > 0)
-            return this.defSize;
+        if(operand.type == OPT.MASK && defSize > 0)
+            return defSize;
         opSize = enforcedSize;
     }
 
     if(isNaN(opSize))
     {
         // For unknown-sized operands, if possible, choose the default size
-        if(this.defSize > 0)
-            return this.defSize;
+        if(defSize > 0)
+            return defSize;
         else if(this.sizes == -2)
         {
             opSize = (prevSize & ~7) >> 1;
@@ -195,8 +197,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize)
         else // If a default size isn't available, use the previous size
             opSize = prevSize & ~7;
     }
-    else if(this.type == OPT.IMM && this.defSize > 0 && this.defSize < opSize) // Allow immediates to be downcast if necessary
-        return this.defSize;
+    else if(this.type == OPT.IMM && defSize > 0 && defSize < opSize) // Allow immediates to be downcast if necessary
+        return defSize;
 
     // For unknown-sized operand catchers, compare against the previous size
     if(this.sizes == -1)
@@ -316,6 +318,8 @@ export function Operation(format)
     this.allVectors = false;
     this.relativeSizes = null;
 
+    let halvedNonMemory = null, sizedMemory = null;
+
     for(let operand of format)
     {
         if(operand == '>') // Empty VEX operands shouldn't be counted
@@ -344,6 +348,12 @@ export function Operation(format)
                 else if(had64 && (size & ~7) > 64)
                     this.allVectors = true;
             }
+            if(opCatcher.acceptsMemory)
+                sizedMemory = opCatcher;
+        }
+        else if(opCatcher.sizes == -2 && !opCatcher.acceptsMemory)
+        {
+            halvedNonMemory = opCatcher;
         }
     }
 
@@ -353,6 +363,13 @@ export function Operation(format)
         this.vexBase |= 0x7800 |
             ([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1)
             | ([null, 0x66, 0xF3, 0xF2].indexOf(this.prefix) << 8);
+    }
+
+    // Special defaulting behavior
+    if(halvedNonMemory && sizedMemory)
+    {
+        sizedMemory.defSize = Math.max(...sizedMemory.sizes.filter(size => size < 256));
+        sizedMemory.defVexSize = Math.max(...sizedMemory.sizes);
     }
 }
 
@@ -425,7 +442,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
         catcher = opCatchers[i];
         if(size > 0 || Array.isArray(catcher.sizes))
         {
-            size = catcher.catch(operands[i], size, enforcedSize);
+            size = catcher.catch(operands[i], size, enforcedSize, vexInfo.needed);
             if(size === null)
                 return null;
         }
@@ -441,7 +458,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
     {
         if(correctedSizes[i] < 0)
         {
-            size = opCatchers[i].catch(operands[i], size, enforcedSize);
+            size = opCatchers[i].catch(operands[i], size, enforcedSize, vexInfo.needed);
             if(size === null)
                 return null;
             correctedSizes[i] = size;
