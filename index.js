@@ -11437,6 +11437,16 @@
     y: 256,
     z: 512
   };
+  var floatSuffixes = {
+    s: 32,
+    l: 64,
+    t: 80
+  };
+  var floatIntSuffixes = {
+    s: 16,
+    l: 32,
+    q: 64
+  };
   var sizeHints = {
     byte: 8,
     word: 16,
@@ -13059,7 +13069,7 @@ fdecstp:D9F6
 ffree:DD.0 F
 
 fild
-DF.0 m$w
+DF.0 mW
 DB.0 ml
 DF.5 m$q
 
@@ -13067,17 +13077,17 @@ fincstp:D9F7
 finit:9BDBE3
 
 fist
+DF.2 mW
 DB.2 ml
-DF.2 m$w
 
 fistp
+DF.3 mW
 DB.3 ml
-DF.3 m$w
 DF.7 m$q
 
 fisttp
+DF.1 mW
 DB.1 ml
-DF.1 m$w
 DD.1 m$q
 
 fld
@@ -14537,7 +14547,7 @@ g nle`.split("\n");
       for (let subOpcode of possibleOpcodes) {
         operations = [...operations, ...fetchMnemonic(subOpcode, this.syntax.intel)];
         if (!this.syntax.intel) {
-          let size = suffixes[subOpcode[subOpcode.length - 1]];
+          let size = (subOpcode[0] == "f" ? subOpcode[1] == "i" ? floatIntSuffixes : floatSuffixes : suffixes)[subOpcode[subOpcode.length - 1]];
           subOpcode = subOpcode.slice(0, -1);
           if (size !== void 0) {
             if (mnemonicExists(subOpcode, false))
