@@ -13208,8 +13208,8 @@ CC i_3b
 F1 i_1b
 CD ib
 
-int1:F1
-int3:CC
+/int1:F1
+/int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -14330,6 +14330,7 @@ xtest:0F01D6
   var mnemonics = {};
   var intelDifferences = {};
   var intelInvalids = [];
+  var attInvalids = [];
   mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach((x) => {
     lines = x.split(/[\n:]/);
     let name2 = lines.shift();
@@ -14365,9 +14366,14 @@ xtest:0F01D6
       if (name2.includes("/")) {
         let intelName;
         [name2, intelName] = name2.split("/");
-        if (intelName)
-          intelDifferences[intelName] = name2;
-        intelInvalids.push(name2);
+        if (name2) {
+          if (intelName)
+            intelDifferences[intelName] = name2;
+          intelInvalids.push(name2);
+        } else {
+          name2 = intelName;
+          attInvalids.push(name2);
+        }
       }
       mnemonics[name2] = lines;
       if (lines[0].includes("j"))
@@ -14459,7 +14465,7 @@ g nle`.split("\n");
   })));
   function mnemonicExists(opcode, intel) {
     if (mnemonics.hasOwnProperty(opcode))
-      return !intel || !intelInvalids.includes(opcode);
+      return !(intel ? intelInvalids : attInvalids).includes(opcode);
     return intel && intelDifferences.hasOwnProperty(opcode);
   }
   function fetchMnemonic(opcode, intel) {
@@ -14470,7 +14476,8 @@ g nle`.split("\n");
         opcode = intelDifferences[opcode];
       } else if (intelInvalids.includes(opcode))
         return [];
-    }
+    } else if (attInvalids.includes(opcode))
+      return [];
     if (!mnemonics.hasOwnProperty(opcode))
       return [];
     let operations = mnemonics[opcode];
