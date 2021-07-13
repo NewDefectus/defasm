@@ -178,8 +178,6 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex)
 
     if(enforcedSize > 0 && operand.type >= OPT.IMM)
     {
-        if(operand.type == OPT.MASK && defSize > 0)
-            return defSize;
         opSize = enforcedSize;
     }
 
@@ -244,7 +242,6 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex)
 export function Operation(format)
 {
     this.vexBase = 0;
-    this.maskSizing = 0;
     this.evexPermits = null;
     this.actuallyNotVex = false;
 
@@ -280,7 +277,6 @@ export function Operation(format)
     {
         this.code = parseInt(opcode.slice(3), 16);
         this.prefix = parseInt(opcode.slice(0, 2), 16);
-        this.maskSizing = 4;
     }
     else
     {
@@ -328,8 +324,6 @@ export function Operation(format)
             continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-        if(opCatcher.type == OPT.MASK && opCatcher.carrySizeInference) this.maskSizing |= 1;
-        if(opCatcher.type == OPT.REG) this.maskSizing |= 2;
         if(opCatcher.type == OPT.REL) this.relativeSizes = opCatcher.sizes;
         if(!opCatcher.vexOp || this.forceVex) this.opCatchers.push(opCatcher);
         if(this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
@@ -539,33 +533,6 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
     }
 
     vexInfo.needed = vexInfo.needed || this.forceVex;
-
-    switch(this.maskSizing)
-    {
-        case 1:
-            if(overallSize == 8 || overallSize == 32)
-                vex |= 0x100; // 66 prefix for byte or doubleword masks
-            if(overallSize > 16)
-                overallSize = 64; // W flag for doubleword or quadword masks
-            else
-                overallSize = 0;
-            adjustByteOp = false;
-            break;
-
-        case 3:
-            if(overallSize == 8)
-                vex |= 0x100; // 66 prefix for byte masks
-            if(overallSize > 16)
-                vex |= 0x300; // F2 prefix for doubleword or quadword masks
-            adjustByteOp = false;
-            break;
-
-        case 5:
-            adjustByteOp = overallSize > 16;
-            if(overallSize == 16 || overallSize == 64)
-                overallSize = 64; // W flag for word or quadword masks
-            break;
-    }
 
     if(vexInfo.needed)
     {

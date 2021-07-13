@@ -61,13 +61,28 @@ exports.run = async function()
 
         if(sizes == 0) // Size is arbitrary
             sizes = [32];
-        if(sizes == -1 && opCatchers.length == 1)
-            sizes = [32];
 
         if(prevSize === null && !Array.isArray(sizes))
         {
-            recurseOperands(opcode, opCatchers, isVex, nextI);
-            return;
+            if(nextI == 0) // We've wrapped around without finding a size, so the operation is sizeless
+            {
+                sizes = [32];
+                for(let i = 0; i < opCatchers.length; i++)
+                {
+                    if(operands[i] === undefined)
+                        operands[i] = makeOperand(opCatchers[i].type, 32, i + 1, opCatchers[i].implicitValue);
+                }
+                source += opcode + ' ' + 
+                (opcode == 'lcall' || opcode == 'ljmp' ? '*' : '')
+                +
+                operands.join(', ') + '\n';
+                return;
+            }
+            else
+            {
+                recurseOperands(opcode, opCatchers, isVex, nextI, operands);
+                return;
+            }
         }
         
         if(sizes == -1)
@@ -88,7 +103,7 @@ exports.run = async function()
             {
                 let type = forceMemory ? OPT.MEM : catcher.type;
                 let sizeSuffixOriginal = sizeSuffix;
-                if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != (isVex ? catcher.defVexSize : catcher.defSize))
+                if(type == OPT.MEM && showSuffix && size != (isVex ? catcher.defVexSize : catcher.defSize))
                 {
                     sizeSuffix = (
                         opcode[0] == 'f' ?
@@ -109,11 +124,12 @@ exports.run = async function()
                 if(total + 1 >= opCatchers.length)
                 {
                     source += opcode + sizeSuffix + ' ' +
-                    ((relativeMnemonics.includes(opcode) || opcode == 'lcall' || opcode == 'ljmp') && type != OPT.REL ? '*' : '')
+                    (relativeMnemonics.includes(opcode) && type != OPT.REL ? '*' : '')
                     + operands.join(', ') + '\n';
                 }
                 else
                     recurseOperands(opcode, opCatchers, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+
                 sizeSuffix = sizeSuffixOriginal;
             }
 
