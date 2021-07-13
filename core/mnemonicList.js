@@ -193,7 +193,7 @@ fdecstp:D9F6
 ffree:DD.0 F
 
 fild
-DF.0 m$w
+DF.0 mW
 DB.0 ml
 DF.5 m$q
 
@@ -201,17 +201,17 @@ fincstp:D9F7
 finit:9BDBE3
 
 fist
+DF.2 mW
 DB.2 ml
-DF.2 m$w
 
 fistp
+DF.3 mW
 DB.3 ml
-DF.3 m$w
 DF.7 m$q
 
 fisttp
+DF.1 mW
 DB.1 ml
-DF.1 m$w
 DD.1 m$q
 
 fld

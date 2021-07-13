@@ -12,9 +12,11 @@ exports.run = async function()
     const { execSync } = require('child_process');
     const { readFileSync, writeFileSync } = require('fs');
 
-    const { OPT, registers, suffixes } = await import("@defasm/core/operands.js");
+    const { OPT, registers, suffixes, floatSuffixes, floatIntSuffixes } = await import("@defasm/core/operands.js");
     const regNames = reverseObject(registers);
     const suffixNames = reverseObject(suffixes);
+    const floatSuffixNames = reverseObject(floatSuffixes);
+    const floatIntSuffixNames = reverseObject(floatIntSuffixes);
     suffixNames[32] = 'l';
     const vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
 
@@ -89,7 +91,14 @@ exports.run = async function()
                 let sizeSuffixOriginal = sizeSuffix;
                 if((type == OPT.MEM || type == OPT.MASK) && showSuffix && size != (isVex ? catcher.defVexSize : catcher.defSize))
                 {
-                    sizeSuffix = suffixNames[size & ~7];
+                    sizeSuffix = (
+                        opcode[0] == 'f' ?
+                            opcode[1] == 'i' ?
+                                floatIntSuffixNames
+                            :
+                                floatSuffixNames
+                        :
+                            suffixNames)[size & ~7];
                 }
                 if(!isVex && size >= 256 || (size & ~7) == 48)
                     continue;

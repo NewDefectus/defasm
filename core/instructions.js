@@ -1,6 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
+import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints, floatSuffixes, floatIntSuffixes } from "./operands.js";
 import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
 import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
@@ -102,7 +102,15 @@ export class Instruction extends Statement
             
             if(!this.syntax.intel)
             {
-                let size = suffixes[subOpcode[subOpcode.length - 1]];
+                let size = (
+                    subOpcode[0] == 'f' ?
+                        subOpcode[1] == 'i' ?
+                            floatIntSuffixes
+                        :
+                            floatSuffixes
+                    :
+                        suffixes
+                )[subOpcode[subOpcode.length - 1]];
                 subOpcode = subOpcode.slice(0, -1);
                 if(size !== undefined)
                 {

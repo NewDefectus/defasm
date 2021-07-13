@@ -38,6 +38,17 @@ export const suffixes  = {
     y: 256,
     z: 512
 };
+// FPU instructions have different suffixes
+export const floatSuffixes = {
+    s: 32,
+    l: 64,
+    t: 80
+}
+export const floatIntSuffixes = {
+    s: 16,
+    l: 32,
+    q: 64
+}
 export const sizeHints = {
     byte: 8,
     word: 16,
