@@ -273,11 +273,8 @@ export function Operation(format)
     else
         this.opDiff = 1;
 
-    if(opcode[2] == ')') // Prefix followed by ')'
-    {
-        this.code = parseInt(opcode.slice(3), 16);
-        this.prefix = parseInt(opcode.slice(0, 2), 16);
-    }
+    if(opcode.includes(')'))
+        [this.prefix, this.code] = opcode.split(')').map(x => parseInt(x, 16));
     else
     {
         this.code = parseInt(opcode, 16);

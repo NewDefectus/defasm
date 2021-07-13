@@ -71,6 +71,12 @@ export const    PREFIX_REX = 1,
 
 export var regParsePos;
 
+export var regSuffixes = {
+    b: 8,
+    w: 16,
+    d: 32
+}
+
 export function isRegister(reg)
 {
     reg = reg.toLowerCase();
@@ -79,7 +85,7 @@ export function isRegister(reg)
     if(reg[0] === 'r')
     {
         reg = reg.slice(1);
-        if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
+        if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || regSuffixes[reg[reg.length - 1]]))
             return true;
     }
     else
@@ -150,7 +156,15 @@ export function parseRegister(expectedType = null)
             throw new ParserError("Unknown register");
         type = OPT.REG;
 
-        size = suffixes[regToken[regToken.length - 1]] || 64;
+        let regLastChar = regToken[regToken.length - 1];
+        if(isNaN(regLastChar))
+        {
+            size = regSuffixes[regLastChar];
+            if(!size)
+                throw new ParserError("Unknown register");
+        }
+        else
+            size = 64;
     }
     else
     {

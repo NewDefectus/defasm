@@ -396,7 +396,11 @@ export class Instruction extends Statement
         if(op.size == 16)
             this.genByte(0x66);
         if(op.prefix !== null)
+        {
+            if(op.prefix > 0xff)
+                this.genByte(op.prefix >> 8);
             this.genByte(op.prefix);
+        }
         if(op.vex !== null)
             makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
         else
