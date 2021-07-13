@@ -11466,13 +11466,18 @@
   var PREFIX_ADDRSIZE = 4;
   var PREFIX_SEG = 8;
   var regParsePos;
+  var regSuffixes = {
+    b: 8,
+    w: 16,
+    d: 32
+  };
   function isRegister(reg) {
     reg = reg.toLowerCase();
     if (registers.hasOwnProperty(reg))
       return true;
     if (reg[0] === "r") {
       reg = reg.slice(1);
-      if (parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || suffixes[reg[reg.length - 1]]))
+      if (parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || regSuffixes[reg[reg.length - 1]]))
         return true;
     } else {
       let max = 32;
@@ -11532,7 +11537,13 @@
       if (isNaN(reg) || reg < 0 || reg >= 16)
         throw new ParserError("Unknown register");
       type = OPT.REG;
-      size = suffixes[regToken[regToken.length - 1]] || 64;
+      let regLastChar = regToken[regToken.length - 1];
+      if (isNaN(regLastChar)) {
+        size = regSuffixes[regLastChar];
+        if (!size)
+          throw new ParserError("Unknown register");
+      } else
+        size = 64;
     } else {
       let max = 32;
       if (token.startsWith("bnd"))
@@ -12574,10 +12585,9 @@
       opcode = opcode.slice(0, adderSeparator);
     } else
       this.opDiff = 1;
-    if (opcode[2] == ")") {
-      this.code = parseInt(opcode.slice(3), 16);
-      this.prefix = parseInt(opcode.slice(0, 2), 16);
-    } else {
+    if (opcode.includes(")"))
+      [this.prefix, this.code] = opcode.split(")").map((x) => parseInt(x, 16));
+    else {
       this.code = parseInt(opcode, 16);
       this.prefix = null;
     }
@@ -13358,7 +13368,7 @@ movd
 
 movddup:F2)0F12 v Vxyz > {kzw
 movdiri:0F38F9 Rlq m
-movdir64b:66)0F38F8 m Rwlq
+movdir64b:66)0F38F8 m RQ
 
 movdqa
 66)0F6F v Vxy >
@@ -13606,9 +13616,9 @@ pinsrw:0FC4 ib *rL >V Vqx {
 pmaddubsw:0F3804 v >V Vqxyz {kz
 pmaddwd:0FF5 v >V Vqxyz {kz
 
-pmaxq:66)0F383D v >V Vxyz {kzBwf
 pmaxsb:66)0F383C v >V Vxyz {kz
 pmaxsd:66)0F383D v >V Vxyz {kzb
+pmaxsq:66)0F383D v >V Vxyz {kzBwf
 pmaxsw:0FEE v >V Vqxyz {kz
 
 pmaxub:0FDE v >V Vqxyz {kz
@@ -13616,9 +13626,9 @@ pmaxud:66)0F383F v >V Vxyz {kzb
 pmaxuq:66)0F383F v >V Vxyz {kzBwf
 pmaxuw:66)0F383E v >V Vxyz {kz
 
-pminq:66)0F3839 v >V Vxyz {kzBwf
 pminsb:66)0F3838 v >V Vxyz {kz
 pminsw:0FEA v >V Vqxyz {kz
+pminsq:66)0F3839 v >V Vxyz {kzBwf
 pminsd:66)0F3839 v >V Vxyz {kzb
 
 pminub:0FDA v >V Vqxyz {kz
@@ -13883,7 +13893,7 @@ F6.0 i rbwl
 F7.0 iL rq
 84 Rbwlq r
 
-tpause:66)0FAE.6 R_0l R_2 R
+tpause:66)0FAE.6 Rl
 tzcnt:F3)0FBC r Rwlq
 
 ucomisd:66)0F2E v Vx > {sw
@@ -13892,7 +13902,11 @@ ucomiss:0F2E v Vx > {s
 ud0:0FFF rL R
 ud1:0FB9 rL R
 ud2:0F0B
-umonitor:F3)0FAE.6 Rwlq
+
+umonitor
+67F3)0FAE.6 Rl
+F3)0FAE.6 RQ
+
 umwait:F2)0FAE.6 R_0l R_2 R
 
 unpckhpd:66)0F15 v >V Vxyz {kzBw
@@ -14786,8 +14800,11 @@ g nle`.split("\n");
         this.genByte(103);
       if (op.size == 16)
         this.genByte(102);
-      if (op.prefix !== null)
+      if (op.prefix !== null) {
+        if (op.prefix > 255)
+          this.genByte(op.prefix >> 8);
         this.genByte(op.prefix);
+      }
       if (op.vex !== null)
         makeVexPrefix(op.vex, rexVal, vexInfo.evex).map((x) => this.genByte(x));
       else {
