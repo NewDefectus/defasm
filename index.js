@@ -2926,6 +2926,19 @@
     elt.dispatchEvent(up);
     return down.defaultPrevented || up.defaultPrevented;
   }
+  var _plainTextSupported = null;
+  function contentEditablePlainTextSupported() {
+    if (_plainTextSupported == null) {
+      _plainTextSupported = false;
+      let dummy = document.createElement("div");
+      try {
+        dummy.contentEditable = "plaintext-only";
+        _plainTextSupported = dummy.contentEditable == "plaintext-only";
+      } catch (_) {
+      }
+    }
+    return _plainTextSupported;
+  }
   var DOMPos = class {
     constructor(node, offset, precise = true) {
       this.node = node;
@@ -6792,7 +6805,6 @@
       display: "block",
       whiteSpace: "pre",
       wordWrap: "normal",
-      WebkitUserModify: "read-write-plaintext-only",
       boxSizing: "border-box",
       padding: "4px 0",
       outline: "none"
@@ -7574,7 +7586,7 @@
         spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
-        contenteditable: String(this.state.facet(editable)),
+        contenteditable: !this.state.facet(editable) ? "false" : contentEditablePlainTextSupported() ? "plaintext-only" : "true",
         class: "cm-content",
         style: `${browser.tabSize}: ${this.state.tabSize}`,
         role: "textbox",
@@ -11473,7 +11485,8 @@
     return false;
   }
   function parseRegister(expectedType = null) {
-    let reg = registers[(currSyntax.prefix ? next() : token).toLowerCase()];
+    let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
+    let reg = registers[regToken];
     let size = 0, type = -1, prefs = 0;
     if (reg >= registers.al && reg <= registers.rdi) {
       type = OPT.REG;
@@ -11505,32 +11518,32 @@
       size = 8;
       prefs |= PREFIX_REX;
       reg -= registers.spl - 4;
-    } else if (token[0] == "r") {
-      reg = parseInt(token.slice(1));
+    } else if (regToken[0] == "r") {
+      reg = parseInt(regToken.slice(1));
       if (isNaN(reg) || reg < 0 || reg >= 16)
         throw new ParserError("Unknown register");
       type = OPT.REG;
-      size = suffixes[token[token.length - 1]] || 64;
+      size = suffixes[regToken[regToken.length - 1]] || 64;
     } else {
       let max = 32;
       if (token.startsWith("bnd"))
-        reg = token.slice(3), type = OPT.BND, max = 4;
-      else if (token[0] == "k")
-        reg = token.slice(1), type = OPT.MASK, max = 8, size = NaN;
-      else if (token.startsWith("dr"))
-        reg = token.slice(2), type = OPT.DBG, max = 8;
-      else if (token.startsWith("cr"))
-        reg = token.slice(2), type = OPT.CTRL, max = 9;
+        reg = regToken.slice(3), type = OPT.BND, max = 4;
+      else if (regToken[0] == "k")
+        reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
+      else if (regToken.startsWith("dr"))
+        reg = regToken.slice(2), type = OPT.DBG, max = 8;
+      else if (regToken.startsWith("cr"))
+        reg = regToken.slice(2), type = OPT.CTRL, max = 9;
       else {
         type = OPT.VEC;
-        if (token.startsWith("mm"))
-          reg = token.slice(2), size = 64, max = 8;
-        else if (token.startsWith("xmm"))
-          reg = token.slice(3), size = 128;
-        else if (token.startsWith("ymm"))
-          reg = token.slice(3), size = 256;
-        else if (token.startsWith("zmm"))
-          reg = token.slice(3), size = 512;
+        if (regToken.startsWith("mm"))
+          reg = regToken.slice(2), size = 64, max = 8;
+        else if (regToken.startsWith("xmm"))
+          reg = regToken.slice(3), size = 128;
+        else if (regToken.startsWith("ymm"))
+          reg = regToken.slice(3), size = 256;
+        else if (regToken.startsWith("zmm"))
+          reg = regToken.slice(3), size = 512;
         else
           throw new ParserError("Unknown register");
       }
@@ -12366,8 +12379,7 @@
   };
   var sizers = Object.assign({ f: 48 }, suffixes);
   var opCatcherCache = {};
-  var SIZETYPE_EXPLICITSUF = 1;
-  var SIZETYPE_IMPLICITENC = 2;
+  var SIZETYPE_IMPLICITENC = 1;
   var EVEXPERM_MASK = 1;
   var EVEXPERM_ZEROING = 2;
   var EVEXPERM_BROADCAST_32 = 4;
@@ -12415,8 +12427,6 @@
       defaultSize = false;
       size = 0;
       sizeChar = format[i];
-      if (sizeChar == "~")
-        size |= SIZETYPE_EXPLICITSUF, sizeChar = format[++i];
       if (sizeChar == "$")
         size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
       if (sizeChar == "#")
@@ -12454,7 +12464,7 @@
       this.implicitValue = parseInt(format[2]);
       i = 3;
     }
-    this.defSize = -1;
+    this.defSize = this.defVexSize = -1;
     if (format[i] == "!") {
       this.sizes = 0;
       this.hasByteSize = false;
@@ -12462,7 +12472,7 @@
       this.sizes = -2;
       this.hasByteSize = false;
     } else {
-      this.sizes = getSizes(format.slice(i), (size) => this.defSize = size);
+      this.sizes = getSizes(format.slice(i), (size) => this.defSize = this.defVexSize = size);
       this.hasByteSize = this.sizes.some((x) => (x & 8) === 8);
     }
     if (this.sizes.length == 0) {
@@ -12482,27 +12492,28 @@
     }
     return true;
   };
-  OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize) {
+  OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex) {
     if (!this.matchType(operand))
       return null;
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
+    let defSize = isVex ? this.defVexSize : this.defSize;
     if (enforcedSize > 0 && operand.type >= OPT.IMM) {
-      if (operand.type == OPT.MASK && this.defSize > 0)
-        return this.defSize;
+      if (operand.type == OPT.MASK && defSize > 0)
+        return defSize;
       opSize = enforcedSize;
     }
     if (isNaN(opSize)) {
-      if (this.defSize > 0)
-        return this.defSize;
+      if (defSize > 0)
+        return defSize;
       else if (this.sizes == -2) {
         opSize = (prevSize & ~7) >> 1;
         if (opSize < 128)
           opSize = 128;
       } else
         opSize = prevSize & ~7;
-    } else if (this.type == OPT.IMM && this.defSize > 0 && this.defSize < opSize)
-      return this.defSize;
+    } else if (this.type == OPT.IMM && defSize > 0 && defSize < opSize)
+      return defSize;
     if (this.sizes == -1) {
       rawSize = prevSize & ~7;
       if (opSize == rawSize || operand.type == OPT.IMM && opSize < rawSize)
@@ -12521,10 +12532,8 @@
       for (size of this.sizes) {
         rawSize = size & ~7;
         if (opSize == rawSize || (this.type == OPT.IMM || this.type == OPT.REL) && opSize < rawSize) {
-          if (!(size & SIZETYPE_EXPLICITSUF) || enforcedSize == rawSize) {
-            found = true;
-            break;
-          }
+          found = true;
+          break;
         }
       }
       if (!found)
@@ -12586,6 +12595,7 @@
     let opCatcher;
     this.allVectors = false;
     this.relativeSizes = null;
+    let halvedNonMemory = null, sizedMemory = null;
     for (let operand of format) {
       if (operand == ">")
         continue;
@@ -12614,10 +12624,18 @@
           else if (had64 && (size & ~7) > 64)
             this.allVectors = true;
         }
+        if (opCatcher.acceptsMemory)
+          sizedMemory = opCatcher;
+      } else if (opCatcher.sizes == -2 && !opCatcher.acceptsMemory) {
+        halvedNonMemory = opCatcher;
       }
     }
     if (this.allowVex || this.forceVex) {
       this.vexBase |= 30720 | [15, 3896, 3898].indexOf(this.code >> 8) + 1 | [null, 102, 243, 242].indexOf(this.prefix) << 8;
+    }
+    if (halvedNonMemory && sizedMemory) {
+      sizedMemory.defSize = Math.max(...sizedMemory.sizes.filter((size) => size < 256));
+      sizedMemory.defVexSize = Math.max(...sizedMemory.sizes);
     }
   }
   Operation.prototype.validateVEX = function(vexInfo) {
@@ -12651,7 +12669,7 @@
     for (i = 0; i < operands.length; i++) {
       catcher = opCatchers[i];
       if (size > 0 || Array.isArray(catcher.sizes)) {
-        size = catcher.catch(operands[i], size, enforcedSize);
+        size = catcher.catch(operands[i], size, enforcedSize, vexInfo.needed);
         if (size === null)
           return null;
       }
@@ -12662,7 +12680,7 @@
     }
     for (i = 0; i < operands.length; i++) {
       if (correctedSizes[i] < 0) {
-        size = opCatchers[i].catch(operands[i], size, enforcedSize);
+        size = opCatchers[i].catch(operands[i], size, enforcedSize, vexInfo.needed);
         if (size === null)
           return null;
         correctedSizes[i] = size;
@@ -12978,9 +12996,9 @@ F2)0F38F0 rbq Rq
 
 cvtdq2pd:F3)0FE6 v/ Vxyz > {kzb
 cvtdq2ps:0F5B v Vxyz > {kzbr
-cvtpd2dq:F2)0FE6 vXyz V/ > {kzBrw
+cvtpd2dq:F2)0FE6 vxyz V/ > {kzBrw
 cvtpd2pi:66)0F2D vX VQ
-cvtpd2ps:66)0F5A vXyz V/ > {kzBrw
+cvtpd2ps:66)0F5A vxyz V/ > {kzBrw
 cvtpi2pd:66)0F2A vQ Vx
 cvtpi2ps:0F2A vQ Vx
 cvtps2dq:66)0F5B v Vxyz > {kzbr
@@ -12992,7 +13010,7 @@ cvtsi2sd:F2)0F2A rlq >Vx Vx {r
 cvtsi2ss:F3)0F2A rlq >Vx Vx {r
 cvtss2sd:F3)0F5A v >Vx Vx {kzs
 cvtss2si:F3)0F2D v#x Rlq > {r
-cvttpd2dq:66)0FE6 vXyz V/ > {kzBsw
+cvttpd2dq:66)0FE6 vxyz V/ > {kzBsw
 cvttpd2pi:66)0F2C vX VQ
 cvttps2dq:F3)0F5B v Vxyz > {kzbs
 cvttps2pi:0F2C vX VQ
@@ -13173,7 +13191,8 @@ E4 ib R_0bwl
 EC R_2W R_0bwl
 
 inc:FE.0 rbwlq
-incssp:F3)0FAE.5 R~l~q
+incsspd:F3)0FAE.5 Rl
+incsspq:F3)0FAE.5 Rq
 ins{bwd:6C
 insertps:66)0F3A21 ib v >V Vx {
 
@@ -13740,7 +13759,8 @@ rdpkru:0F01EE
 rdpmc:0F33
 rdrand:0FC7.6 Rwlq
 rdseed:0FC7.7 Rwlq
-rdssp:F3)0F1E.1 R~l~q
+rdsspd:F3)0F1E.1 Rl
+rdsspq:F3)0F1E.1 Rq
 rdtsc:0F31
 rdtscp:0F01F9
 
@@ -14264,8 +14284,10 @@ wrfsbase:F3)0FAE.2 Rlq
 wrgsbase:F3)0FAE.3 Rlq
 wrmsr:0F30
 wrpkru:0F01EF
-wrss:0F38F6 R~l~q r
-wruss:66)0F38F5 R~l~q r
+wrssd:0F38F6 Rl r
+wrssq:0F38F6 Rq r
+wrussd:66)0F38F5 Rl r
+wrussq:66)0F38F5 Rq r
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
 xbegin:C7F8 jwl
