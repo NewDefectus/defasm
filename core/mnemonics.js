@@ -303,22 +303,20 @@ export function Operation(format)
         this.modExtension = extension[1] ? parseInt(extension[1]) : null;
     }
 
+    this.allVectors = false;
+    this.relativeSizes = null;
+    this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
+    this.vexOpCatchers = this.allowVex ? [] : null;
+    this.maxSize = 0;
+
     // What follows is a list of operand specifiers
     /** @type { OpCatcher[] } */
     this.opCatchers = [];
     if(format.length == 0)
         return;
-    this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
     /** @type { OpCatcher[] } */
-    this.vexOpCatchers = this.allowVex ? [] : null;
-    this.maxSize = 0;
 
-    let opCatcher;
-    
-    this.allVectors = false;
-    this.relativeSizes = null;
-
-    let halvedNonMemory = null, sizedMemory = null;
+    let opCatcher, halvedNonMemory = null, sizedMemory = null;
 
     for(let operand of format)
     {

@@ -31,7 +31,6 @@ export const suffixes  = {
     b: 8,
     w: 16,
     l: 32,
-    d: 32,
     q: 64,
     t: 80,
     x: 128,

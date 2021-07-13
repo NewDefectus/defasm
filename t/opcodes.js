@@ -17,7 +17,6 @@ exports.run = async function()
     const suffixNames = reverseObject(suffixes);
     const floatSuffixNames = reverseObject(floatSuffixes);
     const floatIntSuffixNames = reverseObject(floatIntSuffixes);
-    suffixNames[32] = 'l';
     const vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
 
     function makeOperand(type, size, index, value = null)

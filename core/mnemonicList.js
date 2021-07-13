@@ -104,10 +104,9 @@ cmpps
 0FC2 ib v >V Vxy
 0FC2 ib v >Vxyz *KB {kbsf
 
-cmps{bwq:A6
+cmps{bwlq:A6
 
 cmpsd
-A7
 F2)0FC2 ib v >V Vx
 F2)0FC2 ib v >Vx *KB {ksfw
 
@@ -327,7 +326,7 @@ EC R_2W R_0bwl
 inc:FE.0 rbwlq
 incsspd:F3)0FAE.5 Rl
 incsspq:F3)0FAE.5 Rq
-ins{bwd:6C
+ins{bwl:6C
 insertps:66)0F3A21 ib v >V Vx {
 
 int
@@ -340,7 +339,7 @@ int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
-iret{wDq:CF
+iret{wLq:CF
 jecxz:67)E3 jb
 
 jmp
@@ -389,7 +388,7 @@ lfs:0FB4 m Rwlq
 lgs:0FB5 m Rwlq
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
-lods{bwdq:AC
+lods{bwlq:AC
 loop:E2 jb
 loope:E1 jb
 loopne:E0 jb
@@ -534,10 +533,9 @@ F3)0F7E v Vx > {w
 66)0FD6 Vx v > {w
 
 movq2dq:F3)0FD6 ^VQ Vx
-movs{bwq:A4
+movs{bwlq:A4
 
 movsd
-A5
 F2)0F10 ^Vx >V V {kzw
 F2)0F10 m Vx > {kzw
 F2)0F11 Vx m > {kw
@@ -592,7 +590,7 @@ out
 E6 R_0bwl ib
 EE R_0bwl R_2W
 
-outs{bwd:6E
+outs{bwl:6E
 
 pabsb:0F381C v Vqxyz > {kz
 pabsd:0F381E v Vqxyz > {kzb
@@ -920,7 +918,7 @@ sahf:9E
 sal:#shl
 sarx:V F3)0F38F7 >Rlq r R
 saveprevssp:F3)0F01EA.52
-scas{bwdq:AE
+scas{bwlq:AE
 setssbsy:F3)0F01E8
 sfence:0FAEF8
 sgdt:0F01.0 m
@@ -961,7 +959,7 @@ stc:F9
 std:FD
 sti:FB
 stmxcsr:0FAE.3 m >
-stos{bwdq:AA
+stos{bwlq:AA
 str:0F00.1 rwLq
 
 subpd:66)0F5C v >V Vxyz {kzrBw
@@ -972,8 +970,8 @@ subss:F3)0F5C v >V Vx {kzr
 swapgs:0F01F8
 syscall:0F05
 sysenter:0F34
-sysexit{Dq:0F35
-sysret{Dq:0F07
+sysexit{Lq:0F35
+sysret{Lq:0F07
 
 test
 A8 i R_0bwl
@@ -1489,8 +1487,10 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
                         mnemonics[fullName] = ['66)' + lines[0]];
                         break;
                     
-                    case 'd':
+                    case 'l':
                         mnemonics[fullName] = [higherOpcode];
+                        intelDifferences[name + 'd'] = fullName;
+                        intelInvalids.push(fullName);
                         break;
 
                     case 'q':
@@ -1641,7 +1641,13 @@ export function fetchMnemonic(opcode, intel)
     if(intel)
     {
         if(intelDifferences.hasOwnProperty(opcode))
+        {
+            // For situations such as cmpsd having two different interpretations in Intel syntax
+            if(mnemonics.hasOwnProperty(opcode))
+                return [...fetchMnemonic(intelDifferences[opcode], false), ...fetchMnemonic(opcode, false)];
+                
             opcode = intelDifferences[opcode];
+        }
         else if(intelInvalids.includes(opcode))
             return [];
     }
