@@ -334,8 +334,8 @@ CC i_3b
 F1 i_1b
 CD ib
 
-int1:F1
-int3:CC
+/int1:F1
+/int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -1458,7 +1458,7 @@ export var relativeMnemonics = [];
 /** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
 export var mnemonics = {};
-var intelDifferences = {}, intelInvalids = [];
+var intelDifferences = {}, intelInvalids = [], attInvalids = [];
 mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     lines = x.split(/[\n:]/);
     let name = lines.shift();
@@ -1506,9 +1506,17 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
         {
             let intelName;
             [name, intelName] = name.split('/');
-            if(intelName)
-                intelDifferences[intelName] = name;
-            intelInvalids.push(name);
+            if(name)
+            {
+                if(intelName)
+                    intelDifferences[intelName] = name;
+                intelInvalids.push(name);
+            }
+            else
+            {
+                name = intelName;
+                attInvalids.push(name);
+            }
         }
         mnemonics[name] = lines;
         if(lines[0].includes('j'))
@@ -1630,7 +1638,7 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
 export function mnemonicExists(opcode, intel)
 {
     if(mnemonics.hasOwnProperty(opcode))
-        return !intel || !intelInvalids.includes(opcode);
+        return !(intel ? intelInvalids : attInvalids).includes(opcode);
 
     return intel && intelDifferences.hasOwnProperty(opcode);
 }
@@ -1651,6 +1659,8 @@ export function fetchMnemonic(opcode, intel)
         else if(intelInvalids.includes(opcode))
             return [];
     }
+    else if(attInvalids.includes(opcode))
+        return [];
     if(!mnemonics.hasOwnProperty(opcode))
         return [];
     let operations = mnemonics[opcode];

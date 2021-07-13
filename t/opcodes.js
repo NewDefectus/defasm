@@ -7,7 +7,7 @@ const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[o
 exports.run = async function()
 {
     const { AssemblyState } = await import("@defasm/core");
-    const { mnemonics, fetchMnemonic, relativeMnemonics } = await import("@defasm/core/mnemonicList.js");
+    const { mnemonics, fetchMnemonic, relativeMnemonics, mnemonicExists } = await import("@defasm/core/mnemonicList.js");
     const { EVEXPERM_FORCE } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
     const { readFileSync, writeFileSync } = require('fs');
@@ -141,12 +141,12 @@ exports.run = async function()
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
     {
+        if(!mnemonicExists(opcode, false))
+            continue;
         let ops = fetchMnemonic(opcode, false);
 
         for(let operation of ops)
-        {
-            sampleOperation(opcode, operation) + '\n\n';
-        }
+            sampleOperation(opcode, operation);
     }
     
     writeFileSync("allOpcodeTestSource.s", source);
