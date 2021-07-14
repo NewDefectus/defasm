@@ -34,6 +34,7 @@ const EVEXPERM_SAE = 16;
 const EVEXPERM_ROUNDING = 32;
 const EVEXPERM_FORCEW = 64;
 export const EVEXPERM_FORCE = 128;
+export const EVEXPERM_FORCE_MASK = 256;
 
 function parseEvexPermits(string)
 {
@@ -43,6 +44,7 @@ function parseEvexPermits(string)
         switch(c)
         {
             case 'k': permits |= EVEXPERM_MASK; break;
+            case 'K': permits |= EVEXPERM_FORCE_MASK | EVEXPERM_MASK; break;
             case 'z': permits |= EVEXPERM_ZEROING; break;
             case 'b': permits |= EVEXPERM_BROADCAST_32; break;
             case 'B': permits |= EVEXPERM_BROADCAST_64; break;
@@ -55,28 +57,29 @@ function parseEvexPermits(string)
     return permits;
 }
 
-function getSizes(format, defaultCatcher = null)
+function getSizes(format)
 {
-    let sizes = [], size, defaultSize, sizeChar;
+    let sizes = { list: [] };
     for(let i = 0; i < format.length; i++)
     {
-        defaultSize = false;
-        size = 0;
-        sizeChar = format[i];
+        let defaultSize = false, defaultVexSize = false, size = 0, sizeChar = format[i];
         if(sizeChar == '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
         if(sizeChar == '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
             defaultSize = true, sizeChar = format[++i];
+        if(sizeChar == '~') // ~ prefix means the same as # but for VEX mode only
+            defaultVexSize = true, sizeChar = format[++i];
 
         if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
             defaultSize = true, size |= sizers[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
         else
             size |= sizers[sizeChar];
         
+        sizes.list.push(size);
         if(defaultSize)
-            defaultCatcher(size);    
-        
-        sizes.push(size);
+            sizes.def = size;
+        if(defaultVexSize)
+            sizes.defVex = size;
     }
     return sizes;
 }
@@ -130,7 +133,12 @@ function OpCatcher(format)
     }
     else
     {
-        this.sizes = getSizes(format.slice(i), size => this.defSize = this.defVexSize = size);
+        let sizeData = getSizes(format.slice(i));
+        this.sizes = sizeData.list;
+        if(sizeData.def)
+            this.defSize = this.defVexSize = sizeData.def;
+        if(sizeData.defVex)
+            this.defVexSize = sizeData.defVex;
         this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
     }
 
@@ -299,17 +307,18 @@ export function Operation(format)
     this.allVectors = false;
     this.relativeSizes = null;
     this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
-    this.vexOpCatchers = this.allowVex ? [] : null;
     this.maxSize = 0;
+
+    /** @type { OpCatcher[] } */
+    this.vexOpCatchers = this.allowVex ? [] : null;
 
     // What follows is a list of operand specifiers
     /** @type { OpCatcher[] } */
     this.opCatchers = [];
     if(format.length == 0)
         return;
-    /** @type { OpCatcher[] } */
 
-    let opCatcher, halvedNonMemory = null, sizedMemory = null;
+    let opCatcher;
 
     for(let operand of format)
     {
@@ -337,12 +346,6 @@ export function Operation(format)
                 else if(had64 && (size & ~7) > 64)
                     this.allVectors = true;
             }
-            if(opCatcher.acceptsMemory)
-                sizedMemory = opCatcher;
-        }
-        else if(opCatcher.sizes == -2 && !opCatcher.acceptsMemory)
-        {
-            halvedNonMemory = opCatcher;
         }
     }
 
@@ -352,13 +355,6 @@ export function Operation(format)
         this.vexBase |= 0x7800 |
             ([0x0F, 0x0F38, 0x0F3A].indexOf(this.code >> 8) + 1)
             | ([null, 0x66, 0xF3, 0xF2].indexOf(this.prefix) << 8);
-    }
-
-    // Special defaulting behavior
-    if(halvedNonMemory && sizedMemory)
-    {
-        sizedMemory.defSize = Math.max(...sizedMemory.sizes.filter(size => size < 256));
-        sizedMemory.defVexSize = Math.max(...sizedMemory.sizes);
     }
 }
 
@@ -387,6 +383,9 @@ Operation.prototype.validateVEX = function(vexInfo)
     }
     else if(this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
         return false;
+    
+    if((this.evexPermits & EVEXPERM_FORCE_MASK) && vexInfo.mask == 0)
+        throw new ParserError("Must use a mask for this instruction");
     return true;
 }
 

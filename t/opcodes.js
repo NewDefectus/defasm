@@ -1,5 +1,5 @@
+#!/usr/bin/env node
 "use strict";
-
 // All opcodes test
 
 const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})))
@@ -8,7 +8,7 @@ exports.run = async function()
 {
     const { AssemblyState } = await import("@defasm/core");
     const { mnemonics, fetchMnemonic, relativeMnemonics, mnemonicExists } = await import("@defasm/core/mnemonicList.js");
-    const { EVEXPERM_FORCE } = await import("@defasm/core/mnemonics.js");
+    const { EVEXPERM_FORCE, EVEXPERM_FORCE_MASK } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
     const { readFileSync, writeFileSync } = require('fs');
 
@@ -45,8 +45,9 @@ exports.run = async function()
 
     let source = "";
 
-    function recurseOperands(opcode, opCatchers, isVex, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
+    function recurseOperands(opcode, operation, isVex, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
     {
+        let opCatchers = isVex ? operation.vexOpCatchers : operation.opCatchers;
         if(opCatchers.length == 0)
         {
             source += opcode + '\n';
@@ -80,7 +81,7 @@ exports.run = async function()
             }
             else
             {
-                recurseOperands(opcode, opCatchers, isVex, nextI, operands);
+                recurseOperands(opcode, operation, isVex, nextI, operands);
                 return;
             }
         }
@@ -125,10 +126,12 @@ exports.run = async function()
                 {
                     source += opcode + sizeSuffix + ' ' +
                     (relativeMnemonics.includes(opcode) && type != OPT.REL ? '*' : '')
-                    + operands.join(', ') + '\n';
+                    + operands.join(', ') 
+                    + (operation.evexPermits & EVEXPERM_FORCE_MASK ? ' {%k1}' : '')
+                    + '\n';
                 }
                 else
-                    recurseOperands(opcode, opCatchers, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+                    recurseOperands(opcode, operation, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
 
                 sizeSuffix = sizeSuffixOriginal;
             }
@@ -145,19 +148,19 @@ exports.run = async function()
     {
         if(!(operation.vexOnly || operation.evexPermits & EVEXPERM_FORCE || opcode[0] == 'v' && !operation.actuallyNotVex))
         {
-            recurseOperands(opcode, operation.opCatchers, false);
+            recurseOperands(opcode, operation, false);
         }
 
         if(operation.allowVex || operation.vexOnly)
         {
-            recurseOperands(opcode[0] == 'v' ? opcode : 'v' + opcode, operation.vexOpCatchers, true);
+            recurseOperands(opcode[0] == 'v' ? opcode : 'v' + opcode, operation, true);
         }
     }
 
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
     {
-        if(!mnemonicExists(opcode, false))
+        if(!mnemonicExists(opcode, false) || opcode.startsWith('sysexit'))
             continue;
         let ops = fetchMnemonic(opcode, false);
 
@@ -172,7 +175,7 @@ exports.run = async function()
 
     /*
     // Assembling the code with GAS and comparing the results
-    execSync("as -o /tmp/opcodeTest.o", {
+    execSync("as -W -o /tmp/opcodeTest.o", {
         input: ".globl _start\n_start:\n" + source
     });
 

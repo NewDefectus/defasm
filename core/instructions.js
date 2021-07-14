@@ -204,7 +204,7 @@ export class Instruction extends Statement
                 vexInfo.evex = true;
                 if(this.syntax.prefix ? next() == '%' : next()[0] == 'k') // Opmask
                 {
-                    vexInfo.mask = parseRegister([OPT.MASK])[0];
+                    vexInfo.mask = parseRegister([OPT.MASK]).reg;
                     if((vexInfo.mask & 7) == 0)
                         throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
                 }
