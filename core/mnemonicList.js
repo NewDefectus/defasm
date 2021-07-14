@@ -486,9 +486,9 @@ C7.0 Il Rq
 C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
-8C s ^Rwlq
+8C s ^RwlQ
 8C s mW
-8E ^RWlq s
+8E ^RWlQ s
 8E mW s
 0F20 C ^RQ
 0F21 D ^RQ

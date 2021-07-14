@@ -84,7 +84,7 @@ function getSizes(format)
     return sizes;
 }
 
-/**  Operand catchers
+/** Operand catchers
  * @param {string} format 
  */
 function OpCatcher(format)
@@ -170,11 +170,10 @@ OpCatcher.prototype.matchType = function(operand)
 /** Attempt to "catch" a given operand.
  * @param {Operand} operand
  * @param {number} prevSize
- * @param {number} enforcedSize
  * @param {boolean} isVex
  * @returns {number|null} The operand's corrected size on success, null on failure
  */
-OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex)
+OpCatcher.prototype.catch = function(operand, prevSize, isVex)
 {
     if(!this.matchType(operand))
         return null;
@@ -183,11 +182,6 @@ OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex)
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     let defSize = isVex ? this.defVexSize : this.defSize;
-
-    if(enforcedSize > 0 && operand.type >= OPT.IMM)
-    {
-        opSize = enforcedSize;
-    }
 
     if(isNaN(opSize))
     {
@@ -403,10 +397,9 @@ Operation.prototype.validateVEX = function(vexInfo)
 /** Attempt to fit the operand list into the operation
  * @param {Operand[]} operands
  * @param {Instruction} instr
- * @param {number} enforcedSize
  * @param {vexData} vexInfo
  */
-Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
+Operation.prototype.fit = function(operands, instr, vexInfo)
 {
     if(!this.validateVEX(vexInfo))
         return null;
@@ -417,7 +410,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
     {
         if(!(operands.length == 1 && operands[0].type == OPT.REL))
             return null;
-        this.generateRelative(operands[0], instr, enforcedSize);
+        this.generateRelative(operands[0], instr);
     }
 
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
@@ -430,7 +423,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
         catcher = opCatchers[i];
         if(size > 0 || Array.isArray(catcher.sizes))
         {
-            size = catcher.catch(operands[i], size, enforcedSize, vexInfo.needed);
+            size = catcher.catch(operands[i], size, vexInfo.needed);
             if(size === null)
                 return null;
         }
@@ -446,7 +439,7 @@ Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo)
     {
         if(correctedSizes[i] < 0)
         {
-            size = opCatchers[i].catch(operands[i], size, enforcedSize, vexInfo.needed);
+            size = opCatchers[i].catch(operands[i], size, vexInfo.needed);
             if(size === null)
                 return null;
             correctedSizes[i] = size;
@@ -602,7 +595,7 @@ const absolute = x => x < 0n ? ~x : x;
 
 
 /* Predict a fitting value and size for a given relative operand */
-Operation.prototype.generateRelative = function(operand, instr, enforcedSize)
+Operation.prototype.generateRelative = function(operand, instr)
 {
     let target = operand.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
@@ -610,8 +603,6 @@ Operation.prototype.generateRelative = function(operand, instr, enforcedSize)
     if(this.relativeSizes.length == 1)
     {
         let size = this.relativeSizes[0];
-        if(enforcedSize && enforcedSize != size)
-            throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
         operand.size = size;
         operand.virtualValue = target - sizeLen(size);
         if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
@@ -623,19 +614,7 @@ Operation.prototype.generateRelative = function(operand, instr, enforcedSize)
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
 
-    if(enforcedSize == small)
-    {
-        operand.size = small;
-        operand.virtualValue = target - smallLen;
-    }
-    else if(enforcedSize == large)
-    {
-        operand.size = large;
-            operand.virtualValue = target - largeLen;
-    }
-    else if(enforcedSize != 0)
-        throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
-    else if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false))
+    if(absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false))
     {
         if(small != operand.size && operand.sizeAllowed(small, false))
         {

@@ -319,9 +319,12 @@ export class Instruction extends Statement
             if(operation.size !== undefined)
             {
                 enforcedSize = operation.size;
+                for(let operand of operands)
+                    if(operand.type == OPT.MEM || operand.type == OPT.REL)
+                        operand.size = enforcedSize;
                 continue;
             }
-            op = operation.fit(operands, this, enforcedSize, vexInfo);
+            op = operation.fit(operands, this, vexInfo);
             if(op !== null)
             {
                 found = true;
