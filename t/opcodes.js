@@ -157,6 +157,18 @@ exports.run = async function()
         }
     }
 
+    function gassemble(source)
+    {
+        execSync("as -W -o /tmp/opcodeTest.o", {
+            input: ".globl _start\n_start:\n" + source
+        });
+
+        execSync("ld --oformat binary -o /tmp/opcodeTest /tmp/opcodeTest.o");
+        return readFileSync("/tmp/opcodeTest");
+    }
+
+    const hex = bytes => [...bytes].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
+
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
     {
@@ -167,25 +179,38 @@ exports.run = async function()
         for(let operation of ops)
             sampleOperation(opcode, operation);
     }
-    
-    writeFileSync("allOpcodeTestSource.s", source);
 
     let state = new AssemblyState();
     state.compile(source, { haltOnError: true });
 
-    /*
-    // Assembling the code with GAS and comparing the results
-    execSync("as -W -o /tmp/opcodeTest.o", {
-        input: ".globl _start\n_start:\n" + source
-    });
-
-    execSync("ld --oformat binary -o /tmp/opcodeTest /tmp/opcodeTest.o");
-    let asOutput = readFileSync("/tmp/opcodeTest");
-
+    let asOutput = gassemble(source);
     if(!asOutput.equals(state.dump()))
     {
-        throw "Incorrect";
-    }*/
+        let cmpPtr = 0, discrepancies = [];
+        for(let i = 0; i < state.instructions.length; i++)
+        {
+            let instr = state.instructions[i][0];
+            if(!instr)
+                continue;
+            if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0)
+            {
+                let code = state.source[i];
+                let correctOutput = gassemble(code);
+
+                discrepancies.push(`- '${
+                    code
+                }' compiles to ${
+                    hex(instr.bytes.slice(0, instr.length))
+                }, should be ${
+                    hex(correctOutput)
+                }`);
+                cmpPtr += correctOutput.length;
+            }
+            else
+                cmpPtr += instr.length;
+        }
+        throw "Discrepancies detected:\n" + discrepancies.join('\n');
+    }
 }
 
 if(require.main === module)
