@@ -331,11 +331,10 @@ insertps:66)0F3A21 ib v >V Vx {
 
 int
 CC i_3b
-F1 i_1b
 CD ib
 
-/int1:F1
-/int3:CC
+int1:F1
+int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -1003,7 +1002,10 @@ shufpd:66)0FC6 ib v >V Vxyz {kzBw
 shufps:0FC6 ib v >V Vxyz {kzb
 
 sidt:0F01.1 m
-sldt:0F00.0 rW
+
+sldt
+0F00.0 Rwl$q
+0F00.0 mW
 
 smsw
 0F01.4 Rwlq
@@ -1671,7 +1673,6 @@ fpuArithMnemonics.split(' ').forEach((name, i) => {
     else
     {
         list.push("D8." + i + " F F_0");
-        if(i >= 4) i ^= 1;
         list.push("DC." + i + " F_0 F");
         mnemonics['f' + name + 'p'] = ["DE." + i + " F_0 F", hex(0xDEC1 + i * 8)];
     }

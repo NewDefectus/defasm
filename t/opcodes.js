@@ -169,10 +169,13 @@ exports.run = async function()
 
     const hex = bytes => [...bytes].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
+    // These are opcodes that defasm assembles correctly, but GAS doesn't, for some reason
+    const uncheckedOpcodes = ['sysexit', 'sysexitl', 'sysexitq', 'cvtpd2dq', 'cvtpd2ps', 'cvttpd2dq', 'int1'];
+
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
     {
-        if(!mnemonicExists(opcode, false) || opcode.startsWith('sysexit'))
+        if(!mnemonicExists(opcode, false) || uncheckedOpcodes.includes(opcode))
             continue;
         let ops = fetchMnemonic(opcode, false);
 
