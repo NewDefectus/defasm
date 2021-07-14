@@ -256,16 +256,16 @@ export function Operation(format)
     // Interpreting the opcode
     this.vexOnly = format[0][0] == 'v';
     this.forceVex = format[0][0] == 'V';
-    if(this.vexOnly || this.forceVex)
+    if("vVwl!".includes(format[0][0]))
     {
-        if(format[0].includes('w')) this.vexBase |= 0x8000;
-        if(format[0].includes('l')) this.vexBase |= 0x400;
-        if(format[0].includes('!'))
+        let specializers = format.shift();
+        if(specializers.includes('w')) this.vexBase |= 0x8000;
+        if(specializers.includes('l')) this.vexBase |= 0x400;
+        if(specializers.includes('!'))
         {
             this.actuallyNotVex = true; // For non-VEX instructions starting with V
             this.vexOnly = this.forceVex = false;
         }
-        format.shift();
     }
     let [opcode, extension] = format.shift().split('.');
 

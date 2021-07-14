@@ -43,7 +43,7 @@ v 66)0F3A4A <Vxy v >V V
 blsi:V 0F38F3.3 r >Rlq
 blsmsk:V 0F38F3.2 r >Rlq
 blsr:V 0F38F3.1 r >Rlq
-bndcl:V F3)0F1A rQ B
+bndcl:F3)0F1A rQ B
 bndcn:F2)0F1B rQ B
 bndcu:F2)0F1A rQ B
 bndldx:0F1A m B
@@ -74,7 +74,7 @@ bts
 0FAB Rwlq r
 0FBA.5 iB rwlq
 
-bzhi:V 0F38F5 Rlq r >R
+bzhi:V 0F38F5 >Rlq r R
 
 call
 E8 jl
@@ -148,7 +148,7 @@ cvttpd2pi:66)0F2C vX VQ
 cvttps2dq:F3)0F5B v Vxyz > {kzbs
 cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
-cvtss2si:F3)0F2C v#x Rlq > {s
+cvttss2si:F3)0F2C v#x Rlq > {s
 
 cqto/cqo:48)99
 cwtd/cwd:66)99
@@ -298,8 +298,8 @@ fxtract:D9F4
 fyl2x:D9F1
 fyl2xp1:D9F9
 
-gf2p8affineinvqb:66)0F3ACF ib v >V Vxyz {kzBw
-gf2p8affineqb:66)0F3ACE ib v >V Vxyz {kzBw
+gf2p8affineinvqb:w 66)0F3ACF ib v >V Vxyz {kzBw
+gf2p8affineqb:w 66)0F3ACE ib v >V Vxyz {kzBw
 gf2p8mulb:66)0F38CF v >V Vxyz {kz
 
 haddpd:66)0F7C v >V Vxy
@@ -974,7 +974,7 @@ rstorssp:F3)0F01.5 m
 sahf:9E
 sal:#shl
 sarx:V F3)0F38F7 >Rlq r R
-saveprevssp:F3)0F01EA.52
+saveprevssp:F3)0F01EA
 scas{bwlq:AE
 setssbsy:F3)0F01E8
 sfence:0FAEF8
@@ -1007,7 +1007,7 @@ sldt:0F00.0 rW
 
 smsw
 0F01.4 Rwlq
-0F01.4 mwL
+0F01.4 mWL
 
 sqrtpd:66)0F51 v Vxyz > {kzBrw
 sqrtps:0F51 v Vxyz > {kzbr
@@ -1022,8 +1022,8 @@ stmxcsr:0FAE.3 m >
 stos{bwlq:AA
 
 str
-0F00.1 RwLq
-0F00.1 mwL
+0F00.1 RwL$q
+0F00.1 mW
 
 subpd:66)0F5C v >V Vxyz {kzrBw
 subps:0F5C v >V Vxyz {kzrb
@@ -1489,7 +1489,7 @@ wrussd:66)0F38F5 Rl m
 wrussq:66)0F38F5 Rq m
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
-xbegin:C7F8 jwl
+xbegin:C7F8 jl
 
 xchg
 90.o R_0wlq R
@@ -1551,7 +1551,7 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
                         break;
                     
                     case 'w':
-                        mnemonics[fullName] = ['66)' + lines[0]];
+                        mnemonics[fullName] = ['66)' + higherOpcode];
                         break;
                     
                     case 'l':

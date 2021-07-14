@@ -30,7 +30,7 @@ exports.run = async function()
             case OPT.VMEM: return '(,%' + vecNames[size] + id + ')';
             case OPT.IMM:  return value === null ? '$' + (1 << (size - 4)) : '$' + value;
             case OPT.MASK: return '%k' + id;
-            case OPT.REL:  return '.';
+            case OPT.REL:  return '.+' + (1 << (size - 4));
             case OPT.MEM:  return '(%' + regNames[24 + id] +')';
             case OPT.ST:   return '%st' + (id ? '(' + id + ')' : '');
             case OPT.SEG:  return '%' + regNames[32 + id];
@@ -181,7 +181,17 @@ exports.run = async function()
     }
 
     let state = new AssemblyState();
-    state.compile(source, { haltOnError: true });
+
+    try
+    {
+        state.compile(source, { haltOnError: true });
+    }
+    catch(e)
+    {
+        let line = e.match(/(?<=line )\d+/)[0];
+        throw `${state.source[line - 1]}\n^ ${e}`;
+    }
+
 
     let asOutput = gassemble(source);
     if(!asOutput.equals(state.dump()))
