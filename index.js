@@ -12409,12 +12409,16 @@
   var EVEXPERM_ROUNDING = 32;
   var EVEXPERM_FORCEW = 64;
   var EVEXPERM_FORCE = 128;
+  var EVEXPERM_FORCE_MASK = 256;
   function parseEvexPermits(string2) {
     let permits = 0;
     for (let c of string2) {
       switch (c) {
         case "k":
           permits |= EVEXPERM_MASK;
+          break;
+        case "K":
+          permits |= EVEXPERM_FORCE_MASK | EVEXPERM_MASK;
           break;
         case "z":
           permits |= EVEXPERM_ZEROING;
@@ -12441,23 +12445,25 @@
     }
     return permits;
   }
-  function getSizes(format, defaultCatcher = null) {
-    let sizes = [], size, defaultSize, sizeChar;
+  function getSizes(format) {
+    let sizes = { list: [] };
     for (let i = 0; i < format.length; i++) {
-      defaultSize = false;
-      size = 0;
-      sizeChar = format[i];
+      let defaultSize = false, defaultVexSize = false, size = 0, sizeChar = format[i];
       if (sizeChar == "$")
         size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
       if (sizeChar == "#")
         defaultSize = true, sizeChar = format[++i];
+      if (sizeChar == "~")
+        defaultVexSize = true, sizeChar = format[++i];
       if (sizeChar < "a")
         defaultSize = true, size |= sizers[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
       else
         size |= sizers[sizeChar];
+      sizes.list.push(size);
       if (defaultSize)
-        defaultCatcher(size);
-      sizes.push(size);
+        sizes.def = size;
+      if (defaultVexSize)
+        sizes.defVex = size;
     }
     return sizes;
   }
@@ -12492,7 +12498,12 @@
       this.sizes = -2;
       this.hasByteSize = false;
     } else {
-      this.sizes = getSizes(format.slice(i), (size) => this.defSize = this.defVexSize = size);
+      let sizeData = getSizes(format.slice(i));
+      this.sizes = sizeData.list;
+      if (sizeData.def)
+        this.defSize = this.defVexSize = sizeData.def;
+      if (sizeData.defVex)
+        this.defVexSize = sizeData.defVex;
       this.hasByteSize = this.sizes.some((x) => (x & 8) === 8);
     }
     if (this.sizes.length == 0) {
@@ -12604,12 +12615,12 @@
     this.allVectors = false;
     this.relativeSizes = null;
     this.allowVex = !this.forceVex && format.some((op) => op.includes(">"));
-    this.vexOpCatchers = this.allowVex ? [] : null;
     this.maxSize = 0;
+    this.vexOpCatchers = this.allowVex ? [] : null;
     this.opCatchers = [];
     if (format.length == 0)
       return;
-    let opCatcher, halvedNonMemory = null, sizedMemory = null;
+    let opCatcher;
     for (let operand of format) {
       if (operand == ">")
         continue;
@@ -12634,18 +12645,10 @@
           else if (had64 && (size & ~7) > 64)
             this.allVectors = true;
         }
-        if (opCatcher.acceptsMemory)
-          sizedMemory = opCatcher;
-      } else if (opCatcher.sizes == -2 && !opCatcher.acceptsMemory) {
-        halvedNonMemory = opCatcher;
       }
     }
     if (this.allowVex || this.forceVex) {
       this.vexBase |= 30720 | [15, 3896, 3898].indexOf(this.code >> 8) + 1 | [null, 102, 243, 242].indexOf(this.prefix) << 8;
-    }
-    if (halvedNonMemory && sizedMemory) {
-      sizedMemory.defSize = Math.max(...sizedMemory.sizes.filter((size) => size < 256));
-      sizedMemory.defVexSize = Math.max(...sizedMemory.sizes);
     }
   }
   Operation.prototype.validateVEX = function(vexInfo) {
@@ -12661,6 +12664,8 @@
         vexInfo.evex = true;
     } else if (this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
       return false;
+    if (this.evexPermits & EVEXPERM_FORCE_MASK && vexInfo.mask == 0)
+      throw new ParserError("Must use a mask for this instruction");
     return true;
   };
   Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo) {
@@ -12982,9 +12987,9 @@ F2)0F38F0 rbq Rq
 
 cvtdq2pd:F3)0FE6 v/ Vxyz > {kzb
 cvtdq2ps:0F5B v Vxyz > {kzbr
-cvtpd2dq:F2)0FE6 vxyz V/ > {kzBrw
+cvtpd2dq:F2)0FE6 v#xy~z V/ > {kzBrw
 cvtpd2pi:66)0F2D vX VQ
-cvtpd2ps:66)0F5A vxyz V/ > {kzBrw
+cvtpd2ps:66)0F5A v#xy~z V/ > {kzBrw
 cvtpi2pd:66)0F2A vQ Vx
 cvtpi2ps:0F2A vQ Vx
 cvtps2dq:66)0F5B v Vxyz > {kzbr
@@ -12996,7 +13001,7 @@ cvtsi2sd:F2)0F2A rlq >Vx Vx {r
 cvtsi2ss:F3)0F2A rlq >Vx Vx {r
 cvtss2sd:F3)0F5A v >Vx Vx {kzs
 cvtss2si:F3)0F2D v#x Rlq > {r
-cvttpd2dq:66)0FE6 vxyz V/ > {kzBsw
+cvttpd2dq:66)0FE6 v#xy~z V/ > {kzBsw
 cvttpd2pi:66)0F2C vX VQ
 cvttps2dq:F3)0F5B v Vxyz > {kzbs
 cvttps2pi:0F2C vX VQ
@@ -13297,8 +13302,8 @@ lfence:0FAEE8
 lgdt:0F01.2 m
 lidt:0F01.3 m
 ljmp/:FF.5 m
-lfs:0FB4 m Rwlq
-lgs:0FB5 m Rwlq
+lfs:0FB4 m Rwl
+lgs:0FB5 m Rwl
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
 lods{bwlq:AC
@@ -13311,7 +13316,7 @@ CB
 CA i$w
 
 lsl:0F03 rW Rwlq
-lss:0FB2 m Rwlq
+lss:0FB2 m Rwl
 ltr:0F00.3 rW
 lzcnt:F3)0FBD r Rwlq
 
@@ -13463,10 +13468,7 @@ F3)0F10 m Vx > {kz
 F3)0F11 Vx m > {k
 
 movsx:0FBE rb$w Rwlq
-
-movsxd
-63 r Rw
-63 rL Rlq
+movsxd:63 rL Rwlq
 
 movupd
 66)0F10 v Vxyz > {kzw
@@ -13860,7 +13862,10 @@ shufps:0FC6 ib v >V Vxyz {kzb
 
 sidt:0F01.1 m
 sldt:0F00.0 rW
-smsw:0F01.4 rw#lq
+
+smsw
+0F01.4 Rwlq
+0F01.4 mwL
 
 sqrtpd:66)0F51 v Vxyz > {kzBrw
 sqrtps:0F51 v Vxyz > {kzbr
@@ -13873,7 +13878,10 @@ std:FD
 sti:FB
 stmxcsr:0FAE.3 m >
 stos{bwlq:AA
-str:0F00.1 rwLq
+
+str
+0F00.1 RwLq
+0F00.1 mwL
 
 subpd:66)0F5C v >V Vxyz {kzrBw
 subps:0F5C v >V Vxyz {kzrb
@@ -13907,7 +13915,7 @@ umonitor
 67F3)0FAE.6 Rl
 F3)0FAE.6 RQ
 
-umwait:F2)0FAE.6 R_0l R_2 R
+umwait:F2)0FAE.6 Rl
 
 unpckhpd:66)0F15 v >V Vxyz {kzBw
 unpckhps:0F15 v >V Vxyz {kzb
@@ -13941,10 +13949,10 @@ vcompresspd:66)0F388A Vxyz v > {kzwf
 vcompressps:66)0F388A Vxyz v > {kzf
 
 vcvtne2ps2bf16:F2)0F3872 v >V Vxyz {kzbf
-vcvtneps2bf16:F3)0F3872 vxyz V/ > {kzbf
+vcvtneps2bf16:F3)0F3872 v#xy~z V/ > {kzbf
 
 vcvtpd2qq:66)0F7B v Vxyz > {kzBwrf
-vcvtpd2udq:0F79 vxyz V/ > {kzBwrf
+vcvtpd2udq:0F79 v#xy~z V/ > {kzBwrf
 vcvtpd2uqq:66)0F79 v Vxyz > {kzBwrf
 vcvtph2ps:66)0F3813 v/ Vxyz > {kzs
 vcvtps2ph:66)0F3A1D ib Vxyz v/ > {kzs
@@ -13952,11 +13960,11 @@ vcvtps2udq:0F79 v Vxyz > {kzbrf
 vcvtps2qq:66)0F7B v/ Vxyz > {kzBrf
 vcvtps2uqq:66)0F79 v/ Vxyz > {kzBrf
 vcvtqq2pd:F3)0FE6 v Vxyz > {kzBrfw
-vcvtqq2ps:0F5B vxyz V/ > {kzBrfw
+vcvtqq2ps:0F5B v#xy~z V/ > {kzBrfw
 vcvtsd2usi:F2)0F79 v#x Rlq > {rf
 vcvtss2usi:F3)0F79 v#x Rlq > {rf
 vcvttpd2qq:66)0F7A v Vxyz > {kzBwsf
-vcvttpd2udq:0F78 vxyz V/ > {kzBwsf
+vcvttpd2udq:0F78 v#xy~z V/ > {kzBwsf
 vcvttpd2uqq:66)0F78 v Vxyz > {kzBwsf
 vcvttps2udq:0F78 v Vxyz > {kzbsf
 vcvttps2qq:66)0F7A v/ Vxyz > {kzBsf
@@ -13966,7 +13974,7 @@ vcvttss2usi:F3)0F78 v#x Rlq > {sf
 vcvtudq2pd:F3)0F7A v/ Vxyz > {kzBf
 vcvtudq2ps:F2)0F7A v Vxyz > {kzbrf
 vcvtuqq2pd:F3)0F7A v Vxyz > {kzBrfw
-vcvtuqq2ps:F2)0F7A vxyz V/ > {kzBfrw
+vcvtuqq2ps:F2)0F7A v#xy~z V/ > {kzBfrw
 vcvtusi2sd:F2)0F7B rlq >Vx V {rf
 vcvtusi2ss:F3)0F7B rlq >Vx V {rf
 
@@ -14003,19 +14011,19 @@ vfpclassss:66)0F3A67 ib v#x K > {kf
 
 vgatherdpd
 vw 66)0F3892 >Vxy *Gx V
-66)0F3892 G/ Vxyz > {kfw
+66)0F3892 G/ Vxyz > {Kfw
 
 vgatherdps
 66)0F3892 >Vxy G V
-66)0F3892 Gxyz V > {kf
+66)0F3892 Gxyz V > {Kf
 
 vgatherqpd
 vw 66)0F3893 >Vxy G V
-66)0F3893 Gxyz V > {kfw
+66)0F3893 Gxyz V > {Kfw
 
 vgatherqps
 66)0F3893 >Vx Gxy Vx
-66)0F3893 Gxyz V/ > {kf
+66)0F3893 Gxyz V/ > {Kf
 
 vgetexppd:66)0F3842 v Vxyz > {kzBsfw
 vgetexpps:66)0F3842 v Vxyz > {kzbsf
@@ -14153,19 +14161,19 @@ vpexpandw:66)0F3862 v Vxyz > {kzfw
 
 vpgatherdd
 66)0F3890 >Vxy G V
-66)0F3890 Gxyz V > {kf
+66)0F3890 Gxyz V > {Kf
 
 vpgatherdq
 vw 66)0F3890 >Vxy *Gx V
-66)0F3890 G/ Vxyz > {kfw
+66)0F3890 G/ Vxyz > {Kfw
 
 vpgatherqd
 66)0F3891 >Vx *Gxy V
-66)0F3891 Gxyz V/ > {kf
+66)0F3891 Gxyz V/ > {Kf
 
 vpgatherqq
 vw 66)0F3891 >Vxy G V
-66)0F3891 Gxyz V > {kfw
+66)0F3891 Gxyz V > {Kfw
 
 vplzcntd:66)0F3844 v Vxyz > {kzbf
 vplzcntq:66)0F3844 v Vxyz > {kzBwf
@@ -14189,7 +14197,7 @@ vpmovw2m:F3)0F3829 ^Vxyz K > {fw
 vpmovdb:F3)0F3831 Vxyz vX > {kzf
 vpmovdw:F3)0F3833 Vxyz v/ > {kzf
 vpmovqb:F3)0F3832 Vxyz vX > {kzf
-vpmovqd:F3)0F3835 Vxyz vX > {kzf
+vpmovqd:F3)0F3835 Vxyz v/ > {kzf
 vpmovqw:F3)0F3834 Vxyz vX > {kzf
 vpmovwb:F3)0F3830 Vxyz v/ > {kzf
 
@@ -14231,10 +14239,10 @@ vprorq:66)0F72.0 ib v >Vxyz {kzBfw
 vprorvd:66)0F3814 v >Vxyz V {kzbf
 vprorvq:66)0F3814 v >Vxyz V {kzBfw
 
-vpscatterdd:66)0F38A0 Vxyz G > {kf
-vpscatterdq:66)0F38A0 Vxyz G/ > {kfw
-vpscatterqd:66)0F38A1 V/ Gxyz > {kf
-vpscatterqq:66)0F38A1 Vxyz G > {kfw
+vpscatterdd:66)0F38A0 Vxyz G > {Kf
+vpscatterdq:66)0F38A0 Vxyz G/ > {Kfw
+vpscatterqd:66)0F38A1 V/ Gxyz > {Kf
+vpscatterqq:66)0F38A1 Vxyz G > {Kfw
 
 vpshldd:66)0F3A71 ib v >Vxyz V {kzbf
 vpshldq:66)0F3A71 ib v >Vxyz V {kzBfw
@@ -14309,10 +14317,10 @@ vscalefps:66)0F382C v >Vxyz V {kzbrf
 vscalefsd:66)0F382D v >Vx V {kzrfw
 vscalefss:66)0F382D v >Vx V {kzrf
 
-vscatterdpd:66)0F38A2 Vxyz G/ > {kfw
-vscatterdps:66)0F38A2 Vxyz G > {kf
-vscatterqpd:66)0F38A3 Vxyz G > {kfw
-vscatterqps:66)0F38A3 V/ Gxyz > {kf
+vscatterdpd:66)0F38A2 Vxyz G/ > {Kfw
+vscatterdps:66)0F38A2 Vxyz G > {Kf
+vscatterqpd:66)0F38A3 Vxyz G > {Kfw
+vscatterqps:66)0F38A3 V/ Gxyz > {Kf
 
 vshuff32x4:66)0F3A23 ib v >Vyz V {kzbf
 vshuff64x2:66)0F3A23 ib v >Vyz V {kzBfw
@@ -14333,10 +14341,10 @@ wrfsbase:F3)0FAE.2 Rlq
 wrgsbase:F3)0FAE.3 Rlq
 wrmsr:0F30
 wrpkru:0F01EF
-wrssd:0F38F6 Rl r
-wrssq:0F38F6 Rq r
-wrussd:66)0F38F5 Rl r
-wrussq:66)0F38F5 Rq r
+wrssd:0F38F6 Rl m
+wrssq:0F38F6 Rq m
+wrussd:66)0F38F5 Rl m
+wrussq:66)0F38F5 Rq m
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
 xbegin:C7F8 jwl
@@ -14664,7 +14672,7 @@ g nle`.split("\n");
         while (token == "{") {
           vexInfo.evex = true;
           if (this.syntax.prefix ? next() == "%" : next()[0] == "k") {
-            vexInfo.mask = parseRegister([OPT.MASK])[0];
+            vexInfo.mask = parseRegister([OPT.MASK]).reg;
             if ((vexInfo.mask & 7) == 0)
               throw new ParserError(`Can't use ${this.syntax.prefix ? "%" : ""}k0 as writemask`, regParsePos);
           } else if (token == "z")
