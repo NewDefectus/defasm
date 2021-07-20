@@ -428,6 +428,13 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
                 return null;
         }
         correctedSizes[i] = size;
+        if(size >= 512 && !vexInfo.evex) // Sometimes the 512 size is implicit
+        {
+            vexInfo.evex = true;
+            if(!this.validateVEX(vexInfo))
+                return null;
+        }
+
         if(!catcher.carrySizeInference)
             size = prevSize; // Size shouldn't be inferred from some operands
         prevSize = size;

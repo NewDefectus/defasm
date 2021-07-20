@@ -10,7 +10,7 @@ exports.run = async function()
     const { mnemonics, fetchMnemonic, relativeMnemonics, mnemonicExists } = await import("@defasm/core/mnemonicList.js");
     const { EVEXPERM_FORCE, EVEXPERM_FORCE_MASK } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
-    const { readFileSync, writeFileSync } = require('fs');
+    const { readFileSync } = require('fs');
 
     const { OPT, registers, suffixes, floatSuffixes, floatIntSuffixes } = await import("@defasm/core/operands.js");
     const regNames = reverseObject(registers);
@@ -170,7 +170,7 @@ exports.run = async function()
     const hex = bytes => [...bytes].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 
     // These are opcodes that defasm assembles correctly, but GAS doesn't, for some reason
-    const uncheckedOpcodes = ['sysexit', 'sysexitl', 'sysexitq', 'cvtpd2dq', 'cvtpd2ps', 'cvttpd2dq', 'int1'];
+    const uncheckedOpcodes = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
 
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
@@ -222,7 +222,12 @@ exports.run = async function()
             else
                 cmpPtr += instr.length;
         }
-        throw "Discrepancies detected:\n" + discrepancies.join('\n');
+
+        throw `Discrepancies detected:\n${
+            discrepancies.join('\n')
+        }\n\n${
+            execSync('as --version').toString()
+        }`;
     }
 }
 
