@@ -12523,15 +12523,12 @@
     }
     return true;
   };
-  OpCatcher.prototype.catch = function(operand, prevSize, enforcedSize, isVex) {
+  OpCatcher.prototype.catch = function(operand, prevSize, isVex) {
     if (!this.matchType(operand))
       return null;
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     let defSize = isVex ? this.defVexSize : this.defSize;
-    if (enforcedSize > 0 && operand.type >= OPT.IMM) {
-      opSize = enforcedSize;
-    }
     if (isNaN(opSize)) {
       if (defSize > 0)
         return defSize;
@@ -12576,16 +12573,16 @@
     this.actuallyNotVex = false;
     this.vexOnly = format[0][0] == "v";
     this.forceVex = format[0][0] == "V";
-    if (this.vexOnly || this.forceVex) {
-      if (format[0].includes("w"))
+    if ("vVwl!".includes(format[0][0])) {
+      let specializers = format.shift();
+      if (specializers.includes("w"))
         this.vexBase |= 32768;
-      if (format[0].includes("l"))
+      if (specializers.includes("l"))
         this.vexBase |= 1024;
-      if (format[0].includes("!")) {
+      if (specializers.includes("!")) {
         this.actuallyNotVex = true;
         this.vexOnly = this.forceVex = false;
       }
-      format.shift();
     }
     let [opcode, extension] = format.shift().split(".");
     let adderSeparator = opcode.indexOf("+");
@@ -12668,14 +12665,14 @@
       throw new ParserError("Must use a mask for this instruction");
     return true;
   };
-  Operation.prototype.fit = function(operands, instr, enforcedSize, vexInfo) {
+  Operation.prototype.fit = function(operands, instr, vexInfo) {
     if (!this.validateVEX(vexInfo))
       return null;
     let adjustByteOp = false, overallSize = 0, rexw = false;
     if (this.relativeSizes) {
       if (!(operands.length == 1 && operands[0].type == OPT.REL))
         return null;
-      this.generateRelative(operands[0], instr, enforcedSize);
+      this.generateRelative(operands[0], instr);
     }
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
     if (operands.length != opCatchers.length)
@@ -12684,18 +12681,23 @@
     for (i = 0; i < operands.length; i++) {
       catcher = opCatchers[i];
       if (size > 0 || Array.isArray(catcher.sizes)) {
-        size = catcher.catch(operands[i], size, enforcedSize, vexInfo.needed);
+        size = catcher.catch(operands[i], size, vexInfo.needed);
         if (size === null)
           return null;
       }
       correctedSizes[i] = size;
+      if (size >= 512 && !vexInfo.evex) {
+        vexInfo.evex = true;
+        if (!this.validateVEX(vexInfo))
+          return null;
+      }
       if (!catcher.carrySizeInference)
         size = prevSize;
       prevSize = size;
     }
     for (i = 0; i < operands.length; i++) {
       if (correctedSizes[i] < 0) {
-        size = opCatchers[i].catch(operands[i], size, enforcedSize, vexInfo.needed);
+        size = opCatchers[i].catch(operands[i], size, vexInfo.needed);
         if (size === null)
           return null;
         correctedSizes[i] = size;
@@ -12807,12 +12809,10 @@
   };
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
-  Operation.prototype.generateRelative = function(operand, instr, enforcedSize) {
+  Operation.prototype.generateRelative = function(operand, instr) {
     let target = operand.value - BigInt(instr.address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     if (this.relativeSizes.length == 1) {
       let size = this.relativeSizes[0];
-      if (enforcedSize && enforcedSize != size)
-        throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
       operand.size = size;
       operand.virtualValue = target - sizeLen(size);
       if (absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
@@ -12821,15 +12821,7 @@
     }
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
-    if (enforcedSize == small) {
-      operand.size = small;
-      operand.virtualValue = target - smallLen;
-    } else if (enforcedSize == large) {
-      operand.size = large;
-      operand.virtualValue = target - largeLen;
-    } else if (enforcedSize != 0)
-      throw new ParserError("Wrong operand size", operand.startPos, operand.endPos);
-    else if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false)) {
+    if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false)) {
       if (small != operand.size && operand.sizeAllowed(small, false)) {
         operand.size = small;
         operand.virtualValue = target - smallLen;
@@ -12901,7 +12893,7 @@ v 66)0F3A4A <Vxy v >V V
 blsi:V 0F38F3.3 r >Rlq
 blsmsk:V 0F38F3.2 r >Rlq
 blsr:V 0F38F3.1 r >Rlq
-bndcl:V F3)0F1A rQ B
+bndcl:F3)0F1A rQ B
 bndcn:F2)0F1B rQ B
 bndcu:F2)0F1A rQ B
 bndldx:0F1A m B
@@ -12932,7 +12924,7 @@ bts
 0FAB Rwlq r
 0FBA.5 iB rwlq
 
-bzhi:V 0F38F5 Rlq r >R
+bzhi:V 0F38F5 >Rlq r R
 
 call
 E8 jl
@@ -13006,7 +12998,7 @@ cvttpd2pi:66)0F2C vX VQ
 cvttps2dq:F3)0F5B v Vxyz > {kzbs
 cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
-cvtss2si:F3)0F2C v#x Rlq > {s
+cvttss2si:F3)0F2C v#x Rlq > {s
 
 cqto/cqo:48)99
 cwtd/cwd:66)99
@@ -13156,8 +13148,8 @@ fxtract:D9F4
 fyl2x:D9F1
 fyl2xp1:D9F9
 
-gf2p8affineinvqb:66)0F3ACF ib v >V Vxyz {kzBw
-gf2p8affineqb:66)0F3ACE ib v >V Vxyz {kzBw
+gf2p8affineinvqb:w 66)0F3ACF ib v >V Vxyz {kzBw
+gf2p8affineqb:w 66)0F3ACE ib v >V Vxyz {kzBw
 gf2p8mulb:66)0F38CF v >V Vxyz {kz
 
 haddpd:66)0F7C v >V Vxy
@@ -13189,11 +13181,10 @@ insertps:66)0F3A21 ib v >V Vx {
 
 int
 CC i_3b
-F1 i_1b
 CD ib
 
-/int1:F1
-/int3:CC
+int1:F1
+int3:CC
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -13344,9 +13335,9 @@ C7.0 Il Rq
 C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
-8C s ^Rwlq
+8C s ^RwlQ
 8C s mW
-8E ^RWlq s
+8E ^RWlQ s
 8E mW s
 0F20 C ^RQ
 0F21 D ^RQ
@@ -13832,7 +13823,7 @@ rstorssp:F3)0F01.5 m
 sahf:9E
 sal:#shl
 sarx:V F3)0F38F7 >Rlq r R
-saveprevssp:F3)0F01EA.52
+saveprevssp:F3)0F01EA
 scas{bwlq:AE
 setssbsy:F3)0F01E8
 sfence:0FAEF8
@@ -13861,11 +13852,14 @@ shufpd:66)0FC6 ib v >V Vxyz {kzBw
 shufps:0FC6 ib v >V Vxyz {kzb
 
 sidt:0F01.1 m
-sldt:0F00.0 rW
+
+sldt
+0F00.0 Rwl$q
+0F00.0 mW
 
 smsw
 0F01.4 Rwlq
-0F01.4 mwL
+0F01.4 mWL
 
 sqrtpd:66)0F51 v Vxyz > {kzBrw
 sqrtps:0F51 v Vxyz > {kzbr
@@ -13880,8 +13874,8 @@ stmxcsr:0FAE.3 m >
 stos{bwlq:AA
 
 str
-0F00.1 RwLq
-0F00.1 mwL
+0F00.1 RwL$q
+0F00.1 mW
 
 subpd:66)0F5C v >V Vxyz {kzrBw
 subps:0F5C v >V Vxyz {kzrb
@@ -14347,7 +14341,7 @@ wrussd:66)0F38F5 Rl m
 wrussq:66)0F38F5 Rq m
 xabort:C6F8 ib
 xadd:0FC0 Rbwlq r
-xbegin:C7F8 jwl
+xbegin:C7F8 jl
 
 xchg
 90.o R_0wlq R
@@ -14400,7 +14394,7 @@ xtest:0F01D6
               mnemonics[fullName] = lines;
               break;
             case "w":
-              mnemonics[fullName] = ["66)" + lines[0]];
+              mnemonics[fullName] = ["66)" + higherOpcode];
               break;
             case "l":
               mnemonics[fullName] = [higherOpcode];
@@ -14493,8 +14487,6 @@ g nle`.split("\n");
       list.push("D8." + i + " F", hex(55489 + i * 8));
     else {
       list.push("D8." + i + " F F_0");
-      if (i >= 4)
-        i ^= 1;
       list.push("DC." + i + " F_0 F");
       mnemonics["f" + name2 + "p"] = ["DE." + i + " F_0 F", hex(57025 + i * 8)];
     }
@@ -14751,9 +14743,12 @@ g nle`.split("\n");
       for (let operation of operations) {
         if (operation.size !== void 0) {
           enforcedSize = operation.size;
+          for (let operand of operands)
+            if (operand.type == OPT.MEM || operand.type == OPT.REL)
+              operand.size = enforcedSize;
           continue;
         }
-        op = operation.fit(operands, this, enforcedSize, vexInfo);
+        op = operation.fit(operands, this, vexInfo);
         if (op !== null) {
           found = true;
           break;
