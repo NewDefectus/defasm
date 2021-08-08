@@ -1,5 +1,6 @@
-import { token, next, ungetToken, ParserError, codePos, currSyntax } from "./parser.js";
+import { token, next, ungetToken, currRange, currSyntax } from "./parser.js";
 import { Expression } from "./shuntingYard.js";
+import { ASMError } from "./statement.js";
 
 // Operand types
 export const OPT = {
@@ -130,14 +131,14 @@ export function parseRegister(expectedType = null)
         {
             reg = parseInt(next());
             if(isNaN(reg) || reg >= 8 || reg < 0 || next() != ')')
-                throw new ParserError("Unknown register");
+                throw new ASMError("Unknown register");
         }
         else ungetToken();
     }
     else if(reg == registers.rip || reg == registers.eip)
     {
         if(expectedType == null || !expectedType.includes(OPT.IP))
-            throw new ParserError(`Can't use ${currSyntax.prefix ? '%' : ''}${reg == registers.eip ? 'e' : 'r'}ip here`);
+            throw new ASMError(`Can't use ${currSyntax.prefix ? '%' : ''}${reg == registers.eip ? 'e' : 'r'}ip here`);
         type = OPT.IP;
         size = reg == registers.eip ? 32 : 64;
         reg = 0;
@@ -153,7 +154,7 @@ export function parseRegister(expectedType = null)
     {
         reg = parseInt(regToken.slice(1));
         if(isNaN(reg) || reg < 0 || reg >= 16)
-            throw new ParserError("Unknown register");
+            throw new ASMError("Unknown register");
         type = OPT.REG;
 
         let regLastChar = regToken[regToken.length - 1];
@@ -161,7 +162,7 @@ export function parseRegister(expectedType = null)
         {
             size = regSuffixes[regLastChar];
             if(!size)
-                throw new ParserError("Unknown register");
+                throw new ASMError("Unknown register");
         }
         else
             size = 64;
@@ -181,17 +182,17 @@ export function parseRegister(expectedType = null)
             else if(regToken.startsWith("ymm")) reg = regToken.slice(3), size = 256;
             else if(regToken.startsWith("zmm")) reg = regToken.slice(3), size = 512;
             else
-                throw new ParserError("Unknown register");
+                throw new ASMError("Unknown register");
         }
 
         if(isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max))
-            throw new ParserError("Unknown register");
+            throw new ASMError("Unknown register");
     }
     
     if(expectedType != null && expectedType.indexOf(type) < 0)
-        throw new ParserError("Invalid register");
+        throw new ASMError("Invalid register");
     
-    regParsePos = codePos;
+    regParsePos = currRange;
     next();
     return { reg, type, size, prefs };
 }
@@ -209,13 +210,13 @@ export function Operand(instr, forceImmToRel = false)
     this.attemptedSizes = 0;
     this.attemptedUnsignedSizes = 0;
 
-    this.startPos = codePos;
+    this.startPos = currRange;
     let indirect = token == '*';
     if(indirect && !instr.syntax.intel)
         next();
 
     if(instr.syntax.prefix && isRegister(token))
-        throw new ParserError("Registers must be prefixed with '%'");
+        throw new ASMError("Registers must be prefixed with '%'");
 
     if(instr.syntax.prefix ? token == '%' : isRegister(token)) // Register
     {
@@ -278,7 +279,7 @@ export function Operand(instr, forceImmToRel = false)
                 if(this.reg == 4 && this.reg2 < 0)
                     this.reg2 = 4;
                 if(token != ']')
-                    throw new ParserError("Expected ']'");
+                    throw new ASMError("Expected ']'");
                 next();
             }
         }
@@ -302,7 +303,7 @@ export function Operand(instr, forceImmToRel = false)
                     if(!indirect)
                     {
                         this.type = OPT.REL;
-                        this.endPos = codePos;
+                        this.endPos = currRange;
                     }
                     return;
                 }
@@ -319,13 +320,13 @@ export function Operand(instr, forceImmToRel = false)
                     tempReg = { type: -1, size: 64 };
                 }
                 else
-                    throw new ParserError("Expected register");
+                    throw new ASMError("Expected register");
                 
                 if(tempReg.type == OPT.VEC)
                 {
                     this.type = OPT.VMEM; this.size = tempReg.size;
                     if(tempReg.size < 128)
-                        throw new ParserError("Invalid register size", regParsePos);
+                        throw new ASMError("Invalid register size", regParsePos);
                     this.reg2 = this.reg;
                     this.reg = -1;
                 }
@@ -334,36 +335,36 @@ export function Operand(instr, forceImmToRel = false)
                     if(tempReg.size == 32)
                         this.prefs |= PREFIX_ADDRSIZE;
                     else if(tempReg.size != 64)
-                        throw new ParserError("Invalid register size", regParsePos);
+                        throw new ASMError("Invalid register size", regParsePos);
                     if(tempReg.type == OPT.IP)
                         this.ripRelative = true;
                     else if(token == ',')
                     {
                         if(instr.syntax.prefix ? next() != '%' : !isRegister(next()))
-                            throw new ParserError("Expected register");
+                            throw new ASMError("Expected register");
                         tempReg = parseRegister([OPT.REG, OPT.VEC]);
                         this.reg2 = tempReg.reg;
                         if(tempReg.type == OPT.VEC)
                         {
                             this.type = OPT.VMEM; this.size = tempReg.size;
                             if(tempReg.size < 128)
-                                throw new ParserError("Invalid register size", regParsePos);
+                                throw new ASMError("Invalid register size", regParsePos);
                         }
                         else
                         {
                             if(this.reg2 == 4)
-                                throw new ParserError("Memory index cannot be RSP", regParsePos);
+                                throw new ASMError("Memory index cannot be RSP", regParsePos);
                             if(tempReg.size == 32)
                                 this.prefs |= PREFIX_ADDRSIZE;
                             else if(tempReg.size != 64)
-                                throw new ParserError("Invalid register size", regParsePos);
+                                throw new ASMError("Invalid register size", regParsePos);
                         }
 
                         if(token == ',')
                         {
                             this.shift = "1248".indexOf(next());
                             if(this.shift < 0)
-                                throw new ParserError("Scale must be 1, 2, 4, or 8");
+                                throw new ASMError("Scale must be 1, 2, 4, or 8");
                             next();
                         }
                     }
@@ -373,7 +374,7 @@ export function Operand(instr, forceImmToRel = false)
                 if((this.reg & 7) == 5)
                     this.value = this.value || 0n; 
                 if(token != ')')
-                    throw new ParserError("Expected ')'");
+                    throw new ASMError("Expected ')'");
                 next();
             }
         }

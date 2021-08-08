@@ -167,6 +167,7 @@ export const tokenizer = new ExternalTokenizer(
 
 import * as Terms from './parser.terms.js';
 import { isNumber, NUM_INVALID, NUM_SYMBOL } from '@defasm/core/shuntingYard';
+import { Range } from '../core/statement.js';
 
 class AsmDumpWidget extends WidgetType
 {
@@ -283,7 +284,8 @@ export const asmPlugin = ViewPlugin.fromClass(class {
     /** @param {ViewUpdate} update */
     update(update)
     {
-        if(!update.docChanged) return;
+        if(!update.docChanged)
+            return;
 
         let state = update.view.state;
         let doc   = state.doc;
@@ -302,14 +304,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         range separately and only run the second pass on the final state. */
         update.changes.iterChanges(
             (fromA, toA, fromB, toB) => {
-                let removedLines =
-                    update.startState.doc.lineAt(toA).number
-                    -
-                    update.startState.doc.lineAt(fromA).number + 1;
-                let line = doc.lineAt(fromB);
-                fromB = line.from;
-                toB = doc.lineAt(toB).to;
-                this.state.compile(state.sliceDoc(fromB, toB), { line: line.number, linesRemoved: removedLines, doSecondPass: false });
+                this.state.compile(state.sliceDoc(fromB, toB), { range: new Range(fromA, toA - fromA), doSecondPass: false });
             }
         );
 
@@ -335,17 +330,15 @@ export const asmPlugin = ViewPlugin.fromClass(class {
         let doc       = view.state.doc;
         let maxOffset = Math.max(...this.lineWidths) + 50;
         let widgets   = [];
-        let instrs    = this.state.instructions;
-        let hasData;
 
         view['asm-errors'] = [];
 
-        for(let i = 0; i < instrs.length; i++)
-        {
-            if(instrs[i].length == 0) continue;
+        this.state.iterateLines((instrs, line) => {
+            if(instrs.length == 0)
+                return;
 
-            hasData = false;
-            instrs[i].map(x => {
+            let hasData = false;
+            instrs.map(x => {
                 let error = x.error;
                 if(error)
                 {
@@ -353,8 +346,7 @@ export const asmPlugin = ViewPlugin.fromClass(class {
                         class: 'cm-asm-error'
                     });
                     errorMark.message = error.message;
-                    let errorPos = view.state.doc.line(i + 1).from + error.pos;
-                    let errRange = errorMark.range(errorPos, errorPos + error.length);
+                    let errRange = errorMark.range(error.range.start, error.range.end);
                     widgets.push(errRange);
                     view['asm-errors'].push(errRange);
                 }
@@ -365,12 +357,12 @@ export const asmPlugin = ViewPlugin.fromClass(class {
             if(hasData)
             {
                 let deco = Decoration.widget({
-                    widget: new AsmDumpWidget(instrs[i], maxOffset - this.lineWidths[i]),
+                    widget: new AsmDumpWidget(instrs, maxOffset - this.lineWidths[line - 1]),
                     side: 1
                 });
-                widgets.push(deco.range(doc.line(i + 1).to));
+                widgets.push(deco.range(doc.line(line).to));
             }
-        }
+        });
 
         this.decorations = Decoration.set(widgets);
     }

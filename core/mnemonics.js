@@ -1,5 +1,5 @@
 import { OPT, suffixes } from "./operands.js";
-import { ParserError } from "./parser.js";
+import { ASMError } from "./statement.js";
 import { queueRecomp } from "./symbols.js";
 
 const REG_MOD = -1, REG_OP = -2;
@@ -379,7 +379,7 @@ Operation.prototype.validateVEX = function(vexInfo)
         return false;
     
     if((this.evexPermits & EVEXPERM_FORCE_MASK) && vexInfo.mask == 0)
-        throw new ParserError("Must use a mask for this instruction");
+        throw new ASMError("Must use a mask for this instruction");
     return true;
 }
 
@@ -499,7 +499,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
             else
                 reg = operand;
             if(operand.type == OPT.VEC && operand.size == 64 && vexInfo.needed)
-                throw new ParserError("Can't encode MMX with VEX prefix", operand.endPos);
+                throw new ASMError("Can't encode MMX with VEX prefix", operand.endPos);
         }
 
         // Overall size represents the highest non-implicitly encoded size
@@ -544,7 +544,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
             if(vexInfo.round !== null)
             {
                 if(overallSize !== this.maxSize)
-                    throw new ParserError("Invalid vector size for embedded rounding", vexInfo.roundingPos);
+                    throw new ASMError("Invalid vector size for embedded rounding", vexInfo.roundingPos);
                 if(vexInfo.round > 0)
                     vexInfo.round--;
                 vex |= (vexInfo.round << 21) | 0x100000; // EVEX.RC
@@ -559,7 +559,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
                     if(this.evexPermits & EVEXPERM_BROADCAST_32)
                         sizeId++;
                     if(vexInfo.broadcast !== sizeId)
-                        throw new ParserError("Invalid broadcast", vexInfo.broadcastPos);
+                        throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
                     vex |= 0x100000; // EVEX.b
                 }
             }
@@ -578,7 +578,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     {
         for(let reg of operands)
             if(reg.size > 128 && reg.endPos)
-                throw new ParserError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
+                throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
     }
 
     if(adjustByteOp)
@@ -613,7 +613,7 @@ Operation.prototype.generateRelative = function(operand, instr)
         operand.size = size;
         operand.virtualValue = target - sizeLen(size);
         if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
-            throw new ParserError(`Can't fit offset in ${size >> 3} byte${size != 8 ? 's' : ''}`, operand.startPos, operand.endPos);
+            throw new ASMError(`Can't fit offset in ${size >> 3} byte${size != 8 ? 's' : ''}`, operand.startPos.until(operand.endPos));
         return;
     }
     
@@ -632,7 +632,7 @@ Operation.prototype.generateRelative = function(operand, instr)
         else
         {
             if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
-                throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
+                throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
             operand.size = large;
             operand.virtualValue = target - largeLen;
         }

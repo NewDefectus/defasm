@@ -1,10 +1,9 @@
-import { token, next, match, loadCode, ParserError, codePos, currSyntax, setSyntax, defaultSyntax } from "./parser.js";
+import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax } from "./parser.js";
 import { Directive, intelDirectives } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
-import { Statement } from "./statement.js";
+import { ASMError, Range, Statement } from "./statement.js";
 
-var lastInstr, currLineArr;
 var linkedInstrQueue = [];
 
 /**
@@ -15,243 +14,327 @@ var linkedInstrQueue = [];
 
 /** @type {Map<string, SymbolRecord>} */
 export var symbols = null;
-
 export const baseAddr = 0x400078;
 
-export function AssemblyState()
-{
-    /** @type {Map<string, SymbolRecord>} */
-    this.symbols = new Map();
+var firstInstr = null;
 
-    /** @type {Statement[][]} */
-    this.instructions = [];
-
-    /** @type {string[]} */
-    this.source = [];
-
-    this.bytes = 0;
-}
-
+/** @param {Statement} instr */
 function addInstruction(instr)
 {
-    currLineArr.push(instr);
-    lastInstr = instr;
+    firstInstr = instr;
     setSyntax(instr.syntax);
+    instr.range = instr.range.until(currRange);
 }
 
-// Compile Assembly from source code into machine code
-AssemblyState.prototype.compile = function(source, { haltOnError = false, line = null, linesRemoved = 1, doSecondPass = true } = {})
+export class AssemblyState
 {
-    if(line === null)
+    constructor()
     {
-        linesRemoved = Infinity;
-        line = 1;
+        /** @type {Map<string, SymbolRecord>} */
+        this.symbols = new Map();
+
+        /** @type {Statement} */
+        this.instructionHead = new Statement();
+
+        /** @type {string} */
+        this.source = '';
+
+        this.bytes = 0;
     }
-    else if(line < 1)
-        throw "Invalid line";
-    
-    if(linesRemoved < 1)
-        throw "linesRemoved must be positive";
-    
-    this.source.splice(line - 1, linesRemoved, ...source.split('\n'));
-    
-    let opcode, pos;
-    lastInstr = null; currLineArr = [];
-    symbols = this.symbols;
 
-    for(let i = 1; i < line && i <= this.instructions.length; i++)
-        for(lastInstr of this.instructions[i - 1]);
+    line(line)
+    {
+        if(line-- < 1)
+            throw "Invalid line";
+        let start = 0;
+        while(line--)
+            start = this.source.indexOf('\n', start) + 1 || start;
+        let end = this.source.indexOf('\n', start) + 1 || start;
+        return new Range(start, end - start);
+    }
 
-
-    // Make sure the instruction array reaches the given line
-    for(let i = this.instructions.length; i < line - 1; i++)
-        this.instructions[i] = [];
-
-    // Remove instructions that were replaced
-    let removedInstrs = this.instructions.splice(line - 1, linesRemoved, currLineArr);
-    for(let removed of removedInstrs)
-        for(let instr of removed)
+    /**
+     * @callback instrCallback
+     * @param {Statement} instr
+     * @param {Number} line
+    */
+    /** @param {instrCallback} func */
+    iterate(func)
+    {
+        let line = 1, nextLine = 0, instr = this.instructionHead;
+        while(nextLine != Infinity)
         {
-            if(instr.name && !instr.duplicate)
+            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
+            while(instr && instr.range.end < nextLine)
             {
-                let record = symbols.get(instr.name);
-                if(record.references.length > 0)
-                    record.symbol = null;
-                else
-                    symbols.delete(instr.name);
+                func(instr, line);
+                instr = instr.next;
             }
-            instr.removed = true;
+            line++;
+        }
+    }
+
+    /**
+     * @callback lineCallback
+     * @param {Statement[]} instr
+     * @param {Number} line
+    */
+    /** @param {lineCallback} func */
+    iterateLines(func)
+    {
+        let line = 1, nextLine = 0, instr = this.instructionHead.next;
+        while(nextLine != Infinity)
+        {
+            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
+            let instrs = [];
+            while(instr && instr.range.end <= nextLine)
+            {
+                instrs.push(instr);
+                instr = instr.next;
+            }
+            func(instrs, line);
+            line++;
+        }
+    }
+
+    /* Compile Assembly from source code into machine code */
+    compile(source, {
+        haltOnError = false,
+        range = new Range(0, this.source.length),
+        doSecondPass = true } = {})
+    {
+        this.source =
+            /* If the given range is outside the current
+            code's span, fill the in-between with newlines */
+            this.source.slice(0, range.start).padEnd(range.start, '\n') +
+            source +
+            this.source.slice(range.end);
+        
+        symbols = this.symbols;
+
+        firstInstr = null;
+        let lastInstr = null, instr = this.instructionHead;
+        let changeOffset = source.length - range.length;
+
+        while(instr)
+        {
+            if(firstInstr === null)
+            {
+                if(instr.next && instr.next.range.end >= range.start)
+                {
+                    firstInstr = instr;
+                    firstInstr.next.range.length += changeOffset;
+                }
+            }
+            else
+            {
+                if(instr.next)
+                {
+                    instr.next.range.start += changeOffset;
+                    if(instr.next.error)
+                        instr.next.error.range.start += changeOffset;
+                }
+                
+                if(lastInstr === null)
+                {
+                    // This instruction will be removed
+                    if(instr.name && !instr.duplicate)
+                    {
+                        let record = symbols.get(instr.name);
+                        if(record.references.length > 0)
+                            record.symbol = null;
+                        else
+                            symbols.delete(instr.name);
+                    }
+                    instr.removed = true;
+
+                    if(instr.range.includes(range.end))
+                    {
+                        lastInstr = instr;
+                        break;
+                    }
+                }
+            }
+
+            instr = instr.next;
         }
 
-    loadCode(source);
-    setSyntax(lastInstr ? lastInstr.syntax : defaultSyntax);
+        if(firstInstr === null)
+            firstInstr = this.instructionHead;
 
-    while(!match.done)
-    {
-        try
+        // Expand the range a bit so as not to cut off the first and last instructions
+        let nextRange = firstInstr.next ? firstInstr.next.range : new Range(firstInstr.range.end, Infinity);
+        if(lastInstr)
+            range = nextRange.until(lastInstr.range);
+        else
+            range = new Range(nextRange.start, Infinity);
+        
+        firstInstr.next = null;
+        console.log({source: this.source, slice: range.slice(this.source)});
+        loadCode(range.slice(this.source), range.start);
+        setSyntax(firstInstr ? firstInstr.syntax : defaultSyntax);
+        
+        let line = 1;
+
+        while(!match.done)
         {
-            pos = codePos;
-            if(token !== '\n' && token !== ';')
+            let pos = currRange;
+            try
             {
-                let lowerTok = token.toLowerCase();
-                if(currSyntax.intel ?
-                    intelDirectives.hasOwnProperty(lowerTok)
-                    || token == '%' && (lowerTok = '%' + next().toLowerCase())
-                    :
-                    token[0] == '.') // Assembler directive
+                if(token !== '\n' && token !== ';')
                 {
+                    let lowerTok = token.toLowerCase();
                     if(currSyntax.intel ?
-                        lowerTok == '%assign'
+                        intelDirectives.hasOwnProperty(lowerTok)
+                        || token == '%' && (lowerTok = '%' + next().toLowerCase())
                         :
-                        lowerTok == '.equ' || lowerTok == '.set')
+                        token[0] == '.') // Assembler directive
                     {
-                        opcode = next();
-                        pos = codePos;
-                        if(!currSyntax.intel && next() !== ',')
-                            throw new ParserError("Expected ','");
-                        addInstruction(new Symbol(lastInstr, opcode, pos));
+                        if(currSyntax.intel ?
+                            lowerTok == '%assign'
+                            :
+                            lowerTok == '.equ' || lowerTok == '.set')
+                        {
+                            let opcode = next();
+                            pos = currRange;
+                            if(!currSyntax.intel && next() !== ',')
+                                throw new ASMError("Expected ','");
+                            addInstruction(new Symbol(firstInstr, opcode, pos));
+                        }
+                        else
+                            addInstruction(new Directive(firstInstr, currSyntax.intel ? token : token.slice(1), pos));
                     }
-                    else
-                        addInstruction(new Directive(lastInstr, currSyntax.intel ? token : token.slice(1)));
-                }
-                else // Instruction, label or symbol
-                {
-                    opcode = token;
-                    next();
-
-                    if(token == ':') // Label definition
+                    else // Instruction, label or symbol
                     {
-                        addInstruction(new Symbol(lastInstr, opcode, pos, true));
+                        let opcode = token;
                         next();
-                        continue;
+
+                        if(token == ':') // Label definition
+                        {
+                            addInstruction(new Symbol(firstInstr, opcode, pos, true));
+                            next();
+                            continue;
+                        }
+                        else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
+                            addInstruction(new Symbol(firstInstr, opcode, pos));
+                        else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"
+                        {
+                            addInstruction(new Symbol(firstInstr, opcode, pos, true));
+                            addInstruction(new Directive(firstInstr, token, pos));
+                        }
+                        else // Instruction
+                            addInstruction(new Instruction(firstInstr, opcode.toLowerCase(), pos));
                     }
-                    else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                        addInstruction(new Symbol(lastInstr, opcode, pos));
-                    else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"
-                    {
-                        addInstruction(new Symbol(lastInstr, opcode, pos, true));
-                        addInstruction(new Directive(lastInstr, token));
-                    }
-                    else // Instruction
-                        addInstruction(new Instruction(lastInstr, opcode.toLowerCase(), pos));
                 }
-            }
 
-            if(token === '\n')
-            {
-                if(!match.done) this.instructions.splice(line++, 0, currLineArr = []);
+                if(token == '\n')
+                    line++;
+                else if(token != ';')
+                    throw new ASMError("Expected end of line");
             }
-            else if(token != ';')
-                throw new ParserError("Expected end of line");
+            catch(e)
+            {
+                while(token != '\n' && token != ';')
+                    next();
+                    
+                if(haltOnError && !doSecondPass)
+                    throw `Error on line ${line}: ${e.message}`;
+                if(!e.range)
+                    console.error("Error on line " + line + ":\n", e);
+                else
+                    addInstruction(new Statement(firstInstr, 0, pos, e));
+                
+                if(token == '\n')
+                    line++;
+            }
+            next();
         }
-        catch(e)
-        {
-            if(haltOnError && !doSecondPass)
-                throw `Error on line ${line}: ${e.message}`;
-            if(e.pos == null || e.length == null)
-                console.error("Error on line " + line + ":\n", e);
-            else
-                addInstruction(new Statement(lastInstr, 0, e));
-            while(token != '\n' && token != ';')
-                next();
-            if(token == '\n' && !match.done)
-                this.instructions.splice(line++, 0, currLineArr = []);
-        }
-        next();
-    }
 
-    // Link the last instruction to the next
-    while(line < this.instructions.length)
-    {
-        if(this.instructions[line].length > 0)
+        // Link the last instruction to the next
+        instr = lastInstr ? lastInstr.next : null;
+        if(instr)
         {
-            let instr = this.instructions[line][0];
-            if(lastInstr)
+            if(firstInstr)
             {
-                lastInstr.next = instr;
-                linkedInstrQueue.push(lastInstr);
+                firstInstr.next = instr;
+                linkedInstrQueue.push(firstInstr);
             }
-            else
+            else if(instr.address != baseAddr)
             {
-                if(instr.address !== baseAddr)
-                    linkedInstrQueue.push(instr);
+                linkedInstrQueue.push(instr);
                 instr.address = baseAddr;
             }
 
             if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
             {
                 // Syntax has been changed, we have to recompile some of the source
-                let recompSource = [];
-                for(let i = line; i < this.instructions.length; i++)
-                {
-                    recompSource.push(this.source[i]);
-                    if(this.instructions[i].some(instr => instr.switchSyntax))
-                        break;
-                }
-                this.compile(recompSource.join('\n'), { haltOnError, line: line + 1, linesRemoved: recompSource.length, doSecondPass: false });
+                let nextSyntaxChange = instr.next;
+                while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
+                    nextSyntaxChange = nextSyntaxChange.next;
+                
+                this.compile(range.slice(this.source), {
+                    haltOnError,
+                    range: instr.range.until(nextSyntaxChange.range),
+                    doSecondPass: false
+                });
             }
-            break;
         }
-        line++;
+
+        if(doSecondPass)
+            this.secondPass(haltOnError);
     }
 
-    if(doSecondPass)
-        this.secondPass(haltOnError);
-}
-
-// Run the second pass on the instruction list
-AssemblyState.prototype.secondPass = function(haltOnError = false)
-{
-    let currIndex = baseAddr, instr;
-    symbols = this.symbols;
-
-    symbols.forEach((record, name) => {
-        record.references = record.references.filter(instr => !instr.removed);
-        if(record.symbol === null || record.symbol.error)
-        {
-            if(record.references.length == 0)
-                symbols.delete(name);
-            else for(let ref of record.references)
-                queueRecomp(ref);
-        }
-    });
-
-    while(instr = linkedInstrQueue.shift() || recompQueue.shift())
+    // Run the second pass on the instruction list
+    secondPass(haltOnError = false)
     {
-        currIndex = instr.address;
-        do
-        {
-            instr.address = currIndex;
-            if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
+        let currIndex = baseAddr, instr;
+        symbols = this.symbols;
+
+        symbols.forEach((record, name) => {
+            record.references = record.references.filter(instr => !instr.removed);
+            if(record.symbol === null || record.symbol.error)
             {
-                // Recompiling the instruction
-                instr.removed = false;
-                try
-                {
-                    instr.wantsRecomp = false;
-                    instr.recompile();
-                }
-                catch(e)
-                {
-                    instr.error = e;
-
-                    // When a symbol is invalidated, all references to it should be too
-                    if(instr.name)
-                        for(let ref of symbols.get(instr.name).references)
-                            queueRecomp(ref);
-                }
+                if(record.references.length == 0)
+                    symbols.delete(name);
+                else for(let ref of record.references)
+                    queueRecomp(ref);
             }
-            currIndex = instr.address + instr.length;
-            instr = instr.next;
-        } while(instr && instr.address != currIndex);
-    }
+        });
 
-    // Error collection
-    let haltingErrors = [];
-    for(let i = 0; i < this.instructions.length; i++)
-    {
-        for(instr of this.instructions[i])
+        while(instr = linkedInstrQueue.shift() || recompQueue.shift())
         {
+            currIndex = instr.address;
+            do
+            {
+                instr.address = currIndex;
+                if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
+                {
+                    // Recompiling the instruction
+                    instr.removed = false;
+                    try
+                    {
+                        instr.wantsRecomp = false;
+                        instr.recompile();
+                    }
+                    catch(e)
+                    {
+                        instr.error = e;
+
+                        // When a symbol is invalidated, all references to it should be too
+                        if(instr.name)
+                            for(let ref of symbols.get(instr.name).references)
+                                queueRecomp(ref);
+                    }
+                }
+                currIndex = instr.address + instr.length;
+                instr = instr.next;
+            } while(instr && instr.address != currIndex);
+        }
+
+        // Error collection
+        let haltingErrors = [], lastInstr = null;
+        this.iterate((instr, line) => {
+            lastInstr = instr;
             if(instr.outline && instr.outline.operands)
                 for(let op of instr.outline.operands)
                     op.attemptedSizes = op.attemptedUnsignedSizes = 0;
@@ -260,40 +343,40 @@ AssemblyState.prototype.secondPass = function(haltOnError = false)
             if(e)
             {
                 if(haltOnError)
-                    haltingErrors.push(`Error on line ${i + 1}: ${e.message}`);
+                    haltingErrors.push(`Error on line ${line}: ${e.message}`);
 
                 /* Errors whose pos can't be determined should be logged,
                 not marked (these are usually internal compiler errors) */
-                if(e.pos == null || e.length == null)
+                if(!e.range)
                 {
-                    console.error(`Error on line ${i + 1}:\n`, e);
+                    console.error(`Error on line ${line}:\n`, e);
                     instr.error = null;
                 }
             }
-        }
+        });
+
+        if(haltingErrors.length > 0)
+            throw haltingErrors.join('\n');
+        
+        this.bytes = lastInstr ? lastInstr.address + lastInstr.length - baseAddr : 0;
     }
 
-    if(haltingErrors.length > 0)
-        throw haltingErrors.join('\n');
-    
-    this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
-}
-
-AssemblyState.prototype.dump = function()
-{
-    let output, i = 0;
-
-    // Use the available byte array type
-    try { output = Buffer.alloc(this.bytes); }
-    catch(e) { output = new Uint8Array(this.bytes); }
-
-    for(let instrLine of this.instructions)
+    dump()
     {
-        for(let instr of instrLine)
+        let output, i = 0;
+
+        // Use the available byte array type
+        try { output = Buffer.alloc(this.bytes); }
+        catch(e) { output = new Uint8Array(this.bytes); }
+
+        for(let instrLine of this.instructions)
         {
-            for(let j = 0; j < instr.length; j++)
-                output[i++] = instr.bytes[j];
+            for(let instr of instrLine)
+            {
+                for(let j = 0; j < instr.length; j++)
+                    output[i++] = instr.bytes[j];
+            }
         }
+        return output;
     }
-    return output;
 }

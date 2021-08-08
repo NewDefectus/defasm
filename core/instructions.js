@@ -1,10 +1,10 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints, floatSuffixes, floatIntSuffixes } from "./operands.js";
-import { token, next, ungetToken, setToken, ParserError, codePos } from "./parser.js";
+import { token, next, ungetToken, setToken, currRange } from "./parser.js";
 import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
-import { Statement } from "./statement.js";
+import { ASMError, Statement } from "./statement.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -21,29 +21,29 @@ const SHORT_DISP = 128;
 at the start or end of the operand list, depending on the syntax */
 function parseRoundingMode(vexInfo)
 {
-    let roundingName = "", roundStart = codePos;
+    let roundingName = "", roundStart = currRange;
     vexInfo.evex = true;
 
     while(next() != '}')
     {
         if(token == '\n')
-            throw new ParserError("Expected '}'")
+            throw new ASMError("Expected '}'")
         roundingName += token;
     }
 
     vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-    vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
+    vexInfo.roundingPos = { start: roundStart.start, length: currRange.end - roundStart.start };
     if(vexInfo.round < 0)
-        throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
+        throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
 }
 
 export class Instruction extends Statement
 {
-    constructor(prev, opcode, opcodePos)
+    constructor(prev, opcode, range)
     {
-        super(prev, MAX_INSTR_SIZE);
+        super(prev, MAX_INSTR_SIZE, range);
         this.opcode = opcode;
-        this.opcodePos = opcodePos;
+        this.opcodeRange = range;
 
         this.interpret();
     }
@@ -119,22 +119,22 @@ export class Instruction extends Statement
                 }
                 else if(operations.length == 0 && mnemonicExists(subOpcode, false))
                 {
-                    this.opcodePos.start += this.opcodePos.length - 1; // To mark only the last letter (suffix)
-                    this.opcodePos.length = 1;
-                    throw new ParserError("Invalid opcode suffix", this.opcodePos);
+                    this.opcodeRange.start += this.opcodeRange.length - 1; // To mark only the last letter (suffix)
+                    this.opcodeRange.length = 1;
+                    throw new ASMError("Invalid opcode suffix", this.opcodeRange);
                 }
             }
         }
             
 
         if(operations.length == 0)
-            throw new ParserError("Unknown opcode", this.opcodePos);
+            throw new ASMError("Unknown opcode", this.opcodeRange);
 
         if(!this.syntax.intel && token == '{')
         {
             parseRoundingMode(vexInfo);
             if(next() != ',')
-                throw new ParserError("Expected ','");
+                throw new ASMError("Expected ','");
             next();
         }
 
@@ -180,12 +180,12 @@ export class Instruction extends Statement
             if(token == ':') // Segment specification for addressing
             {
                 if(operand.type != OPT.SEG)
-                    throw new ParserError("Incorrect prefix");
+                    throw new ASMError("Incorrect prefix");
                 prefsToGen |= (operand.reg + 1) << 3;
                 next();
                 operand = new Operand(this, forceImmToRel);
                 if(operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
-                    throw new ParserError("Segment prefix must be followed by memory reference");
+                    throw new ASMError("Segment prefix must be followed by memory reference");
             }
 
             if(operand.expression && operand.expression.hasSymbols)
@@ -206,7 +206,7 @@ export class Instruction extends Statement
                 {
                     vexInfo.mask = parseRegister([OPT.MASK]).reg;
                     if((vexInfo.mask & 7) == 0)
-                        throw new ParserError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
+                        throw new ASMError(`Can't use ${this.syntax.prefix ? '%' : ''}k0 as writemask`, regParsePos);
                 }
                 else if(token == 'z')
                     vexInfo.zeroing = true, next(); // Zeroing-masking
@@ -214,15 +214,15 @@ export class Instruction extends Statement
                 {
                     vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
                     if(vexInfo.broadcast < 0)
-                        throw new ParserError("Invalid broadcast mode");
-                    vexInfo.broadcastPos = codePos;
+                        throw new ASMError("Invalid broadcast mode");
+                    vexInfo.broadcastPos = currRange;
                     next();
                 }
                 else
-                    throw new ParserError("Invalid decorator");
+                    throw new ASMError("Invalid decorator");
                 
                 if(token != '}')
-                    throw new ParserError("Expected '}'");
+                    throw new ASMError("Expected '}'");
                 next();
             }
 
@@ -230,15 +230,15 @@ export class Instruction extends Statement
                 break;
             next();
         }
-        this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
+        this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodeRange;
         if(this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
             operands.reverse();
 
         if(usesMemory && vexInfo.round !== null)
-            throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+            throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
 
         this.outline = { operands, operations, prefsToGen, vexInfo };
-        this.endPos = codePos;
+        this.endPos = currRange;
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
 
@@ -359,18 +359,18 @@ export class Instruction extends Statement
             }
 
             if(vexInfo.needed && !couldveBeenVex)
-                throw new ParserError("Unknown opcode", this.opcodePos);
+                throw new ASMError("Unknown opcode", this.opcodeRange);
 
             if(operands.length < minOperandCount)
-                throw new ParserError("Not enough operands", this.operandStartPos, this.endPos);
+                throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));
             
             if(operands.length > maxOperandCount)
-                throw new ParserError("Too many operands", this.operandStartPos, this.endPos);
+                throw new ASMError("Too many operands", this.operandStartPos.until(this.endPos));
             
             if(!firstOrderPossible && secondOrderPossible)
-                throw new ParserError("Wrong operand order", this.operandStartPos, this.endPos);
+                throw new ASMError("Wrong operand order", this.operandStartPos.until(this.endPos));
             
-            throw new ParserError("Invalid operands", this.operandStartPos, this.endPos);
+            throw new ASMError("Invalid operands", this.operandStartPos.until(this.endPos));
         }
 
         if(op.rexw)
@@ -388,7 +388,7 @@ export class Instruction extends Statement
 
         // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
         if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
-            throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
+            throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
         let opcode = op.opcode;
 
         // Time to generate!

@@ -1,7 +1,7 @@
 import { isRegister, OPT, parseRegister, PREFIX_ADDRSIZE, regParsePos } from "./operands.js";
-import { codePos, currSyntax, next, ParserError, setToken, token, ungetToken } from "./parser.js";
+import { currRange, currSyntax, next, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./compiler.js";
-import { Statement } from "./statement.js";
+import { ASMError, Statement } from "./statement.js";
 
 export var unaries = {
     '+': a=>a,
@@ -65,7 +65,7 @@ const stringEscapeSeqs = {
 const encoder = new TextEncoder();
 export var readString = string => {
     if(string.length < 2 || string[string.length - 1] != string[0])
-        throw new ParserError("Incomplete string");
+        throw new ASMError("Incomplete string");
     let output = [];
     let matches = string.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.?))|[^\\]+/ig);
     if(matches)
@@ -74,7 +74,7 @@ export var readString = string => {
         {
             x = x.slice(1);
             if(x == '')
-                throw new ParserError("Incomplete string");
+                throw new ASMError("Incomplete string");
 
             if(x.match(/x[0-9a-f]{1,2}/i))
                 output.push(parseInt(x.slice(1), 16));
@@ -140,7 +140,7 @@ function parseNumber(asFloat = false)
     try
     {
         if(token === '\n')
-            throw new ParserError("Expected value, got none");
+            throw new ASMError("Expected value, got none");
         if(token[0] === "'")
         {
             let bytes = readString(token), i = bytes.length;
@@ -156,13 +156,13 @@ function parseNumber(asFloat = false)
             let numType = isNumber(token, currSyntax.intel);
             if(numType == NUM_SYMBOL) // Symbol
             {
-                let symbol = { name: token, pos: codePos };
+                let symbol = { name: token, pos: currRange };
                 next();
                 return { value: symbol, floatPrec };
             }
 
             if(numType === NUM_INVALID)
-                throw new ParserError("Invalid number");
+                throw new ASMError("Invalid number");
 
             let mainToken = token;
             if(numType & NUM_H_SUFFIX)
@@ -176,9 +176,9 @@ function parseNumber(asFloat = false)
                 else if(suffix == 'f') floatPrec = 1;
                 else
                 {
-                    codePos.start += codePos.length - 1;
-                    codePos.length = 1;
-                    throw new ParserError("Invalid number suffix");
+                    currRange.start += currRange.length - 1;
+                    currRange.length = 1;
+                    throw new ASMError("Invalid number suffix");
                 }
 
                 value = Number(mainToken.slice(0, -1));
@@ -211,7 +211,8 @@ function parseNumber(asFloat = false)
     }
     catch(e)
     {
-        if(e.pos === undefined) throw new ParserError(e);
+        if(e.pos === undefined)
+            throw new ASMError(e);
         throw e;
     }
 }
@@ -247,7 +248,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         let multiplier = null, multiplierPos = null;
         
         if(inParentheses)
-            throw new ParserError("Can't use registers within parentheses");
+            throw new ASMError("Can't use registers within parentheses");
 
         if(opStack.length > 0)
         {
@@ -260,48 +261,48 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
 
                 multiplier = "1248".indexOf(prevVal.toString());
                 if(multiplier < 0)
-                    throw new ParserError("Scale must be 1, 2, 4, or 8");
+                    throw new ASMError("Scale must be 1, 2, 4, or 8");
             }
             else if(prevOp.func != operators['+'].func)
-                throw new ParserError("Invalid operation on register (expected '+' or '*')", prevOp.pos);
+                throw new ASMError("Invalid operation on register (expected '+' or '*')", prevOp.pos);
         }
 
         if(this.regBase && this.regBase.type == OPT.IP)
-            throw new ParserError("Can't use RIP with other registers");
+            throw new ASMError("Can't use RIP with other registers");
 
         let tempReg = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
 
         if(token == '*')
         {
-            multiplierPos = codePos;
+            multiplierPos = currRange;
             if(multiplier !== null)
-                throw new ParserError("Can't multiply a register more than once");
+                throw new ASMError("Can't multiply a register more than once");
             multiplier = "1248".indexOf(next());
             if(multiplier < 0)
-                throw new ParserError("Scale must be 1, 2, 4, or 8");
+                throw new ASMError("Scale must be 1, 2, 4, or 8");
             next();
         }
 
         if(tempReg.type == OPT.VEC)
         {
             if(tempReg.size < 128)
-                throw new ParserError("Invalid register size", regParsePos);
+                throw new ASMError("Invalid register size", regParsePos);
         }
         else
         {
             if(tempReg.size == 32)
                 this.prefs |= PREFIX_ADDRSIZE;
             else if(tempReg.size != 64)
-                throw new ParserError("Invalid register size", regParsePos);
+                throw new ASMError("Invalid register size", regParsePos);
             
             if(tempReg.type == OPT.IP && (this.regBase || this.regIndex))
-                throw new ParserError("Can't use RIP with other registers", regParsePos);
+                throw new ASMError("Can't use RIP with other registers", regParsePos);
         }
         
         if(this.regBase)
         {
             if(this.regIndex)
-                throw new ParserError("Index register already set", regParsePos);
+                throw new ASMError("Index register already set", regParsePos);
                 
             this.regIndex = tempReg;
             if(tempReg.type != OPT.VEC && tempReg.reg == 4)
@@ -309,7 +310,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 if(this.regBase.reg != 4 && multiplier === null)
                     [this.regIndex, this.regBase] = [this.regBase, this.regIndex];
                 else
-                    throw new ParserError("Memory index cannot be RSP", regParsePos);
+                    throw new ASMError("Memory index cannot be RSP", regParsePos);
             }
         }
         else
@@ -321,20 +322,20 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 if(this.regIndex)
                 {
                     if(multiplier !== null)
-                        throw new ParserError("Can't scale multiple registers", multiplierPos);
-                    throw new ParserError("Vector register must be the index", regParsePos);
+                        throw new ASMError("Can't scale multiple registers", multiplierPos);
+                    throw new ASMError("Vector register must be the index", regParsePos);
                 }
                 this.regIndex = this.regBase;
                 this.regBase = null;
                 if(this.regIndex.reg == 4)
-                    throw new ParserError("Memory index cannot be RSP", regParsePos);
+                    throw new ASMError("Memory index cannot be RSP", regParsePos);
                 if(tempReg.type == OPT.IP)
-                    throw new ParserError(`Can't scale ${instr.syntax.prefix ? '%' : ''}${tempReg.size == 32 ? 'e' : 'r'}ip`, multiplierPos);
+                    throw new ASMError(`Can't scale ${instr.syntax.prefix ? '%' : ''}${tempReg.size == 32 ? 'e' : 'r'}ip`, multiplierPos);
             }
         }
 
         if(token != ']' && token != '+' && token != '-')
-            throw new ParserError("Expected ']', '+' or '-'");
+            throw new ASMError("Expected ']', '+' or '-'");
         lastWasNum = true;
         this.stack.push(0n);
         if(multiplier !== null)
@@ -348,7 +349,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
     {
         if(!lastWasNum && unaries.hasOwnProperty(token)) // Unary operator
         {
-            opStack.push({pos: codePos, func: unaries[token], prec: -1});
+            opStack.push({pos: currRange, func: unaries[token], prec: -1});
             next();
         }
         else if(operators.hasOwnProperty(token)) // Operator
@@ -367,10 +368,10 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                         break;
                 }
                 
-                throw new ParserError("Missing left operand");
+                throw new ASMError("Missing left operand");
             }
 
-            let op = Object.assign({pos: codePos}, operators[token]);
+            let op = Object.assign({pos: currRange}, operators[token]);
             next();
 
             lastWasNum = false;
@@ -380,27 +381,27 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
             opStack.push(op);
         }
         else if(unaries.hasOwnProperty(token))
-            throw new ParserError("Unary operator can't be used here");
+            throw new ASMError("Unary operator can't be used here");
         else if(token == '(')
         {
             if(lastWasNum)
             {
                 if(!instr.syntax.intel && expectMemory)
                     break;
-                throw new ParserError("Unexpected parenthesis");
+                throw new ASMError("Unexpected parenthesis");
             }
-            opStack.push({pos: codePos, bracket: true });
+            opStack.push({pos: currRange, bracket: true });
             inParentheses++;
             next();
         }
         else if(token == ')')
         {
             if(!lastWasNum)
-                throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+                throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
             while(lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
                 this.stack.push(opStack.pop());
             if(!lastOp || !lastOp.bracket)
-                throw new ParserError("Mismatched parentheses");
+                throw new ASMError("Mismatched parentheses");
             opStack.pop();
             lastWasNum = true;
             inParentheses--;
@@ -409,7 +410,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         else if(instr.syntax.intel && (token == '[' || token == ']'))
         {
             if(!lastWasNum)
-                throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+                throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
             break;
         }
         else if(!instr.syntax.prefix && isRegister(token))
@@ -424,12 +425,12 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 else if(!lastWasNum && opStack.length > 0 && opStack[opStack.length - 1].bracket)
                     break;
             }
-            throw new ParserError("Can't use registers in an expression");
+            throw new ASMError("Can't use registers in an expression");
         }
         else // Number
         {
             if(lastWasNum)
-                throw new ParserError("Unexpected value");
+                throw new ASMError("Unexpected value");
             lastWasNum = true;
 
             let imm = parseNumber(this.floatPrec !== 0);
@@ -447,7 +448,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
     }
 
     if(this.stack.length === 0 && !expectMemory)
-        throw new ParserError("Expected expression");
+        throw new ASMError("Expected expression");
 
     if(expectMemory && opStack.length == 1 && opStack[0].bracket)
     {
@@ -456,12 +457,12 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         return null;
     }
     else if(!lastWasNum)
-        throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+        throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
 
     while(opStack[0])
     {
         if(opStack[opStack.length - 1].bracket)
-            throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+            throw new ASMError("Mismatched parentheses", opStack[opStack.length - 1].pos);
         this.stack.push(opStack.pop());
     }
 
@@ -523,7 +524,7 @@ Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
                 else if(!requireSymbols)
                     op = 1n;
                 else
-                    throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
+                    throw new ASMError(`Unknown symbol "${op.name}"`, op.pos);
             }
             stack[len++] = op;
         }
@@ -534,7 +535,7 @@ Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
             stack[len - 1] = Number(stack[len - 1]);
     }
     if(stack.length > 1)
-        throw new ParserError("Invalid expression");
+        throw new ASMError("Invalid expression");
 
     if(this.floatPrec === 0) return stack[0];
     let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);

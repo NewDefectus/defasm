@@ -1,6 +1,6 @@
-import { token, next, ParserError, setSyntax, currSyntax }   from "./parser.js";
+import { token, next, setSyntax, currSyntax } from "./parser.js";
 import { Expression, readString } from "./shuntingYard.js";
-import { Statement } from "./statement.js";
+import { Statement, ASMError } from "./statement.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -40,9 +40,9 @@ export const intelDirectives = {
 
 export class Directive extends Statement
 {
-    constructor(prev, dir)
+    constructor(prev, dir, range)
     {
-        super(prev, DIRECTIVE_BUFFER_SIZE);
+        super(prev, DIRECTIVE_BUFFER_SIZE, range);
         this.outline = null;
         this.floatPrec = 0;
 
@@ -52,7 +52,7 @@ export class Directive extends Statement
         try
         {
             let dirs = this.syntax.intel ? intelDirectives : directives;
-            if(!dirs.hasOwnProperty(dir)) throw new ParserError("Unknown directive");
+            if(!dirs.hasOwnProperty(dir)) throw new ASMError("Unknown directive");
             dir = dirs[dir];
             switch(dir)
             {
@@ -83,7 +83,7 @@ export class Directive extends Statement
                             this.bytes = temp;
                             this.length = temp.length;
                         }
-                        else throw new ParserError("Expected string");
+                        else throw new ASMError("Expected string");
                     } while(next() == ',');
                     break;
 
@@ -100,7 +100,7 @@ export class Directive extends Statement
                     else if(prefSpecifier == 'noprefix')
                         prefix = false;
                     else if(prefSpecifier != '\n' && prefSpecifier != ';')
-                        throw new ParserError("Expected 'prefix' or 'noprefix'");
+                        throw new ASMError("Expected 'prefix' or 'noprefix'");
                     this.syntax = { intel, prefix };
                     this.switchSyntax = true;
                     if(token != '\n' && token != ';')
@@ -128,7 +128,7 @@ export class Directive extends Statement
                     if(acceptStrings)
                         readString(token).forEach(byte => this.genValue(BigInt(byte)));
                     else
-                        throw new ParserError("Unexpected string");
+                        throw new ASMError("Unexpected string");
                     next();
                 }
                 else

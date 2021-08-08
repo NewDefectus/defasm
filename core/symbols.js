@@ -1,7 +1,7 @@
 import { Expression, LabelExpression } from "./shuntingYard.js";
-import { next, ParserError } from "./parser.js";
+import { next } from "./parser.js";
 import { symbols } from "./compiler.js";
-import { Statement } from "./statement.js";
+import { ASMError, Statement } from "./statement.js";
 
 export var recompQueue = [];
 
@@ -14,9 +14,9 @@ export function queueRecomp(instr)
 
 export class Symbol extends Statement
 {
-    constructor(prev, name, namePos, isLabel = false)
+    constructor(prev, name, range, isLabel = false)
     {
-        super(prev, 0);
+        super(prev, 0, range);
         this.name = name;
         try
         {
@@ -34,7 +34,7 @@ export class Symbol extends Statement
             let record = symbols.get(name);
             if(record.symbol)
             {
-                this.error = new ParserError(`This ${isLabel ? 'label' : 'symbol'} already exists`, namePos);
+                this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, namePos);
                 this.duplicate = true;
                 record.references.push(this);
             }
