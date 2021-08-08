@@ -1,7 +1,7 @@
 @top Program { statement ((statementSeparator | '\n') statement)*  }
 
-@context ctxTracker from "./asmPlugin"
-@external tokens tokenizer from "./asmPlugin" {
+@context ctxTracker from "./tokenizer"
+@external tokens tokenizer from "./tokenizer" {
   Register,
   Directive,
   Comment,

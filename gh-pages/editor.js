@@ -5,15 +5,17 @@ import { defaultHighlightStyle }              from "@codemirror/highlight";
 import { history, historyKeymap }             from "@codemirror/history";
 import { EditorState }                        from "@codemirror/state";
 import { EditorView, keymap }                 from "@codemirror/view";
-import { assembly }                           from "@defasm/codemirror";
+import { assembly, ASMStateField }            from "@defasm/codemirror";
 
 const byteCount = document.getElementById("byteCount");
 
-var editor = new EditorView({
+/** @type {EditorView} */
+const editor = new EditorView({
     dispatch: tr => {
-        let result = editor.update([tr]);
+        const result = editor.update([tr]);
+        const bytes = editor.state.field(ASMStateField).bytes;
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
-        byteCount.innerText = `${asmState.bytes} byte${asmState.bytes != 1 ? 's' : ''}`;
+        byteCount.innerText = `${bytes} byte${bytes != 1 ? 's' : ''}`;
         return result;
     },
     parent: document.getElementById("inputAreaContainer"),
@@ -29,8 +31,6 @@ var editor = new EditorView({
         ]
     })
 });
-
-var asmState = editor['asm-state'];
 
 editor.contentDOM.setAttribute("data-gramm", "false"); // Disable Grammarly
 

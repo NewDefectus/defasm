@@ -1,4 +1,5 @@
-import { asmHover, asmPlugin }            from "./asmPlugin.js";
+import { compilerPlugin }                 from "./compilerPlugin.js";
+import { errorPlugin }                    from "./errorPlugin.js";
 import { parser }                         from "./parser.js";
 import { LezerLanguage, LanguageSupport } from '@codemirror/language';
 import { styleTags, tags }                from '@codemirror/highlight';
@@ -72,6 +73,10 @@ const asmTheme = EditorView.baseTheme({
     }
 });
 
-export function assembly() {
-    return new LanguageSupport(assemblyLang, [asmPlugin, asmTheme, asmHover]);
+export function assembly()
+{
+    return new LanguageSupport(assemblyLang, [asmTheme, compilerPlugin, errorPlugin]);
 }
+
+export { ASMStateField } from "./compilerPlugin";
+export { ASMErrorField } from "./errorPlugin";
