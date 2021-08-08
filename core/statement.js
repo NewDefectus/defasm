@@ -14,7 +14,7 @@ export class Range
     /** @param {Number} pos */
     includes(pos)
     {
-        return pos >= this.start && pos <= this.end;
+        return this.end >= pos && pos >= this.start;
     }
 
     /** @param {Range} end */

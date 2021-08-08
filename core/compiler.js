@@ -61,7 +61,7 @@ export class AssemblyState
     /** @param {instrCallback} func */
     iterate(func)
     {
-        let line = 1, nextLine = 0, instr = this.instructionHead;
+        let line = 1, nextLine = 0, instr = this.instructionHead.next;
         while(nextLine != Infinity)
         {
             nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
@@ -95,6 +95,19 @@ export class AssemblyState
             func(instrs, line);
             line++;
         }
+    }
+
+    /** @param {Number} pos */
+    find(pos)
+    {
+        let instr = this.instructionHead.next;
+        while(instr)
+        {
+            if(instr.range.includes(pos))
+                return instr;
+            instr = instr.next;
+        }
+        return null;
     }
 
     /* Compile Assembly from source code into machine code */

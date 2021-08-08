@@ -6,6 +6,7 @@ import { history, historyKeymap }             from "@codemirror/history";
 import { EditorState }                        from "@codemirror/state";
 import { EditorView, keymap }                 from "@codemirror/view";
 import { assembly, ASMStateField }            from "@defasm/codemirror";
+import { debugPlugin }                        from "./debugPlugin";
 
 const byteCount = document.getElementById("byteCount");
 
@@ -27,7 +28,8 @@ const editor = new EditorView({
             history(),
             keymap.of([...closeBracketsKeymap, ...historyKeymap, defaultTabBinding, ...standardKeymap]),
             lineNumbers(),
-            assembly()
+            assembly(),
+            debugPlugin
         ]
     })
 });
