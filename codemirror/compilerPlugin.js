@@ -76,9 +76,16 @@ function expandTabs(text, tabSize)
     return result;
 }
 
-export const compilerPlugin = [
-    ASMStateField.extension,
-    // ASM dump plugin
+export const byteDumper = [
+    EditorView.baseTheme({
+        '.cm-asm-dump': {
+            fontStyle: "italic",
+            color: "#666"
+        },
+        '&dark .cm-asm-dump': {
+            color: "#aaa"
+        }
+    }),
     ViewPlugin.fromClass(class {
         /** @param {EditorView} view */
         constructor(view)

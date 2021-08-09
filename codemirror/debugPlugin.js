@@ -1,7 +1,7 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration } from '@codemirror/view';
 import { EditorState, ChangeSet } from '@codemirror/state';
 import { hoverTooltip } from '@codemirror/tooltip';
-import { ASMStateField } from '@defasm/codemirror';
+import { ASMStateField } from './compilerPlugin.js';
 
 var debugEnabled = false;
 
@@ -16,7 +16,7 @@ export const debugPlugin = [
     hoverTooltip((view, pos) => {
         if(!debugEnabled)
             return null;
-        const instr = view.state.field(ASMStateField).find(pos);
+        const instr = view.state.field(ASMStateField).instructions.find(pos);
         if(!instr)
             return null;
         return {
@@ -35,7 +35,7 @@ export const debugPlugin = [
         mousedown: (event, view) => {
             if(debugEnabled && event.ctrlKey)
             {
-                console.log(view.state.field(ASMStateField).find(view.posAtCoords(event)));
+                console.log(view.state.field(ASMStateField).instructions.find(view.posAtCoords(event)));
                 return true;
             }
         },

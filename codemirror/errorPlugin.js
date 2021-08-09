@@ -1,5 +1,5 @@
 import { hoverTooltip } from '@codemirror/tooltip';
-import { ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
+import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
 import { ASMStateField } from "./compilerPlugin";
 import { ASMError } from "@defasm/core/statement.js";
 import { EditorState, StateField } from '@codemirror/state';
@@ -40,9 +40,12 @@ class EOLError extends WidgetType
     }
 }
 
-export const errorPlugin = [
-    ASMErrorField.extension,
-    // Error underlining
+export const errorMarker = [
+    EditorView.baseTheme({
+        '.cm-asm-error': {
+            textDecoration: "underline red"
+        }
+    }),
     ViewPlugin.fromClass(
         class
         {
@@ -67,8 +70,36 @@ export const errorPlugin = [
             }
         },
         { decorations: plugin => plugin.marks }
-    ),
-    // Error tooltips
+    )
+];
+
+export const errorTooltipper = [
+    EditorView.baseTheme({
+        '.cm-asm-error-tooltip': {
+            fontFamily: "monospace",
+            borderRadius: ".25em",
+            padding: ".1em .25em",
+            color: "#eee",
+            backgroundColor: "black",
+            "&:before": {
+                position: "absolute",
+                content: '""',
+                left: ".3em",
+                marginLeft: "-.1em",
+                bottom: "-.3em",
+                borderLeft: ".3em solid transparent",
+                borderRight: ".3em solid transparent",
+                borderTop: ".3em solid black"
+            }
+        },
+        '&dark .cm-asm-error-tooltip': {
+            color: "black",
+            backgroundColor: "#eee",
+            "&:before": {
+                borderTop: ".3em solid #eee"
+            }
+        }
+    }),
     hoverTooltip((view, pos) => {
         for(let { range, message } of view.state.field(ASMErrorField))
             if(range.start <= pos && range.end >= pos)

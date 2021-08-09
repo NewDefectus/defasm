@@ -1,9 +1,9 @@
-import { compilerPlugin }                 from "./compilerPlugin.js";
-import { errorPlugin }                    from "./errorPlugin.js";
-import { parser }                         from "./parser.js";
-import { LezerLanguage, LanguageSupport } from '@codemirror/language';
-import { styleTags, tags }                from '@codemirror/highlight';
-import { EditorView }                     from '@codemirror/view';
+import { ASMStateField, byteDumper }                   from "./compilerPlugin.js";
+import { ASMErrorField, errorMarker, errorTooltipper } from "./errorPlugin.js";
+import { parser }                                      from "./parser.js";
+import { debugPlugin }                                 from "./debugPlugin.js";
+import { LezerLanguage, LanguageSupport }              from '@codemirror/language';
+import { styleTags, tags }                             from '@codemirror/highlight';
 
 const assemblyLang = LezerLanguage.define({
     parser: parser.configure({
@@ -35,47 +35,23 @@ const assemblyLang = LezerLanguage.define({
     })
 });
 
-
-const asmTheme = EditorView.baseTheme({
-    '.cm-asm-dump': {
-        fontStyle: "italic",
-        color: "#666"
-    },
-    '.cm-asm-error': {
-        textDecoration: "underline red"
-    },
-    '.cm-asm-error-tooltip': {
-        fontFamily: "monospace",
-        borderRadius: ".25em",
-        padding: ".1em .25em",
-        color: "#eee",
-        backgroundColor: "black",
-        "&:before": {
-            position: "absolute",
-            content: '""',
-            left: ".3em",
-            marginLeft: "-.1em",
-            bottom: "-.3em",
-            borderLeft: ".3em solid transparent",
-            borderRight: ".3em solid transparent",
-            borderTop: ".3em solid black"
-        }
-    },
-    '&dark .cm-asm-error-tooltip': {
-        color: "black",
-        backgroundColor: "#eee",
-        "&:before": {
-            borderTop: ".3em solid #eee"
-        }
-    },
-    '&dark .cm-asm-dump': {
-        color: "#aaa"
-    }
-});
-
-export function assembly()
+export function assembly({
+    byteDumps     = true,
+    debug         = false,
+    errorMarking  = true,
+    errorTooltips = true,
+    highlighting  = true
+} = {})
 {
-    return new LanguageSupport(assemblyLang, [asmTheme, compilerPlugin, errorPlugin]);
+    const plugins = [ASMStateField.extension, ASMErrorField.extension];
+    if(byteDumps)     plugins.push(byteDumper);
+    if(debug)         plugins.push(debugPlugin);
+    if(errorMarking)  plugins.push(errorMarker);
+    if(errorTooltips) plugins.push(errorTooltipper);
+
+    if(highlighting)
+        return new LanguageSupport(assemblyLang, plugins);
+    return plugins;
 }
 
 export { ASMStateField } from "./compilerPlugin";

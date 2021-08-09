@@ -46,7 +46,7 @@ export class AssemblyState
         this.symbols = new Map();
 
         /** @type {Statement} */
-        this.instructionHead = new Statement();
+        this.instructions = new Statement();
 
         /** @type {string} */
         this.source = '';
@@ -55,67 +55,6 @@ export class AssemblyState
         this.compiledRange = new Range();
 
         this.bytes = 0;
-    }
-
-    line(line)
-    {
-        if(line-- < 1)
-            throw "Invalid line";
-        let start = 0;
-        while(line--)
-            start = this.source.indexOf('\n', start) + 1 || start;
-        let end = this.source.indexOf('\n', start) + 1 || start;
-        return new Range(start, end - start);
-    }
-
-    /**
-     * @callback instrCallback
-     * @param {Statement} instr
-     * @param {Number} line
-    */
-    /** @param {instrCallback} func */
-    iterate(func)
-    {
-        let line = 1, nextLine = 0, instr = this.instructionHead.next;
-        while(nextLine != Infinity)
-        {
-            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
-            while(instr && instr.range.end < nextLine)
-            {
-                func(instr, line);
-                instr = instr.next;
-            }
-            line++;
-        }
-    }
-
-    /**
-     * @callback lineCallback
-     * @param {Statement[]} instr
-     * @param {Number} line
-    */
-    /** @param {lineCallback} func */
-    iterateLines(func)
-    {
-        let line = 1, nextLine = 0, instr = this.instructionHead.next;
-        while(nextLine != Infinity)
-        {
-            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
-            let instrs = [];
-            while(instr && instr.range.end <= nextLine)
-            {
-                instrs.push(instr);
-                instr = instr.next;
-            }
-            func(instrs, line);
-            line++;
-        }
-    }
-
-    /** @param {Number} pos */
-    find(pos)
-    {
-        return this.instructionHead.next.find(pos);
     }
 
     /* Compile Assembly from source code into machine code */
@@ -133,9 +72,9 @@ export class AssemblyState
         
         symbols = this.symbols;
 
-        firstInstr = this.instructionHead;
+        firstInstr = this.instructions;
         let lastInstr = null, tailInstr = null;
-        let instr = this.instructionHead.next;
+        let instr = this.instructions.next;
         let changeOffset = source.length - range.length;
 
         /* Selecting the instruction range that is replaced by the edit.
@@ -370,20 +309,79 @@ export class AssemblyState
 
     dump()
     {
-        let output, i = 0;
+        let output, i = 0, instr = this.instructions;
 
         // Use the available byte array type
         try { output = Buffer.alloc(this.bytes); }
         catch(e) { output = new Uint8Array(this.bytes); }
 
-        for(let instrLine of this.instructions)
-        {
-            for(let instr of instrLine)
-            {
-                for(let j = 0; j < instr.length; j++)
-                    output[i++] = instr.bytes[j];
-            }
-        }
+        while(instr = instr.next)
+            for(let j = 0; j < instr.length; j++)
+                output[i++] = instr.bytes[j];
+
         return output;
+    }
+
+    line(line)
+    {
+        if(line-- < 1)
+            throw "Invalid line";
+        let start = 0;
+        while(line)
+        {
+            start = this.source.indexOf('\n', start) + 1;
+            if(start == 0)
+                return new Range(this.source.length + line, 0);
+            line--;
+        }
+
+        let end = this.source.indexOf('\n', start);
+        if(end < 0)
+            end = this.source.length;
+        return new Range(start, end - start);
+    }
+
+    /**
+     * @callback instrCallback
+     * @param {Statement} instr
+     * @param {Number} line
+    */
+    /** @param {instrCallback} func */
+    iterate(func)
+    {
+        let line = 1, nextLine = 0, instr = this.instructions.next;
+        while(nextLine != Infinity)
+        {
+            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
+            while(instr && instr.range.end < nextLine)
+            {
+                func(instr, line);
+                instr = instr.next;
+            }
+            line++;
+        }
+    }
+
+    /**
+     * @callback lineCallback
+     * @param {Statement[]} instr
+     * @param {Number} line
+    */
+    /** @param {lineCallback} func */
+    iterateLines(func)
+    {
+        let line = 1, nextLine = 0, instr = this.instructions.next;
+        while(nextLine != Infinity)
+        {
+            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
+            let instrs = [];
+            while(instr && instr.range.end <= nextLine)
+            {
+                instrs.push(instr);
+                instr = instr.next;
+            }
+            func(instrs, line);
+            line++;
+        }
     }
 }

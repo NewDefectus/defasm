@@ -16,6 +16,7 @@
     "@codemirror/view": "",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",
-    "esbuild": ""
+    "esbuild": "",
+    "jsdoc": "^3.6.7"
   }
 }
