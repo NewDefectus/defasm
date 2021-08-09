@@ -51,6 +51,9 @@ export class AssemblyState
         /** @type {string} */
         this.source = '';
 
+        /** @type {Range} */
+        this.compiledRange = new Range();
+
         this.bytes = 0;
     }
 
@@ -175,8 +178,6 @@ export class AssemblyState
             instr = instr.next;
         }
 
-        console.log({firstInstr: firstInstr?.id, lastInstr: lastInstr?.id, tailInstr: tailInstr?.id});
-
         // Expand the range a bit so as not to cut off the first and last instructions
         if(lastInstr)
             range = firstInstr.next.range.until(lastInstr.range);
@@ -184,8 +185,6 @@ export class AssemblyState
             range.length = tailInstr.range.start - range.start - 1;
         else
             range.length = source.length;
-        
-        console.log({range});
         
         firstInstr.next = null;
         setSyntax(firstInstr ? firstInstr.syntax : defaultSyntax);
@@ -248,7 +247,7 @@ export class AssemblyState
                 if(haltOnError && !doSecondPass)
                     throw `Error on line ${line}: ${e.message}`;
                 if(!e.range)
-                    console.error("Error on line " + line + ":\n", e);
+                    console.error(`Error on line ${line}:\n`, e);
                 else
                     addInstruction(new Statement(firstInstr, 0, pos, e));
             }
@@ -261,14 +260,13 @@ export class AssemblyState
             next();
         }
 
-        console.log({COMPILED: range.until(prevRange).slice(this.source)});
+        this.compiledRange = range.until(prevRange);
 
         // Link the last instruction to the next
         instr = tailInstr;
         while(instr && instr.range.start < prevRange.end)
             instr = instr.next;
 
-        console.log(`Linking ${firstInstr?.id} to ${instr?.id}`);
         if(instr)
         {    
             firstInstr.next = instr;

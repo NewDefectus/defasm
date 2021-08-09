@@ -6,6 +6,13 @@ import { ASMStateField } from '@defasm/codemirror';
 var debugEnabled = false;
 
 export const debugPlugin = [
+    EditorView.baseTheme({
+        '.red': { background: 'lightcoral' },
+        '.blue': { background: 'lightblue' },
+        '.cm-asm-debug-compiled .red, .red .cm-asm-debug-compiled': { background: 'indianred' },
+        '.cm-asm-debug-compiled .blue, .blue .cm-asm-debug-compiled': { background: 'dodgerblue' },
+        '.cm-asm-debug-compiled': { background: '#ddd' }
+    }),
     hoverTooltip((view, pos) => {
         if(!debugEnabled)
             return null;
@@ -68,13 +75,15 @@ export const debugPlugin = [
                 let i = 0;
                 state.field(ASMStateField).iterate(instr => {
                     instrMarks.push(Decoration.mark({
-                        class: 'cm-asm-debug',
-                        attributes: {
-                            style: "background: " + (i++ % 2 ? 'lightcoral' : 'lightblue')
-                        }
+                        class: i++ % 2 ? 'blue' : 'red'
                     }).range(instr.range.start, instr.range.end))
                 });
-                this.decorations = Decoration.set(instrMarks);
+                let compiledRange = state.field(ASMStateField).compiledRange;
+                if(compiledRange.length > 0)
+                    instrMarks.push(Decoration.mark({
+                        class: 'cm-asm-debug-compiled'
+                    }).range(compiledRange.start, compiledRange.end));
+                this.decorations = Decoration.set(instrMarks, true);
             }
         },
         { decorations: plugin => plugin.decorations }
