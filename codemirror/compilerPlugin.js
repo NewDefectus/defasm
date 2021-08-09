@@ -159,7 +159,7 @@ export const compilerPlugin = [
                 if(instrs.some(instr => instr.length > 0))
                     widgets.push(Decoration.widget({
                             widget: new AsmDumpWidget(instrs, maxOffset - this.lineWidths[line - 1]),
-                            side: 1
+                            side: 2
                         }).range(doc.line(line).to));
             });
 
