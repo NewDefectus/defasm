@@ -97,3 +97,11 @@ export class Statement
         return this.next?.find(pos);
     }
 }
+
+export class Comment extends Statement
+{
+    constructor(prev, range)
+    {
+        super(prev, 0, range);
+    }
+}

@@ -1,8 +1,8 @@
-import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line } from "./parser.js";
+import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment } from "./parser.js";
 import { Directive, intelDirectives } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
-import { ASMError, Range, Statement } from "./statement.js";
+import { ASMError, Comment, Range, Statement } from "./statement.js";
 
 var linkedInstrQueue = [];
 
@@ -185,8 +185,8 @@ export class AssemblyState
         console.log({range});
         
         firstInstr.next = null;
-        loadCode(this.source, range.start);
         setSyntax(firstInstr ? firstInstr.syntax : defaultSyntax);
+        loadCode(this.source, range.start);
         
         while(match && currRange.end <= range.end)
         {
@@ -250,6 +250,12 @@ export class AssemblyState
                     console.error("Error on line " + line + ":\n", e);
                 else
                     addInstruction(new Statement(firstInstr, 0, pos, e));
+            }
+            if(comment)
+            {
+                let start = currRange;
+                while(next() != '\n');
+                addInstruction(new Comment(firstInstr, start.until(currRange)));
             }
             next();
         }

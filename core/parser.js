@@ -1,5 +1,6 @@
 import { Range } from "./statement.js";
 /** @type {string} */          export var code;
+/** @type {boolean} */         export var comment;
 /** @type {Range} */           export var currRange;
 /** @type {Number} */          export var line;
 /** @type {RegExpExecArray} */ export var match;
@@ -33,17 +34,18 @@ var defaultNext = () => {
     if(!match) // Make sure not to loop around
         return null;
     
+    comment = false;
     match = tokenizer.exec(code);
-
     if(match)
     {
         token = match[0];
-        if(token == (currSyntax.intel ? ';' : '#'))
-            while(match && match[0] != '\n')
-                match = tokenizer.exec(code);
-    }
-    if(match)
         currRange = new Range(match.index, token.length);
+        if(token == (currSyntax.intel ? ';' : '#'))
+        {
+            comment = true;
+            token = ';';
+        }
+    }
     else
     {
         token = '\n';
