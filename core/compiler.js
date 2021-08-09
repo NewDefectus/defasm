@@ -1,4 +1,4 @@
-import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax } from "./parser.js";
+import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line } from "./parser.js";
 import { Directive, intelDirectives } from "./directives.js";
 import { Instruction } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
@@ -23,7 +23,16 @@ function addInstruction(instr)
 {
     firstInstr = instr;
     setSyntax(instr.syntax);
-    instr.range = instr.range.until(currRange);
+
+    if(token != '\n' && token != ';')
+    {
+        // Special case: this error should appear but not remove the instruction's bytes
+        instr.error = new ASMError("Expected end of line");
+        while(token != '\n' && token != ';')
+            next();
+    }
+
+    instr.range = new Range(instr.range.start, currRange.end - instr.range.start - 1);
 }
 
 export class AssemblyState
@@ -100,20 +109,13 @@ export class AssemblyState
     /** @param {Number} pos */
     find(pos)
     {
-        let instr = this.instructionHead.next;
-        while(instr)
-        {
-            if(instr.range.includes(pos))
-                return instr;
-            instr = instr.next;
-        }
-        return null;
+        return this.instructionHead.next.find(pos);
     }
 
     /* Compile Assembly from source code into machine code */
     compile(source, {
         haltOnError = false,
-        range = new Range(0, this.source.length),
+        range = new Range(),
         doSecondPass = true } = {})
     {
         this.source =
@@ -125,30 +127,22 @@ export class AssemblyState
         
         symbols = this.symbols;
 
-        firstInstr = null;
-        let lastInstr = null, instr = this.instructionHead;
+        firstInstr = this.instructionHead;
+        let lastInstr = null, tailInstr = null;
+        let instr = this.instructionHead.next;
         let changeOffset = source.length - range.length;
 
+        /* Selecting the instruction range that is replaced by the edit.
+        firstInstr: the last instruction before the edit
+        lastInstr: the last instruction in the edit
+        tailInstr: the first instruction after the edit */
         while(instr)
         {
-            if(firstInstr === null)
-            {
-                if(instr.next && instr.next.range.end >= range.start)
-                {
-                    firstInstr = instr;
-                    firstInstr.next.range.length += changeOffset;
-                }
-            }
+            if(instr.range.end < range.start)
+                firstInstr = instr;
             else
             {
-                if(instr.next)
-                {
-                    instr.next.range.start += changeOffset;
-                    if(instr.next.error)
-                        instr.next.error.range.start += changeOffset;
-                }
-                
-                if(lastInstr === null)
+                if(instr.range.start <= range.end)
                 {
                     // This instruction will be removed
                     if(instr.name && !instr.duplicate)
@@ -160,41 +154,46 @@ export class AssemblyState
                             symbols.delete(instr.name);
                     }
                     instr.removed = true;
-
-                    if(instr.range.includes(range.end))
-                    {
-                        lastInstr = instr;
-                        break;
-                    }
+                    lastInstr = instr;
                 }
+                else if(tailInstr === null)
+                    tailInstr = instr;
+
+                if(instr.range.start > range.start)
+                {
+                    instr.range.start += changeOffset;
+                    if(instr.error)
+                        instr.error.range.start += changeOffset;
+                }
+                else if(changeOffset > 0)
+                    instr.range.length += changeOffset;
             }
 
             instr = instr.next;
         }
 
-        if(firstInstr === null)
-            firstInstr = this.instructionHead;
+        console.log({firstInstr: firstInstr?.id, lastInstr: lastInstr?.id, tailInstr: tailInstr?.id});
 
         // Expand the range a bit so as not to cut off the first and last instructions
-        let nextRange = firstInstr.next ? firstInstr.next.range : new Range(firstInstr.range.end, Infinity);
         if(lastInstr)
-            range = nextRange.until(lastInstr.range);
+            range = firstInstr.next.range.until(lastInstr.range);
+        else if(tailInstr)
+            range.length = tailInstr.range.start - range.start - 1;
         else
-            range = new Range(nextRange.start, Infinity);
+            range.length = source.length;
+        
+        console.log({range});
         
         firstInstr.next = null;
-        console.log({source: this.source, slice: range.slice(this.source)});
-        loadCode(range.slice(this.source), range.start);
+        loadCode(this.source, range.start);
         setSyntax(firstInstr ? firstInstr.syntax : defaultSyntax);
         
-        let line = 1;
-
-        while(!match.done)
+        while(match && currRange.end <= range.end)
         {
             let pos = currRange;
             try
             {
-                if(token !== '\n' && token !== ';')
+                if(token != '\n' && token != ';')
                 {
                     let lowerTok = token.toLowerCase();
                     if(currSyntax.intel ?
@@ -239,11 +238,6 @@ export class AssemblyState
                             addInstruction(new Instruction(firstInstr, opcode.toLowerCase(), pos));
                     }
                 }
-
-                if(token == '\n')
-                    line++;
-                else if(token != ';')
-                    throw new ASMError("Expected end of line");
             }
             catch(e)
             {
@@ -256,27 +250,22 @@ export class AssemblyState
                     console.error("Error on line " + line + ":\n", e);
                 else
                     addInstruction(new Statement(firstInstr, 0, pos, e));
-                
-                if(token == '\n')
-                    line++;
             }
             next();
         }
 
+        console.log({COMPILED: range.until(prevRange).slice(this.source)});
+
         // Link the last instruction to the next
-        instr = lastInstr ? lastInstr.next : null;
+        instr = tailInstr;
+        while(instr && instr.range.start < prevRange.end)
+            instr = instr.next;
+
+        console.log(`Linking ${firstInstr?.id} to ${instr?.id}`);
         if(instr)
-        {
-            if(firstInstr)
-            {
-                firstInstr.next = instr;
-                linkedInstrQueue.push(firstInstr);
-            }
-            else if(instr.address != baseAddr)
-            {
-                linkedInstrQueue.push(instr);
-                instr.address = baseAddr;
-            }
+        {    
+            firstInstr.next = instr;
+            linkedInstrQueue.push(firstInstr);
 
             if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
             {

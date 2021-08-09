@@ -1,10 +1,10 @@
 import { Range } from "./statement.js";
-/** @type {IterableIterator<RegExpMatchArray>} */   var srcTokens;
-/** @type {IteratorResult<RegExpMatchArray>} */     export var match;
-/** @type {string} */                               export var token;
-/** @type {Range} */                                export var currRange;
-/** @type {Range} */                                var prevRange;
-var startIndex = 0;
+/** @type {string} */          export var code;
+/** @type {Range} */           export var currRange;
+/** @type {Number} */          export var line;
+/** @type {RegExpExecArray} */ export var match;
+/** @type {Range} */           export var prevRange;
+/** @type {string} */          export var token;
 
 export const defaultSyntax = { intel: false, prefix: true }
 export var currSyntax = defaultSyntax;
@@ -13,32 +13,45 @@ export function setSyntax(syntax)
     currSyntax = syntax;
 }
 
-/** @param {string} code */
-export function loadCode(code, index = 0)
+const tokenizer = /(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
+
+/** @param {string} source */
+export function loadCode(source, index = 0)
 {
-    srcTokens = code.matchAll(/(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g);
+    tokenizer.lastIndex = index;
+    code = source;
+
+    line = (source.slice(0, index).match(/\n/g) || []).length + 1;
 
     next = defaultNext;
-    startIndex = index;
-    prevRange = currRange = new Range();
-    next();
+    prevRange = currRange = new Range(index, 0);
+    match = 1; next();
 }
 
 var defaultNext = () => {
-    match = srcTokens.next();
     prevRange = currRange;
-    if(match.done)
-        return token = '\n';
+    if(!match) // Make sure not to loop around
+        return null;
     
-    token = match.value[0];
-    if(token == (currSyntax.intel ? ';' : '#'))
+    match = tokenizer.exec(code);
+
+    if(match)
     {
-        while(!match.done && match.value[0] != '\n')
-            match = srcTokens.next();
-        token = '\n';
+        token = match[0];
+        if(token == (currSyntax.intel ? ';' : '#'))
+            while(match && match[0] != '\n')
+                match = tokenizer.exec(code);
     }
+    if(match)
+        currRange = new Range(match.index, token.length);
     else
-        currRange = new Range(startIndex + match.value.index, token.length);
+    {
+        token = '\n';
+        currRange = new Range(code.length, 1);
+    }
+
+    if(token == '\n')
+        line++;
     return token;
 }
 

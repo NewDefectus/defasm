@@ -83,7 +83,8 @@ export class Directive extends Statement
                             this.bytes = temp;
                             this.length = temp.length;
                         }
-                        else throw new ASMError("Expected string");
+                        else
+                            throw new ASMError("Expected string");
                     } while(next() == ',');
                     break;
 
@@ -111,7 +112,8 @@ export class Directive extends Statement
         catch(e)
         {
             this.error = e;
-            while(token != ';' && token != '\n') next();
+            while(token != ';' && token != '\n')
+                next();
         }
     }
 

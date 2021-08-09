@@ -6,7 +6,7 @@ export class Range
     constructor(start = 0, length = 0)
     {
         if(start < 0 || length < 0)
-            throw "Invalid range";
+            throw `Invalid range ${start} to ${start + length}`;
         this.start = start;
         this.length = length;
     }
@@ -48,6 +48,8 @@ export class ASMError
     }
 }
 
+var totalStatements = 0;
+
 export class Statement
 {
     /**
@@ -59,6 +61,7 @@ export class Statement
     {
         this.error = error;
         this.range = range;
+        this.id = totalStatements++; // Each Statement gets a unique ID
 
         /** @type {Number} */
         this.length = 0;
@@ -82,5 +85,15 @@ export class Statement
             this.syntax = defaultSyntax;
             this.address = baseAddr;
         }
+    }
+
+    /**
+     * @param {Number} pos
+     * @returns {Statement?} */
+    find(pos)
+    {
+        if(this.range.includes(pos))
+            return this;
+        return this.next?.find(pos);
     }
 }

@@ -4,7 +4,7 @@ import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PRE
 import { token, next, ungetToken, setToken, currRange } from "./parser.js";
 import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
-import { ASMError, Statement } from "./statement.js";
+import { ASMError, Range, Statement } from "./statement.js";
 
 export const prefixes = {
     lock: 0xF0,
@@ -118,11 +118,9 @@ export class Instruction extends Statement
                         operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
                 }
                 else if(operations.length == 0 && mnemonicExists(subOpcode, false))
-                {
-                    this.opcodeRange.start += this.opcodeRange.length - 1; // To mark only the last letter (suffix)
-                    this.opcodeRange.length = 1;
-                    throw new ASMError("Invalid opcode suffix", this.opcodeRange);
-                }
+                    throw new ASMError("Invalid opcode suffix",
+                        new Range(this.opcodeRange.start + this.opcodeRange.length - 1, 1)
+                    );
             }
         }
             

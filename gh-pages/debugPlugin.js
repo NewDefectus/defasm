@@ -1,11 +1,29 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration } from '@codemirror/view';
 import { EditorState, ChangeSet } from '@codemirror/state';
+import { hoverTooltip } from '@codemirror/tooltip';
 import { ASMStateField } from '@defasm/codemirror';
 
 var debugEnabled = false;
 
 export const debugPlugin = [
-    
+    hoverTooltip((view, pos) => {
+        if(!debugEnabled)
+            return null;
+        const instr = view.state.field(ASMStateField).find(pos);
+        if(!instr)
+            return null;
+        return {
+            pos: instr.range.start,
+            end: instr.range.end,
+            above: true,
+            create: view => {
+                let dom = document.createElement('div');
+                dom.textContent = instr.id;
+                dom.className = 'cm-asm-error-tooltip';
+                return { dom };
+            }
+        }
+    }),
     EditorView.domEventHandlers({
         mousedown: (event, view) => {
             if(debugEnabled && event.ctrlKey)
