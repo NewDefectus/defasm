@@ -1,6 +1,6 @@
 import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment } from "./parser.js";
 import { Directive, intelDirectives } from "./directives.js";
-import { Instruction } from "./instructions.js";
+import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
 import { ASMError, Comment, Range, Statement } from "./statement.js";
 
@@ -19,20 +19,23 @@ export const baseAddr = 0x400078;
 var firstInstr = null;
 
 /** @param {Statement} instr */
-function addInstruction(instr)
+function addInstruction(instr, seekEnd = true)
 {
     firstInstr = instr;
     setSyntax(instr.syntax);
 
-    if(token != '\n' && token != ';')
+    if(seekEnd)
     {
-        // Special case: this error should appear but not remove the instruction's bytes
-        instr.error = new ASMError("Expected end of line");
-        while(token != '\n' && token != ';')
-            next();
+        if(token != '\n' && token != ';')
+        {
+            // Special case: this error should appear but not remove the instruction's bytes
+            instr.error = new ASMError("Expected end of line");
+            while(token != '\n' && token != ';')
+                next();
+        }
     }
 
-    instr.range = new Range(instr.range.start, currRange.end - instr.range.start - 1);
+    instr.range = new Range(instr.range.start, currRange.end - instr.range.start - (seekEnd ? 1 : 0));
 }
 
 export class AssemblyState
@@ -216,17 +219,15 @@ export class AssemblyState
                         else
                             addInstruction(new Directive(firstInstr, currSyntax.intel ? token : token.slice(1), pos));
                     }
+                    else if(prefixes.hasOwnProperty(lowerTok)) // Prefix
+                        addInstruction(new Prefix(firstInstr, lowerTok, pos), false);
                     else // Instruction, label or symbol
                     {
                         let opcode = token;
                         next();
 
                         if(token == ':') // Label definition
-                        {
-                            addInstruction(new Symbol(firstInstr, opcode, pos, true));
-                            next();
-                            continue;
-                        }
+                            addInstruction(new Symbol(firstInstr, opcode, pos, true), false);
                         else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
                             addInstruction(new Symbol(firstInstr, opcode, pos));
                         else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"

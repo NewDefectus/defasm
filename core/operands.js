@@ -133,7 +133,8 @@ export function parseRegister(expectedType = null)
             if(isNaN(reg) || reg >= 8 || reg < 0 || next() != ')')
                 throw new ASMError("Unknown register");
         }
-        else ungetToken();
+        else
+            ungetToken();
     }
     else if(reg == registers.rip || reg == registers.eip)
     {

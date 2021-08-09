@@ -18,7 +18,7 @@ export const debugPlugin = [
             above: true,
             create: view => {
                 let dom = document.createElement('div');
-                dom.textContent = instr.id;
+                dom.textContent = `${instr.constructor.name} (#${instr.id})`;
                 dom.className = 'cm-asm-error-tooltip';
                 return { dom };
             }

@@ -81,15 +81,6 @@ export class Instruction extends Statement
         this.needsRecompilation = false;
         this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
 
-        // Prefix opcodes are interpreted as instructions that end with a semicolon
-        if(prefixes.hasOwnProperty(opcode))
-        {
-            this.genByte(prefixes[opcode]);
-            ungetToken();
-            setToken(';');
-            return;
-        }
-
         /** @type { Operand[] } */
         let operands = [];
         let operations = [];
@@ -542,6 +533,16 @@ Instruction.prototype.recompile = function()
     {
         this.length = 0;
         throw e;
+    }
+}
+
+export class Prefix extends Statement
+{
+    constructor(prev, name, range)
+    {
+        super(prev, 1, range);
+        this.bytes[0] = prefixes[name];
+        this.length = 1;
     }
 }
 

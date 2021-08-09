@@ -68,7 +68,8 @@ export function ungetToken()
     next = () => token = (next = oldNext, currRange = p, t);
 }
 
-export function setToken(tok)
+export function setToken(tok, range = currRange)
 {
     token = tok;
+    currRange = range;
 }
