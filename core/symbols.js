@@ -34,7 +34,7 @@ export class Symbol extends Statement
             let record = symbols.get(name);
             if(record.symbol)
             {
-                this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, namePos);
+                this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, range);
                 this.duplicate = true;
                 record.references.push(this);
             }

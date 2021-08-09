@@ -16,12 +16,12 @@ var linkedInstrQueue = [];
 export var symbols = null;
 export const baseAddr = 0x400078;
 
-var firstInstr = null;
+var prevInstr = null;
 
 /** @param {Statement} instr */
 function addInstruction(instr, seekEnd = true)
 {
-    firstInstr = instr;
+    prevInstr = instr;
     setSyntax(instr.syntax);
 
     if(seekEnd)
@@ -72,35 +72,22 @@ export class AssemblyState
         
         symbols = this.symbols;
 
-        firstInstr = this.instructions;
-        let lastInstr = null, tailInstr = null;
+        let headInstr = this.instructions, lastInstr = null, tailInstr = null;
         let instr = this.instructions.next;
         let changeOffset = source.length - range.length;
 
         /* Selecting the instruction range that is replaced by the edit.
-        firstInstr: the last instruction before the edit
+        headInstr: the last instruction before the edit
         lastInstr: the last instruction in the edit
         tailInstr: the first instruction after the edit */
         while(instr)
         {
             if(instr.range.end < range.start)
-                firstInstr = instr;
+                headInstr = instr;
             else
             {
                 if(instr.range.start <= range.end)
-                {
-                    // This instruction will be removed
-                    if(instr.name && !instr.duplicate)
-                    {
-                        let record = symbols.get(instr.name);
-                        if(record.references.length > 0)
-                            record.symbol = null;
-                        else
-                            symbols.delete(instr.name);
-                    }
-                    instr.removed = true;
                     lastInstr = instr;
-                }
                 else if(tailInstr === null)
                     tailInstr = instr;
 
@@ -119,15 +106,18 @@ export class AssemblyState
 
         // Expand the range a bit so as not to cut off the first and last instructions
         if(lastInstr)
-            range = firstInstr.next.range.until(lastInstr.range);
+            range = headInstr.next.range.until(lastInstr.range);
         else if(tailInstr)
             range.length = tailInstr.range.start - range.start - 1;
         else
             range.length = source.length;
         
-        firstInstr.next = null;
-        setSyntax(firstInstr ? firstInstr.syntax : defaultSyntax);
+        let headInstrSucc = headInstr.next;
+        headInstr.next = null;
+        setSyntax(headInstr ? headInstr.syntax : defaultSyntax);
         loadCode(this.source, range.start);
+
+        prevInstr = headInstr;
         
         while(match && currRange.end <= range.end)
         {
@@ -152,29 +142,29 @@ export class AssemblyState
                             pos = currRange;
                             if(!currSyntax.intel && next() !== ',')
                                 throw new ASMError("Expected ','");
-                            addInstruction(new Symbol(firstInstr, opcode, pos));
+                            addInstruction(new Symbol(prevInstr, opcode, pos));
                         }
                         else
-                            addInstruction(new Directive(firstInstr, currSyntax.intel ? token : token.slice(1), pos));
+                            addInstruction(new Directive(prevInstr, currSyntax.intel ? token : token.slice(1), pos));
                     }
                     else if(prefixes.hasOwnProperty(lowerTok)) // Prefix
-                        addInstruction(new Prefix(firstInstr, lowerTok, pos), false);
+                        addInstruction(new Prefix(prevInstr, lowerTok, pos), false);
                     else // Instruction, label or symbol
                     {
                         let opcode = token;
                         next();
 
                         if(token == ':') // Label definition
-                            addInstruction(new Symbol(firstInstr, opcode, pos, true), false);
+                            addInstruction(new Symbol(prevInstr, opcode, pos, true), false);
                         else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                            addInstruction(new Symbol(firstInstr, opcode, pos));
+                            addInstruction(new Symbol(prevInstr, opcode, pos));
                         else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol(firstInstr, opcode, pos, true));
-                            addInstruction(new Directive(firstInstr, token, pos));
+                            addInstruction(new Symbol(prevInstr, opcode, pos, true));
+                            addInstruction(new Directive(prevInstr, token, pos));
                         }
                         else // Instruction
-                            addInstruction(new Instruction(firstInstr, opcode.toLowerCase(), pos));
+                            addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
                     }
                 }
             }
@@ -188,28 +178,42 @@ export class AssemblyState
                 if(!e.range)
                     console.error(`Error on line ${line}:\n`, e);
                 else
-                    addInstruction(new Statement(firstInstr, 0, pos, e));
+                    addInstruction(new Statement(prevInstr, 0, pos, e));
             }
             if(comment)
             {
                 let start = currRange;
                 while(next() != '\n');
-                addInstruction(new Comment(firstInstr, start.until(currRange)));
+                addInstruction(new Comment(prevInstr, start.until(currRange)));
             }
             next();
         }
 
         this.compiledRange = range.until(prevRange);
 
-        // Link the last instruction to the next
-        instr = tailInstr;
+        // Delete the replaced instructions
+        instr = headInstrSucc;
         while(instr && instr.range.start < prevRange.end)
+        {
+            // This instruction is removed
+            if(instr.name && !instr.duplicate)
+            {
+                let record = symbols.get(instr.name);
+                if(record.references.length > 0)
+                    record.symbol = null;
+                else
+                    symbols.delete(instr.name);
+            }
+            instr.removed = true;
+
             instr = instr.next;
+        }
 
         if(instr)
-        {    
-            firstInstr.next = instr;
-            linkedInstrQueue.push(firstInstr);
+        {
+            // Link the last instruction to the next
+            prevInstr.next = instr;
+            linkedInstrQueue.push(prevInstr);
 
             if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
             {

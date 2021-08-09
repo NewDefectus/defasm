@@ -80,7 +80,7 @@ export const errorTooltipper = [
             borderRadius: ".25em",
             padding: ".1em .25em",
             color: "#eee",
-            backgroundColor: "black",
+            backgroundColor: "black !important",
             "&:before": {
                 position: "absolute",
                 content: '""',
@@ -94,7 +94,7 @@ export const errorTooltipper = [
         },
         '&dark .cm-asm-error-tooltip': {
             color: "black",
-            backgroundColor: "#eee",
+            backgroundColor: "#eee !important",
             "&:before": {
                 borderTop: ".3em solid #eee"
             }
