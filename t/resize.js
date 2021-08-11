@@ -5,10 +5,9 @@
 function validate(state)
 {
     let mirrorState = new state.__proto__.constructor();
-    let source = state.source.join('\n');
-    mirrorState.compile(source);
+    mirrorState.compile(state.source);
     if(!state.dump().equals(mirrorState.dump()))
-        throw 'Resize inconsistency in\n\t' + state.source.join('\n\t');
+        throw 'Resize inconsistency in\n' + state.source;
 }
 
 exports.run = async function()
@@ -17,25 +16,25 @@ exports.run = async function()
     let state = new AssemblyState();
 
     // Relative operand resizing
-    state.compile("jmp x", { line: 1 });
+    state.compile("jmp x", { range: state.line(1) });
 
-    state.compile("x = . + 0x7f", { line: 2 }); validate(state);
-    state.compile("x = . + 0x80", { line: 2 }); validate(state);
-    state.compile("x = . + 0x7f", { line: 2 }); validate(state);
+    state.compile("x = . + 0x7f", { range: state.line(2) }); validate(state);
+    state.compile("x = . + 0x80", { range: state.line(2) }); validate(state);
+    state.compile("x = . + 0x7f", { range: state.line(2) }); validate(state);
 
     // Immediate operand resizing
-    state.compile("push $sym - .", { line: 1 });
+    state.compile("push $sym - .", { range: state.line(1) });
     
-    state.compile("sym = . + 0x7d", { line: 2 }); validate(state);
-    state.compile("sym = . + 0x7e", { line: 2 }); validate(state);
-    state.compile("sym = . + 0x7d", { line: 2 }); validate(state);
+    state.compile("sym = . + 0x7d", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7e", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7d", { range: state.line(2) }); validate(state);
 
     // Memory offset resizing
-    state.compile("push sym - .(%rax)", { line: 1 });
+    state.compile("push sym - .(%rax)", { range: state.line(1) });
     
-    state.compile("sym = . + 0x7c", { line: 2 }); validate(state);
-    state.compile("sym = . + 0x7d", { line: 2 }); validate(state);
-    state.compile("sym = . + 0x7c", { line: 2 }); validate(state);
+    state.compile("sym = . + 0x7c", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7d", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7c", { range: state.line(2) }); validate(state);
 }
 
 if(require.main === module)

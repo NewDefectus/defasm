@@ -1,7 +1,7 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
-import { EditorState, StateField } from '@codemirror/state';
-import { AssemblyState }                     from '@defasm/core/compiler.js';
-import { Range }                             from '@defasm/core/statement.js';
+import { EditorState, StateField }                                    from '@codemirror/state';
+import { AssemblyState }                                              from '@defasm/core/compiler.js';
+import { Range }                                                      from '@defasm/core/statement.js';
 
 /** @type {StateField<AssemblyState>} */
 export const ASMStateField = StateField.define({
@@ -28,10 +28,10 @@ export const ASMStateField = StateField.define({
 
 class AsmDumpWidget extends WidgetType
 {
-    constructor(instrs, offset)
+    constructor(bytes, offset)
     {
         super();
-        this.instrs = instrs;
+        this.bytes = bytes;
         this.offset = offset;
     }
 
@@ -43,13 +43,9 @@ class AsmDumpWidget extends WidgetType
         node.className = 'cm-asm-dump';
         node.style.marginLeft = this.offset + 'px';
 
-        for(let instr of this.instrs) {
-            for(let i = 0; i < instr.length; i++)
-            {
-                finalText += ' ' +
-                    instr.bytes[i].toString(16).toUpperCase().padStart(2, '0');
-            }
-        }
+        for(const byteArray of this.bytes)
+            for(const byte of byteArray)
+                finalText += ' ' + byte.toString(16).toUpperCase().padStart(2, '0');
 
         node.innerText = finalText.slice(1);
         return node;
@@ -159,13 +155,10 @@ export const byteDumper = [
             let maxOffset = Math.max(...this.lineWidths) + 50;
             let widgets   = [];
 
-            state.field(ASMStateField).iterateLines((instrs, line) => {
-                if(instrs.length == 0)
-                    return;
-
-                if(instrs.some(instr => instr.length > 0))
+            state.field(ASMStateField).bytesPerLine((bytes, line) => {
+                if(bytes.length > 0)
                     widgets.push(Decoration.widget({
-                            widget: new AsmDumpWidget(instrs, maxOffset - this.lineWidths[line - 1]),
+                            widget: new AsmDumpWidget(bytes, maxOffset - this.lineWidths[line - 1]),
                             side: 2
                         }).range(doc.line(line).to));
             });

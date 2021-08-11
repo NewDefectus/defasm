@@ -361,23 +361,48 @@ export class AssemblyState
 
     /**
      * @callback lineCallback
-     * @param {Statement[]} instr
+     * @param {Uint8Array[]} bytes
      * @param {Number} line
     */
     /** @param {lineCallback} func */
-    iterateLines(func)
+    bytesPerLine(func)
     {
+        let lineQueue = [];
         let line = 1, nextLine = 0, instr = this.instructions.next;
         while(nextLine != Infinity)
         {
+            let bytes = [];
             nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
-            let instrs = [];
-            while(instr && instr.range.end <= nextLine)
+            if(lineQueue.length > 0)
             {
-                instrs.push(instr);
+                const line = lineQueue.shift();
+                if(line.length > 0)
+                    bytes.push(line);
+            }
+
+            while(instr && instr.range.start < nextLine)
+            {
+                if(instr.hasOwnProperty('lineEnds'))
+                {
+                    let prevEnd = 0;
+                    for(const end of instr.lineEnds.lineEnds)
+                    {
+                        if(end <= instr.length)
+                            lineQueue.push(instr.bytes.subarray(prevEnd, end));
+                        prevEnd = end;
+                    }
+                    if(lineQueue.length > 0)
+                    {
+                        const line = lineQueue.shift();
+                        if(line.length > 0)
+                            bytes.push(line);
+                    }
+                }
+                else if(instr.length > 0)
+                    bytes.push(instr.bytes.subarray(0, instr.length));
                 instr = instr.next;
             }
-            func(instrs, line);
+            func(bytes, line);
             line++;
         }
     }

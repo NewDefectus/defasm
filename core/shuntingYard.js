@@ -1,5 +1,5 @@
 import { isRegister, OPT, parseRegister, PREFIX_ADDRSIZE, regParsePos } from "./operands.js";
-import { currRange, currSyntax, next, setToken, token, ungetToken } from "./parser.js";
+import { currRange, currSyntax, line, next, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./compiler.js";
 import { ASMError, Statement } from "./statement.js";
 
@@ -61,35 +61,51 @@ const stringEscapeSeqs = {
     'v': 0x0B,
 }
 
+export function capLineEnds({ lineEnds, offset })
+{
+    // Cap line ends at the given offset
+    for(let i = 0; i < lineEnds.length; i++)
+        if(lineEnds[i] > offset)
+            lineEnds[i] = offset;
+}
+
 
 const encoder = new TextEncoder();
-export var readString = string => {
+export function readString(string, { offset = 0, lineEnds = [] } = {})
+{
     if(string.length < 2 || string[string.length - 1] != string[0])
         throw new ASMError("Incomplete string");
-    let output = [];
-    let matches = string.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.?))|[^\\]+/ig);
-    if(matches)
-        matches.forEach(x => {
-        if(x[0] == '\\')
-        {
-            x = x.slice(1);
-            if(x == '')
-                throw new ASMError("Incomplete string");
+    
+    capLineEnds({ lineEnds, offset });
 
-            if(x.match(/x[0-9a-f]{1,2}/i))
-                output.push(parseInt(x.slice(1), 16));
-            else if(x.match(/u[0-9a-f]{1,8}/i))
-                output.push(...encoder.encode(String.fromCodePoint(parseInt(x.slice(1), 16))));
-            else if(x.match(/[0-7]{1,3}/))
-                output.push(parseInt(x, 8) & 255);
-            else if(stringEscapeSeqs.hasOwnProperty(x))
-                output.push(stringEscapeSeqs[x]);
+    let output = [];
+    let matches = string.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|(.|\n)?))|\n|[^\\\n]+/ig);
+    if(matches)
+        for(let x of matches)
+        {
+            if(x[0] == '\\')
+            {
+                x = x.slice(1);
+                if(x == '')
+                    throw new ASMError("Incomplete string");
+
+                if(x.match(/x[0-9a-f]{1,2}/i))
+                    output.push(parseInt(x.slice(1), 16));
+                else if(x.match(/u[0-9a-f]{1,8}/i))
+                    output.push(...encoder.encode(String.fromCodePoint(parseInt(x.slice(1), 16))));
+                else if(x.match(/[0-7]{1,3}/))
+                    output.push(parseInt(x, 8) & 255);
+                else if(stringEscapeSeqs.hasOwnProperty(x))
+                    output.push(stringEscapeSeqs[x]);
+                else if(x != '\n') // Line breaks preceded by a backslash should not be added
+                    output.push(...encoder.encode(x));
+            }
             else
                 output.push(...encoder.encode(x));
+
+            if(x == '\n')
+                lineEnds.push(output.length + offset);
         }
-        else
-            output.push(...encoder.encode(x));
-    });
 
     return new Uint8Array(output);
 }
@@ -133,7 +149,7 @@ export function isNumber(number, intel)
 }
 
 
-function parseNumber(asFloat = false)
+function parseNumber(asFloat = false, lineEnds = {})
 {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
     
@@ -143,7 +159,7 @@ function parseNumber(asFloat = false)
             throw new ASMError("Expected value, got none");
         if(token[0] === "'")
         {
-            let bytes = readString(token), i = bytes.length;
+            let bytes = readString(token, lineEnds), i = bytes.length;
             
             while(i--)
             {
@@ -433,7 +449,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 throw new ASMError("Unexpected value");
             lastWasNum = true;
 
-            let imm = parseNumber(this.floatPrec !== 0);
+            let imm = parseNumber(this.floatPrec !== 0, instr.lineEnds ?? {});
             if(imm.floatPrec > this.floatPrec)
                 this.floatPrec = imm.floatPrec;
             let value = imm.value;

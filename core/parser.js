@@ -14,7 +14,7 @@ export function setSyntax(syntax)
     currSyntax = syntax;
 }
 
-const tokenizer = /(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
+const tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
 
 /** @param {string} source */
 export function loadCode(source, index = 0)
@@ -52,8 +52,7 @@ var defaultNext = () => {
         currRange = new Range(code.length, 1);
     }
 
-    if(token == '\n')
-        line++;
+    line += (token.match(/\n/g) || []).length;
     return token;
 }
 

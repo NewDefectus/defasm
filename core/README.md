@@ -58,7 +58,7 @@ The package also exports a JavaScript class called `AssemblyState`; it represent
 * `dump` - creates a `Buffer` containing the bytes of all the instructions, one after the other.
 * `line` - creates a `Range` object that spans a given line (useful for replacing/inserting lines in `compile`)
 * `iterate` - iterates over the instructions using a given callback, passing the instruction's line as a second parameter (note that if an instruction spans multiple lines, it will be called once for each line).
-* `iterateLines` - similar to the above, but each line gets one iteration, and the callback is given an array of all instructions that appear on the line.
+* `bytesPerLine` - iterate over each line in the program using a given callback, sending an array of Uint8Arrays (one per instruction) and a line number. Data directives spanning multiple lines may be sent multiple times. Empty instructions and lines are skipped.
 
 ### Example
 

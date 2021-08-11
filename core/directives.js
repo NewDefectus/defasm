@@ -1,5 +1,5 @@
 import { token, next, setSyntax, currSyntax } from "./parser.js";
-import { Expression, readString } from "./shuntingYard.js";
+import { capLineEnds, Expression, readString } from "./shuntingYard.js";
 import { Statement, ASMError } from "./statement.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
@@ -45,6 +45,7 @@ export class Directive extends Statement
         super(prev, DIRECTIVE_BUFFER_SIZE, range);
         this.outline = null;
         this.floatPrec = 0;
+        this.lineEnds = { lineEnds: [], offset: 0 };
 
         let appendNullByte = 0;
         dir = dir.toLowerCase();
@@ -52,7 +53,8 @@ export class Directive extends Statement
         try
         {
             let dirs = this.syntax.intel ? intelDirectives : directives;
-            if(!dirs.hasOwnProperty(dir)) throw new ASMError("Unknown directive");
+            if(!dirs.hasOwnProperty(dir))
+                throw new ASMError("Unknown directive");
             dir = dirs[dir];
             switch(dir)
             {
@@ -70,18 +72,17 @@ export class Directive extends Statement
                 case directives.asciz:
                     appendNullByte = 1;
                 case directives.ascii:
-                    let strBytes, temp;
                     this.bytes = new Uint8Array();
                     do
                     {
                         if(next()[0] == '"')
                         {
-                            strBytes = readString(token);
-                            temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+                            let strBytes = readString(token, this.lineEnds);
+                            let temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                             temp.set(this.bytes);
                             temp.set(strBytes, this.length);
                             this.bytes = temp;
-                            this.length = temp.length;
+                            this.lineEnds.offset = this.length = temp.length;
                         }
                         else
                             throw new ASMError("Expected string");
@@ -115,6 +116,9 @@ export class Directive extends Statement
             while(token != ';' && token != '\n')
                 next();
         }
+
+        capLineEnds(this.lineEnds);
+        this.lineEnds.lineEnds.push(this.length);
     }
 
     compileValues(valSize, acceptStrings = false)
@@ -128,7 +132,7 @@ export class Directive extends Statement
                 if(next()[0] === '"')
                 {
                     if(acceptStrings)
-                        readString(token).forEach(byte => this.genValue(BigInt(byte)));
+                        readString(token, this.lineEnds).forEach(byte => this.genValue(BigInt(byte)));
                     else
                         throw new ASMError("Unexpected string");
                     next();
@@ -192,5 +196,7 @@ export class Directive extends Statement
                 this.bytes = temp;
             }
         }
+
+        this.lineEnds.offset = this.length;
     }
 }
