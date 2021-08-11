@@ -192,8 +192,6 @@ export class AssemblyState
             next();
         }
 
-        this.compiledRange = range.until(prevRange);
-
         // Delete the replaced instructions
         instr = tailInstr;
         while(instr && instr.range.start < currRange.start)
@@ -208,20 +206,23 @@ export class AssemblyState
             prevInstr.next = instr;
             linkedInstrQueue.push(prevInstr);
 
-            if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
+            if(!instr.switchSyntax && (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel))
             {
                 // Syntax has been changed, we have to recompile some of the source
                 let nextSyntaxChange = instr.next;
                 while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
                     nextSyntaxChange = nextSyntaxChange.next;
+                let nextRange = instr.range.until(nextSyntaxChange.range);
                 
-                this.compile(range.slice(this.source), {
+                this.compile(nextRange.slice(this.source), {
                     haltOnError,
-                    range: instr.range.until(nextSyntaxChange.range),
+                    range: nextRange,
                     doSecondPass: false
                 });
             }
         }
+
+        this.compiledRange = range.until(prevRange);
 
         if(doSecondPass)
             this.secondPass(haltOnError);
