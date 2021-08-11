@@ -82,4 +82,17 @@ export class Symbol extends Statement
                 queueRecomp(ref);
         }
     }
+
+    remove()
+    {
+        if(!this.duplicate)
+        {
+            let record = symbols.get(this.name);
+            if(record.references.length > 0)
+                record.symbol = null;
+            else
+                symbols.delete(this.name);
+        }
+        super.remove();
+    }
 }

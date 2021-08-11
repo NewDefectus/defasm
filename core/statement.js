@@ -96,6 +96,11 @@ export class Statement
             return this;
         return this.next?.find(pos);
     }
+
+    remove()
+    {
+        this.removed = true;
+    }
 }
 
 export class Comment extends Statement

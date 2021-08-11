@@ -82,23 +82,23 @@ export class AssemblyState
         tailInstr: the first instruction after the edit */
         while(instr)
         {
-            if(instr.range.end < range.start)
+            if(instr.range.end < range.start) // Before the edit
                 headInstr = instr;
-            else
+            else if(instr.range.start <= range.end) // Inside the edit
             {
-                if(instr.range.start <= range.end)
-                    lastInstr = instr;
-                else if(tailInstr === null)
-                    tailInstr = instr;
-
-                if(instr.range.start > range.start)
-                {
-                    instr.range.start += changeOffset;
-                    if(instr.error)
-                        instr.error.range.start += changeOffset;
-                }
-                else if(changeOffset > 0)
+                lastInstr = instr;
+                if(instr.range.end >= range.end)
                     instr.range.length += changeOffset;
+                instr.remove();
+            }
+            else // After the edit
+            {
+                if(tailInstr === null)
+                    tailInstr = instr;
+                
+                instr.range.start += changeOffset;
+                if(instr.error)
+                    instr.error.range.start += changeOffset;
             }
 
             instr = instr.next;
@@ -106,13 +106,16 @@ export class AssemblyState
 
         // Expand the range a bit so as not to cut off the first and last instructions
         if(lastInstr)
-            range = headInstr.next.range.until(lastInstr.range);
+        {
+            if(range.start > headInstr.next.range.start)
+                range.start = headInstr.next.range.start;
+            range = range.until(lastInstr.range);
+        }
         else if(tailInstr)
             range.length = tailInstr.range.start - range.start - 1;
         else
             range.length = source.length;
         
-        let headInstrSucc = headInstr.next;
         headInstr.next = null;
         setSyntax(headInstr ? headInstr.syntax : defaultSyntax);
         loadCode(this.source, range.start);
@@ -192,20 +195,10 @@ export class AssemblyState
         this.compiledRange = range.until(prevRange);
 
         // Delete the replaced instructions
-        instr = headInstrSucc;
-        while(instr && instr.range.start < prevRange.end)
+        instr = tailInstr;
+        while(instr && instr.range.start < currRange.start)
         {
-            // This instruction is removed
-            if(instr.name && !instr.duplicate)
-            {
-                let record = symbols.get(instr.name);
-                if(record.references.length > 0)
-                    record.symbol = null;
-                else
-                    symbols.delete(instr.name);
-            }
-            instr.removed = true;
-
+            instr.remove();
             instr = instr.next;
         }
 
