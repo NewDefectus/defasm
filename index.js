@@ -14804,7 +14804,6 @@ g nle`.split("\n");
         }
         next();
       }
-      this.compiledRange = range.until(prevRange);
       instr = tailInstr;
       while (instr && instr.range.start < currRange.start) {
         instr.remove();
@@ -14813,17 +14812,19 @@ g nle`.split("\n");
       if (instr) {
         prevInstr.next = instr;
         linkedInstrQueue.push(prevInstr);
-        if (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel) {
+        if (!instr.switchSyntax && (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)) {
           let nextSyntaxChange = instr.next;
           while (nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
             nextSyntaxChange = nextSyntaxChange.next;
-          this.compile(range.slice(this.source), {
+          let nextRange = instr.range.until(nextSyntaxChange.range);
+          this.compile(nextRange.slice(this.source), {
             haltOnError,
-            range: instr.range.until(nextSyntaxChange.range),
+            range: nextRange,
             doSecondPass: false
           });
         }
       }
+      this.compiledRange = range.until(prevRange);
       if (doSecondPass)
         this.secondPass(haltOnError);
     }
