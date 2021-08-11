@@ -3,14 +3,14 @@
   var extend = /* @__PURE__ */ "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((s) => s ? parseInt(s, 36) : 1);
   for (let i = 1; i < extend.length; i++)
     extend[i] += extend[i - 1];
-  function isExtendingChar(code) {
+  function isExtendingChar(code2) {
     for (let i = 1; i < extend.length; i += 2)
-      if (extend[i] > code)
-        return extend[i - 1] <= code;
+      if (extend[i] > code2)
+        return extend[i - 1] <= code2;
     return false;
   }
-  function isRegionalIndicator(code) {
-    return code >= 127462 && code <= 127487;
+  function isRegionalIndicator(code2) {
+    return code2 >= 127462 && code2 <= 127487;
   }
   var ZWJ = 8205;
   function findClusterBreak(str, pos, forward = true) {
@@ -68,14 +68,14 @@
       return code0;
     return (code0 - 55296 << 10) + (code1 - 56320) + 65536;
   }
-  function fromCodePoint(code) {
-    if (code <= 65535)
-      return String.fromCharCode(code);
-    code -= 65536;
-    return String.fromCharCode((code >> 10) + 55296, (code & 1023) + 56320);
+  function fromCodePoint(code2) {
+    if (code2 <= 65535)
+      return String.fromCharCode(code2);
+    code2 -= 65536;
+    return String.fromCharCode((code2 >> 10) + 55296, (code2 & 1023) + 56320);
   }
-  function codePointSize(code) {
-    return code < 65536 ? 1 : 2;
+  function codePointSize(code2) {
+    return code2 < 65536 ? 1 : 2;
   }
   function countColumn(string2, n, tabSize) {
     for (let i = 0; i < string2.length; ) {
@@ -185,13 +185,13 @@
     get children() {
       return null;
     }
-    lineInner(target, isLine, line, offset) {
+    lineInner(target, isLine, line2, offset) {
       for (let i = 0; ; i++) {
         let string2 = this.text[i], end2 = offset + string2.length;
-        if ((isLine ? line : end2) >= target)
-          return new Line(offset, end2, line, string2);
+        if ((isLine ? line2 : end2) >= target)
+          return new Line(offset, end2, line2, string2);
         offset = end2 + 1;
-        line++;
+        line2++;
       }
     }
     decompose(from, to, target, open) {
@@ -221,24 +221,24 @@
     sliceString(from, to = this.length, lineSep = "\n") {
       let result = "";
       for (let pos = 0, i = 0; pos <= to && i < this.text.length; i++) {
-        let line = this.text[i], end2 = pos + line.length;
+        let line2 = this.text[i], end2 = pos + line2.length;
         if (pos > from && i)
           result += lineSep;
         if (from < end2 && to > pos)
-          result += line.slice(Math.max(0, from - pos), to - pos);
+          result += line2.slice(Math.max(0, from - pos), to - pos);
         pos = end2 + 1;
       }
       return result;
     }
     flatten(target) {
-      for (let line of this.text)
-        target.push(line);
+      for (let line2 of this.text)
+        target.push(line2);
     }
     static split(text, target) {
       let part = [], len = -1;
-      for (let line of text) {
-        part.push(line);
-        len += line.length + 1;
+      for (let line2 of text) {
+        part.push(line2);
+        len += line2.length + 1;
         if (part.length == 32) {
           target.push(new TextLeaf(part, len));
           part = [];
@@ -259,13 +259,13 @@
       for (let child of children)
         this.lines += child.lines;
     }
-    lineInner(target, isLine, line, offset) {
+    lineInner(target, isLine, line2, offset) {
       for (let i = 0; ; i++) {
-        let child = this.children[i], end2 = offset + child.length, endLine = line + child.lines - 1;
+        let child = this.children[i], end2 = offset + child.length, endLine = line2 + child.lines - 1;
         if ((isLine ? endLine : end2) >= target)
-          return child.lineInner(target, isLine, line, offset);
+          return child.lineInner(target, isLine, line2, offset);
         offset = end2 + 1;
-        line = endLine + 1;
+        line2 = endLine + 1;
       }
     }
     decompose(from, to, target, open) {
@@ -363,23 +363,23 @@
   Text.empty = /* @__PURE__ */ new TextLeaf([""], 0);
   function textLength(text) {
     let length = -1;
-    for (let line of text)
-      length += line.length + 1;
+    for (let line2 of text)
+      length += line2.length + 1;
     return length;
   }
   function appendText(text, target, from = 0, to = 1e9) {
     for (let pos = 0, i = 0, first = true; i < text.length && pos <= to; i++) {
-      let line = text[i], end2 = pos + line.length;
+      let line2 = text[i], end2 = pos + line2.length;
       if (end2 >= from) {
         if (end2 > to)
-          line = line.slice(0, to - pos);
+          line2 = line2.slice(0, to - pos);
         if (pos < from)
-          line = line.slice(from - pos);
+          line2 = line2.slice(from - pos);
         if (first) {
-          target[target.length - 1] += line;
+          target[target.length - 1] += line2;
           first = false;
         } else
-          target.push(line);
+          target.push(line2);
       }
       pos = end2 + 1;
     }
@@ -2702,9 +2702,9 @@
     base[i] = String.fromCharCode(i + 32);
     shift[i] = String.fromCharCode(i);
   }
-  for (var code in base)
-    if (!shift.hasOwnProperty(code))
-      shift[code] = base[code];
+  for (var code2 in base)
+    if (!shift.hasOwnProperty(code2))
+      shift[code2] = base[code2];
   function keyName(event) {
     var ignoreKey = brokenModifierNames && (event.ctrlKey || event.altKey || event.metaKey) || (safari || ie) && event.shiftKey && event.key && event.key.length == 1;
     var name2 = !ignoreKey && event.key || (event.shiftKey ? shift : base)[event.keyCode] || event.key || "Unidentified";
@@ -2916,8 +2916,8 @@
     range.setStart(node, from);
     return range;
   }
-  function dispatchKey(elt, name2, code) {
-    let options = { key: name2, code: name2, keyCode: code, which: code, cancelable: true };
+  function dispatchKey(elt, name2, code2) {
+    let options = { key: name2, code: name2, keyCode: code2, which: code2, cancelable: true };
     let down = new KeyboardEvent("keydown", options);
     down.synthetic = true;
     elt.dispatchEvent(down);
@@ -2925,19 +2925,6 @@
     up.synthetic = true;
     elt.dispatchEvent(up);
     return down.defaultPrevented || up.defaultPrevented;
-  }
-  var _plainTextSupported = null;
-  function contentEditablePlainTextSupported() {
-    if (_plainTextSupported == null) {
-      _plainTextSupported = false;
-      let dummy = document.createElement("div");
-      try {
-        dummy.contentEditable = "plaintext-only";
-        _plainTextSupported = dummy.contentEditable == "plaintext-only";
-      } catch (_) {
-      }
-    }
-    return _plainTextSupported;
   }
   var DOMPos = class {
     constructor(node, offset, precise = true) {
@@ -4427,11 +4414,11 @@
       let sel = getSelection(this.root);
       if (!cursor.empty || !cursor.assoc || !sel.modify)
         return;
-      let line = LineView.find(this, cursor.head);
-      if (!line)
+      let line2 = LineView.find(this, cursor.head);
+      if (!line2)
         return;
-      let lineStart = line.posAtStart;
-      if (cursor.head == lineStart || cursor.head == lineStart + line.length)
+      let lineStart = line2.posAtStart;
+      if (cursor.head == lineStart || cursor.head == lineStart + line2.length)
         return;
       let before = this.coordsAt(cursor.head, -1), after = this.coordsAt(cursor.head, 1);
       if (!before || !after || before.bottom > after.top)
@@ -4743,12 +4730,12 @@
     }
   };
   var types = [];
-  function computeOrder(line, direction) {
-    let len = line.length, outerType = direction == LTR ? 1 : 2, oppositeType = direction == LTR ? 2 : 1;
-    if (!line || outerType == 1 && !BidiRE.test(line))
+  function computeOrder(line2, direction) {
+    let len = line2.length, outerType = direction == LTR ? 1 : 2, oppositeType = direction == LTR ? 2 : 1;
+    if (!line2 || outerType == 1 && !BidiRE.test(line2))
       return trivialOrder(len);
     for (let i = 0, prev = outerType, prevStrong = outerType; i < len; i++) {
-      let type = charType(line.charCodeAt(i));
+      let type = charType(line2.charCodeAt(i));
       if (type == 512)
         type = prev;
       else if (type == 8 && prevStrong == 4)
@@ -4781,7 +4768,7 @@
         prevStrong = type;
     }
     for (let i = 0, sI = 0, context = 0, ch, br, type; i < len; i++) {
-      if (br = Brackets[ch = line.charCodeAt(i)]) {
+      if (br = Brackets[ch = line2.charCodeAt(i)]) {
         if (br < 0) {
           for (let sJ = sI - 3; sJ >= 0; sJ -= 3) {
             if (BracketStack[sJ + 1] == -br) {
@@ -4861,17 +4848,17 @@
     return [new BidiSpan(0, length, 0)];
   }
   var movedOver = "";
-  function moveVisually(line, order, dir, start, forward) {
+  function moveVisually(line2, order, dir, start, forward) {
     var _a;
-    let startIndex = start.head - line.from, spanI = -1;
+    let startIndex = start.head - line2.from, spanI = -1;
     if (startIndex == 0) {
-      if (!forward || !line.length)
+      if (!forward || !line2.length)
         return null;
       if (order[0].level != dir) {
         startIndex = order[0].side(false, dir);
         spanI = 0;
       }
-    } else if (startIndex == line.length) {
+    } else if (startIndex == line2.length) {
       if (forward)
         return null;
       let last = order[order.length - 1];
@@ -4888,45 +4875,45 @@
       startIndex = span.side(!forward, dir);
     }
     let indexForward = forward == (span.dir == dir);
-    let nextIndex = findClusterBreak(line.text, startIndex, indexForward);
-    movedOver = line.text.slice(Math.min(startIndex, nextIndex), Math.max(startIndex, nextIndex));
+    let nextIndex = findClusterBreak(line2.text, startIndex, indexForward);
+    movedOver = line2.text.slice(Math.min(startIndex, nextIndex), Math.max(startIndex, nextIndex));
     if (nextIndex != span.side(forward, dir))
-      return EditorSelection.cursor(nextIndex + line.from, indexForward ? -1 : 1, span.level);
+      return EditorSelection.cursor(nextIndex + line2.from, indexForward ? -1 : 1, span.level);
     let nextSpan = spanI == (forward ? order.length - 1 : 0) ? null : order[spanI + (forward ? 1 : -1)];
     if (!nextSpan && span.level != dir)
-      return EditorSelection.cursor(forward ? line.to : line.from, forward ? -1 : 1, dir);
+      return EditorSelection.cursor(forward ? line2.to : line2.from, forward ? -1 : 1, dir);
     if (nextSpan && nextSpan.level < span.level)
-      return EditorSelection.cursor(nextSpan.side(!forward, dir) + line.from, forward ? 1 : -1, nextSpan.level);
-    return EditorSelection.cursor(nextIndex + line.from, forward ? -1 : 1, span.level);
+      return EditorSelection.cursor(nextSpan.side(!forward, dir) + line2.from, forward ? 1 : -1, nextSpan.level);
+    return EditorSelection.cursor(nextIndex + line2.from, forward ? -1 : 1, span.level);
   }
   function groupAt(state, pos, bias = 1) {
     let categorize = state.charCategorizer(pos);
-    let line = state.doc.lineAt(pos), linePos = pos - line.from;
-    if (line.length == 0)
+    let line2 = state.doc.lineAt(pos), linePos = pos - line2.from;
+    if (line2.length == 0)
       return EditorSelection.cursor(pos);
     if (linePos == 0)
       bias = 1;
-    else if (linePos == line.length)
+    else if (linePos == line2.length)
       bias = -1;
     let from = linePos, to = linePos;
     if (bias < 0)
-      from = findClusterBreak(line.text, linePos, false);
+      from = findClusterBreak(line2.text, linePos, false);
     else
-      to = findClusterBreak(line.text, linePos);
-    let cat = categorize(line.text.slice(from, to));
+      to = findClusterBreak(line2.text, linePos);
+    let cat = categorize(line2.text.slice(from, to));
     while (from > 0) {
-      let prev = findClusterBreak(line.text, from, false);
-      if (categorize(line.text.slice(prev, from)) != cat)
+      let prev = findClusterBreak(line2.text, from, false);
+      if (categorize(line2.text.slice(prev, from)) != cat)
         break;
       from = prev;
     }
-    while (to < line.length) {
-      let next3 = findClusterBreak(line.text, to);
-      if (categorize(line.text.slice(to, next3)) != cat)
+    while (to < line2.length) {
+      let next3 = findClusterBreak(line2.text, to);
+      if (categorize(line2.text.slice(to, next3)) != cat)
         break;
       to = next3;
     }
-    return EditorSelection.range(from + line.from, to + line.from);
+    return EditorSelection.range(from + line2.from, to + line2.from);
   }
   function getdx(x, rect) {
     return rect.left > x ? rect.left - x : Math.max(0, x - rect.right);
@@ -5061,16 +5048,16 @@
       }
     }
     if (!node || !view.docView.dom.contains(node)) {
-      let line = LineView.find(view.docView, lineStart);
-      ({ node, offset } = domPosAtCoords(line.dom, x, y));
+      let line2 = LineView.find(view.docView, lineStart);
+      ({ node, offset } = domPosAtCoords(line2.dom, x, y));
     }
     return view.docView.posFromDOM(node, offset);
   }
   function posAtCoordsImprecise(view, contentRect, block, x, y) {
     let into = Math.round((x - contentRect.left) * view.defaultCharacterWidth);
     if (view.lineWrapping && block.height > view.defaultLineHeight * 1.5) {
-      let line = Math.floor((y - block.top) / view.defaultLineHeight);
-      into += line * view.viewState.heightOracle.lineLength;
+      let line2 = Math.floor((y - block.top) / view.defaultLineHeight);
+      into += line2 * view.viewState.heightOracle.lineLength;
     }
     let content2 = view.state.sliceDoc(block.from, block.to);
     return block.from + findColumn(content2, into, view.state.tabSize);
@@ -5085,8 +5072,8 @@
     return textRange(node, len - 1, len).getBoundingClientRect().left > x;
   }
   function moveToLineBoundary(view, start, forward, includeWrap) {
-    let line = view.state.doc.lineAt(start.head);
-    let coords = !includeWrap || !view.lineWrapping ? null : view.coordsAtPos(start.assoc < 0 && start.head > line.from ? start.head - 1 : start.head);
+    let line2 = view.state.doc.lineAt(start.head);
+    let coords = !includeWrap || !view.lineWrapping ? null : view.coordsAtPos(start.assoc < 0 && start.head > line2.from ? start.head - 1 : start.head);
     if (coords) {
       let editorRect = view.dom.getBoundingClientRect();
       let pos = view.posAtCoords({
@@ -5097,20 +5084,20 @@
         return EditorSelection.cursor(pos, forward ? -1 : 1);
     }
     let lineView = LineView.find(view.docView, start.head);
-    let end2 = lineView ? forward ? lineView.posAtEnd : lineView.posAtStart : forward ? line.to : line.from;
+    let end2 = lineView ? forward ? lineView.posAtEnd : lineView.posAtStart : forward ? line2.to : line2.from;
     return EditorSelection.cursor(end2, forward ? -1 : 1);
   }
   function moveByChar(view, start, forward, by) {
-    let line = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line);
+    let line2 = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line2);
     for (let cur = start, check = null; ; ) {
-      let next3 = moveVisually(line, spans, view.textDirection, cur, forward), char = movedOver;
+      let next3 = moveVisually(line2, spans, view.textDirection, cur, forward), char = movedOver;
       if (!next3) {
-        if (line.number == (forward ? view.state.doc.lines : 1))
+        if (line2.number == (forward ? view.state.doc.lines : 1))
           return cur;
         char = "\n";
-        line = view.state.doc.line(line.number + (forward ? 1 : -1));
-        spans = view.bidiSpans(line);
-        next3 = EditorSelection.cursor(forward ? line.from : line.to);
+        line2 = view.state.doc.line(line2.number + (forward ? 1 : -1));
+        spans = view.bidiSpans(line2);
+        next3 = EditorSelection.cursor(forward ? line2.from : line2.to);
       }
       if (!check) {
         if (!by)
@@ -5144,10 +5131,10 @@
         goal = startCoords.left - rect.left;
       startY = dir < 0 ? startCoords.top : startCoords.bottom;
     } else {
-      let line = view.viewState.lineAt(startPos, view.dom.getBoundingClientRect().top);
+      let line2 = view.viewState.lineAt(startPos, view.dom.getBoundingClientRect().top);
       if (goal == null)
-        goal = Math.min(rect.right - rect.left, view.defaultCharacterWidth * (startPos - line.from));
-      startY = dir < 0 ? line.top : line.bottom;
+        goal = Math.min(rect.right - rect.left, view.defaultCharacterWidth * (startPos - line2.from));
+      startY = dir < 0 ? line2.top : line2.bottom;
     }
     let resolvedGoal = rect.left + goal;
     let dist = distance !== null && distance !== void 0 ? distance : view.defaultLineHeight >> 1;
@@ -5427,22 +5414,22 @@
     if (linewise) {
       let lastLine = -1;
       changes = state.changeByRange((range) => {
-        let line = state.doc.lineAt(range.from);
-        if (line.from == lastLine)
+        let line2 = state.doc.lineAt(range.from);
+        if (line2.from == lastLine)
           return { range };
-        lastLine = line.from;
+        lastLine = line2.from;
         let insert2 = state.toText((byLine ? text.line(i++).text : input) + state.lineBreak);
         return {
-          changes: { from: line.from, insert: insert2 },
+          changes: { from: line2.from, insert: insert2 },
           range: EditorSelection.cursor(range.from + insert2.length)
         };
       });
     } else if (byLine) {
       changes = state.changeByRange((range) => {
-        let line = text.line(i++);
+        let line2 = text.line(i++);
         return {
-          changes: { from: range.from, to: range.to, insert: line.text },
-          range: EditorSelection.cursor(range.from + line.length)
+          changes: { from: range.from, to: range.to, insert: line2.text },
+          range: EditorSelection.cursor(range.from + line2.length)
         };
       });
     } else {
@@ -5488,9 +5475,9 @@
     } else if (type == 2) {
       return groupAt(view.state, pos, bias);
     } else {
-      let visual = LineView.find(view.docView, pos), line = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
-      let from = visual ? visual.posAtStart : line.from, to = visual ? visual.posAtEnd : line.to;
-      if (to < view.state.doc.length && to == line.to)
+      let visual = LineView.find(view.docView, pos), line2 = view.state.doc.lineAt(visual ? visual.posAtEnd : pos);
+      let from = visual ? visual.posAtStart : line2.from, to = visual ? visual.posAtEnd : line2.to;
+      if (to < view.state.doc.length && to == line2.to)
         to++;
       return EditorSelection.range(from, to);
     }
@@ -5498,18 +5485,18 @@
   var insideY = (y, rect) => y >= rect.top && y <= rect.bottom;
   var inside = (x, y, rect) => insideY(y, rect) && x >= rect.left && x <= rect.right;
   function findPositionSide(view, pos, x, y) {
-    let line = LineView.find(view.docView, pos);
-    if (!line)
+    let line2 = LineView.find(view.docView, pos);
+    if (!line2)
       return 1;
-    let off = pos - line.posAtStart;
+    let off = pos - line2.posAtStart;
     if (off == 0)
       return 1;
-    if (off == line.length)
+    if (off == line2.length)
       return -1;
-    let before = line.coordsAt(off, -1);
+    let before = line2.coordsAt(off, -1);
     if (before && inside(x, y, before))
       return -1;
-    let after = line.coordsAt(off, 1);
+    let after = line2.coordsAt(off, 1);
     if (after && inside(x, y, after))
       return 1;
     return before && insideY(y, before) ? -1 : 1;
@@ -5657,12 +5644,12 @@
     if (!content2.length) {
       let upto = -1;
       for (let { from } of state.selection.ranges) {
-        let line = state.doc.lineAt(from);
-        if (line.number > upto) {
-          content2.push(line.text);
-          ranges.push({ from: line.from, to: Math.min(state.doc.length, line.to + 1) });
+        let line2 = state.doc.lineAt(from);
+        if (line2.number > upto) {
+          content2.push(line2.text);
+          ranges.push({ from: line2.from, to: Math.min(state.doc.length, line2.to + 1) });
         }
-        upto = line.number;
+        upto = line2.number;
       }
       linewise = true;
     }
@@ -5997,9 +5984,9 @@
     }
     blockAt(height, doc2, top2, offset) {
       let { firstLine, lastLine, lineHeight } = this.lines(doc2, offset);
-      let line = Math.max(0, Math.min(lastLine - firstLine, Math.floor((height - top2) / lineHeight)));
-      let { from, length } = doc2.line(firstLine + line);
-      return new BlockInfo(from, length, top2 + lineHeight * line, lineHeight, BlockType.Text);
+      let line2 = Math.max(0, Math.min(lastLine - firstLine, Math.floor((height - top2) / lineHeight)));
+      let { from, length } = doc2.line(firstLine + line2);
+      return new BlockInfo(from, length, top2 + lineHeight * line2, lineHeight, BlockType.Text);
     }
     lineAt(value, type, doc2, top2, offset) {
       if (type == QueryType.ByHeight)
@@ -6015,12 +6002,12 @@
     forEachLine(from, to, doc2, top2, offset, f) {
       let { firstLine, lineHeight } = this.lines(doc2, offset);
       for (let pos = Math.max(from, offset), end2 = Math.min(offset + this.length, to); pos <= end2; ) {
-        let line = doc2.lineAt(pos);
+        let line2 = doc2.lineAt(pos);
         if (pos == from)
-          top2 += lineHeight * (line.number - firstLine);
-        f(new BlockInfo(line.from, line.length, top2, lineHeight, BlockType.Text));
+          top2 += lineHeight * (line2.number - firstLine);
+        f(new BlockInfo(line2.from, line2.length, top2, lineHeight, BlockType.Text));
         top2 += lineHeight;
-        pos = line.to + 1;
+        pos = line2.to + 1;
       }
     }
     replace(from, to, nodes) {
@@ -6057,9 +6044,9 @@
           let len = oracle.doc.lineAt(pos).length;
           if (nodes.length)
             nodes.push(null);
-          let line = new HeightMapText(len, measured.heights[measured.index++]);
-          line.outdated = false;
-          nodes.push(line);
+          let line2 = new HeightMapText(len, measured.heights[measured.index++]);
+          line2.outdated = false;
+          nodes.push(line2);
           pos += len + 1;
         }
         if (pos <= end2)
@@ -6270,9 +6257,9 @@
       let last = this.nodes.length ? this.nodes[this.nodes.length - 1] : null;
       if (last instanceof HeightMapText)
         return last;
-      let line = new HeightMapText(0, -1);
-      this.nodes.push(line);
-      return line;
+      let line2 = new HeightMapText(0, -1);
+      this.nodes.push(line2);
+      return line2;
     }
     addBlock(block) {
       this.enterLine();
@@ -6284,10 +6271,10 @@
         this.covering = block;
     }
     addLineDeco(height, length) {
-      let line = this.ensureLine();
-      line.length += length;
-      line.collapsed += length;
-      line.widgetHeight = Math.max(line.widgetHeight, height);
+      let line2 = this.ensureLine();
+      line2.length += length;
+      line2.collapsed += length;
+      line2.widgetHeight = Math.max(line2.widgetHeight, height);
       this.writtenTo = this.pos = this.pos + length;
     }
     finish(from) {
@@ -6557,44 +6544,44 @@
       let gaps = [];
       if (this.heightOracle.direction != Direction.LTR)
         return gaps;
-      this.heightMap.forEachLine(this.viewport.from, this.viewport.to, this.state.doc, 0, 0, (line) => {
-        if (line.length < 1e4)
+      this.heightMap.forEachLine(this.viewport.from, this.viewport.to, this.state.doc, 0, 0, (line2) => {
+        if (line2.length < 1e4)
           return;
-        let structure = lineStructure(line.from, line.to, this.state);
+        let structure = lineStructure(line2.from, line2.to, this.state);
         if (structure.total < 1e4)
           return;
         let viewFrom, viewTo;
         if (this.heightOracle.lineWrapping) {
-          if (line.from != this.viewport.from)
-            viewFrom = line.from;
+          if (line2.from != this.viewport.from)
+            viewFrom = line2.from;
           else
-            viewFrom = findPosition(structure, (this.visibleTop - line.top) / line.height);
-          if (line.to != this.viewport.to)
-            viewTo = line.to;
+            viewFrom = findPosition(structure, (this.visibleTop - line2.top) / line2.height);
+          if (line2.to != this.viewport.to)
+            viewTo = line2.to;
           else
-            viewTo = findPosition(structure, (this.visibleBottom - line.top) / line.height);
+            viewTo = findPosition(structure, (this.visibleBottom - line2.top) / line2.height);
         } else {
           let totalWidth = structure.total * this.heightOracle.charWidth;
           viewFrom = findPosition(structure, this.pixelViewport.left / totalWidth);
           viewTo = findPosition(structure, this.pixelViewport.right / totalWidth);
         }
         let sel = this.state.selection.main;
-        if (sel.from <= viewFrom && sel.to >= line.from)
+        if (sel.from <= viewFrom && sel.to >= line2.from)
           viewFrom = sel.from;
-        if (sel.from <= line.to && sel.to >= viewTo)
+        if (sel.from <= line2.to && sel.to >= viewTo)
           viewTo = sel.to;
         let gapTo = viewFrom - 1e4, gapFrom = viewTo + 1e4;
-        if (gapTo > line.from + 5e3)
-          gaps.push(find(current, (gap) => gap.from == line.from && gap.to > gapTo - 5e3 && gap.to < gapTo + 5e3) || new LineGap(line.from, gapTo, this.gapSize(line, gapTo, true, structure)));
-        if (gapFrom < line.to - 5e3)
-          gaps.push(find(current, (gap) => gap.to == line.to && gap.from > gapFrom - 5e3 && gap.from < gapFrom + 5e3) || new LineGap(gapFrom, line.to, this.gapSize(line, gapFrom, false, structure)));
+        if (gapTo > line2.from + 5e3)
+          gaps.push(find(current, (gap) => gap.from == line2.from && gap.to > gapTo - 5e3 && gap.to < gapTo + 5e3) || new LineGap(line2.from, gapTo, this.gapSize(line2, gapTo, true, structure)));
+        if (gapFrom < line2.to - 5e3)
+          gaps.push(find(current, (gap) => gap.to == line2.to && gap.from > gapFrom - 5e3 && gap.from < gapFrom + 5e3) || new LineGap(gapFrom, line2.to, this.gapSize(line2, gapFrom, false, structure)));
       });
       return gaps;
     }
-    gapSize(line, pos, start, structure) {
+    gapSize(line2, pos, start, structure) {
       if (this.heightOracle.lineWrapping) {
-        let height = line.height * findFraction(structure, pos);
-        return start ? height : line.height - height;
+        let height = line2.height * findFraction(structure, pos);
+        return start ? height : line2.height - height;
       } else {
         let ratio = findFraction(structure, pos);
         return structure.total * this.heightOracle.charWidth * (start ? ratio : 1 - ratio);
@@ -6805,6 +6792,7 @@
       display: "block",
       whiteSpace: "pre",
       wordWrap: "normal",
+      WebkitUserModify: "read-write-plaintext-only",
       boxSizing: "border-box",
       padding: "4px 0",
       outline: "none"
@@ -7586,7 +7574,7 @@
         spellcheck: "false",
         autocorrect: "off",
         autocapitalize: "off",
-        contenteditable: !this.state.facet(editable) ? "false" : contentEditablePlainTextSupported() ? "plaintext-only" : "true",
+        contenteditable: String(this.state.facet(editable)),
         class: "cm-content",
         style: `${browser.tabSize}: ${this.state.tabSize}`,
         role: "textbox",
@@ -7692,8 +7680,8 @@
       let rect = this.docView.coordsAt(pos, side);
       if (!rect || rect.left == rect.right)
         return rect;
-      let line = this.state.doc.lineAt(pos), order = this.bidiSpans(line);
-      let span = order[BidiSpan.find(order, pos - line.from, -1, side)];
+      let line2 = this.state.doc.lineAt(pos), order = this.bidiSpans(line2);
+      let span = order[BidiSpan.find(order, pos - line2.from, -1, side)];
       return flattenRect(rect, span.dir == Direction.LTR == side > 0);
     }
     get defaultCharacterWidth() {
@@ -7708,15 +7696,15 @@
     get lineWrapping() {
       return this.viewState.heightOracle.lineWrapping;
     }
-    bidiSpans(line) {
-      if (line.length > MaxBidiLine)
-        return trivialOrder(line.length);
+    bidiSpans(line2) {
+      if (line2.length > MaxBidiLine)
+        return trivialOrder(line2.length);
       let dir = this.textDirection;
       for (let entry of this.bidiCache)
-        if (entry.from == line.from && entry.dir == dir)
+        if (entry.from == line2.from && entry.dir == dir)
           return entry.order;
-      let order = computeOrder(line.text, this.textDirection);
-      this.bidiCache.push(new CachedOrder(line.from, line.to, dir, order));
+      let order = computeOrder(line2.text, this.textDirection);
+      this.bidiCache.push(new CachedOrder(line2.from, line2.to, dir, order));
       return order;
     }
     get hasFocus() {
@@ -8869,9 +8857,9 @@
     get allowsNesting() {
       return true;
     }
-    parseString(code) {
-      let doc2 = Text.of(code.split("\n"));
-      let parse = this.parser.startParse(new DocInput(doc2), 0, new EditorParseContext(this.parser, EditorState.create({ doc: doc2 }), [], Tree.empty, { from: 0, to: code.length }, [], null));
+    parseString(code2) {
+      let doc2 = Text.of(code2.split("\n"));
+      let parse = this.parser.startParse(new DocInput(doc2), 0, new EditorParseContext(this.parser, EditorState.create({ doc: doc2 }), [], Tree.empty, { from: 0, to: code2.length }, [], null));
       let tree;
       while (!(tree = parse.advance())) {
       }
@@ -9249,25 +9237,25 @@
     }
     column(pos) {
       var _a;
-      let line = this.state.doc.lineAt(pos), text = line.text.slice(0, pos - line.from);
-      let result = this.countColumn(text, pos - line.from);
-      let override = ((_a = this.options) === null || _a === void 0 ? void 0 : _a.overrideIndentation) ? this.options.overrideIndentation(line.from) : -1;
+      let line2 = this.state.doc.lineAt(pos), text = line2.text.slice(0, pos - line2.from);
+      let result = this.countColumn(text, pos - line2.from);
+      let override = ((_a = this.options) === null || _a === void 0 ? void 0 : _a.overrideIndentation) ? this.options.overrideIndentation(line2.from) : -1;
       if (override > -1)
         result += override - this.countColumn(text, text.search(/\S/));
       return result;
     }
-    countColumn(line, pos) {
-      return countColumn(pos < 0 ? line : line.slice(0, pos), 0, this.state.tabSize);
+    countColumn(line2, pos) {
+      return countColumn(pos < 0 ? line2 : line2.slice(0, pos), 0, this.state.tabSize);
     }
-    lineIndent(line) {
+    lineIndent(line2) {
       var _a;
       let override = (_a = this.options) === null || _a === void 0 ? void 0 : _a.overrideIndentation;
       if (override) {
-        let overriden = override(line.from);
+        let overriden = override(line2.from);
         if (overriden > -1)
           return overriden;
       }
-      return this.countColumn(line.text, line.text.search(/\S/));
+      return this.countColumn(line2.text, line2.text.search(/\S/));
     }
   };
   var indentNodeProp = /* @__PURE__ */ new NodeProp();
@@ -9324,16 +9312,16 @@
       return this.textAfterPos(this.pos);
     }
     get baseIndent() {
-      let line = this.state.doc.lineAt(this.node.from);
+      let line2 = this.state.doc.lineAt(this.node.from);
       for (; ; ) {
-        let atBreak = this.node.resolve(line.from);
+        let atBreak = this.node.resolve(line2.from);
         while (atBreak.parent && atBreak.parent.from == atBreak.from)
           atBreak = atBreak.parent;
         if (isParent(atBreak, this.node))
           break;
-        line = this.state.doc.lineAt(atBreak.from);
+        line2 = this.state.doc.lineAt(atBreak.from);
       }
-      return this.lineIndent(line);
+      return this.lineIndent(line2);
     }
     continue() {
       let parent = this.node.parent;
@@ -9615,13 +9603,13 @@
   var cursorPageUp = (view) => cursorByPage(view, false);
   var cursorPageDown = (view) => cursorByPage(view, true);
   function moveByLineBoundary(view, start, forward) {
-    let line = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
-    if (moved.head == start.head && moved.head != (forward ? line.to : line.from))
+    let line2 = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
+    if (moved.head == start.head && moved.head != (forward ? line2.to : line2.from))
       moved = view.moveToLineBoundary(start, forward, false);
-    if (!forward && moved.head == line.from && line.length) {
-      let space = /^\s*/.exec(view.state.sliceDoc(line.from, Math.min(line.from + 100, line.to)))[0].length;
-      if (space && start.head != line.from + space)
-        moved = EditorSelection.cursor(line.from + space);
+    if (!forward && moved.head == line2.from && line2.length) {
+      let space = /^\s*/.exec(view.state.sliceDoc(line2.from, Math.min(line2.from + 100, line2.to)))[0].length;
+      if (space && start.head != line2.from + space)
+        moved = EditorSelection.cursor(line2.from + space);
     }
     return moved;
   }
@@ -9701,8 +9689,8 @@
     return true;
   }
   var deleteByChar = (target, forward, codePoint) => deleteBy(target, (pos) => {
-    let { state } = target, line = state.doc.lineAt(pos), before;
-    if (!forward && pos > line.from && pos < line.from + 200 && !/[^ \t]/.test(before = line.text.slice(0, pos - line.from))) {
+    let { state } = target, line2 = state.doc.lineAt(pos), before;
+    if (!forward && pos > line2.from && pos < line2.from + 200 && !/[^ \t]/.test(before = line2.text.slice(0, pos - line2.from))) {
       if (before[before.length - 1] == "	")
         return pos - 1;
       let col = countColumn(before, 0, state.tabSize), drop = col % getIndentUnit(state) || getIndentUnit(state);
@@ -9712,13 +9700,13 @@
     }
     let targetPos;
     if (codePoint) {
-      let next3 = line.text.slice(pos - line.from + (forward ? 0 : -2), pos - line.from + (forward ? 2 : 0));
+      let next3 = line2.text.slice(pos - line2.from + (forward ? 0 : -2), pos - line2.from + (forward ? 2 : 0));
       let size = next3 ? codePointSize(codePointAt(next3, 0)) : 1;
       targetPos = forward ? Math.min(state.doc.length, pos + size) : Math.max(0, pos - size);
     } else {
-      targetPos = findClusterBreak(line.text, pos - line.from, forward) + line.from;
+      targetPos = findClusterBreak(line2.text, pos - line2.from, forward) + line2.from;
     }
-    if (targetPos == pos && line.number != (forward ? state.doc.lines : 1))
+    if (targetPos == pos && line2.number != (forward ? state.doc.lines : 1))
       targetPos += forward ? 1 : -1;
     return targetPos;
   });
@@ -9726,16 +9714,16 @@
   var deleteCharBackward = (view) => deleteByChar(view, false, false);
   var deleteCharForward = (view) => deleteByChar(view, true, false);
   var deleteByGroup = (target, forward) => deleteBy(target, (start) => {
-    let pos = start, { state } = target, line = state.doc.lineAt(pos);
+    let pos = start, { state } = target, line2 = state.doc.lineAt(pos);
     let categorize = state.charCategorizer(pos);
     for (let cat = null; ; ) {
-      if (pos == (forward ? line.to : line.from)) {
-        if (pos == start && line.number != (forward ? state.doc.lines : 1))
+      if (pos == (forward ? line2.to : line2.from)) {
+        if (pos == start && line2.number != (forward ? state.doc.lines : 1))
           pos += forward ? 1 : -1;
         break;
       }
-      let next3 = findClusterBreak(line.text, pos - line.from, forward) + line.from;
-      let nextChar2 = line.text.slice(Math.min(pos, next3) - line.from, Math.max(pos, next3) - line.from);
+      let next3 = findClusterBreak(line2.text, pos - line2.from, forward) + line2.from;
+      let nextChar2 = line2.text.slice(Math.min(pos, next3) - line2.from, Math.max(pos, next3) - line2.from);
       let nextCat = categorize(nextChar2);
       if (cat != null && nextCat != cat)
         break;
@@ -9773,9 +9761,9 @@
     let changes = state.changeByRange((range) => {
       if (!range.empty || range.from == 0 || range.from == state.doc.length)
         return { range };
-      let pos = range.from, line = state.doc.lineAt(pos);
-      let from = pos == line.from ? pos - 1 : findClusterBreak(line.text, pos - line.from, false) + line.from;
-      let to = pos == line.to ? pos + 1 : findClusterBreak(line.text, pos - line.from, true) + line.from;
+      let pos = range.from, line2 = state.doc.lineAt(pos);
+      let from = pos == line2.from ? pos - 1 : findClusterBreak(line2.text, pos - line2.from, false) + line2.from;
+      let to = pos == line2.to ? pos + 1 : findClusterBreak(line2.text, pos - line2.from, true) + line2.from;
       return {
         changes: { from, to, insert: state.doc.slice(pos, to).append(state.doc.slice(from, pos)) },
         range: EditorSelection.cursor(to)
@@ -9802,16 +9790,16 @@
       let indent = getIndentation(cx, from);
       if (indent == null)
         indent = /^\s*/.exec(state.doc.lineAt(from).text)[0].length;
-      let line = state.doc.lineAt(from);
-      while (to < line.to && /\s/.test(line.text.slice(to - line.from, to + 1 - line.from)))
+      let line2 = state.doc.lineAt(from);
+      while (to < line2.to && /\s/.test(line2.text.slice(to - line2.from, to + 1 - line2.from)))
         to++;
       if (explode)
         ({ from, to } = explode);
-      else if (from > line.from && from < line.from + 100 && !/\S/.test(line.text.slice(0, from)))
-        from = line.from;
+      else if (from > line2.from && from < line2.from + 100 && !/\S/.test(line2.text.slice(0, from)))
+        from = line2.from;
       let insert2 = ["", indentString(state, indent)];
       if (explode)
-        insert2.push(indentString(state, cx.lineIndent(line)));
+        insert2.push(indentString(state, cx.lineIndent(line2)));
       return {
         changes: { from, to, insert: Text.of(insert2) },
         range: EditorSelection.cursor(from + 1 + insert2[1].length)
@@ -9825,12 +9813,12 @@
     return state.changeByRange((range) => {
       let changes = [];
       for (let pos = range.from; pos <= range.to; ) {
-        let line = state.doc.lineAt(pos);
-        if (line.number > atLine && (range.empty || range.to > line.from)) {
-          f(line, changes, range);
-          atLine = line.number;
+        let line2 = state.doc.lineAt(pos);
+        if (line2.number > atLine && (range.empty || range.to > line2.from)) {
+          f(line2, changes, range);
+          atLine = line2.number;
         }
-        pos = line.to + 1;
+        pos = line2.to + 1;
       }
       let changeSet = state.changes(changes);
       return {
@@ -9845,15 +9833,15 @@
       let found = updated[start];
       return found == null ? -1 : found;
     } });
-    let changes = changeBySelectedLine(state, (line, changes2, range) => {
-      let indent = getIndentation(context, line.from);
+    let changes = changeBySelectedLine(state, (line2, changes2, range) => {
+      let indent = getIndentation(context, line2.from);
       if (indent == null)
         return;
-      let cur = /^\s*/.exec(line.text)[0];
+      let cur = /^\s*/.exec(line2.text)[0];
       let norm = indentString(state, indent);
-      if (cur != norm || range.from < line.from + cur.length) {
-        updated[line.from] = indent;
-        changes2.push({ from: line.from, to: line.from + cur.length, insert: norm });
+      if (cur != norm || range.from < line2.from + cur.length) {
+        updated[line2.from] = indent;
+        changes2.push({ from: line2.from, to: line2.from + cur.length, insert: norm });
       }
     });
     if (!changes.changes.empty)
@@ -9861,8 +9849,8 @@
     return true;
   };
   var indentMore = ({ state, dispatch }) => {
-    dispatch(state.update(changeBySelectedLine(state, (line, changes) => {
-      changes.push({ from: line.from, insert: state.facet(indentUnit) });
+    dispatch(state.update(changeBySelectedLine(state, (line2, changes) => {
+      changes.push({ from: line2.from, insert: state.facet(indentUnit) });
     })));
     return true;
   };
@@ -10031,22 +10019,22 @@
       let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
       let classSet = [];
       let contexts = this.gutters.map((gutter2) => new UpdateContext(gutter2, this.view.viewport));
-      this.view.viewportLines((line) => {
+      this.view.viewportLines((line2) => {
         let text;
-        if (Array.isArray(line.type)) {
-          for (let b of line.type)
+        if (Array.isArray(line2.type)) {
+          for (let b of line2.type)
             if (b.type == BlockType.Text) {
               text = b;
               break;
             }
         } else {
-          text = line.type == BlockType.Text ? line : void 0;
+          text = line2.type == BlockType.Text ? line2 : void 0;
         }
         if (!text)
           return;
         if (classSet.length)
           classSet = [];
-        advanceCursor(lineClasses, classSet, line.from);
+        advanceCursor(lineClasses, classSet, line2.from);
         for (let cx of contexts)
           cx.line(this.view, text, classSet);
       }, 0);
@@ -10113,29 +10101,29 @@
       this.height = 0;
       this.cursor = RangeSet.iter(gutter2.markers, viewport.from);
     }
-    line(view, line, extraMarkers) {
+    line(view, line2, extraMarkers) {
       if (this.localMarkers.length)
         this.localMarkers = [];
-      advanceCursor(this.cursor, this.localMarkers, line.from);
+      advanceCursor(this.cursor, this.localMarkers, line2.from);
       let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
-      let forLine = this.gutter.config.lineMarker(view, line, localMarkers);
+      let forLine = this.gutter.config.lineMarker(view, line2, localMarkers);
       if (forLine)
         localMarkers.unshift(forLine);
       let gutter2 = this.gutter;
       if (localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
         return;
-      let above = line.top - this.height;
+      let above = line2.top - this.height;
       if (this.i == gutter2.elements.length) {
-        let newElt = new GutterElement(view, line.height, above, localMarkers);
+        let newElt = new GutterElement(view, line2.height, above, localMarkers);
         gutter2.elements.push(newElt);
         gutter2.dom.appendChild(newElt.dom);
       } else {
         let elt = gutter2.elements[this.i];
         if (sameMarkers(localMarkers, elt.markers))
           localMarkers = elt.markers;
-        elt.update(view, line.height, above, localMarkers);
+        elt.update(view, line2.height, above, localMarkers);
       }
-      this.height = line.bottom;
+      this.height = line2.bottom;
       this.i++;
     }
     finish() {
@@ -10154,8 +10142,8 @@
       this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
       for (let prop in config2.domEventHandlers) {
         this.dom.addEventListener(prop, (event) => {
-          let line = view.visualLineAtHeight(event.clientY, view.contentDOM.getBoundingClientRect().top);
-          if (config2.domEventHandlers[prop](view, line, event))
+          let line2 = view.visualLineAtHeight(event.clientY, view.contentDOM.getBoundingClientRect().top);
+          if (config2.domEventHandlers[prop](view, line2, event))
             event.preventDefault();
         });
       }
@@ -10222,7 +10210,7 @@
           let result = Object.assign({}, a);
           for (let event in b) {
             let exists = result[event], add = b[event];
-            result[event] = exists ? (view, line, event2) => exists(view, line, event2) || add(view, line, event2) : add;
+            result[event] = exists ? (view, line2, event2) => exists(view, line2, event2) || add(view, line2, event2) : add;
           }
           return result;
         }
@@ -10249,10 +10237,10 @@
     markers(view) {
       return view.state.facet(lineNumberMarkers);
     },
-    lineMarker(view, line, others) {
+    lineMarker(view, line2, others) {
       if (others.some((m) => m.toDOM))
         return null;
-      return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line.from).number));
+      return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line2.from).number));
     },
     initialSpacer(view) {
       return new NumberMarker(formatNumber(view, maxLineNumber(view.state.doc.lines)));
@@ -11039,328 +11027,118 @@
     { key: "Alt-u", mac: "Mod-Shift-u", run: redoSelection, preventDefault: true }
   ];
 
-  // node_modules/@codemirror/tooltip/dist/index.js
-  var ios = typeof navigator != "undefined" && !/Edge\/(\d+)/.exec(navigator.userAgent) && /Apple Computer/.test(navigator.vendor) && (/Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
-  var Outside = "-10000px";
-  var tooltipPlugin = ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.view = view;
-      this.inView = true;
-      this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
-      this.input = view.state.facet(showTooltip);
-      this.tooltips = this.input.filter((t2) => t2);
-      this.tooltipViews = this.tooltips.map((tp) => this.createTooltip(tp));
+  // core/statement.js
+  var Range2 = class {
+    constructor(start = 0, length = 0) {
+      if (start < 0 || length < 0)
+        throw `Invalid range ${start} to ${start + length}`;
+      this.start = start;
+      this.length = length;
     }
-    update(update) {
-      let input = update.state.facet(showTooltip);
-      if (input == this.input) {
-        for (let t2 of this.tooltipViews)
-          if (t2.update)
-            t2.update(update);
-      } else {
-        let tooltips = input.filter((x) => x);
-        let views = [];
-        for (let i = 0; i < tooltips.length; i++) {
-          let tip = tooltips[i], known = -1;
-          if (!tip)
-            continue;
-          for (let i2 = 0; i2 < this.tooltips.length; i2++) {
-            let other = this.tooltips[i2];
-            if (other && other.create == tip.create)
-              known = i2;
-          }
-          if (known < 0) {
-            views[i] = this.createTooltip(tip);
-          } else {
-            let tooltipView = views[i] = this.tooltipViews[known];
-            if (tooltipView.update)
-              tooltipView.update(update);
-          }
-        }
-        for (let t2 of this.tooltipViews)
-          if (views.indexOf(t2) < 0)
-            t2.dom.remove();
-        this.input = input;
-        this.tooltips = tooltips;
-        this.tooltipViews = views;
-        this.maybeMeasure();
-      }
+    includes(pos) {
+      return this.end >= pos && pos >= this.start;
     }
-    createTooltip(tooltip) {
-      let tooltipView = tooltip.create(this.view);
-      tooltipView.dom.classList.add("cm-tooltip");
-      if (tooltip.class)
-        tooltipView.dom.classList.add(tooltip.class);
-      tooltipView.dom.style.top = Outside;
-      this.view.dom.appendChild(tooltipView.dom);
-      if (tooltipView.mount)
-        tooltipView.mount(this.view);
-      return tooltipView;
+    until(end2) {
+      return new Range2(this.start, end2.end - this.start);
     }
-    destroy() {
-      for (let { dom } of this.tooltipViews)
-        dom.remove();
+    slice(text) {
+      return text.slice(this.start, this.end);
     }
-    readMeasure() {
-      return {
-        editor: this.view.dom.getBoundingClientRect(),
-        pos: this.tooltips.map((t2) => this.view.coordsAtPos(t2.pos)),
-        size: this.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
-        innerWidth: window.innerWidth,
-        innerHeight: window.innerHeight
-      };
-    }
-    writeMeasure(measured) {
-      let { editor: editor2 } = measured;
-      for (let i = 0; i < this.tooltipViews.length; i++) {
-        let tooltip = this.tooltips[i], tView = this.tooltipViews[i], { dom } = tView;
-        let pos = measured.pos[i], size = measured.size[i];
-        if (!pos || pos.bottom <= editor2.top || pos.top >= editor2.bottom || pos.right <= editor2.left || pos.left >= editor2.right) {
-          dom.style.top = Outside;
-          continue;
-        }
-        let width = size.right - size.left, height = size.bottom - size.top;
-        let left = this.view.textDirection == Direction.LTR ? Math.min(pos.left, measured.innerWidth - width) : Math.max(0, pos.left - width);
-        let above = !!tooltip.above;
-        if (!tooltip.strictSide && (above ? pos.top - (size.bottom - size.top) < 0 : pos.bottom + (size.bottom - size.top) > measured.innerHeight))
-          above = !above;
-        if (ios) {
-          dom.style.top = (above ? pos.top - height : pos.bottom) - editor2.top + "px";
-          dom.style.left = left - editor2.left + "px";
-          dom.style.position = "absolute";
-        } else {
-          dom.style.top = (above ? pos.top - height : pos.bottom) + "px";
-          dom.style.left = left + "px";
-        }
-        dom.classList.toggle("cm-tooltip-above", above);
-        dom.classList.toggle("cm-tooltip-below", !above);
-        if (tView.positioned)
-          tView.positioned();
-      }
-    }
-    maybeMeasure() {
-      if (this.tooltips.length) {
-        if (this.view.inView || this.inView)
-          this.view.requestMeasure(this.measureReq);
-        this.inView = this.view.inView;
-      }
-    }
-  }, {
-    eventHandlers: {
-      scroll() {
-        this.maybeMeasure();
-      }
-    }
-  });
-  var baseTheme3 = EditorView.baseTheme({
-    ".cm-tooltip": {
-      position: "fixed",
-      zIndex: 100
-    },
-    "&light .cm-tooltip": {
-      border: "1px solid #ddd",
-      backgroundColor: "#f5f5f5"
-    },
-    "&dark .cm-tooltip": {
-      backgroundColor: "#333338",
-      color: "white"
-    }
-  });
-  var showTooltip = Facet.define({
-    enables: [tooltipPlugin, baseTheme3]
-  });
-  var HoverTime = 750;
-  var HoverMaxDist = 6;
-  var HoverPlugin = class {
-    constructor(view, source, field, setHover) {
-      this.view = view;
-      this.source = source;
-      this.field = field;
-      this.setHover = setHover;
-      this.lastMouseMove = null;
-      this.hoverTimeout = -1;
-      this.restartTimeout = -1;
-      this.pending = null;
-      this.checkHover = this.checkHover.bind(this);
-      view.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this));
-      view.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
-    }
-    update() {
-      if (this.pending) {
-        this.pending = null;
-        clearTimeout(this.restartTimeout);
-        this.restartTimeout = setTimeout(() => this.startHover(), 20);
-      }
-    }
-    get active() {
-      return this.view.state.field(this.field);
-    }
-    checkHover() {
-      this.hoverTimeout = -1;
-      if (this.active)
-        return;
-      let now = Date.now(), lastMove = this.lastMouseMove;
-      if (now - lastMove.timeStamp < HoverTime)
-        this.hoverTimeout = setTimeout(this.checkHover, HoverTime - (now - lastMove.timeStamp));
-      else
-        this.startHover();
-    }
-    startHover() {
-      var _a;
-      clearTimeout(this.restartTimeout);
-      let lastMove = this.lastMouseMove;
-      let coords = { x: lastMove.clientX, y: lastMove.clientY };
-      let pos = this.view.contentDOM.contains(lastMove.target) ? this.view.posAtCoords(coords) : null;
-      if (pos == null)
-        return;
-      let posCoords = this.view.coordsAtPos(pos);
-      if (posCoords == null || coords.y < posCoords.top || coords.y > posCoords.bottom || coords.x < posCoords.left - this.view.defaultCharacterWidth || coords.x > posCoords.right + this.view.defaultCharacterWidth)
-        return;
-      let bidi = this.view.bidiSpans(this.view.state.doc.lineAt(pos)).find((s) => s.from <= pos && s.to >= pos);
-      let rtl = bidi && bidi.dir == Direction.RTL ? -1 : 1;
-      let open = this.source(this.view, pos, coords.x < posCoords.left ? -rtl : rtl);
-      if ((_a = open) === null || _a === void 0 ? void 0 : _a.then) {
-        let pending = this.pending = { pos };
-        open.then((result) => {
-          if (this.pending == pending) {
-            this.pending = null;
-            if (result)
-              this.view.dispatch({ effects: this.setHover.of(result) });
-          }
-        }, (e) => logException(this.view.state, e, "hover tooltip"));
-      } else if (open) {
-        this.view.dispatch({ effects: this.setHover.of(open) });
-      }
-    }
-    mousemove(event) {
-      var _a;
-      this.lastMouseMove = event;
-      if (this.hoverTimeout < 0)
-        this.hoverTimeout = setTimeout(this.checkHover, HoverTime);
-      let tooltip = this.active;
-      if (tooltip && !isInTooltip(event.target) || this.pending) {
-        let { pos } = tooltip || this.pending, end2 = (_a = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a !== void 0 ? _a : pos;
-        if (pos == end2 ? this.view.posAtCoords({ x: event.clientX, y: event.clientY }) != pos : !isOverRange(this.view, pos, end2, event.clientX, event.clientY, HoverMaxDist)) {
-          this.view.dispatch({ effects: this.setHover.of(null) });
-          this.pending = null;
-        }
-      }
-    }
-    mouseleave() {
-      clearTimeout(this.hoverTimeout);
-      this.hoverTimeout = -1;
-      if (this.active)
-        this.view.dispatch({ effects: this.setHover.of(null) });
-    }
-    destroy() {
-      clearTimeout(this.hoverTimeout);
-      this.view.dom.removeEventListener("mouseleave", this.mouseleave);
-      this.view.dom.removeEventListener("mousemove", this.mousemove);
+    get end() {
+      return this.start + this.length;
     }
   };
-  function isInTooltip(elt) {
-    for (let cur = elt; cur; cur = cur.parentNode)
-      if (cur.nodeType == 1 && cur.classList.contains("cm-tooltip"))
-        return true;
-    return false;
-  }
-  function isOverRange(view, from, to, x, y, margin) {
-    let range = document.createRange();
-    let fromDOM = view.domAtPos(from), toDOM = view.domAtPos(to);
-    range.setEnd(toDOM.node, toDOM.offset);
-    range.setStart(fromDOM.node, fromDOM.offset);
-    let rects = range.getClientRects();
-    range.detach();
-    for (let i = 0; i < rects.length; i++) {
-      let rect = rects[i];
-      let dist = Math.max(rect.top - y, y - rect.bottom, rect.left - x, x - rect.right);
-      if (dist <= margin)
-        return true;
+  var ASMError = class {
+    constructor(message, range = currRange) {
+      this.message = message;
+      this.range = range;
     }
-    return false;
-  }
-  function hoverTooltip(source, options = {}) {
-    const setHover = StateEffect.define();
-    const hoverState = StateField.define({
-      create() {
-        return null;
-      },
-      update(value, tr) {
-        if (value && (options.hideOnChange && (tr.docChanged || tr.selection)))
-          return null;
-        for (let effect of tr.effects)
-          if (effect.is(setHover))
-            return effect.value;
-        if (value && tr.docChanged) {
-          let newPos = tr.changes.mapPos(value.pos, -1, MapMode.TrackDel);
-          if (newPos == null)
-            return null;
-          let copy = Object.assign(Object.create(null), value);
-          copy.pos = newPos;
-          if (value.end != null)
-            copy.end = tr.changes.mapPos(value.end);
-          return copy;
-        }
-        return value;
-      },
-      provide: (f) => showTooltip.from(f)
-    });
-    return [
-      hoverState,
-      ViewPlugin.define((view) => new HoverPlugin(view, source, hoverState, setHover))
-    ];
-  }
+  };
+  var totalStatements = 0;
+  var Statement = class {
+    constructor(prev = null, maxSize = 0, range = new Range2(), error = null) {
+      this.error = error;
+      this.range = range;
+      this.id = totalStatements++;
+      this.length = 0;
+      this.bytes = new Uint8Array(maxSize);
+      this.next = null;
+      if (prev) {
+        prev.next = this;
+        this.syntax = prev.syntax;
+        this.address = prev.address + prev.length;
+      } else {
+        this.syntax = defaultSyntax;
+        this.address = baseAddr;
+      }
+    }
+    find(pos) {
+      if (this.range.includes(pos))
+        return this;
+      return this.next?.find(pos);
+    }
+    remove() {
+      this.removed = true;
+    }
+  };
+  var Comment = class extends Statement {
+    constructor(prev, range) {
+      super(prev, 0, range);
+    }
+  };
 
   // core/parser.js
-  var srcTokens;
+  var code;
+  var comment2;
+  var currRange;
+  var line;
   var match;
+  var prevRange;
   var token;
-  var codePos;
-  var lastLineIndex = 0;
-  var prevCodePos;
   var defaultSyntax = { intel: false, prefix: true };
   var currSyntax = defaultSyntax;
   function setSyntax(syntax) {
     currSyntax = syntax;
   }
-  function loadCode(code) {
-    srcTokens = code.matchAll(/(["'])(\\(.|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g);
+  var tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
+  function loadCode(source, index = 0) {
+    tokenizer.lastIndex = index;
+    code = source;
+    line = (source.slice(0, index).match(/\n/g) || []).length + 1;
     next = defaultNext;
-    lastLineIndex = 0;
-    prevCodePos = codePos = { start: 0, length: 0 };
+    prevRange = currRange = new Range2(index, 0);
+    match = 1;
     next();
   }
   var defaultNext = () => {
-    match = srcTokens.next();
-    prevCodePos = codePos;
-    if (match.done)
-      return token = "\n";
-    token = match.value[0];
-    if (token == "\n")
-      lastLineIndex = match.value.index + 1;
-    else if (token == (currSyntax.intel ? ";" : "#")) {
-      while (!match.done && match.value[0] != "\n")
-        match = srcTokens.next();
-      if (!match.done)
-        lastLineIndex = match.value.index + 1;
+    prevRange = currRange;
+    if (!match)
+      return null;
+    comment2 = false;
+    match = tokenizer.exec(code);
+    if (match) {
+      token = match[0];
+      currRange = new Range2(match.index, token.length);
+      if (token == (currSyntax.intel ? ";" : "#")) {
+        comment2 = true;
+        token = ";";
+      }
+    } else {
       token = "\n";
-    } else
-      codePos = { start: match.value.index - lastLineIndex, length: token.length };
+      currRange = new Range2(code.length, 1);
+    }
+    line += (token.match(/\n/g) || []).length;
     return token;
   };
   var next = defaultNext;
   function ungetToken() {
-    let t2 = token, p = codePos, oldNext = next;
-    codePos = prevCodePos;
-    next = () => token = (next = oldNext, codePos = p, t2);
+    let t2 = token, p = currRange, oldNext = next;
+    currRange = prevRange;
+    next = () => token = (next = oldNext, currRange = p, t2);
   }
-  function setToken(tok2) {
+  function setToken(tok2, range = currRange) {
     token = tok2;
-  }
-  function ParserError(message, startPos = codePos, endPos = startPos) {
-    this.message = message;
-    this.pos = startPos.start;
-    this.length = endPos.start + endPos.length - startPos.start;
+    currRange = range;
   }
 
   // core/operands.js
@@ -11518,12 +11296,12 @@
       if (next() == "(") {
         reg = parseInt(next());
         if (isNaN(reg) || reg >= 8 || reg < 0 || next() != ")")
-          throw new ParserError("Unknown register");
+          throw new ASMError("Unknown register");
       } else
         ungetToken();
     } else if (reg == registers.rip || reg == registers.eip) {
       if (expectedType == null || !expectedType.includes(OPT.IP))
-        throw new ParserError(`Can't use ${currSyntax.prefix ? "%" : ""}${reg == registers.eip ? "e" : "r"}ip here`);
+        throw new ASMError(`Can't use ${currSyntax.prefix ? "%" : ""}${reg == registers.eip ? "e" : "r"}ip here`);
       type = OPT.IP;
       size = reg == registers.eip ? 32 : 64;
       reg = 0;
@@ -11535,13 +11313,13 @@
     } else if (regToken[0] == "r") {
       reg = parseInt(regToken.slice(1));
       if (isNaN(reg) || reg < 0 || reg >= 16)
-        throw new ParserError("Unknown register");
+        throw new ASMError("Unknown register");
       type = OPT.REG;
       let regLastChar = regToken[regToken.length - 1];
       if (isNaN(regLastChar)) {
         size = regSuffixes[regLastChar];
         if (!size)
-          throw new ParserError("Unknown register");
+          throw new ASMError("Unknown register");
       } else
         size = 64;
     } else {
@@ -11565,14 +11343,14 @@
         else if (regToken.startsWith("zmm"))
           reg = regToken.slice(3), size = 512;
         else
-          throw new ParserError("Unknown register");
+          throw new ASMError("Unknown register");
       }
       if (isNaN(reg) || !(reg = parseInt(reg), reg >= 0 && reg < max))
-        throw new ParserError("Unknown register");
+        throw new ASMError("Unknown register");
     }
     if (expectedType != null && expectedType.indexOf(type) < 0)
-      throw new ParserError("Invalid register");
-    regParsePos = codePos;
+      throw new ASMError("Invalid register");
+    regParsePos = currRange;
     next();
     return { reg, type, size, prefs };
   }
@@ -11585,12 +11363,12 @@
     this.prefs = 0;
     this.attemptedSizes = 0;
     this.attemptedUnsignedSizes = 0;
-    this.startPos = codePos;
+    this.startPos = currRange;
     let indirect = token == "*";
     if (indirect && !instr.syntax.intel)
       next();
     if (instr.syntax.prefix && isRegister(token))
-      throw new ParserError("Registers must be prefixed with '%'");
+      throw new ASMError("Registers must be prefixed with '%'");
     if (instr.syntax.prefix ? token == "%" : isRegister(token)) {
       Object.assign(this, parseRegister());
       this.endPos = regParsePos;
@@ -11635,7 +11413,7 @@
           if (this.reg == 4 && this.reg2 < 0)
             this.reg2 = 4;
           if (token != "]")
-            throw new ParserError("Expected ']'");
+            throw new ASMError("Expected ']'");
           next();
         }
       } else {
@@ -11651,7 +11429,7 @@
           if (token != "(") {
             if (!indirect) {
               this.type = OPT.REL;
-              this.endPos = codePos;
+              this.endPos = currRange;
             }
             return;
           }
@@ -11663,43 +11441,43 @@
             this.reg = -1;
             tempReg = { type: -1, size: 64 };
           } else
-            throw new ParserError("Expected register");
+            throw new ASMError("Expected register");
           if (tempReg.type == OPT.VEC) {
             this.type = OPT.VMEM;
             this.size = tempReg.size;
             if (tempReg.size < 128)
-              throw new ParserError("Invalid register size", regParsePos);
+              throw new ASMError("Invalid register size", regParsePos);
             this.reg2 = this.reg;
             this.reg = -1;
           } else {
             if (tempReg.size == 32)
               this.prefs |= PREFIX_ADDRSIZE;
             else if (tempReg.size != 64)
-              throw new ParserError("Invalid register size", regParsePos);
+              throw new ASMError("Invalid register size", regParsePos);
             if (tempReg.type == OPT.IP)
               this.ripRelative = true;
             else if (token == ",") {
               if (instr.syntax.prefix ? next() != "%" : !isRegister(next()))
-                throw new ParserError("Expected register");
+                throw new ASMError("Expected register");
               tempReg = parseRegister([OPT.REG, OPT.VEC]);
               this.reg2 = tempReg.reg;
               if (tempReg.type == OPT.VEC) {
                 this.type = OPT.VMEM;
                 this.size = tempReg.size;
                 if (tempReg.size < 128)
-                  throw new ParserError("Invalid register size", regParsePos);
+                  throw new ASMError("Invalid register size", regParsePos);
               } else {
                 if (this.reg2 == 4)
-                  throw new ParserError("Memory index cannot be RSP", regParsePos);
+                  throw new ASMError("Memory index cannot be RSP", regParsePos);
                 if (tempReg.size == 32)
                   this.prefs |= PREFIX_ADDRSIZE;
                 else if (tempReg.size != 64)
-                  throw new ParserError("Invalid register size", regParsePos);
+                  throw new ASMError("Invalid register size", regParsePos);
               }
               if (token == ",") {
                 this.shift = "1248".indexOf(next());
                 if (this.shift < 0)
-                  throw new ParserError("Scale must be 1, 2, 4, or 8");
+                  throw new ASMError("Scale must be 1, 2, 4, or 8");
                 next();
               }
             } else if (this.reg == 4)
@@ -11708,7 +11486,7 @@
           if ((this.reg & 7) == 5)
             this.value = this.value || 0n;
           if (token != ")")
-            throw new ParserError("Expected ')'");
+            throw new ASMError("Expected ')'");
           next();
         }
       }
@@ -11725,24 +11503,6 @@
       this.attemptedUnsignedSizes |= 1 << (size >> 4);
     else
       this.attemptedSizes |= 1 << (size >> 4);
-  };
-
-  // core/statement.js
-  var Statement = class {
-    constructor(prev, maxSize, error = null) {
-      this.error = error;
-      this.length = 0;
-      this.bytes = new Uint8Array(maxSize);
-      this.next = null;
-      if (prev) {
-        prev.next = this;
-        this.syntax = prev.syntax;
-        this.address = prev.address + prev.length;
-      } else {
-        this.syntax = defaultSyntax;
-        this.address = baseAddr;
-      }
-    }
   };
 
   // core/shuntingYard.js
@@ -11798,18 +11558,24 @@
     "t": 9,
     "v": 11
   };
+  function capLineEnds({ lineEnds, offset }) {
+    for (let i = 0; i < lineEnds.length; i++)
+      if (lineEnds[i] > offset)
+        lineEnds[i] = offset;
+  }
   var encoder = new TextEncoder();
-  var readString = (string2) => {
+  function readString(string2, { offset = 0, lineEnds = [] } = {}) {
     if (string2.length < 2 || string2[string2.length - 1] != string2[0])
-      throw new ParserError("Incomplete string");
+      throw new ASMError("Incomplete string");
+    capLineEnds({ lineEnds, offset });
     let output = [];
-    let matches = string2.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|.?))|[^\\]+/ig);
+    let matches = string2.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|(.|\n)?))|\n|[^\\\n]+/ig);
     if (matches)
-      matches.forEach((x) => {
+      for (let x of matches) {
         if (x[0] == "\\") {
           x = x.slice(1);
           if (x == "")
-            throw new ParserError("Incomplete string");
+            throw new ASMError("Incomplete string");
           if (x.match(/x[0-9a-f]{1,2}/i))
             output.push(parseInt(x.slice(1), 16));
           else if (x.match(/u[0-9a-f]{1,8}/i))
@@ -11818,13 +11584,15 @@
             output.push(parseInt(x, 8) & 255);
           else if (stringEscapeSeqs.hasOwnProperty(x))
             output.push(stringEscapeSeqs[x]);
-          else
+          else if (x != "\n")
             output.push(...encoder.encode(x));
         } else
           output.push(...encoder.encode(x));
-      });
+        if (x == "\n")
+          lineEnds.push(output.length + offset);
+      }
     return new Uint8Array(output);
-  };
+  }
   var NUM_INVALID = null;
   var NUM_PREC_SUFFIX = 1;
   var NUM_H_SUFFIX = 2;
@@ -11853,13 +11621,13 @@
     }
     return type | (match2[1] ? NUM_PREC_SUFFIX : 0);
   }
-  function parseNumber(asFloat = false) {
+  function parseNumber(asFloat = false, lineEnds = {}) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
     try {
       if (token === "\n")
-        throw new ParserError("Expected value, got none");
+        throw new ASMError("Expected value, got none");
       if (token[0] === "'") {
-        let bytes = readString(token), i = bytes.length;
+        let bytes = readString(token, lineEnds), i = bytes.length;
         while (i--) {
           value <<= asFloat ? 8 : 8n;
           value += asFloat ? bytes[i] : BigInt(bytes[i]);
@@ -11867,12 +11635,12 @@
       } else {
         let numType = isNumber(token, currSyntax.intel);
         if (numType == NUM_SYMBOL) {
-          let symbol = { name: token, pos: codePos };
+          let symbol = { name: token, pos: currRange };
           next();
           return { value: symbol, floatPrec };
         }
         if (numType === NUM_INVALID)
-          throw new ParserError("Invalid number");
+          throw new ASMError("Invalid number");
         let mainToken = token;
         if (numType & NUM_H_SUFFIX)
           mainToken = "0x" + mainToken.replace(/h/i, "");
@@ -11883,9 +11651,9 @@
           else if (suffix == "f")
             floatPrec = 1;
           else {
-            codePos.start += codePos.length - 1;
-            codePos.length = 1;
-            throw new ParserError("Invalid number suffix");
+            currRange.start += currRange.length - 1;
+            currRange.length = 1;
+            throw new ASMError("Invalid number suffix");
           }
           value = Number(mainToken.slice(0, -1));
         } else if (asFloat)
@@ -11911,7 +11679,7 @@
       return { value, floatPrec };
     } catch (e) {
       if (e.pos === void 0)
-        throw new ParserError(e);
+        throw new ASMError(e);
       throw e;
     }
   }
@@ -11935,7 +11703,7 @@
     Expression.prototype.recordIntelRegister = function() {
       let multiplier = null, multiplierPos = null;
       if (inParentheses)
-        throw new ParserError("Can't use registers within parentheses");
+        throw new ASMError("Can't use registers within parentheses");
       if (opStack.length > 0) {
         let prevOp = opStack[opStack.length - 1];
         if (prevOp.func == operators["*"].func) {
@@ -11943,61 +11711,61 @@
           let prevVal = this.stack.pop();
           multiplier = "1248".indexOf(prevVal.toString());
           if (multiplier < 0)
-            throw new ParserError("Scale must be 1, 2, 4, or 8");
+            throw new ASMError("Scale must be 1, 2, 4, or 8");
         } else if (prevOp.func != operators["+"].func)
-          throw new ParserError("Invalid operation on register (expected '+' or '*')", prevOp.pos);
+          throw new ASMError("Invalid operation on register (expected '+' or '*')", prevOp.pos);
       }
       if (this.regBase && this.regBase.type == OPT.IP)
-        throw new ParserError("Can't use RIP with other registers");
+        throw new ASMError("Can't use RIP with other registers");
       let tempReg = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
       if (token == "*") {
-        multiplierPos = codePos;
+        multiplierPos = currRange;
         if (multiplier !== null)
-          throw new ParserError("Can't multiply a register more than once");
+          throw new ASMError("Can't multiply a register more than once");
         multiplier = "1248".indexOf(next());
         if (multiplier < 0)
-          throw new ParserError("Scale must be 1, 2, 4, or 8");
+          throw new ASMError("Scale must be 1, 2, 4, or 8");
         next();
       }
       if (tempReg.type == OPT.VEC) {
         if (tempReg.size < 128)
-          throw new ParserError("Invalid register size", regParsePos);
+          throw new ASMError("Invalid register size", regParsePos);
       } else {
         if (tempReg.size == 32)
           this.prefs |= PREFIX_ADDRSIZE;
         else if (tempReg.size != 64)
-          throw new ParserError("Invalid register size", regParsePos);
+          throw new ASMError("Invalid register size", regParsePos);
         if (tempReg.type == OPT.IP && (this.regBase || this.regIndex))
-          throw new ParserError("Can't use RIP with other registers", regParsePos);
+          throw new ASMError("Can't use RIP with other registers", regParsePos);
       }
       if (this.regBase) {
         if (this.regIndex)
-          throw new ParserError("Index register already set", regParsePos);
+          throw new ASMError("Index register already set", regParsePos);
         this.regIndex = tempReg;
         if (tempReg.type != OPT.VEC && tempReg.reg == 4) {
           if (this.regBase.reg != 4 && multiplier === null)
             [this.regIndex, this.regBase] = [this.regBase, this.regIndex];
           else
-            throw new ParserError("Memory index cannot be RSP", regParsePos);
+            throw new ASMError("Memory index cannot be RSP", regParsePos);
         }
       } else {
         this.regBase = tempReg;
         if (multiplier !== null || tempReg.type == OPT.VEC) {
           if (this.regIndex) {
             if (multiplier !== null)
-              throw new ParserError("Can't scale multiple registers", multiplierPos);
-            throw new ParserError("Vector register must be the index", regParsePos);
+              throw new ASMError("Can't scale multiple registers", multiplierPos);
+            throw new ASMError("Vector register must be the index", regParsePos);
           }
           this.regIndex = this.regBase;
           this.regBase = null;
           if (this.regIndex.reg == 4)
-            throw new ParserError("Memory index cannot be RSP", regParsePos);
+            throw new ASMError("Memory index cannot be RSP", regParsePos);
           if (tempReg.type == OPT.IP)
-            throw new ParserError(`Can't scale ${instr.syntax.prefix ? "%" : ""}${tempReg.size == 32 ? "e" : "r"}ip`, multiplierPos);
+            throw new ASMError(`Can't scale ${instr.syntax.prefix ? "%" : ""}${tempReg.size == 32 ? "e" : "r"}ip`, multiplierPos);
         }
       }
       if (token != "]" && token != "+" && token != "-")
-        throw new ParserError("Expected ']', '+' or '-'");
+        throw new ASMError("Expected ']', '+' or '-'");
       lastWasNum = true;
       this.stack.push(0n);
       if (multiplier !== null)
@@ -12005,7 +11773,7 @@
     };
     while (token != "," && token != "\n" && token != ";") {
       if (!lastWasNum && unaries.hasOwnProperty(token)) {
-        opStack.push({ pos: codePos, func: unaries[token], prec: -1 });
+        opStack.push({ pos: currRange, func: unaries[token], prec: -1 });
         next();
       } else if (operators.hasOwnProperty(token)) {
         if (!lastWasNum) {
@@ -12016,39 +11784,39 @@
             } else if (opStack.length > 0 && opStack[opStack.length - 1].bracket)
               break;
           }
-          throw new ParserError("Missing left operand");
+          throw new ASMError("Missing left operand");
         }
-        let op = Object.assign({ pos: codePos }, operators[token]);
+        let op = Object.assign({ pos: currRange }, operators[token]);
         next();
         lastWasNum = false;
         while (lastOp = opStack[opStack.length - 1], lastOp && lastOp.prec <= op.prec && !lastOp.bracket)
           this.stack.push(opStack.pop());
         opStack.push(op);
       } else if (unaries.hasOwnProperty(token))
-        throw new ParserError("Unary operator can't be used here");
+        throw new ASMError("Unary operator can't be used here");
       else if (token == "(") {
         if (lastWasNum) {
           if (!instr.syntax.intel && expectMemory)
             break;
-          throw new ParserError("Unexpected parenthesis");
+          throw new ASMError("Unexpected parenthesis");
         }
-        opStack.push({ pos: codePos, bracket: true });
+        opStack.push({ pos: currRange, bracket: true });
         inParentheses++;
         next();
       } else if (token == ")") {
         if (!lastWasNum)
-          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+          throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
         while (lastOp = opStack[opStack.length - 1], lastOp && !lastOp.bracket)
           this.stack.push(opStack.pop());
         if (!lastOp || !lastOp.bracket)
-          throw new ParserError("Mismatched parentheses");
+          throw new ASMError("Mismatched parentheses");
         opStack.pop();
         lastWasNum = true;
         inParentheses--;
         next();
       } else if (instr.syntax.intel && (token == "[" || token == "]")) {
         if (!lastWasNum)
-          throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+          throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
         break;
       } else if (!instr.syntax.prefix && isRegister(token)) {
         if (expectMemory) {
@@ -12058,12 +11826,12 @@
           } else if (!lastWasNum && opStack.length > 0 && opStack[opStack.length - 1].bracket)
             break;
         }
-        throw new ParserError("Can't use registers in an expression");
+        throw new ASMError("Can't use registers in an expression");
       } else {
         if (lastWasNum)
-          throw new ParserError("Unexpected value");
+          throw new ASMError("Unexpected value");
         lastWasNum = true;
-        let imm = parseNumber(this.floatPrec !== 0);
+        let imm = parseNumber(this.floatPrec !== 0, instr.lineEnds ?? {});
         if (imm.floatPrec > this.floatPrec)
           this.floatPrec = imm.floatPrec;
         let value = imm.value;
@@ -12075,16 +11843,16 @@
       opStack = [];
     }
     if (this.stack.length === 0 && !expectMemory)
-      throw new ParserError("Expected expression");
+      throw new ASMError("Expected expression");
     if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
       ungetToken();
       setToken("(");
       return null;
     } else if (!lastWasNum)
-      throw new ParserError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : codePos);
+      throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].pos : currRange);
     while (opStack[0]) {
       if (opStack[opStack.length - 1].bracket)
-        throw new ParserError("Mismatched parentheses", opStack[opStack.length - 1].pos);
+        throw new ASMError("Mismatched parentheses", opStack[opStack.length - 1].pos);
       this.stack.push(opStack.pop());
     }
     for (let value of this.stack) {
@@ -12130,7 +11898,7 @@
           else if (!requireSymbols)
             op = 1n;
           else
-            throw new ParserError(`Unknown symbol "${op.name}"`, op.pos);
+            throw new ASMError(`Unknown symbol "${op.name}"`, op.pos);
         }
         stack[len++] = op;
       }
@@ -12140,7 +11908,7 @@
         stack[len - 1] = Number(stack[len - 1]);
     }
     if (stack.length > 1)
-      throw new ParserError("Invalid expression");
+      throw new ASMError("Invalid expression");
     if (this.floatPrec === 0)
       return stack[0];
     let floatVal = this.floatPrec === 1 ? new Float32Array(1) : new Float64Array(1);
@@ -12186,16 +11954,17 @@
     ".att_syntax": directives.att_syntax
   };
   var Directive = class extends Statement {
-    constructor(prev, dir) {
-      super(prev, DIRECTIVE_BUFFER_SIZE);
+    constructor(prev, dir, range) {
+      super(prev, DIRECTIVE_BUFFER_SIZE, range);
       this.outline = null;
       this.floatPrec = 0;
+      this.lineEnds = { lineEnds: [], offset: 0 };
       let appendNullByte = 0;
       dir = dir.toLowerCase();
       try {
         let dirs = this.syntax.intel ? intelDirectives : directives;
         if (!dirs.hasOwnProperty(dir))
-          throw new ParserError("Unknown directive");
+          throw new ASMError("Unknown directive");
         dir = dirs[dir];
         switch (dir) {
           case intelDirectives.db:
@@ -12227,18 +11996,17 @@
           case directives.asciz:
             appendNullByte = 1;
           case directives.ascii:
-            let strBytes, temp;
             this.bytes = new Uint8Array();
             do {
               if (next()[0] == '"') {
-                strBytes = readString(token);
-                temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+                let strBytes = readString(token, this.lineEnds);
+                let temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                 temp.set(this.bytes);
                 temp.set(strBytes, this.length);
                 this.bytes = temp;
-                this.length = temp.length;
+                this.lineEnds.offset = this.length = temp.length;
               } else
-                throw new ParserError("Expected string");
+                throw new ASMError("Expected string");
             } while (next() == ",");
             break;
           case directives.intel_syntax:
@@ -12252,7 +12020,7 @@
             else if (prefSpecifier == "noprefix")
               prefix = false;
             else if (prefSpecifier != "\n" && prefSpecifier != ";")
-              throw new ParserError("Expected 'prefix' or 'noprefix'");
+              throw new ASMError("Expected 'prefix' or 'noprefix'");
             this.syntax = { intel, prefix };
             this.switchSyntax = true;
             if (token != "\n" && token != ";")
@@ -12264,6 +12032,8 @@
         while (token != ";" && token != "\n")
           next();
       }
+      capLineEnds(this.lineEnds);
+      this.lineEnds.lineEnds.push(this.length);
     }
     compileValues(valSize, acceptStrings = false) {
       this.valSize = valSize;
@@ -12273,9 +12043,9 @@
         do {
           if (next()[0] === '"') {
             if (acceptStrings)
-              readString(token).forEach((byte) => this.genValue(BigInt(byte)));
+              readString(token, this.lineEnds).forEach((byte) => this.genValue(BigInt(byte)));
             else
-              throw new ParserError("Unexpected string");
+              throw new ASMError("Unexpected string");
             next();
           } else {
             expression = new Expression(this, this.floatPrec);
@@ -12319,6 +12089,7 @@
           this.bytes = temp;
         }
       }
+      this.lineEnds.offset = this.length;
     }
   };
 
@@ -12330,8 +12101,8 @@
     instr.wantsRecomp = true;
   }
   var Symbol2 = class extends Statement {
-    constructor(prev, name2, namePos, isLabel = false) {
-      super(prev, 0);
+    constructor(prev, name2, range, isLabel = false) {
+      super(prev, 0, range);
       this.name = name2;
       try {
         this.expression = isLabel ? LabelExpression(this) : (next(), new Expression(this));
@@ -12343,7 +12114,7 @@
       if (symbols.has(name2)) {
         let record = symbols.get(name2);
         if (record.symbol) {
-          this.error = new ParserError(`This ${isLabel ? "label" : "symbol"} already exists`, namePos);
+          this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, range);
           this.duplicate = true;
           record.references.push(this);
         } else {
@@ -12377,6 +12148,16 @@
         for (let ref of record.references)
           queueRecomp(ref);
       }
+    }
+    remove() {
+      if (!this.duplicate) {
+        let record = symbols.get(this.name);
+        if (record.references.length > 0)
+          record.symbol = null;
+        else
+          symbols.delete(this.name);
+      }
+      super.remove();
     }
   };
 
@@ -12662,7 +12443,7 @@
     } else if (this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
       return false;
     if (this.evexPermits & EVEXPERM_FORCE_MASK && vexInfo.mask == 0)
-      throw new ParserError("Must use a mask for this instruction");
+      throw new ASMError("Must use a mask for this instruction");
     return true;
   };
   Operation.prototype.fit = function(operands, instr, vexInfo) {
@@ -12734,7 +12515,7 @@
         } else
           reg = operand;
         if (operand.type == OPT.VEC && operand.size == 64 && vexInfo.needed)
-          throw new ParserError("Can't encode MMX with VEX prefix", operand.endPos);
+          throw new ASMError("Can't encode MMX with VEX prefix", operand.endPos);
       }
       if (overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
         overallSize = size & ~7;
@@ -12764,7 +12545,7 @@
           vex |= 8388608;
         if (vexInfo.round !== null) {
           if (overallSize !== this.maxSize)
-            throw new ParserError("Invalid vector size for embedded rounding", vexInfo.roundingPos);
+            throw new ASMError("Invalid vector size for embedded rounding", vexInfo.roundingPos);
           if (vexInfo.round > 0)
             vexInfo.round--;
           vex |= vexInfo.round << 21 | 1048576;
@@ -12775,7 +12556,7 @@
             if (this.evexPermits & EVEXPERM_BROADCAST_32)
               sizeId++;
             if (vexInfo.broadcast !== sizeId)
-              throw new ParserError("Invalid broadcast", vexInfo.broadcastPos);
+              throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
             vex |= 1048576;
           }
         }
@@ -12791,7 +12572,7 @@
     } else if (overallSize > 128) {
       for (let reg2 of operands)
         if (reg2.size > 128 && reg2.endPos)
-          throw new ParserError("YMM/ZMM registers can't be encoded without VEX", reg2.endPos);
+          throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg2.endPos);
     }
     if (adjustByteOp)
       correctedOpcode += this.opDiff;
@@ -12816,7 +12597,7 @@
       operand.size = size;
       operand.virtualValue = target - sizeLen(size);
       if (absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
-        throw new ParserError(`Can't fit offset in ${size >> 3} byte${size != 8 ? "s" : ""}`, operand.startPos, operand.endPos);
+        throw new ASMError(`Can't fit offset in ${size >> 3} byte${size != 8 ? "s" : ""}`, operand.startPos.until(operand.endPos));
       return;
     }
     let [small, large] = this.relativeSizes;
@@ -12828,7 +12609,7 @@
         queueRecomp(instr);
       } else {
         if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
-          throw new ParserError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos, operand.endPos);
+          throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
         operand.size = large;
         operand.virtualValue = target - largeLen;
       }
@@ -14527,7 +14308,7 @@ g nle`.split("\n");
     if (typeof operations[0] == "string") {
       if (operations[0][0] == "#")
         return mnemonics[opcode] = fetchMnemonic(operations[0].slice(1));
-      return mnemonics[opcode] = operations.map((line) => new Operation(line.split(" ")));
+      return mnemonics[opcode] = operations.map((line2) => new Operation(line2.split(" ")));
     }
     return operations;
   }
@@ -14544,23 +14325,23 @@ g nle`.split("\n");
   };
   var SHORT_DISP = 128;
   function parseRoundingMode(vexInfo) {
-    let roundingName = "", roundStart = codePos;
+    let roundingName = "", roundStart = currRange;
     vexInfo.evex = true;
     while (next() != "}") {
       if (token == "\n")
-        throw new ParserError("Expected '}'");
+        throw new ASMError("Expected '}'");
       roundingName += token;
     }
     vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-    vexInfo.roundingPos = { start: roundStart.start, length: codePos.start + codePos.length - roundStart.start };
+    vexInfo.roundingPos = { start: roundStart.start, length: currRange.end - roundStart.start };
     if (vexInfo.round < 0)
-      throw new ParserError("Invalid rounding mode", vexInfo.roundingPos);
+      throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
   }
   var Instruction = class extends Statement {
-    constructor(prev, opcode, opcodePos) {
-      super(prev, MAX_INSTR_SIZE);
+    constructor(prev, opcode, range) {
+      super(prev, MAX_INSTR_SIZE, range);
       this.opcode = opcode;
-      this.opcodePos = opcodePos;
+      this.opcodeRange = range;
       this.interpret();
     }
     genByte(byte) {
@@ -14585,12 +14366,6 @@ g nle`.split("\n");
       let usesMemory = false;
       this.needsRecompilation = false;
       this.removed = true;
-      if (prefixes.hasOwnProperty(opcode)) {
-        this.genByte(prefixes[opcode]);
-        ungetToken();
-        setToken(";");
-        return;
-      }
       let operands = [];
       let operations = [];
       let possibleOpcodes = vexInfo.needed ? [opcode, opcode.slice(1)] : [opcode];
@@ -14602,19 +14377,16 @@ g nle`.split("\n");
           if (size !== void 0) {
             if (mnemonicExists(subOpcode, false))
               operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
-          } else if (operations.length == 0 && mnemonicExists(subOpcode, false)) {
-            this.opcodePos.start += this.opcodePos.length - 1;
-            this.opcodePos.length = 1;
-            throw new ParserError("Invalid opcode suffix", this.opcodePos);
-          }
+          } else if (operations.length == 0 && mnemonicExists(subOpcode, false))
+            throw new ASMError("Invalid opcode suffix", new Range2(this.opcodeRange.start + this.opcodeRange.length - 1, 1));
         }
       }
       if (operations.length == 0)
-        throw new ParserError("Unknown opcode", this.opcodePos);
+        throw new ASMError("Unknown opcode", this.opcodeRange);
       if (!this.syntax.intel && token == "{") {
         parseRoundingMode(vexInfo);
         if (next() != ",")
-          throw new ParserError("Expected ','");
+          throw new ASMError("Expected ','");
         next();
       }
       let forceImmToRel = this.syntax.intel && operations.some((x) => x.relativeSizes !== null);
@@ -14646,12 +14418,12 @@ g nle`.split("\n");
         operand = new Operand(this, forceImmToRel);
         if (token == ":") {
           if (operand.type != OPT.SEG)
-            throw new ParserError("Incorrect prefix");
+            throw new ASMError("Incorrect prefix");
           prefsToGen |= operand.reg + 1 << 3;
           next();
           operand = new Operand(this, forceImmToRel);
           if (operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
-            throw new ParserError("Segment prefix must be followed by memory reference");
+            throw new ASMError("Segment prefix must be followed by memory reference");
         }
         if (operand.expression && operand.expression.hasSymbols)
           this.needsRecompilation = true;
@@ -14666,32 +14438,32 @@ g nle`.split("\n");
           if (this.syntax.prefix ? next() == "%" : next()[0] == "k") {
             vexInfo.mask = parseRegister([OPT.MASK]).reg;
             if ((vexInfo.mask & 7) == 0)
-              throw new ParserError(`Can't use ${this.syntax.prefix ? "%" : ""}k0 as writemask`, regParsePos);
+              throw new ASMError(`Can't use ${this.syntax.prefix ? "%" : ""}k0 as writemask`, regParsePos);
           } else if (token == "z")
             vexInfo.zeroing = true, next();
           else if (operand.type == OPT.MEM) {
             vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
             if (vexInfo.broadcast < 0)
-              throw new ParserError("Invalid broadcast mode");
-            vexInfo.broadcastPos = codePos;
+              throw new ASMError("Invalid broadcast mode");
+            vexInfo.broadcastPos = currRange;
             next();
           } else
-            throw new ParserError("Invalid decorator");
+            throw new ASMError("Invalid decorator");
           if (token != "}")
-            throw new ParserError("Expected '}'");
+            throw new ASMError("Expected '}'");
           next();
         }
         if (token != ",")
           break;
         next();
       }
-      this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodePos;
+      this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodeRange;
       if (this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
         operands.reverse();
       if (usesMemory && vexInfo.round !== null)
-        throw new ParserError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+        throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
       this.outline = { operands, operations, prefsToGen, vexInfo };
-      this.endPos = codePos;
+      this.endPos = currRange;
       this.removed = false;
       if (this.needsRecompilation)
         queueRecomp(this);
@@ -14774,14 +14546,14 @@ g nle`.split("\n");
           operands.reverse();
         }
         if (vexInfo.needed && !couldveBeenVex)
-          throw new ParserError("Unknown opcode", this.opcodePos);
+          throw new ASMError("Unknown opcode", this.opcodeRange);
         if (operands.length < minOperandCount)
-          throw new ParserError("Not enough operands", this.operandStartPos, this.endPos);
+          throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));
         if (operands.length > maxOperandCount)
-          throw new ParserError("Too many operands", this.operandStartPos, this.endPos);
+          throw new ASMError("Too many operands", this.operandStartPos.until(this.endPos));
         if (!firstOrderPossible && secondOrderPossible)
-          throw new ParserError("Wrong operand order", this.operandStartPos, this.endPos);
-        throw new ParserError("Invalid operands", this.operandStartPos, this.endPos);
+          throw new ASMError("Wrong operand order", this.operandStartPos.until(this.endPos));
+        throw new ASMError("Invalid operands", this.operandStartPos.until(this.endPos));
       }
       if (op.rexw)
         rexVal |= 8, prefsToGen |= PREFIX_REX;
@@ -14795,7 +14567,7 @@ g nle`.split("\n");
           rexVal |= extraRex, prefsToGen |= PREFIX_REX;
       }
       if ((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
-        throw new ParserError("Can't encode high 8-bit register", operands[0].startPos, codePos);
+        throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
       let opcode = op.opcode;
       if (prefsToGen >= PREFIX_SEG)
         this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen >> 3) - 1]);
@@ -14901,6 +14673,13 @@ g nle`.split("\n");
       throw e;
     }
   };
+  var Prefix = class extends Statement {
+    constructor(prev, name2, range) {
+      super(prev, 1, range);
+      this.bytes[0] = prefixes[name2];
+      this.length = 1;
+    }
+  };
   function inferImmSize(value) {
     if (value < 0n)
       value = ~value;
@@ -14913,200 +14692,742 @@ g nle`.split("\n");
   }
 
   // core/compiler.js
-  var lastInstr;
-  var currLineArr;
   var linkedInstrQueue = [];
   var symbols = null;
   var baseAddr = 4194424;
-  function AssemblyState() {
-    this.symbols = new Map();
-    this.instructions = [];
-    this.source = [];
-    this.bytes = 0;
-  }
-  function addInstruction(instr) {
-    currLineArr.push(instr);
-    lastInstr = instr;
+  var prevInstr = null;
+  function addInstruction(instr, seekEnd = true) {
+    prevInstr = instr;
     setSyntax(instr.syntax);
-  }
-  AssemblyState.prototype.compile = function(source, { haltOnError = false, line = null, linesRemoved = 1, doSecondPass = true } = {}) {
-    if (line === null) {
-      linesRemoved = Infinity;
-      line = 1;
-    } else if (line < 1)
-      throw "Invalid line";
-    if (linesRemoved < 1)
-      throw "linesRemoved must be positive";
-    this.source.splice(line - 1, linesRemoved, ...source.split("\n"));
-    let opcode, pos;
-    lastInstr = null;
-    currLineArr = [];
-    symbols = this.symbols;
-    for (let i = 1; i < line && i <= this.instructions.length; i++)
-      for (lastInstr of this.instructions[i - 1])
-        ;
-    for (let i = this.instructions.length; i < line - 1; i++)
-      this.instructions[i] = [];
-    let removedInstrs = this.instructions.splice(line - 1, linesRemoved, currLineArr);
-    for (let removed of removedInstrs)
-      for (let instr of removed) {
-        if (instr.name && !instr.duplicate) {
-          let record = symbols.get(instr.name);
-          if (record.references.length > 0)
-            record.symbol = null;
-          else
-            symbols.delete(instr.name);
-        }
-        instr.removed = true;
-      }
-    loadCode(source);
-    setSyntax(lastInstr ? lastInstr.syntax : defaultSyntax);
-    while (!match.done) {
-      try {
-        pos = codePos;
-        if (token !== "\n" && token !== ";") {
-          let lowerTok = token.toLowerCase();
-          if (currSyntax.intel ? intelDirectives.hasOwnProperty(lowerTok) || token == "%" && (lowerTok = "%" + next().toLowerCase()) : token[0] == ".") {
-            if (currSyntax.intel ? lowerTok == "%assign" : lowerTok == ".equ" || lowerTok == ".set") {
-              opcode = next();
-              pos = codePos;
-              if (!currSyntax.intel && next() !== ",")
-                throw new ParserError("Expected ','");
-              addInstruction(new Symbol2(lastInstr, opcode, pos));
-            } else
-              addInstruction(new Directive(lastInstr, currSyntax.intel ? token : token.slice(1)));
-          } else {
-            opcode = token;
-            next();
-            if (token == ":") {
-              addInstruction(new Symbol2(lastInstr, opcode, pos, true));
-              next();
-              continue;
-            } else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
-              addInstruction(new Symbol2(lastInstr, opcode, pos));
-            else if (currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) {
-              addInstruction(new Symbol2(lastInstr, opcode, pos, true));
-              addInstruction(new Directive(lastInstr, token));
-            } else
-              addInstruction(new Instruction(lastInstr, opcode.toLowerCase(), pos));
-          }
-        }
-        if (token === "\n") {
-          if (!match.done)
-            this.instructions.splice(line++, 0, currLineArr = []);
-        } else if (token != ";")
-          throw new ParserError("Expected end of line");
-      } catch (e) {
-        if (haltOnError && !doSecondPass)
-          throw `Error on line ${line}: ${e.message}`;
-        if (e.pos == null || e.length == null)
-          console.error("Error on line " + line + ":\n", e);
-        else
-          addInstruction(new Statement(lastInstr, 0, e));
+    if (seekEnd) {
+      if (token != "\n" && token != ";") {
+        instr.error = new ASMError("Expected end of line");
         while (token != "\n" && token != ";")
           next();
-        if (token == "\n" && !match.done)
-          this.instructions.splice(line++, 0, currLineArr = []);
       }
-      next();
     }
-    while (line < this.instructions.length) {
-      if (this.instructions[line].length > 0) {
-        let instr = this.instructions[line][0];
-        if (lastInstr) {
-          lastInstr.next = instr;
-          linkedInstrQueue.push(lastInstr);
+    instr.range = new Range2(instr.range.start, currRange.end - instr.range.start - (seekEnd ? 1 : 0));
+  }
+  var AssemblyState = class {
+    constructor() {
+      this.symbols = new Map();
+      this.instructions = new Statement();
+      this.source = "";
+      this.compiledRange = new Range2();
+      this.bytes = 0;
+    }
+    compile(source, {
+      haltOnError = false,
+      range = new Range2(),
+      doSecondPass = true
+    } = {}) {
+      this.source = this.source.slice(0, range.start).padEnd(range.start, "\n") + source + this.source.slice(range.end);
+      symbols = this.symbols;
+      let headInstr = this.instructions, lastInstr = null, tailInstr = null;
+      let instr = this.instructions.next;
+      let changeOffset = source.length - range.length;
+      while (instr) {
+        if (instr.range.end < range.start)
+          headInstr = instr;
+        else if (instr.range.start <= range.end) {
+          lastInstr = instr;
+          if (instr.range.end >= range.end)
+            instr.range.length += changeOffset;
+          instr.remove();
         } else {
-          if (instr.address !== baseAddr)
-            linkedInstrQueue.push(instr);
-          instr.address = baseAddr;
+          if (tailInstr === null)
+            tailInstr = instr;
+          instr.range.start += changeOffset;
+          if (instr.error)
+            instr.error.range.start += changeOffset;
         }
-        if (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel) {
-          let recompSource = [];
-          for (let i = line; i < this.instructions.length; i++) {
-            recompSource.push(this.source[i]);
-            if (this.instructions[i].some((instr2) => instr2.switchSyntax))
-              break;
-          }
-          this.compile(recompSource.join("\n"), { haltOnError, line: line + 1, linesRemoved: recompSource.length, doSecondPass: false });
-        }
-        break;
-      }
-      line++;
-    }
-    if (doSecondPass)
-      this.secondPass(haltOnError);
-  };
-  AssemblyState.prototype.secondPass = function(haltOnError = false) {
-    let currIndex = baseAddr, instr;
-    symbols = this.symbols;
-    symbols.forEach((record, name2) => {
-      record.references = record.references.filter((instr2) => !instr2.removed);
-      if (record.symbol === null || record.symbol.error) {
-        if (record.references.length == 0)
-          symbols.delete(name2);
-        else
-          for (let ref of record.references)
-            queueRecomp(ref);
-      }
-    });
-    while (instr = linkedInstrQueue.shift() || recompQueue.shift()) {
-      currIndex = instr.address;
-      do {
-        instr.address = currIndex;
-        if ((instr.wantsRecomp || instr.ipRelative) && !instr.removed) {
-          instr.removed = false;
-          try {
-            instr.wantsRecomp = false;
-            instr.recompile();
-          } catch (e) {
-            instr.error = e;
-            if (instr.name)
-              for (let ref of symbols.get(instr.name).references)
-                queueRecomp(ref);
-          }
-        }
-        currIndex = instr.address + instr.length;
         instr = instr.next;
-      } while (instr && instr.address != currIndex);
+      }
+      if (lastInstr) {
+        if (range.start > headInstr.next.range.start)
+          range.start = headInstr.next.range.start;
+        range = range.until(lastInstr.range);
+      } else if (tailInstr)
+        range.length = tailInstr.range.start - range.start - 1;
+      else
+        range.length = source.length;
+      headInstr.next = null;
+      setSyntax(headInstr ? headInstr.syntax : defaultSyntax);
+      loadCode(this.source, range.start);
+      prevInstr = headInstr;
+      while (match && currRange.end <= range.end) {
+        let pos = currRange;
+        try {
+          if (token != "\n" && token != ";") {
+            let lowerTok = token.toLowerCase();
+            if (currSyntax.intel ? intelDirectives.hasOwnProperty(lowerTok) || token == "%" && (lowerTok = "%" + next().toLowerCase()) : token[0] == ".") {
+              if (currSyntax.intel ? lowerTok == "%assign" : lowerTok == ".equ" || lowerTok == ".set") {
+                let opcode = next();
+                pos = currRange;
+                if (!currSyntax.intel && next() !== ",")
+                  throw new ASMError("Expected ','");
+                addInstruction(new Symbol2(prevInstr, opcode, pos));
+              } else
+                addInstruction(new Directive(prevInstr, currSyntax.intel ? token : token.slice(1), pos));
+            } else if (prefixes.hasOwnProperty(lowerTok))
+              addInstruction(new Prefix(prevInstr, lowerTok, pos), false);
+            else {
+              let opcode = token;
+              next();
+              if (token == ":")
+                addInstruction(new Symbol2(prevInstr, opcode, pos, true), false);
+              else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
+                addInstruction(new Symbol2(prevInstr, opcode, pos));
+              else if (currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) {
+                addInstruction(new Symbol2(prevInstr, opcode, pos, true));
+                addInstruction(new Directive(prevInstr, token, pos));
+              } else
+                addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
+            }
+          }
+        } catch (e) {
+          while (token != "\n" && token != ";")
+            next();
+          if (haltOnError && !doSecondPass)
+            throw `Error on line ${line}: ${e.message}`;
+          if (!e.range)
+            console.error(`Error on line ${line}:
+`, e);
+          else
+            addInstruction(new Statement(prevInstr, 0, pos, e));
+        }
+        if (comment2) {
+          let start = currRange;
+          while (next() != "\n")
+            ;
+          addInstruction(new Comment(prevInstr, start.until(currRange)));
+        }
+        next();
+      }
+      this.compiledRange = range.until(prevRange);
+      instr = tailInstr;
+      while (instr && instr.range.start < currRange.start) {
+        instr.remove();
+        instr = instr.next;
+      }
+      if (instr) {
+        prevInstr.next = instr;
+        linkedInstrQueue.push(prevInstr);
+        if (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel) {
+          let nextSyntaxChange = instr.next;
+          while (nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
+            nextSyntaxChange = nextSyntaxChange.next;
+          this.compile(range.slice(this.source), {
+            haltOnError,
+            range: instr.range.until(nextSyntaxChange.range),
+            doSecondPass: false
+          });
+        }
+      }
+      if (doSecondPass)
+        this.secondPass(haltOnError);
     }
-    let haltingErrors = [];
-    for (let i = 0; i < this.instructions.length; i++) {
-      for (instr of this.instructions[i]) {
-        if (instr.outline && instr.outline.operands)
-          for (let op of instr.outline.operands)
+    secondPass(haltOnError = false) {
+      let currIndex = baseAddr, instr;
+      symbols = this.symbols;
+      symbols.forEach((record, name2) => {
+        record.references = record.references.filter((instr2) => !instr2.removed);
+        if (record.symbol === null || record.symbol.error) {
+          if (record.references.length == 0)
+            symbols.delete(name2);
+          else
+            for (let ref of record.references)
+              queueRecomp(ref);
+        }
+      });
+      while (instr = linkedInstrQueue.shift() || recompQueue.shift()) {
+        currIndex = instr.address;
+        do {
+          instr.address = currIndex;
+          if ((instr.wantsRecomp || instr.ipRelative) && !instr.removed) {
+            instr.removed = false;
+            try {
+              instr.wantsRecomp = false;
+              instr.recompile();
+            } catch (e) {
+              instr.error = e;
+              if (instr.name)
+                for (let ref of symbols.get(instr.name).references)
+                  queueRecomp(ref);
+            }
+          }
+          currIndex = instr.address + instr.length;
+          instr = instr.next;
+        } while (instr && instr.address != currIndex);
+      }
+      let haltingErrors = [], lastInstr = null;
+      this.iterate((instr2, line2) => {
+        lastInstr = instr2;
+        if (instr2.outline && instr2.outline.operands)
+          for (let op of instr2.outline.operands)
             op.attemptedSizes = op.attemptedUnsignedSizes = 0;
-        let e = instr.error;
+        let e = instr2.error;
         if (e) {
           if (haltOnError)
-            haltingErrors.push(`Error on line ${i + 1}: ${e.message}`);
-          if (e.pos == null || e.length == null) {
-            console.error(`Error on line ${i + 1}:
+            haltingErrors.push(`Error on line ${line2}: ${e.message}`);
+          if (!e.range) {
+            console.error(`Error on line ${line2}:
 `, e);
-            instr.error = null;
+            instr2.error = null;
           }
+        }
+      });
+      if (haltingErrors.length > 0)
+        throw haltingErrors.join("\n");
+      this.bytes = lastInstr ? lastInstr.address + lastInstr.length - baseAddr : 0;
+    }
+    dump() {
+      let output, i = 0, instr = this.instructions;
+      try {
+        output = Buffer.alloc(this.bytes);
+      } catch (e) {
+        output = new Uint8Array(this.bytes);
+      }
+      while (instr = instr.next)
+        for (let j = 0; j < instr.length; j++)
+          output[i++] = instr.bytes[j];
+      return output;
+    }
+    line(line2) {
+      if (line2-- < 1)
+        throw "Invalid line";
+      let start = 0;
+      while (line2) {
+        start = this.source.indexOf("\n", start) + 1;
+        if (start == 0)
+          return new Range2(this.source.length + line2, 0);
+        line2--;
+      }
+      let end2 = this.source.indexOf("\n", start);
+      if (end2 < 0)
+        end2 = this.source.length;
+      return new Range2(start, end2 - start);
+    }
+    iterate(func) {
+      let line2 = 1, nextLine = 0, instr = this.instructions.next;
+      while (nextLine != Infinity) {
+        nextLine = this.source.indexOf("\n", nextLine) + 1 || Infinity;
+        while (instr && instr.range.end < nextLine) {
+          func(instr, line2);
+          instr = instr.next;
+        }
+        line2++;
+      }
+    }
+    bytesPerLine(func) {
+      let lineQueue = [];
+      let line2 = 1, nextLine = 0, instr = this.instructions.next;
+      while (nextLine != Infinity) {
+        let bytes = [];
+        nextLine = this.source.indexOf("\n", nextLine) + 1 || Infinity;
+        if (lineQueue.length > 0) {
+          const line3 = lineQueue.shift();
+          if (line3.length > 0)
+            bytes.push(line3);
+        }
+        while (instr && instr.range.start < nextLine) {
+          if (instr.hasOwnProperty("lineEnds")) {
+            let prevEnd = 0;
+            for (const end2 of instr.lineEnds.lineEnds) {
+              if (end2 <= instr.length)
+                lineQueue.push(instr.bytes.subarray(prevEnd, end2));
+              prevEnd = end2;
+            }
+            if (lineQueue.length > 0) {
+              const line3 = lineQueue.shift();
+              if (line3.length > 0)
+                bytes.push(line3);
+            }
+          } else if (instr.length > 0)
+            bytes.push(instr.bytes.subarray(0, instr.length));
+          instr = instr.next;
+        }
+        func(bytes, line2);
+        line2++;
+      }
+    }
+  };
+
+  // codemirror/compilerPlugin.js
+  var ASMStateField = StateField.define({
+    create: (state) => {
+      const asm = new AssemblyState();
+      asm.compile(state.sliceDoc());
+      return asm;
+    },
+    update: (state, transaction) => {
+      if (!transaction.docChanged)
+        return state;
+      transaction.changes.iterChanges((fromA, toA, fromB, toB) => state.compile(transaction.state.sliceDoc(fromB, toB), { range: new Range2(fromA, toA - fromA), doSecondPass: false }));
+      state.secondPass();
+      return state;
+    }
+  });
+  var AsmDumpWidget = class extends WidgetType {
+    constructor(bytes, offset) {
+      super();
+      this.bytes = bytes;
+      this.offset = offset;
+    }
+    toDOM() {
+      let node = document.createElement("span");
+      let finalText = "";
+      node.setAttribute("aria-hidden", "true");
+      node.className = "cm-asm-dump";
+      node.style.marginLeft = this.offset + "px";
+      for (const byteArray of this.bytes)
+        for (const byte of byteArray)
+          finalText += " " + byte.toString(16).toUpperCase().padStart(2, "0");
+      node.innerText = finalText.slice(1);
+      return node;
+    }
+  };
+  function expandTabs(text, tabSize) {
+    let result = "", i = tabSize;
+    for (let char of text) {
+      if (char == "	") {
+        result += " ".repeat(i);
+        i = tabSize;
+      } else {
+        result += char;
+        i = i - 1 || tabSize;
+      }
+    }
+    return result;
+  }
+  var byteDumper = [
+    EditorView.baseTheme({
+      ".cm-asm-dump": {
+        fontStyle: "italic",
+        color: "#666"
+      },
+      "&dark .cm-asm-dump": {
+        color: "#aaa"
+      }
+    }),
+    ViewPlugin.fromClass(class {
+      constructor(view) {
+        this.ctx = document.createElement("canvas").getContext("2d");
+        this.lineWidths = [];
+        this.decorations = Decoration.set([]);
+        setTimeout(() => {
+          let style = window.getComputedStyle(view.contentDOM);
+          this.ctx.font = `${style.getPropertyValue("font-style")} ${style.getPropertyValue("font-variant")} ${style.getPropertyValue("font-weight")} ${style.getPropertyValue("font-size")} ${style.getPropertyValue("font-family")}`;
+          this.updateWidths(0, view.state.doc.length, 0, view.state);
+          this.makeAsmDecorations(view.state);
+          view.dispatch();
+        }, 1);
+      }
+      update(update) {
+        if (!update.docChanged)
+          return;
+        let state = update.view.state;
+        update.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
+          let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number;
+          this.updateWidths(fromB, toB, removedLines, state);
+        });
+        this.makeAsmDecorations(update.state);
+      }
+      updateWidths(from, to, removedLines, { doc: doc2, tabSize }) {
+        let start = doc2.lineAt(from).number;
+        let end2 = doc2.lineAt(to).number;
+        let newWidths = [];
+        for (let i = start; i <= end2; i++)
+          newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, tabSize)).width);
+        this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
+      }
+      makeAsmDecorations(state) {
+        let doc2 = state.doc;
+        let maxOffset2 = Math.max(...this.lineWidths) + 50;
+        let widgets = [];
+        state.field(ASMStateField).bytesPerLine((bytes, line2) => {
+          if (bytes.length > 0)
+            widgets.push(Decoration.widget({
+              widget: new AsmDumpWidget(bytes, maxOffset2 - this.lineWidths[line2 - 1]),
+              side: 2
+            }).range(doc2.line(line2).to));
+        });
+        this.decorations = Decoration.set(widgets);
+      }
+    }, { decorations: (plugin) => plugin.decorations })
+  ];
+
+  // node_modules/@codemirror/tooltip/dist/index.js
+  var ios = typeof navigator != "undefined" && !/Edge\/(\d+)/.exec(navigator.userAgent) && /Apple Computer/.test(navigator.vendor) && (/Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
+  var Outside = "-10000px";
+  var tooltipPlugin = ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.view = view;
+      this.inView = true;
+      this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
+      this.input = view.state.facet(showTooltip);
+      this.tooltips = this.input.filter((t2) => t2);
+      this.tooltipViews = this.tooltips.map((tp) => this.createTooltip(tp));
+    }
+    update(update) {
+      let input = update.state.facet(showTooltip);
+      if (input == this.input) {
+        for (let t2 of this.tooltipViews)
+          if (t2.update)
+            t2.update(update);
+      } else {
+        let tooltips = input.filter((x) => x);
+        let views = [];
+        for (let i = 0; i < tooltips.length; i++) {
+          let tip = tooltips[i], known = -1;
+          if (!tip)
+            continue;
+          for (let i2 = 0; i2 < this.tooltips.length; i2++) {
+            let other = this.tooltips[i2];
+            if (other && other.create == tip.create)
+              known = i2;
+          }
+          if (known < 0) {
+            views[i] = this.createTooltip(tip);
+          } else {
+            let tooltipView = views[i] = this.tooltipViews[known];
+            if (tooltipView.update)
+              tooltipView.update(update);
+          }
+        }
+        for (let t2 of this.tooltipViews)
+          if (views.indexOf(t2) < 0)
+            t2.dom.remove();
+        this.input = input;
+        this.tooltips = tooltips;
+        this.tooltipViews = views;
+        this.maybeMeasure();
+      }
+    }
+    createTooltip(tooltip) {
+      let tooltipView = tooltip.create(this.view);
+      tooltipView.dom.classList.add("cm-tooltip");
+      if (tooltip.class)
+        tooltipView.dom.classList.add(tooltip.class);
+      tooltipView.dom.style.top = Outside;
+      this.view.dom.appendChild(tooltipView.dom);
+      if (tooltipView.mount)
+        tooltipView.mount(this.view);
+      return tooltipView;
+    }
+    destroy() {
+      for (let { dom } of this.tooltipViews)
+        dom.remove();
+    }
+    readMeasure() {
+      return {
+        editor: this.view.dom.getBoundingClientRect(),
+        pos: this.tooltips.map((t2) => this.view.coordsAtPos(t2.pos)),
+        size: this.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
+        innerWidth: window.innerWidth,
+        innerHeight: window.innerHeight
+      };
+    }
+    writeMeasure(measured) {
+      let { editor: editor2 } = measured;
+      for (let i = 0; i < this.tooltipViews.length; i++) {
+        let tooltip = this.tooltips[i], tView = this.tooltipViews[i], { dom } = tView;
+        let pos = measured.pos[i], size = measured.size[i];
+        if (!pos || pos.bottom <= editor2.top || pos.top >= editor2.bottom || pos.right <= editor2.left || pos.left >= editor2.right) {
+          dom.style.top = Outside;
+          continue;
+        }
+        let width = size.right - size.left, height = size.bottom - size.top;
+        let left = this.view.textDirection == Direction.LTR ? Math.min(pos.left, measured.innerWidth - width) : Math.max(0, pos.left - width);
+        let above = !!tooltip.above;
+        if (!tooltip.strictSide && (above ? pos.top - (size.bottom - size.top) < 0 : pos.bottom + (size.bottom - size.top) > measured.innerHeight))
+          above = !above;
+        if (ios) {
+          dom.style.top = (above ? pos.top - height : pos.bottom) - editor2.top + "px";
+          dom.style.left = left - editor2.left + "px";
+          dom.style.position = "absolute";
+        } else {
+          dom.style.top = (above ? pos.top - height : pos.bottom) + "px";
+          dom.style.left = left + "px";
+        }
+        dom.classList.toggle("cm-tooltip-above", above);
+        dom.classList.toggle("cm-tooltip-below", !above);
+        if (tView.positioned)
+          tView.positioned();
+      }
+    }
+    maybeMeasure() {
+      if (this.tooltips.length) {
+        if (this.view.inView || this.inView)
+          this.view.requestMeasure(this.measureReq);
+        this.inView = this.view.inView;
+      }
+    }
+  }, {
+    eventHandlers: {
+      scroll() {
+        this.maybeMeasure();
+      }
+    }
+  });
+  var baseTheme3 = EditorView.baseTheme({
+    ".cm-tooltip": {
+      position: "fixed",
+      zIndex: 100
+    },
+    "&light .cm-tooltip": {
+      border: "1px solid #ddd",
+      backgroundColor: "#f5f5f5"
+    },
+    "&dark .cm-tooltip": {
+      backgroundColor: "#333338",
+      color: "white"
+    }
+  });
+  var showTooltip = Facet.define({
+    enables: [tooltipPlugin, baseTheme3]
+  });
+  var HoverTime = 750;
+  var HoverMaxDist = 6;
+  var HoverPlugin = class {
+    constructor(view, source, field, setHover) {
+      this.view = view;
+      this.source = source;
+      this.field = field;
+      this.setHover = setHover;
+      this.lastMouseMove = null;
+      this.hoverTimeout = -1;
+      this.restartTimeout = -1;
+      this.pending = null;
+      this.checkHover = this.checkHover.bind(this);
+      view.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this));
+      view.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
+    }
+    update() {
+      if (this.pending) {
+        this.pending = null;
+        clearTimeout(this.restartTimeout);
+        this.restartTimeout = setTimeout(() => this.startHover(), 20);
+      }
+    }
+    get active() {
+      return this.view.state.field(this.field);
+    }
+    checkHover() {
+      this.hoverTimeout = -1;
+      if (this.active)
+        return;
+      let now = Date.now(), lastMove = this.lastMouseMove;
+      if (now - lastMove.timeStamp < HoverTime)
+        this.hoverTimeout = setTimeout(this.checkHover, HoverTime - (now - lastMove.timeStamp));
+      else
+        this.startHover();
+    }
+    startHover() {
+      var _a;
+      clearTimeout(this.restartTimeout);
+      let lastMove = this.lastMouseMove;
+      let coords = { x: lastMove.clientX, y: lastMove.clientY };
+      let pos = this.view.contentDOM.contains(lastMove.target) ? this.view.posAtCoords(coords) : null;
+      if (pos == null)
+        return;
+      let posCoords = this.view.coordsAtPos(pos);
+      if (posCoords == null || coords.y < posCoords.top || coords.y > posCoords.bottom || coords.x < posCoords.left - this.view.defaultCharacterWidth || coords.x > posCoords.right + this.view.defaultCharacterWidth)
+        return;
+      let bidi = this.view.bidiSpans(this.view.state.doc.lineAt(pos)).find((s) => s.from <= pos && s.to >= pos);
+      let rtl = bidi && bidi.dir == Direction.RTL ? -1 : 1;
+      let open = this.source(this.view, pos, coords.x < posCoords.left ? -rtl : rtl);
+      if ((_a = open) === null || _a === void 0 ? void 0 : _a.then) {
+        let pending = this.pending = { pos };
+        open.then((result) => {
+          if (this.pending == pending) {
+            this.pending = null;
+            if (result)
+              this.view.dispatch({ effects: this.setHover.of(result) });
+          }
+        }, (e) => logException(this.view.state, e, "hover tooltip"));
+      } else if (open) {
+        this.view.dispatch({ effects: this.setHover.of(open) });
+      }
+    }
+    mousemove(event) {
+      var _a;
+      this.lastMouseMove = event;
+      if (this.hoverTimeout < 0)
+        this.hoverTimeout = setTimeout(this.checkHover, HoverTime);
+      let tooltip = this.active;
+      if (tooltip && !isInTooltip(event.target) || this.pending) {
+        let { pos } = tooltip || this.pending, end2 = (_a = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a !== void 0 ? _a : pos;
+        if (pos == end2 ? this.view.posAtCoords({ x: event.clientX, y: event.clientY }) != pos : !isOverRange(this.view, pos, end2, event.clientX, event.clientY, HoverMaxDist)) {
+          this.view.dispatch({ effects: this.setHover.of(null) });
+          this.pending = null;
         }
       }
     }
-    if (haltingErrors.length > 0)
-      throw haltingErrors.join("\n");
-    this.bytes = instr ? instr.address + instr.length - baseAddr : 0;
-  };
-  AssemblyState.prototype.dump = function() {
-    let output, i = 0;
-    try {
-      output = Buffer.alloc(this.bytes);
-    } catch (e) {
-      output = new Uint8Array(this.bytes);
+    mouseleave() {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = -1;
+      if (this.active)
+        this.view.dispatch({ effects: this.setHover.of(null) });
     }
-    for (let instrLine of this.instructions) {
-      for (let instr of instrLine) {
-        for (let j = 0; j < instr.length; j++)
-          output[i++] = instr.bytes[j];
+    destroy() {
+      clearTimeout(this.hoverTimeout);
+      this.view.dom.removeEventListener("mouseleave", this.mouseleave);
+      this.view.dom.removeEventListener("mousemove", this.mousemove);
+    }
+  };
+  function isInTooltip(elt) {
+    for (let cur = elt; cur; cur = cur.parentNode)
+      if (cur.nodeType == 1 && cur.classList.contains("cm-tooltip"))
+        return true;
+    return false;
+  }
+  function isOverRange(view, from, to, x, y, margin) {
+    let range = document.createRange();
+    let fromDOM = view.domAtPos(from), toDOM = view.domAtPos(to);
+    range.setEnd(toDOM.node, toDOM.offset);
+    range.setStart(fromDOM.node, fromDOM.offset);
+    let rects = range.getClientRects();
+    range.detach();
+    for (let i = 0; i < rects.length; i++) {
+      let rect = rects[i];
+      let dist = Math.max(rect.top - y, y - rect.bottom, rect.left - x, x - rect.right);
+      if (dist <= margin)
+        return true;
+    }
+    return false;
+  }
+  function hoverTooltip(source, options = {}) {
+    const setHover = StateEffect.define();
+    const hoverState = StateField.define({
+      create() {
+        return null;
+      },
+      update(value, tr) {
+        if (value && (options.hideOnChange && (tr.docChanged || tr.selection)))
+          return null;
+        for (let effect of tr.effects)
+          if (effect.is(setHover))
+            return effect.value;
+        if (value && tr.docChanged) {
+          let newPos = tr.changes.mapPos(value.pos, -1, MapMode.TrackDel);
+          if (newPos == null)
+            return null;
+          let copy = Object.assign(Object.create(null), value);
+          copy.pos = newPos;
+          if (value.end != null)
+            copy.end = tr.changes.mapPos(value.end);
+          return copy;
+        }
+        return value;
+      },
+      provide: (f) => showTooltip.from(f)
+    });
+    return [
+      hoverState,
+      ViewPlugin.define((view) => new HoverPlugin(view, source, hoverState, setHover))
+    ];
+  }
+
+  // codemirror/errorPlugin.js
+  function findErrors(state) {
+    let errors = [];
+    state.field(ASMStateField).iterate((instr) => {
+      if (instr.error)
+        errors.push(instr.error);
+    });
+    return errors;
+  }
+  var ASMErrorField = StateField.define({
+    create: findErrors,
+    update: (errors, transaction) => transaction.docChanged ? findErrors(transaction.state) : errors
+  });
+  var EOLError = class extends WidgetType {
+    constructor() {
+      super();
+    }
+    toDOM() {
+      let node = document.createElement("span");
+      node.setAttribute("aria-hidden", "true");
+      node.className = "cm-asm-error";
+      node.style.position = "absolute";
+      node.innerText = " ";
+      return node;
+    }
+  };
+  var errorMarker = [
+    EditorView.baseTheme({
+      ".cm-asm-error": {
+        textDecoration: "underline red"
       }
-    }
-    return output;
-  };
+    }),
+    ViewPlugin.fromClass(class {
+      constructor(view) {
+        this.markErrors(view.state);
+      }
+      update(update) {
+        if (update.docChanged)
+          this.markErrors(update.state);
+      }
+      markErrors(state) {
+        this.marks = Decoration.set(state.field(ASMErrorField).map((error) => {
+          let content2 = state.sliceDoc(error.range.start, error.range.end);
+          if (content2 == "\n" || !content2)
+            return Decoration.widget({
+              widget: new EOLError(),
+              side: 1
+            }).range(error.range.start);
+          return Decoration.mark({
+            class: "cm-asm-error"
+          }).range(error.range.start, error.range.end);
+        }));
+      }
+    }, { decorations: (plugin) => plugin.marks })
+  ];
+  var errorTooltipper = [
+    EditorView.baseTheme({
+      ".cm-asm-error-tooltip": {
+        fontFamily: "monospace",
+        borderRadius: ".25em",
+        padding: ".1em .25em",
+        color: "#eee",
+        backgroundColor: "black !important",
+        "&:before": {
+          position: "absolute",
+          content: '""',
+          left: ".3em",
+          marginLeft: "-.1em",
+          bottom: "-.3em",
+          borderLeft: ".3em solid transparent",
+          borderRight: ".3em solid transparent",
+          borderTop: ".3em solid black"
+        }
+      },
+      "&dark .cm-asm-error-tooltip": {
+        color: "black",
+        backgroundColor: "#eee !important",
+        "&:before": {
+          borderTop: ".3em solid #eee"
+        }
+      }
+    }),
+    hoverTooltip((view, pos) => {
+      for (let { range, message } of view.state.field(ASMErrorField))
+        if (range.start <= pos && range.end >= pos)
+          return {
+            pos: range.start,
+            end: range.end,
+            above: true,
+            create: (view2) => {
+              let dom = document.createElement("div");
+              dom.textContent = message;
+              dom.className = "cm-asm-error-tooltip";
+              return { dom };
+            }
+          };
+      return null;
+    })
+  ];
 
   // node_modules/lezer/dist/index.es.js
   var Stack = class {
@@ -15687,11 +16008,11 @@ g nle`.split("\n");
       for (let i = 0; i < tokenizers.length; i++) {
         if ((1 << i & mask) == 0)
           continue;
-        let tokenizer2 = tokenizers[i], token2 = this.tokens[i];
-        if (main && !tokenizer2.fallback)
+        let tokenizer3 = tokenizers[i], token2 = this.tokens[i];
+        if (main && !tokenizer3.fallback)
           continue;
-        if (tokenizer2.contextual || token2.start != stack.pos || token2.mask != mask || token2.context != context) {
-          this.updateCachedToken(token2, tokenizer2, stack, input);
+        if (tokenizer3.contextual || token2.start != stack.pos || token2.mask != mask || token2.context != context) {
+          this.updateCachedToken(token2, tokenizer3, stack, input);
           token2.mask = mask;
           token2.context = context;
         }
@@ -15700,7 +16021,7 @@ g nle`.split("\n");
           if (token2.extended > -1)
             actionIndex = this.addActions(stack, token2.extended, token2.end, actionIndex);
           actionIndex = this.addActions(stack, token2.value, token2.end, actionIndex);
-          if (!tokenizer2.extend) {
+          if (!tokenizer3.extend) {
             main = token2;
             if (actionIndex > startIndex)
               break;
@@ -15720,9 +16041,9 @@ g nle`.split("\n");
       this.mainToken = main;
       return this.actions;
     }
-    updateCachedToken(token2, tokenizer2, stack, input) {
+    updateCachedToken(token2, tokenizer3, stack, input) {
       token2.clear(stack.pos);
-      tokenizer2.token(input, token2, stack);
+      tokenizer3.token(input, token2, stack);
       if (token2.value > -1) {
         let { parser: parser2 } = stack.p;
         for (let i = 0; i < parser2.specialized.length; i++)
@@ -16358,12 +16679,12 @@ g nle`.split("\n");
   // codemirror/parser.terms.js
   var Register = 1;
   var Directive2 = 2;
-  var Comment = 3;
+  var Comment2 = 3;
   var Opcode = 4;
   var IOpcode = 5;
   var RelOpcode = 6;
   var IRelOpcode = 7;
-  var Prefix = 8;
+  var Prefix2 = 8;
   var word = 34;
   var Ptr = 9;
   var Offset = 10;
@@ -16372,7 +16693,7 @@ g nle`.split("\n");
   var statementSeparator = 36;
   var number2 = 37;
 
-  // codemirror/asmPlugin.js
+  // codemirror/tokenizer.js
   var allTokens;
   var tok;
   var loadStart;
@@ -16424,15 +16745,15 @@ g nle`.split("\n");
     }
     if (tok == (ctx.intel ? ";" : "#")) {
       end = input.lineAfter(loadStart).length;
-      return Comment;
+      return Comment2;
     }
     if (tok == ";")
       return statementSeparator;
     if (tok == "=" || ctx.intel && tok == "equ")
       return symEquals;
     if (tok == "{") {
-      let line = input.lineAfter(loadStart), pos = line.indexOf("}") + 1;
-      let initEnd = pos || line.length;
+      let line2 = input.lineAfter(loadStart), pos = line2.indexOf("}") + 1;
+      let initEnd = pos || line2.length;
       if ((!ctx.prefix || next2() == "%") && isRegister(next2()))
         return null;
       end = initEnd;
@@ -16445,7 +16766,7 @@ g nle`.split("\n");
     if (ctx.intel && tok == "offset")
       return Offset;
     if (prefixes.hasOwnProperty(tok))
-      return Prefix;
+      return Prefix2;
     let opcode = tok;
     if (!mnemonicExists(opcode, ctx.intel)) {
       if (opcode[0] == "v" && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
@@ -16478,7 +16799,7 @@ g nle`.split("\n");
     }
     return relativeMnemonics.includes(opcode) ? ctx.intel ? IRelOpcode : RelOpcode : ctx.intel ? IOpcode : Opcode;
   }
-  var tokenizer = new ExternalTokenizer((input, token2, stack) => {
+  var tokenizer2 = new ExternalTokenizer((input, token2, stack) => {
     if (input.read(token2.start, token2.start + 1).match(/\s/))
       return;
     load(input, token2.start);
@@ -16489,140 +16810,6 @@ g nle`.split("\n");
   }, {
     contextual: false
   });
-  var AsmDumpWidget = class extends WidgetType {
-    constructor(instrs, offset) {
-      super();
-      this.instrs = instrs;
-      this.offset = offset;
-    }
-    toDOM() {
-      let node = document.createElement("span");
-      let finalText = "";
-      node.setAttribute("aria-hidden", "true");
-      node.className = "cm-asm-dump";
-      node.style.marginLeft = this.offset + "px";
-      for (let instr of this.instrs) {
-        for (let i = 0; i < instr.length; i++) {
-          finalText += " " + instr.bytes[i].toString(16).toUpperCase().padStart(2, "0");
-        }
-      }
-      node.innerText = finalText.slice(1);
-      return node;
-    }
-  };
-  var asmHover = hoverTooltip((view, pos) => {
-    for (let err of view["asm-errors"]) {
-      if (err.from <= pos && err.to >= pos) {
-        let text = err.value.message;
-        return {
-          pos: err.from,
-          end: err.to,
-          above: true,
-          create: (view2) => {
-            let dom = document.createElement("div");
-            dom.textContent = text;
-            dom.className = "cm-asm-error-tooltip";
-            return { dom };
-          }
-        };
-      }
-    }
-    return null;
-  });
-  function expandTabs(text, tabSize) {
-    let result = "", i = tabSize;
-    for (let char of text) {
-      if (char == "	") {
-        result += " ".repeat(i);
-        i = tabSize;
-      } else {
-        result += char;
-        i = i - 1 || tabSize;
-      }
-    }
-    return result;
-  }
-  var asmPlugin = ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.ctx = document.createElement("canvas").getContext("2d");
-      this.lineWidths = [];
-      this.state = new AssemblyState();
-      this.state.compile(view.state.sliceDoc());
-      view["asm-state"] = this.state;
-      this.decorations = Decoration.set([]);
-      setTimeout(() => {
-        let style = window.getComputedStyle(view.contentDOM);
-        this.ctx.font = `${style.getPropertyValue("font-style")} ${style.getPropertyValue("font-variant")} ${style.getPropertyValue("font-weight")} ${style.getPropertyValue("font-size")} ${style.getPropertyValue("font-family")}`;
-        this.tabSize = style.getPropertyValue("tab-size") || style.getPropertyValue("-moz-tab-size") || style.getPropertyValue("-o-tab-size") || 4;
-        this.updateWidths(0, view.state.doc.length, 0, view.state.doc);
-        this.makeAsmDecorations(view);
-        view.dispatch();
-      }, 1);
-    }
-    update(update) {
-      if (!update.docChanged)
-        return;
-      let state = update.view.state;
-      let doc2 = state.doc;
-      update.changes.iterChangedRanges((fromA, toA, fromB, toB) => {
-        let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number;
-        this.updateWidths(fromB, toB, removedLines, doc2);
-      });
-      update.changes.iterChanges((fromA, toA, fromB, toB) => {
-        let removedLines = update.startState.doc.lineAt(toA).number - update.startState.doc.lineAt(fromA).number + 1;
-        let line = doc2.lineAt(fromB);
-        fromB = line.from;
-        toB = doc2.lineAt(toB).to;
-        this.state.compile(state.sliceDoc(fromB, toB), { line: line.number, linesRemoved: removedLines, doSecondPass: false });
-      });
-      this.state.secondPass();
-      this.makeAsmDecorations(update.view);
-    }
-    updateWidths(from, to, removedLines, doc2) {
-      let start = doc2.lineAt(from).number;
-      let end2 = doc2.lineAt(to).number;
-      let newWidths = [];
-      for (let i = start; i <= end2; i++)
-        newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, this.tabSize)).width);
-      this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
-    }
-    makeAsmDecorations(view) {
-      let doc2 = view.state.doc;
-      let maxOffset2 = Math.max(...this.lineWidths) + 50;
-      let widgets = [];
-      let instrs = this.state.instructions;
-      let hasData;
-      view["asm-errors"] = [];
-      for (let i = 0; i < instrs.length; i++) {
-        if (instrs[i].length == 0)
-          continue;
-        hasData = false;
-        instrs[i].map((x) => {
-          let error = x.error;
-          if (error) {
-            let errorMark = Decoration.mark({
-              class: "cm-asm-error"
-            });
-            errorMark.message = error.message;
-            let errorPos = view.state.doc.line(i + 1).from + error.pos;
-            let errRange = errorMark.range(errorPos, errorPos + error.length);
-            widgets.push(errRange);
-            view["asm-errors"].push(errRange);
-          }
-          if (x.length > 0)
-            hasData = true;
-        });
-        if (hasData) {
-          let deco = Decoration.widget({
-            widget: new AsmDumpWidget(instrs[i], maxOffset2 - this.lineWidths[i]),
-            side: 1
-          });
-          widgets.push(deco.range(doc2.line(i + 1).to));
-        }
-      }
-      this.decorations = Decoration.set(widgets);
-    }
-  }, { decorations: (view) => view.decorations });
 
   // codemirror/parser.js
   var parser = Parser.deserialize({
@@ -16635,12 +16822,84 @@ g nle`.split("\n");
     context: ctxTracker,
     skippedNodes: [0],
     repeatNodeCount: 8,
-    tokenData: "'P~RiYZ!pqr!urs#Utu#xuv#Pvw#}wx$Vxy$yyz%Oz{%T{|%[|}%c}!O%[!P!Q#P![!]%h!^!_%m!_!`%{!`!a&R!}#O&^#P#Q&c#Q#R#P#o#p&h#p#q&m#q#r&u#r#s&z~!uO!Y~R!|P!OQzP!_!`#PQ#UO!OQ~#ZUg~OY#UZr#Urs#ms#O#U#O#P#r#P~#U~#rOg~~#uPO~#U~#}Oy~Q$SP!OQvw#P~$[U|~OY$VZw$Vwx$nx#O$V#O#P$s#P~$V~$sO|~~$vPO~$V~%OO{~~%TO}~R%[O!WP!OQR%cO!OQzP~%hO!P~~%mOw~Q%rR!OQ!^!_#P!_!`#P!`!a#PQ&OP!_!`#PQ&WQ!OQ!_!`#P!`!a#P~&cO!T~~&hO!V~~&mO!Q~Q&rP!OQ#p#q#P~&zO!R~P'POzP",
-    tokenizers: [tokenizer, 0, 1],
+    tokenData: "&y~RiYZ!pqr!urs#Utu#uuv#Pvw#zwx$Sxy$syz$xz{$}{|%U|}%]}!O%U!P!Q#P![!]%b!^!_%g!_!`%u!`!a%{!}#O&W#P#Q&]#Q#R#P#o#p&b#p#q&g#q#r&o#r#s&t~!uO!Y~R!|P!OQzP!_!`#PQ#UO!OQ~#ZTg~Or#Urs#js#O#U#O#P#o#P~#U~#oOg~~#rPO~#U~#zOy~Q$PP!OQvw#P~$XT|~Ow$Swx$hx#O$S#O#P$m#P~$S~$mO|~~$pPO~$S~$xO{~~$}O}~R%UO!WP!OQR%]O!OQzP~%bO!P~~%gOw~Q%lR!OQ!^!_#P!_!`#P!`!a#PQ%xP!_!`#PQ&QQ!OQ!_!`#P!`!a#P~&]O!T~~&bO!V~~&gO!Q~Q&lP!OQ#p#q#P~&tO!R~P&yOzP",
+    tokenizers: [tokenizer2, 0, 1],
     topRules: { "Program": [0, 12] },
     dynamicPrecedences: { "20": 1 },
     tokenPrec: 0
   });
+
+  // codemirror/debugPlugin.js
+  var debugEnabled = false;
+  var debugPlugin = [
+    EditorView.baseTheme({
+      ".red": { background: "lightcoral" },
+      ".blue": { background: "lightblue" },
+      ".cm-asm-debug-compiled .red, .red .cm-asm-debug-compiled": { background: "indianred" },
+      ".cm-asm-debug-compiled .blue, .blue .cm-asm-debug-compiled": { background: "dodgerblue" },
+      ".cm-asm-debug-compiled": { background: "#ddd" }
+    }),
+    hoverTooltip((view, pos) => {
+      if (!debugEnabled)
+        return null;
+      const instr = view.state.field(ASMStateField).instructions.find(pos);
+      if (!instr)
+        return null;
+      return {
+        pos: instr.range.start,
+        end: instr.range.end,
+        above: true,
+        create: (view2) => {
+          let dom = document.createElement("div");
+          dom.textContent = `${instr.constructor.name} (#${instr.id})`;
+          dom.className = "cm-asm-error-tooltip";
+          return { dom };
+        }
+      };
+    }),
+    EditorView.domEventHandlers({
+      mousedown: (event, view) => {
+        if (debugEnabled && event.ctrlKey) {
+          console.log(view.state.field(ASMStateField).instructions.find(view.posAtCoords(event)));
+          return true;
+        }
+      },
+      keydown: (event, view) => {
+        if (event.key == "F3") {
+          debugEnabled = !debugEnabled;
+          view.dispatch(ChangeSet.empty(0));
+          return true;
+        }
+      }
+    }),
+    ViewPlugin.fromClass(class {
+      constructor(view) {
+        this.markInstructions(view.state);
+      }
+      update(update) {
+        this.markInstructions(update.state);
+      }
+      markInstructions(state) {
+        if (!debugEnabled) {
+          this.decorations = Decoration.set([]);
+          return;
+        }
+        let instrMarks = [];
+        let i = 0;
+        state.field(ASMStateField).iterate((instr) => {
+          instrMarks.push(Decoration.mark({
+            class: i++ % 2 ? "blue" : "red"
+          }).range(instr.range.start, instr.range.end));
+        });
+        let compiledRange = state.field(ASMStateField).compiledRange;
+        if (compiledRange.length > 0)
+          instrMarks.push(Decoration.mark({
+            class: "cm-asm-debug-compiled"
+          }).range(compiledRange.start, compiledRange.end));
+        this.decorations = Decoration.set(instrMarks, true);
+      }
+    }, { decorations: (plugin) => plugin.decorations })
+  ];
 
   // codemirror/assembly.js
   var assemblyLang = LezerLanguage.define({
@@ -16672,53 +16931,35 @@ g nle`.split("\n");
       ]
     })
   });
-  var asmTheme = EditorView.baseTheme({
-    ".cm-asm-dump": {
-      fontStyle: "italic",
-      color: "#666"
-    },
-    ".cm-asm-error": {
-      textDecoration: "underline red"
-    },
-    ".cm-asm-error-tooltip": {
-      fontFamily: "monospace",
-      borderRadius: ".25em",
-      padding: ".1em .25em",
-      color: "#eee",
-      backgroundColor: "black",
-      "&:before": {
-        position: "absolute",
-        content: '""',
-        left: ".3em",
-        marginLeft: "-.1em",
-        bottom: "-.3em",
-        borderLeft: ".3em solid transparent",
-        borderRight: ".3em solid transparent",
-        borderTop: ".3em solid black"
-      }
-    },
-    "&dark .cm-asm-error-tooltip": {
-      color: "black",
-      backgroundColor: "#eee",
-      "&:before": {
-        borderTop: ".3em solid #eee"
-      }
-    },
-    "&dark .cm-asm-dump": {
-      color: "#aaa"
-    }
-  });
-  function assembly() {
-    return new LanguageSupport(assemblyLang, [asmPlugin, asmTheme, asmHover]);
+  function assembly({
+    byteDumps = true,
+    debug = false,
+    errorMarking = true,
+    errorTooltips = true,
+    highlighting = true
+  } = {}) {
+    const plugins = [ASMStateField.extension, ASMErrorField.extension];
+    if (byteDumps)
+      plugins.push(byteDumper);
+    if (debug)
+      plugins.push(debugPlugin);
+    if (errorMarking)
+      plugins.push(errorMarker);
+    if (errorTooltips)
+      plugins.push(errorTooltipper);
+    if (highlighting)
+      return new LanguageSupport(assemblyLang, plugins);
+    return plugins;
   }
 
   // gh-pages/editor.js
   var byteCount = document.getElementById("byteCount");
   var editor = new EditorView({
     dispatch: (tr) => {
-      let result = editor.update([tr]);
+      const result = editor.update([tr]);
+      const bytes = editor.state.field(ASMStateField).bytes;
       document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
-      byteCount.innerText = `${asmState.bytes} byte${asmState.bytes != 1 ? "s" : ""}`;
+      byteCount.innerText = `${bytes} byte${bytes != 1 ? "s" : ""}`;
       return result;
     },
     parent: document.getElementById("inputAreaContainer"),
@@ -16730,11 +16971,10 @@ g nle`.split("\n");
         history(),
         keymap.of([...closeBracketsKeymap, ...historyKeymap, defaultTabBinding, ...standardKeymap]),
         lineNumbers(),
-        assembly()
+        assembly({ debug: true })
       ]
     })
   });
-  var asmState = editor["asm-state"];
   editor.contentDOM.setAttribute("data-gramm", "false");
   function getLastCode() {
     let prevCode = document.cookie.split("; ").find((row) => row.startsWith("code="));
