@@ -1,13 +1,13 @@
-import { token, next, setSyntax, currSyntax } from "./parser.js";
+import { ASMError, token, next, setSyntax, currSyntax } from "./parser.js";
 import { capLineEnds, Expression, readString } from "./shuntingYard.js";
-import { Statement, ASMError } from "./statement.js";
+import { Statement } from "./statement.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
 
 const DIRECTIVE_BUFFER_SIZE = 15;
 
-export const directives = {
+const directives = {
     equ:    -1,
     set:    -1,
     byte:   1,
@@ -28,7 +28,7 @@ export const directives = {
     att_syntax: 11
 };
 
-export const intelDirectives = {
+const intelDirectives = {
     '%assign': -1,
     db: 0,
     dw: directives.word,
@@ -37,6 +37,19 @@ export const intelDirectives = {
     ".intel_syntax": directives.intel_syntax,
     ".att_syntax": directives.att_syntax
 };
+
+/** Check if a given string corresponds to an existing directive
+ * @param {string} directive
+ * @param {boolean} intel
+ */
+export function isDirective(directive, intel)
+{
+    directive = directive.toLowerCase();
+    return intel ?
+        intelDirectives.hasOwnProperty(directive)
+    :
+        directive[0] == '.' && directives.hasOwnProperty(directive.slice(1));
+}
 
 export class Directive extends Statement
 {
@@ -93,7 +106,7 @@ export class Directive extends Statement
                 case directives.att_syntax:
                     let intel = dir == directives.intel_syntax;
                     // Set the syntax now so we can correctly skip comments
-                    setSyntax({ prefix: currSyntax.prefix, intel });
+                    setSyntax({ prefix: currSyntax.prefix, intel, definer: this });
                     let prefix = !intel;
                     let prefSpecifier = next().toLowerCase();
 

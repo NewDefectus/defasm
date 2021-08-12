@@ -1,4 +1,6 @@
+import { prefixes } from "./instructions.js";
 import { Operation } from "./mnemonics.js"; // For proper JSDoc
+import { floatIntSuffixes, floatSuffixes, suffixes } from "./operands.js";
 
 let lines;
 let mnemonicStrings = `
@@ -1128,8 +1130,8 @@ vdpbf16ps:F3)0F3852 v >Vxyz V {kzf
 vexpandpd:66)0F3888 v Vxyz > {kzwf
 vexpandps:66)0F3888 v Vxyz > {kzf
 
-verr:v! 0F00.4 rW
-verw:v! 0F00.5 rW
+verr:! 0F00.4 rW
+verw:! 0F00.5 rW
 
 vextractf128:66)0F3A19 ib Vy vX >
 vextractf32x4:66)0F3A19 ib Vyz vX > {kzf
@@ -1522,7 +1524,7 @@ xsetbv:0F01D1
 xtest:0F01D6
 `;
 
-export var relativeMnemonics = [];
+var relativeMnemonics = [];
 
 /** Mnemonic set (loaded in mnemonicList.js)
 * @type {Object.<string,(string[]|Operation[])} */
@@ -1703,12 +1705,72 @@ vfmDirs.forEach((dir, dirI) => vfmOps.forEach((op, opI) => vfmTypes.forEach((typ
     }
 })));
 
-export function mnemonicExists(opcode, intel)
+function isMnemonic(mnemonic, intel)
 {
-    if(mnemonics.hasOwnProperty(opcode))
-        return !(intel ? intelInvalids : attInvalids).includes(opcode);
+    if(mnemonics.hasOwnProperty(mnemonic))
+        return !(intel ? intelInvalids : attInvalids).includes(mnemonic);
 
-    return intel && intelDifferences.hasOwnProperty(opcode);
+    return intel && intelDifferences.hasOwnProperty(mnemonic);
+}
+
+/** 
+ * @param {string} raw
+ * @param {boolean} intel
+ * @param {Number | null | undefined} size
+ * @param {boolean} isVex
+ */
+function basicScanMnemonic(raw, intel, size, isVex)
+{
+    if(!isMnemonic(raw, intel))
+        return [];
+    const data = fetchMnemonic(raw, intel);
+    if(isVex && !data.some(x => x.allowVex || x.actuallyNotVex))
+        return [];
+    return [{
+        raw,
+        relative: relativeMnemonics.includes(raw),
+        size,
+        vex: isVex && !data[0].actuallyNotVex || data[0].forceVex
+    }];
+}
+
+/** Get information about the possible interpretations of a mnemonic.
+ * @param {string} mnemonic
+ * @param {boolean} intel
+ */
+export function scanMnemonic(mnemonic, intel)
+{
+    mnemonic = mnemonic.toLowerCase();
+    if(mnemonic.startsWith('vv'))
+        return [];
+
+    let isVex = mnemonic[0] == 'v';
+    let possibleOpcodes = isVex ? [mnemonic, mnemonic.slice(1)] : [mnemonic];
+    let interps = [];
+
+    for(const raw of possibleOpcodes)
+    {
+        interps.push(...basicScanMnemonic(raw, intel, undefined, isVex));
+
+        // Size suffix interpretation
+        if(!intel)
+            interps.push(...basicScanMnemonic(
+                raw.slice(0, -1),
+                intel,
+                (
+                    raw[0] == 'f' ?
+                        raw[1] == 'i' ?
+                            floatIntSuffixes
+                        :
+                            floatSuffixes
+                    :
+                        suffixes
+                )[raw[raw.length - 1]] ?? null,
+                isVex)
+            );
+    }
+
+    return interps;
 }
 
 /** @returns { Operation[] } */

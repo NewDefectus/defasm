@@ -1,7 +1,7 @@
 import { hoverTooltip } from '@codemirror/tooltip';
 import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
 import { ASMStateField } from "./compilerPlugin";
-import { ASMError } from "@defasm/core/statement.js";
+import { ASMError } from "@defasm/core";
 import { EditorState, StateField } from '@codemirror/state';
 
 /** @param {EditorState} state */
@@ -62,7 +62,7 @@ export const errorMarker = [
                             widget: new EOLError(),
                             side: 1
                         }).range(error.range.start);
-
+                        
                     return Decoration.mark({
                         class: 'cm-asm-error'
                     }).range(error.range.start, error.range.end);

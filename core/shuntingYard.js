@@ -1,7 +1,7 @@
 import { isRegister, OPT, parseRegister, PREFIX_ADDRSIZE, regParsePos } from "./operands.js";
-import { currRange, currSyntax, line, next, setToken, token, ungetToken } from "./parser.js";
+import { ASMError, currRange, currSyntax, next, Range, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./compiler.js";
-import { ASMError, Statement } from "./statement.js";
+import { Statement } from "./statement.js";
 
 export var unaries = {
     '+': a=>a,
@@ -110,42 +110,42 @@ export function readString(string, { offset = 0, lineEnds = [] } = {})
     return new Uint8Array(output);
 }
 
-export const NUM_INVALID = null,
-             NUM_PREC_SUFFIX = 1,
-             NUM_H_SUFFIX = 2,
-             NUM_E_EXPR = 4,
-             NUM_SYMBOL = 8;
-
-export function isNumber(number, intel)
+/** Get information about an identifier (returns null if the string isn't a valid identifier).
+ * @param {string} id
+ * @param {boolean} intel
+ */
+export function scanIdentifier(id, intel)
 {
-    let match = null, type = 0;
-    number = number.toLowerCase();
+    id = id.toLowerCase();
 
-    if(number == (intel ? '$' : '.') || number[0].match(/[a-z_]/i))
-        return NUM_SYMBOL;
-    
-    if(number[0].match(/[^0-9.]/))
-        return NUM_INVALID;
+    if(id == (intel ? '$' : '.') || id[0].match(/[a-z_]/i))
+        return { type: 'symbol', precision: false };
+    if(id[0].match(/[^0-9.]/))
+        return null;
+
+    /** @type {'symbol' | 'hSuffix' | 'eExpr'} */
+    let type;
+    let match = null;
     
     if(intel)
-        match = number.match(/^[0-9][0-9a-f]*h(.)?$/);
+        match = id.match(/^[0-9][0-9a-f]*h(.)?$/);
 
     if(match)
-        type = NUM_H_SUFFIX;
+        type = 'hSuffix';
     else
     {
-        match = number.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);   
+        match = id.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);   
         if(!match)
         {
-            match = number.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
+            match = id.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
             if(match)
-                type = NUM_E_EXPR;
+                type = 'eExpr';
             else
-                return NUM_INVALID;
+                return null;
         }
     }
     
-    return type | (match[1] ? NUM_PREC_SUFFIX : 0);
+    return { type, precision: match[1] !== undefined };
 }
 
 
@@ -169,38 +169,34 @@ function parseNumber(asFloat = false, lineEnds = {})
         }
         else
         {
-            let numType = isNumber(token, currSyntax.intel);
-            if(numType == NUM_SYMBOL) // Symbol
+            let idType = scanIdentifier(token, currSyntax.intel);
+            if(idType.type == 'symbol') // Symbol
             {
                 let symbol = { name: token, pos: currRange };
                 next();
                 return { value: symbol, floatPrec };
             }
 
-            if(numType === NUM_INVALID)
+            if(idType === null)
                 throw new ASMError("Invalid number");
 
             let mainToken = token;
-            if(numType & NUM_H_SUFFIX)
+            if(idType.type == 'hSuffix')
                 mainToken = '0x' + mainToken.replace(/h/i, '');
 
-            if(numType & NUM_PREC_SUFFIX)
+            if(idType.precision)
             {
                 let suffix = mainToken[mainToken.length - 1].toLowerCase();
 
                 if(suffix == 'd') floatPrec = 2;
                 else if(suffix == 'f') floatPrec = 1;
                 else
-                {
-                    currRange.start += currRange.length - 1;
-                    currRange.length = 1;
-                    throw new ASMError("Invalid number suffix");
-                }
+                    throw new ASMError("Invalid number suffix", new Range(currRange.end - 1, 1));
 
                 value = Number(mainToken.slice(0, -1));
             }
             else if(asFloat) floatPrec = 1, value = Number(mainToken);
-            else if(numType & NUM_E_EXPR)
+            else if(idType.type == 'eExpr')
             {
                 let eIndex = token.indexOf('e');
                 let base = token.slice(0, eIndex);

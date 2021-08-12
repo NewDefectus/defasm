@@ -1,8 +1,8 @@
-import { token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment } from "./parser.js";
-import { Directive, intelDirectives } from "./directives.js";
+import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment, Range } from "./parser.js";
+import { Directive, isDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
-import { ASMError, Comment, Range, Statement } from "./statement.js";
+import { Comment, Statement } from "./statement.js";
 
 var linkedInstrQueue = [];
 
@@ -24,18 +24,15 @@ function addInstruction(instr, seekEnd = true)
     prevInstr = instr;
     setSyntax(instr.syntax);
 
-    if(seekEnd)
+    if(seekEnd && token != '\n' && token != ';')
     {
-        if(token != '\n' && token != ';')
-        {
-            // Special case: this error should appear but not remove the instruction's bytes
-            instr.error = new ASMError("Expected end of line");
-            while(token != '\n' && token != ';')
-                next();
-        }
+        // Special case: this error should appear but not remove the instruction's bytes
+        instr.error = new ASMError("Expected end of line");
+        while(token != '\n' && token != ';')
+            next();
     }
 
-    instr.range = new Range(instr.range.start, currRange.end - instr.range.start - (seekEnd ? 1 : 0));
+    instr.range.length = currRange.end - instr.range.start - (seekEnd ? 1 : 0);
 }
 
 export class AssemblyState
@@ -107,12 +104,12 @@ export class AssemblyState
         // Expand the range a bit so as not to cut off the first and last instructions
         if(lastInstr)
         {
-            if(range.start > headInstr.next.range.start)
-                range.start = headInstr.next.range.start;
-            range = range.until(lastInstr.range);
+            if(range.start > headInstr.next.effectiveRange.start)
+                range.start = headInstr.next.effectiveRange.start;
+            range = range.until(lastInstr.effectiveRange);
         }
         else if(tailInstr)
-            range.length = tailInstr.range.start - range.start - 1;
+            range.length = tailInstr.effectiveRange.start - range.start - 1;
         else
             range.length = source.length;
         
@@ -130,11 +127,21 @@ export class AssemblyState
                 if(token != '\n' && token != ';')
                 {
                     let lowerTok = token.toLowerCase();
-                    if(currSyntax.intel ?
-                        intelDirectives.hasOwnProperty(lowerTok)
-                        || token == '%' && (lowerTok = '%' + next().toLowerCase())
-                        :
-                        token[0] == '.') // Assembler directive
+                    let isDir = false;
+                    if(currSyntax.intel)
+                    {
+                        if(token[0] == '%')
+                        {
+                            isDir = true;
+                            lowerTok += next().toLowerCase();
+                        }
+                        else
+                            isDir = isDirective(lowerTok, true);
+                    }
+                    else
+                        isDir = token[0] == '.';
+                    
+                    if(isDir) // Assembler directive
                     {
                         if(currSyntax.intel ?
                             lowerTok == '%assign'
@@ -142,10 +149,10 @@ export class AssemblyState
                             lowerTok == '.equ' || lowerTok == '.set')
                         {
                             let opcode = next();
-                            pos = currRange;
+                            let opcodePos = currRange;
                             if(!currSyntax.intel && next() !== ',')
                                 throw new ASMError("Expected ','");
-                            addInstruction(new Symbol(prevInstr, opcode, pos));
+                            addInstruction(new Symbol(prevInstr, opcode, pos, opcodePos));
                         }
                         else
                             addInstruction(new Directive(prevInstr, currSyntax.intel ? token : token.slice(1), pos));
@@ -158,12 +165,12 @@ export class AssemblyState
                         next();
 
                         if(token == ':') // Label definition
-                            addInstruction(new Symbol(prevInstr, opcode, pos, true), false);
+                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true), false);
                         else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                            addInstruction(new Symbol(prevInstr, opcode, pos));
-                        else if(currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) // "<label> <directive>"
+                            addInstruction(new Symbol(prevInstr, opcode, pos, pos));
+                        else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol(prevInstr, opcode, pos, true));
+                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true));
                             addInstruction(new Directive(prevInstr, token, pos));
                         }
                         else // Instruction
@@ -205,21 +212,6 @@ export class AssemblyState
             // Link the last instruction to the next
             prevInstr.next = instr;
             linkedInstrQueue.push(prevInstr);
-
-            if(!instr.switchSyntax && (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel))
-            {
-                // Syntax has been changed, we have to recompile some of the source
-                let nextSyntaxChange = instr.next;
-                while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
-                    nextSyntaxChange = nextSyntaxChange.next;
-                let nextRange = instr.range.until(nextSyntaxChange.range);
-                
-                this.compile(nextRange.slice(this.source), {
-                    haltOnError,
-                    range: nextRange,
-                    doSecondPass: false
-                });
-            }
         }
 
         this.compiledRange = range.until(prevRange);

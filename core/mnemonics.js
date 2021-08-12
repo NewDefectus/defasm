@@ -1,5 +1,5 @@
 import { OPT, suffixes } from "./operands.js";
-import { ASMError } from "./statement.js";
+import { ASMError } from "./parser.js";
 import { queueRecomp } from "./symbols.js";
 
 const REG_MOD = -1, REG_OP = -2;
@@ -246,20 +246,18 @@ export function Operation(format)
     this.vexBase = 0;
     this.evexPermits = null;
     this.actuallyNotVex = false;
+    this.vexOnly = false;
 
     // Interpreting the opcode
-    this.vexOnly = format[0][0] == 'v';
     this.forceVex = format[0][0] == 'V';
+    this.vexOnly = format[0][0] == 'v';
     if("vVwl!".includes(format[0][0]))
     {
         let specializers = format.shift();
         if(specializers.includes('w')) this.vexBase |= 0x8000;
         if(specializers.includes('l')) this.vexBase |= 0x400;
         if(specializers.includes('!'))
-        {
             this.actuallyNotVex = true; // For non-VEX instructions starting with V
-            this.vexOnly = this.forceVex = false;
-        }
     }
     let [opcode, extension] = format.shift().split('.');
 
@@ -300,7 +298,7 @@ export function Operation(format)
 
     this.allVectors = false;
     this.relativeSizes = null;
-    this.allowVex = !this.forceVex && format.some(op => op.includes('>'));
+    this.allowVex = this.forceVex || format.some(op => op.includes('>'));
     this.maxSize = 0;
 
     /** @type { OpCatcher[] } */
@@ -356,14 +354,11 @@ Operation.prototype.validateVEX = function(vexInfo)
 {
     if(vexInfo.needed)
     {
-        if(this.actuallyNotVex)
-            vexInfo.needed = false;
-        else if(!this.allowVex)
+        if(this.actuallyNotVex || !this.allowVex)
             return false;
         if(vexInfo.evex)
         {
             if(
-                this.actuallyNotVex ||
                 this.evexPermits === null ||
                 !(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0 ||
                 !(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null ||

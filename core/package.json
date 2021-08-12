@@ -20,6 +20,6 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm/tree/master/core#readme",
   "bin": {
-    "defasm": "main.js"
+    "defasm": "cli.js"
   }
 }

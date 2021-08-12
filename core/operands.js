@@ -1,6 +1,5 @@
-import { token, next, ungetToken, currRange, currSyntax } from "./parser.js";
+import { ASMError, token, next, ungetToken, currRange, currSyntax } from "./parser.js";
 import { Expression } from "./shuntingYard.js";
-import { ASMError } from "./statement.js";
 
 // Operand types
 export const OPT = {
@@ -49,7 +48,7 @@ export const floatIntSuffixes = {
     l: 32,
     q: 64
 }
-export const sizeHints = {
+export const sizeHints = Object.freeze({
     byte: 8,
     word: 16,
     long: 32,
@@ -62,7 +61,7 @@ export const sizeHints = {
     xmmword: 128,
     ymmword: 256,
     zmmword: 512
-};
+});
 
 export const    PREFIX_REX = 1,
                 PREFIX_NOREX = 2,
@@ -78,6 +77,9 @@ export var regSuffixes = {
     d: 32
 }
 
+/** Check if a given string corresponds to a register name (ignoring the '%' prefix).
+ * @param {string} reg
+ */
 export function isRegister(reg)
 {
     reg = reg.toLowerCase();

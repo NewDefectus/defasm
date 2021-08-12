@@ -1,19 +1,19 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, suffixes, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints, floatSuffixes, floatIntSuffixes } from "./operands.js";
-import { token, next, ungetToken, setToken, currRange } from "./parser.js";
-import { fetchMnemonic, mnemonicExists } from "./mnemonicList.js";
+import { Operand, parseRegister, OPT, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
+import { ASMError, token, next, ungetToken, setToken, currRange, Range } from "./parser.js";
+import { fetchMnemonic, scanMnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
-import { ASMError, Range, Statement } from "./statement.js";
+import { Statement } from "./statement.js";
 
-export const prefixes = {
+export const prefixes = Object.freeze({
     lock: 0xF0,
     repne: 0xF2,
     repnz: 0xF2,
     rep: 0xF3,
     repe: 0xF3,
     repz: 0xF3
-};
+});
 
 const SHORT_DISP = 128;
 
@@ -32,7 +32,7 @@ function parseRoundingMode(vexInfo)
     }
 
     vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-    vexInfo.roundingPos = { start: roundStart.start, length: currRange.end - roundStart.start };
+    vexInfo.roundingPos = new Range(roundStart.start, currRange.end - roundStart.start);
     if(vexInfo.round < 0)
         throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
 }
@@ -43,7 +43,7 @@ export class Instruction extends Statement
     {
         super(prev, MAX_INSTR_SIZE, range);
         this.opcode = opcode;
-        this.opcodeRange = range;
+        this.opcodeRange = new Range(range.start, range.length);
 
         this.interpret();
     }
@@ -69,7 +69,7 @@ export class Instruction extends Statement
     {
         let opcode = this.opcode, operand = null, prefsToGen = 0;
         let vexInfo = {
-            needed: opcode[0] == 'v',
+            needed: false,
             evex: false,
             mask: 0,
             zeroing: false,
@@ -85,37 +85,26 @@ export class Instruction extends Statement
         let operands = [];
         let operations = [];
 
-        let possibleOpcodes = vexInfo.needed ? [opcode, opcode.slice(1)] : [opcode];
+        let opcodeInterps = scanMnemonic(opcode, this.syntax.intel);
 
-        for(let subOpcode of possibleOpcodes)
+        for(let interp of opcodeInterps)
         {
-            operations = [...operations, ...fetchMnemonic(subOpcode, this.syntax.intel)];
-            
-            if(!this.syntax.intel)
+            if(interp.size === null)
             {
-                let size = (
-                    subOpcode[0] == 'f' ?
-                        subOpcode[1] == 'i' ?
-                            floatIntSuffixes
-                        :
-                            floatSuffixes
-                    :
-                        suffixes
-                )[subOpcode[subOpcode.length - 1]];
-                subOpcode = subOpcode.slice(0, -1);
-                if(size !== undefined)
-                {
-                    if(mnemonicExists(subOpcode, false))
-                        operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
-                }
-                else if(operations.length == 0 && mnemonicExists(subOpcode, false))
+                if(operations.length == 0)
                     throw new ASMError("Invalid opcode suffix",
                         new Range(this.opcodeRange.start + this.opcodeRange.length - 1, 1)
                     );
             }
-        }
+            else if(interp.size !== undefined)
+                operations = [...operations, { size: interp.size }, ...fetchMnemonic(interp.raw, false)];
+            else
+                operations = [...operations, ...fetchMnemonic(interp.raw, this.syntax.intel)];
             
-
+            if(interp.vex)
+                vexInfo.needed = true;
+        }
+        
         if(operations.length == 0)
             throw new ASMError("Unknown opcode", this.opcodeRange);
 
@@ -324,14 +313,13 @@ export class Instruction extends Statement
         if(!found)
         {
             // Try to find why the error occurred
-            let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
+            let minOperandCount = Infinity, maxOperandCount = 0;
             let firstOrderPossible = false, secondOrderPossible = false;
 
             for(let operation of operations)
             {
                 if(operation.size !== undefined)
                     continue;
-                couldveBeenVex = couldveBeenVex || operation.allowVex;
                 if(vexInfo.needed && !operation.allowVex)
                     continue;
 
@@ -346,9 +334,6 @@ export class Instruction extends Statement
                 secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
                 operands.reverse();
             }
-
-            if(vexInfo.needed && !couldveBeenVex)
-                throw new ASMError("Unknown opcode", this.opcodeRange);
 
             if(operands.length < minOperandCount)
                 throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));

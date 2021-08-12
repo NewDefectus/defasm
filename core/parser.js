@@ -1,4 +1,4 @@
-import { Range } from "./statement.js";
+import { Statement } from "./statement.js";
 /** @type {string} */          export var code;
 /** @type {boolean} */         export var comment;
 /** @type {Range} */           export var currRange;
@@ -7,7 +7,11 @@ import { Range } from "./statement.js";
 /** @type {Range} */           export var prevRange;
 /** @type {string} */          export var token;
 
-export const defaultSyntax = { intel: false, prefix: true }
+export const defaultSyntax = {
+    intel: false,
+    prefix: true,
+    /** @type {Statement?} */ definer: null
+}
 export var currSyntax = defaultSyntax;
 export function setSyntax(syntax)
 {
@@ -71,4 +75,53 @@ export function setToken(tok, range = currRange)
 {
     token = tok;
     currRange = range;
+}
+
+
+
+export class Range
+{
+    constructor(start = 0, length = 0)
+    {
+        if(start < 0 || length < 0)
+            throw `Invalid range ${start} to ${start + length}`;
+        this.start = start;
+        this.length = length;
+    }
+
+    /** @param {Number} pos */
+    includes(pos)
+    {
+        return this.end >= pos && pos >= this.start;
+    }
+
+    /** @param {Range} end */
+    until(end)
+    {
+        return new Range(this.start, end.end - this.start);
+    }
+
+    /** @param {string} text */
+    slice(text)
+    {
+        return text.slice(this.start, this.end);
+    }
+
+    get end()
+    {
+        return this.start + this.length;
+    }
+}
+
+export class ASMError
+{
+    /**
+     * @param {string} message The message this error holds
+     * @param {Range} range The range of this error
+     */
+    constructor(message, range = currRange)
+    {
+        this.message = message;
+        this.range = range;
+    }
 }

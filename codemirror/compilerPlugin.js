@@ -1,7 +1,6 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
 import { EditorState, StateField }                                    from '@codemirror/state';
-import { AssemblyState }                                              from '@defasm/core/compiler.js';
-import { Range }                                                      from '@defasm/core/statement.js';
+import { AssemblyState, Range }                                       from '@defasm/core';
 
 /** @type {StateField<AssemblyState>} */
 export const ASMStateField = StateField.define({

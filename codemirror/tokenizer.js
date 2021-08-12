@@ -1,8 +1,7 @@
-import { mnemonicExists, relativeMnemonics } from '@defasm/core/mnemonicList.js';
-import { isRegister, sizeHints }             from '@defasm/core/operands.js';
-import { prefixes }                          from '@defasm/core/instructions.js';
-import { directives, intelDirectives }       from '@defasm/core/directives.js';
-import { isNumber, NUM_INVALID, NUM_SYMBOL } from '@defasm/core/shuntingYard.js';
+import {
+    scanMnemonic, isRegister, sizeHints, prefixes,
+    isDirective, scanIdentifier
+} from '@defasm/core';
 import { ContextTracker, ExternalTokenizer } from 'lezer';
 
 import * as Terms from './parser.terms.js';
@@ -62,7 +61,7 @@ function tokenize(ctx, input)
         next();
         if(ctx.prefix && isRegister(tok))
             return Terms.Register;
-        if(ctx.intel && intelDirectives.hasOwnProperty('%' + tok))
+        if(ctx.intel && isDirective('%' + tok, true))
             return Terms.Directive;
         return null;
     }
@@ -89,10 +88,7 @@ function tokenize(ctx, input)
         return Terms.VEXRound;
     }
 
-    if(ctx.intel ?
-        intelDirectives.hasOwnProperty(tok)
-        :
-        tok[0] == '.' && directives.hasOwnProperty(tok.slice(1)))
+    if(isDirective(tok, ctx.intel))
         return Terms.Directive;
 
     if(!ctx.prefix && isRegister(tok))
@@ -104,50 +100,41 @@ function tokenize(ctx, input)
     if(prefixes.hasOwnProperty(tok))
         return Terms.Prefix;
 
-    let opcode = tok;
-    if(!mnemonicExists(opcode, ctx.intel))
+    let opcode = tok, opData = scanMnemonic(opcode, ctx.intel);
+    if(opData.length > 0)
+        return opData[0].relative
+        ?
+            ctx.intel ? Terms.IRelOpcode : Terms.RelOpcode
+        :
+            ctx.intel ? Terms.IOpcode : Terms.Opcode;
+
+    if(ctx.intel && sizeHints.hasOwnProperty(tok))
     {
-        if(opcode[0] == 'v' && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
-            opcode = opcode.slice(1);
-        if(!ctx.intel && mnemonicExists(opcode.slice(0, -1), false))
-            opcode = opcode.slice(0, -1);
-        else if(!mnemonicExists(opcode, ctx.intel))
+        let prevEnd = end;
+        if(",;\n{:".includes(next()))
         {
-            if(ctx.intel && sizeHints.hasOwnProperty(tok))
-            {
-                let prevEnd = end;
-                if(",;\n{:".includes(next()))
-                {
-                    end = prevEnd;
-                    return Terms.word;
-                }
-
-                if(tok == 'ptr')
-                {
-                    let nextPrevEnd = end;
-                    end = ",;\n{:".includes(next()) ? prevEnd : nextPrevEnd;
-                    return Terms.Ptr;
-                }
-
-                end = prevEnd;
-                return Terms.Ptr;
-            }
-            switch(isNumber(tok, ctx.intel))
-            {
-                case NUM_INVALID:
-                    return null;
-                case NUM_SYMBOL:
-                    return Terms.word;
-            }
-            return Terms.number;
+            end = prevEnd;
+            return Terms.word;
         }
+
+        if(tok == 'ptr')
+        {
+            let nextPrevEnd = end;
+            end = ",;\n{:".includes(next()) ? prevEnd : nextPrevEnd;
+            return Terms.Ptr;
+        }
+
+        end = prevEnd;
+        return Terms.Ptr;
     }
-    return relativeMnemonics.includes(opcode)
-    ?
-        ctx.intel ? Terms.IRelOpcode : Terms.RelOpcode
-    :
-        ctx.intel ? Terms.IOpcode : Terms.Opcode;
-};
+
+    const idType = scanIdentifier(tok, ctx.intel);
+    if(idType === null)
+        return null;
+    if(idType.type == 'symbol')
+        return Terms.word;
+    return Terms.number;
+}
 
 export const tokenizer = new ExternalTokenizer(
     (input, token, stack) => {

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 "use strict";
+
 // All opcodes test
 
 const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})))
 
 exports.run = async function()
 {
-    const { AssemblyState } = await import("@defasm/core");
-    const { mnemonics, fetchMnemonic, relativeMnemonics, mnemonicExists } = await import("@defasm/core/mnemonicList.js");
+    const { AssemblyState, scanMnemonic } = await import("@defasm/core");
+    const { mnemonics, fetchMnemonic } = await import("@defasm/core/mnemonicList.js");
     const { EVEXPERM_FORCE, EVEXPERM_FORCE_MASK } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
     const { readFileSync } = require('fs');
@@ -40,12 +41,12 @@ exports.run = async function()
             case OPT.DBG:  return '%dr' + id;
         }
 
-        throw "Unknown operand type";
+        throw `Unknown operand type '${type}'`;
     }
 
     let source = "";
 
-    function recurseOperands(opcode, operation, isVex, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
+    function recurseOperands(opcode, opType, operation, isVex, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
     {
         let opCatchers = isVex ? operation.vexOpCatchers : operation.opCatchers;
         if(opCatchers.length == 0)
@@ -81,7 +82,7 @@ exports.run = async function()
             }
             else
             {
-                recurseOperands(opcode, operation, isVex, nextI, operands);
+                recurseOperands(opcode, opType, operation, isVex, nextI, operands);
                 return;
             }
         }
@@ -125,13 +126,13 @@ exports.run = async function()
                 if(total + 1 >= opCatchers.length)
                 {
                     source += opcode + sizeSuffix + ' ' +
-                    (relativeMnemonics.includes(opcode) && type != OPT.REL ? '*' : '')
+                    (opType == 'relative' && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
                     + (operation.evexPermits & EVEXPERM_FORCE_MASK ? ' {%k1}' : '')
                     + '\n';
                 }
                 else
-                    recurseOperands(opcode, operation, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+                    recurseOperands(opcode, opType, operation, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
 
                 sizeSuffix = sizeSuffixOriginal;
             }
@@ -144,16 +145,16 @@ exports.run = async function()
     }
 
     /** @param { Operation } operation */
-    function sampleOperation(opcode, operation)
+    function sampleOperation(opcode, opType, operation)
     {
         if(!(operation.vexOnly || operation.evexPermits & EVEXPERM_FORCE || opcode[0] == 'v' && !operation.actuallyNotVex))
         {
-            recurseOperands(opcode, operation, false);
+            recurseOperands(opcode, opType, operation, false);
         }
 
-        if(operation.allowVex || operation.vexOnly)
+        if((operation.allowVex || operation.vexOnly) && !operation.forceVex)
         {
-            recurseOperands(opcode[0] == 'v' ? opcode : 'v' + opcode, operation, true);
+            recurseOperands(opcode[0] == 'v' ? opcode : 'v' + opcode, opType, operation, true);
         }
     }
 
@@ -175,12 +176,13 @@ exports.run = async function()
     // Main starts here
     for(let opcode of Object.keys(mnemonics))
     {
-        if(!mnemonicExists(opcode, false) || uncheckedOpcodes.includes(opcode))
+        let opType = scanMnemonic(opcode, false);
+        if(opType === null || uncheckedOpcodes.includes(opcode))
             continue;
         let ops = fetchMnemonic(opcode, false);
 
         for(let operation of ops)
-            sampleOperation(opcode, operation);
+            sampleOperation(opcode, opType, operation);
     }
 
     let state = new AssemblyState();
