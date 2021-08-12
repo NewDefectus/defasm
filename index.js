@@ -11028,38 +11028,13 @@
   ];
 
   // core/statement.js
-  var Range2 = class {
-    constructor(start = 0, length = 0) {
-      if (start < 0 || length < 0)
-        throw `Invalid range ${start} to ${start + length}`;
-      this.start = start;
-      this.length = length;
-    }
-    includes(pos) {
-      return this.end >= pos && pos >= this.start;
-    }
-    until(end2) {
-      return new Range2(this.start, end2.end - this.start);
-    }
-    slice(text) {
-      return text.slice(this.start, this.end);
-    }
-    get end() {
-      return this.start + this.length;
-    }
-  };
-  var ASMError = class {
-    constructor(message, range = currRange) {
-      this.message = message;
-      this.range = range;
-    }
-  };
   var totalStatements = 0;
   var Statement = class {
     constructor(prev = null, maxSize = 0, range = new Range2(), error = null) {
       this.error = error;
       this.range = range;
       this.id = totalStatements++;
+      this.effectiveRange = range;
       this.length = 0;
       this.bytes = new Uint8Array(maxSize);
       this.next = null;
@@ -11095,7 +11070,11 @@
   var match;
   var prevRange;
   var token;
-  var defaultSyntax = { intel: false, prefix: true };
+  var defaultSyntax = {
+    intel: false,
+    prefix: true,
+    definer: null
+  };
   var currSyntax = defaultSyntax;
   function setSyntax(syntax) {
     currSyntax = syntax;
@@ -11140,6 +11119,32 @@
     token = tok2;
     currRange = range;
   }
+  var Range2 = class {
+    constructor(start = 0, length = 0) {
+      if (start < 0 || length < 0)
+        throw `Invalid range ${start} to ${start + length}`;
+      this.start = start;
+      this.length = length;
+    }
+    includes(pos) {
+      return this.end >= pos && pos >= this.start;
+    }
+    until(end2) {
+      return new Range2(this.start, end2.end - this.start);
+    }
+    slice(text) {
+      return text.slice(this.start, this.end);
+    }
+    get end() {
+      return this.start + this.length;
+    }
+  };
+  var ASMError = class {
+    constructor(message, range = currRange) {
+      this.message = message;
+      this.range = range;
+    }
+  };
 
   // core/operands.js
   var OPT = {
@@ -11224,7 +11229,7 @@
     l: 32,
     q: 64
   };
-  var sizeHints = {
+  var sizeHints = Object.freeze({
     byte: 8,
     word: 16,
     long: 32,
@@ -11237,7 +11242,7 @@
     xmmword: 128,
     ymmword: 256,
     zmmword: 512
-  };
+  });
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
@@ -11593,33 +11598,29 @@
       }
     return new Uint8Array(output);
   }
-  var NUM_INVALID = null;
-  var NUM_PREC_SUFFIX = 1;
-  var NUM_H_SUFFIX = 2;
-  var NUM_E_EXPR = 4;
-  var NUM_SYMBOL = 8;
-  function isNumber(number3, intel) {
-    let match2 = null, type = 0;
-    number3 = number3.toLowerCase();
-    if (number3 == (intel ? "$" : ".") || number3[0].match(/[a-z_]/i))
-      return NUM_SYMBOL;
-    if (number3[0].match(/[^0-9.]/))
-      return NUM_INVALID;
+  function scanIdentifier(id2, intel) {
+    id2 = id2.toLowerCase();
+    if (id2 == (intel ? "$" : ".") || id2[0].match(/[a-z_]/i))
+      return { type: "symbol", precision: false };
+    if (id2[0].match(/[^0-9.]/))
+      return null;
+    let type;
+    let match2 = null;
     if (intel)
-      match2 = number3.match(/^[0-9][0-9a-f]*h(.)?$/);
+      match2 = id2.match(/^[0-9][0-9a-f]*h(.)?$/);
     if (match2)
-      type = NUM_H_SUFFIX;
+      type = "hSuffix";
     else {
-      match2 = number3.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);
+      match2 = id2.match(/^(?:[0-9]*\.?[0-9]+|0x[0-9a-f]+|0o[0-7]+|0b[01]+)(.)?$/);
       if (!match2) {
-        match2 = number3.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
+        match2 = id2.match(/^[0-9]*\.?[0-9]+e[0-9]+(.)?$/);
         if (match2)
-          type = NUM_E_EXPR;
+          type = "eExpr";
         else
-          return NUM_INVALID;
+          return null;
       }
     }
-    return type | (match2[1] ? NUM_PREC_SUFFIX : 0);
+    return { type, precision: match2[1] !== void 0 };
   }
   function parseNumber(asFloat = false, lineEnds = {}) {
     let value = asFloat ? 0 : 0n, floatPrec = asFloat ? 1 : 0;
@@ -11633,32 +11634,29 @@
           value += asFloat ? bytes[i] : BigInt(bytes[i]);
         }
       } else {
-        let numType = isNumber(token, currSyntax.intel);
-        if (numType == NUM_SYMBOL) {
+        let idType = scanIdentifier(token, currSyntax.intel);
+        if (idType.type == "symbol") {
           let symbol = { name: token, pos: currRange };
           next();
           return { value: symbol, floatPrec };
         }
-        if (numType === NUM_INVALID)
+        if (idType === null)
           throw new ASMError("Invalid number");
         let mainToken = token;
-        if (numType & NUM_H_SUFFIX)
+        if (idType.type == "hSuffix")
           mainToken = "0x" + mainToken.replace(/h/i, "");
-        if (numType & NUM_PREC_SUFFIX) {
+        if (idType.precision) {
           let suffix = mainToken[mainToken.length - 1].toLowerCase();
           if (suffix == "d")
             floatPrec = 2;
           else if (suffix == "f")
             floatPrec = 1;
-          else {
-            currRange.start += currRange.length - 1;
-            currRange.length = 1;
-            throw new ASMError("Invalid number suffix");
-          }
+          else
+            throw new ASMError("Invalid number suffix", new Range2(currRange.end - 1, 1));
           value = Number(mainToken.slice(0, -1));
         } else if (asFloat)
           floatPrec = 1, value = Number(mainToken);
-        else if (numType & NUM_E_EXPR) {
+        else if (idType.type == "eExpr") {
           let eIndex = token.indexOf("e");
           let base2 = token.slice(0, eIndex);
           let exponent = BigInt(token.slice(eIndex + 1));
@@ -11953,6 +11951,10 @@
     ".intel_syntax": directives.intel_syntax,
     ".att_syntax": directives.att_syntax
   };
+  function isDirective(directive, intel) {
+    directive = directive.toLowerCase();
+    return intel ? intelDirectives.hasOwnProperty(directive) : directive[0] == "." && directives.hasOwnProperty(directive.slice(1));
+  }
   var Directive = class extends Statement {
     constructor(prev, dir, range) {
       super(prev, DIRECTIVE_BUFFER_SIZE, range);
@@ -12012,7 +12014,7 @@
           case directives.intel_syntax:
           case directives.att_syntax:
             let intel = dir == directives.intel_syntax;
-            setSyntax({ prefix: currSyntax.prefix, intel });
+            setSyntax({ prefix: currSyntax.prefix, intel, definer: this });
             let prefix = !intel;
             let prefSpecifier = next().toLowerCase();
             if (prefSpecifier == "prefix")
@@ -12101,7 +12103,7 @@
     instr.wantsRecomp = true;
   }
   var Symbol2 = class extends Statement {
-    constructor(prev, name2, range, isLabel = false) {
+    constructor(prev, name2, range, opcodeRange, isLabel = false) {
       super(prev, 0, range);
       this.name = name2;
       try {
@@ -12114,7 +12116,7 @@
       if (symbols.has(name2)) {
         let record = symbols.get(name2);
         if (record.symbol) {
-          this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, range);
+          this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
           this.duplicate = true;
           record.references.push(this);
         } else {
@@ -12352,18 +12354,17 @@
     this.vexBase = 0;
     this.evexPermits = null;
     this.actuallyNotVex = false;
-    this.vexOnly = format[0][0] == "v";
+    this.vexOnly = false;
     this.forceVex = format[0][0] == "V";
+    this.vexOnly = format[0][0] == "v";
     if ("vVwl!".includes(format[0][0])) {
       let specializers = format.shift();
       if (specializers.includes("w"))
         this.vexBase |= 32768;
       if (specializers.includes("l"))
         this.vexBase |= 1024;
-      if (specializers.includes("!")) {
+      if (specializers.includes("!"))
         this.actuallyNotVex = true;
-        this.vexOnly = this.forceVex = false;
-      }
     }
     let [opcode, extension] = format.shift().split(".");
     let adderSeparator = opcode.indexOf("+");
@@ -12392,7 +12393,7 @@
     }
     this.allVectors = false;
     this.relativeSizes = null;
-    this.allowVex = !this.forceVex && format.some((op) => op.includes(">"));
+    this.allowVex = this.forceVex || format.some((op) => op.includes(">"));
     this.maxSize = 0;
     this.vexOpCatchers = this.allowVex ? [] : null;
     this.opCatchers = [];
@@ -12431,12 +12432,10 @@
   }
   Operation.prototype.validateVEX = function(vexInfo) {
     if (vexInfo.needed) {
-      if (this.actuallyNotVex)
-        vexInfo.needed = false;
-      else if (!this.allowVex)
+      if (this.actuallyNotVex || !this.allowVex)
         return false;
       if (vexInfo.evex) {
-        if (this.actuallyNotVex || this.evexPermits === null || !(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0 || !(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null || !(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0 || !(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0 || !(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing)
+        if (this.evexPermits === null || !(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0 || !(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null || !(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0 || !(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0 || !(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing)
           return false;
       } else if (this.evexPermits & EVEXPERM_FORCE)
         vexInfo.evex = true;
@@ -13759,8 +13758,8 @@ vdpbf16ps:F3)0F3852 v >Vxyz V {kzf
 vexpandpd:66)0F3888 v Vxyz > {kzwf
 vexpandps:66)0F3888 v Vxyz > {kzf
 
-verr:v! 0F00.4 rW
-verw:v! 0F00.5 rW
+verr:! 0F00.4 rW
+verw:! 0F00.5 rW
 
 vextractf128:66)0F3A19 ib Vy vX >
 vextractf32x4:66)0F3A19 ib Vyz vX > {kzf
@@ -14287,10 +14286,37 @@ g nle`.split("\n");
       ];
     }
   })));
-  function mnemonicExists(opcode, intel) {
-    if (mnemonics.hasOwnProperty(opcode))
-      return !(intel ? intelInvalids : attInvalids).includes(opcode);
-    return intel && intelDifferences.hasOwnProperty(opcode);
+  function isMnemonic(mnemonic, intel) {
+    if (mnemonics.hasOwnProperty(mnemonic))
+      return !(intel ? intelInvalids : attInvalids).includes(mnemonic);
+    return intel && intelDifferences.hasOwnProperty(mnemonic);
+  }
+  function basicScanMnemonic(raw, intel, size, isVex) {
+    if (!isMnemonic(raw, intel))
+      return [];
+    const data = fetchMnemonic(raw, intel);
+    if (isVex && !data.some((x) => x.allowVex || x.actuallyNotVex))
+      return [];
+    return [{
+      raw,
+      relative: relativeMnemonics.includes(raw),
+      size,
+      vex: isVex && !data[0].actuallyNotVex || data[0].forceVex
+    }];
+  }
+  function scanMnemonic(mnemonic, intel) {
+    mnemonic = mnemonic.toLowerCase();
+    if (mnemonic.startsWith("vv"))
+      return [];
+    let isVex = mnemonic[0] == "v";
+    let possibleOpcodes = isVex ? [mnemonic, mnemonic.slice(1)] : [mnemonic];
+    let interps = [];
+    for (const raw of possibleOpcodes) {
+      interps.push(...basicScanMnemonic(raw, intel, void 0, isVex));
+      if (!intel)
+        interps.push(...basicScanMnemonic(raw.slice(0, -1), intel, (raw[0] == "f" ? raw[1] == "i" ? floatIntSuffixes : floatSuffixes : suffixes)[raw[raw.length - 1]] ?? null, isVex));
+    }
+    return interps;
   }
   function fetchMnemonic(opcode, intel) {
     if (intel) {
@@ -14315,14 +14341,14 @@ g nle`.split("\n");
 
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
-  var prefixes = {
+  var prefixes = Object.freeze({
     lock: 240,
     repne: 242,
     repnz: 242,
     rep: 243,
     repe: 243,
     repz: 243
-  };
+  });
   var SHORT_DISP = 128;
   function parseRoundingMode(vexInfo) {
     let roundingName = "", roundStart = currRange;
@@ -14333,7 +14359,7 @@ g nle`.split("\n");
       roundingName += token;
     }
     vexInfo.round = ["sae", "rn-sae", "rd-sae", "ru-sae", "rz-sae"].indexOf(roundingName);
-    vexInfo.roundingPos = { start: roundStart.start, length: currRange.end - roundStart.start };
+    vexInfo.roundingPos = new Range2(roundStart.start, currRange.end - roundStart.start);
     if (vexInfo.round < 0)
       throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
   }
@@ -14341,7 +14367,7 @@ g nle`.split("\n");
     constructor(prev, opcode, range) {
       super(prev, MAX_INSTR_SIZE, range);
       this.opcode = opcode;
-      this.opcodeRange = range;
+      this.opcodeRange = new Range2(range.start, range.length);
       this.interpret();
     }
     genByte(byte) {
@@ -14356,7 +14382,7 @@ g nle`.split("\n");
     interpret() {
       let opcode = this.opcode, operand = null, prefsToGen = 0;
       let vexInfo = {
-        needed: opcode[0] == "v",
+        needed: false,
         evex: false,
         mask: 0,
         zeroing: false,
@@ -14368,18 +14394,17 @@ g nle`.split("\n");
       this.removed = true;
       let operands = [];
       let operations = [];
-      let possibleOpcodes = vexInfo.needed ? [opcode, opcode.slice(1)] : [opcode];
-      for (let subOpcode of possibleOpcodes) {
-        operations = [...operations, ...fetchMnemonic(subOpcode, this.syntax.intel)];
-        if (!this.syntax.intel) {
-          let size = (subOpcode[0] == "f" ? subOpcode[1] == "i" ? floatIntSuffixes : floatSuffixes : suffixes)[subOpcode[subOpcode.length - 1]];
-          subOpcode = subOpcode.slice(0, -1);
-          if (size !== void 0) {
-            if (mnemonicExists(subOpcode, false))
-              operations = [...operations, { size }, ...fetchMnemonic(subOpcode, false)];
-          } else if (operations.length == 0 && mnemonicExists(subOpcode, false))
+      let opcodeInterps = scanMnemonic(opcode, this.syntax.intel);
+      for (let interp of opcodeInterps) {
+        if (interp.size === null) {
+          if (operations.length == 0)
             throw new ASMError("Invalid opcode suffix", new Range2(this.opcodeRange.start + this.opcodeRange.length - 1, 1));
-        }
+        } else if (interp.size !== void 0)
+          operations = [...operations, { size: interp.size }, ...fetchMnemonic(interp.raw, false)];
+        else
+          operations = [...operations, ...fetchMnemonic(interp.raw, this.syntax.intel)];
+        if (interp.vex)
+          vexInfo.needed = true;
       }
       if (operations.length == 0)
         throw new ASMError("Unknown opcode", this.opcodeRange);
@@ -14527,12 +14552,11 @@ g nle`.split("\n");
         }
       }
       if (!found) {
-        let couldveBeenVex = false, minOperandCount = Infinity, maxOperandCount = 0;
+        let minOperandCount = Infinity, maxOperandCount = 0;
         let firstOrderPossible = false, secondOrderPossible = false;
         for (let operation of operations) {
           if (operation.size !== void 0)
             continue;
-          couldveBeenVex = couldveBeenVex || operation.allowVex;
           if (vexInfo.needed && !operation.allowVex)
             continue;
           let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
@@ -14545,8 +14569,6 @@ g nle`.split("\n");
           secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
           operands.reverse();
         }
-        if (vexInfo.needed && !couldveBeenVex)
-          throw new ASMError("Unknown opcode", this.opcodeRange);
         if (operands.length < minOperandCount)
           throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));
         if (operands.length > maxOperandCount)
@@ -14699,14 +14721,12 @@ g nle`.split("\n");
   function addInstruction(instr, seekEnd = true) {
     prevInstr = instr;
     setSyntax(instr.syntax);
-    if (seekEnd) {
-      if (token != "\n" && token != ";") {
-        instr.error = new ASMError("Expected end of line");
-        while (token != "\n" && token != ";")
-          next();
-      }
+    if (seekEnd && token != "\n" && token != ";") {
+      instr.error = new ASMError("Expected end of line");
+      while (token != "\n" && token != ";")
+        next();
     }
-    instr.range = new Range2(instr.range.start, currRange.end - instr.range.start - (seekEnd ? 1 : 0));
+    instr.range.length = currRange.end - instr.range.start - (seekEnd ? 1 : 0);
   }
   var AssemblyState = class {
     constructor() {
@@ -14744,11 +14764,11 @@ g nle`.split("\n");
         instr = instr.next;
       }
       if (lastInstr) {
-        if (range.start > headInstr.next.range.start)
-          range.start = headInstr.next.range.start;
-        range = range.until(lastInstr.range);
+        if (range.start > headInstr.next.effectiveRange.start)
+          range.start = headInstr.next.effectiveRange.start;
+        range = range.until(lastInstr.effectiveRange);
       } else if (tailInstr)
-        range.length = tailInstr.range.start - range.start - 1;
+        range.length = tailInstr.effectiveRange.start - range.start - 1;
       else
         range.length = source.length;
       headInstr.next = null;
@@ -14760,13 +14780,22 @@ g nle`.split("\n");
         try {
           if (token != "\n" && token != ";") {
             let lowerTok = token.toLowerCase();
-            if (currSyntax.intel ? intelDirectives.hasOwnProperty(lowerTok) || token == "%" && (lowerTok = "%" + next().toLowerCase()) : token[0] == ".") {
+            let isDir = false;
+            if (currSyntax.intel) {
+              if (token[0] == "%") {
+                isDir = true;
+                lowerTok += next().toLowerCase();
+              } else
+                isDir = isDirective(lowerTok, true);
+            } else
+              isDir = token[0] == ".";
+            if (isDir) {
               if (currSyntax.intel ? lowerTok == "%assign" : lowerTok == ".equ" || lowerTok == ".set") {
                 let opcode = next();
-                pos = currRange;
+                let opcodePos = currRange;
                 if (!currSyntax.intel && next() !== ",")
                   throw new ASMError("Expected ','");
-                addInstruction(new Symbol2(prevInstr, opcode, pos));
+                addInstruction(new Symbol2(prevInstr, opcode, pos, opcodePos));
               } else
                 addInstruction(new Directive(prevInstr, currSyntax.intel ? token : token.slice(1), pos));
             } else if (prefixes.hasOwnProperty(lowerTok))
@@ -14775,11 +14804,11 @@ g nle`.split("\n");
               let opcode = token;
               next();
               if (token == ":")
-                addInstruction(new Symbol2(prevInstr, opcode, pos, true), false);
+                addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true), false);
               else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
-                addInstruction(new Symbol2(prevInstr, opcode, pos));
-              else if (currSyntax.intel && intelDirectives.hasOwnProperty(token.toLowerCase())) {
-                addInstruction(new Symbol2(prevInstr, opcode, pos, true));
+                addInstruction(new Symbol2(prevInstr, opcode, pos, pos));
+              else if (currSyntax.intel && isDirective(token, true)) {
+                addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true));
                 addInstruction(new Directive(prevInstr, token, pos));
               } else
                 addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
@@ -14812,17 +14841,6 @@ g nle`.split("\n");
       if (instr) {
         prevInstr.next = instr;
         linkedInstrQueue.push(prevInstr);
-        if (!instr.switchSyntax && (currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)) {
-          let nextSyntaxChange = instr.next;
-          while (nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
-            nextSyntaxChange = nextSyntaxChange.next;
-          let nextRange = instr.range.until(nextSyntaxChange.range);
-          this.compile(nextRange.slice(this.source), {
-            haltOnError,
-            range: nextRange,
-            doSecondPass: false
-          });
-        }
       }
       this.compiledRange = range.until(prevRange);
       if (doSecondPass)
@@ -16740,7 +16758,7 @@ g nle`.split("\n");
       next2();
       if (ctx.prefix && isRegister(tok))
         return Register;
-      if (ctx.intel && intelDirectives.hasOwnProperty("%" + tok))
+      if (ctx.intel && isDirective("%" + tok, true))
         return Directive2;
       return null;
     }
@@ -16760,7 +16778,7 @@ g nle`.split("\n");
       end = initEnd;
       return VEXRound;
     }
-    if (ctx.intel ? intelDirectives.hasOwnProperty(tok) : tok[0] == "." && directives.hasOwnProperty(tok.slice(1)))
+    if (isDirective(tok, ctx.intel))
       return Directive2;
     if (!ctx.prefix && isRegister(tok))
       return Register;
@@ -16768,37 +16786,29 @@ g nle`.split("\n");
       return Offset;
     if (prefixes.hasOwnProperty(tok))
       return Prefix2;
-    let opcode = tok;
-    if (!mnemonicExists(opcode, ctx.intel)) {
-      if (opcode[0] == "v" && (ctx.intel || !mnemonicExists(opcode.slice(0, -1), false)))
-        opcode = opcode.slice(1);
-      if (!ctx.intel && mnemonicExists(opcode.slice(0, -1), false))
-        opcode = opcode.slice(0, -1);
-      else if (!mnemonicExists(opcode, ctx.intel)) {
-        if (ctx.intel && sizeHints.hasOwnProperty(tok)) {
-          let prevEnd = end;
-          if (",;\n{:".includes(next2())) {
-            end = prevEnd;
-            return word;
-          }
-          if (tok == "ptr") {
-            let nextPrevEnd = end;
-            end = ",;\n{:".includes(next2()) ? prevEnd : nextPrevEnd;
-            return Ptr;
-          }
-          end = prevEnd;
-          return Ptr;
-        }
-        switch (isNumber(tok, ctx.intel)) {
-          case NUM_INVALID:
-            return null;
-          case NUM_SYMBOL:
-            return word;
-        }
-        return number2;
+    let opcode = tok, opData = scanMnemonic(opcode, ctx.intel);
+    if (opData.length > 0)
+      return opData[0].relative ? ctx.intel ? IRelOpcode : RelOpcode : ctx.intel ? IOpcode : Opcode;
+    if (ctx.intel && sizeHints.hasOwnProperty(tok)) {
+      let prevEnd = end;
+      if (",;\n{:".includes(next2())) {
+        end = prevEnd;
+        return word;
       }
+      if (tok == "ptr") {
+        let nextPrevEnd = end;
+        end = ",;\n{:".includes(next2()) ? prevEnd : nextPrevEnd;
+        return Ptr;
+      }
+      end = prevEnd;
+      return Ptr;
     }
-    return relativeMnemonics.includes(opcode) ? ctx.intel ? IRelOpcode : RelOpcode : ctx.intel ? IOpcode : Opcode;
+    const idType = scanIdentifier(tok, ctx.intel);
+    if (idType === null)
+      return null;
+    if (idType.type == "symbol")
+      return word;
+    return number2;
   }
   var tokenizer2 = new ExternalTokenizer((input, token2, stack) => {
     if (input.read(token2.start, token2.start + 1).match(/\s/))
