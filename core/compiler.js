@@ -1,19 +1,11 @@
-import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment, Range } from "./parser.js";
+import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment, Range, startAbsRange } from "./parser.js";
 import { Directive, isDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
-import { Symbol, recompQueue, queueRecomp } from "./symbols.js";
+import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
 import { Comment, Statement } from "./statement.js";
 
 var linkedInstrQueue = [];
 
-/**
- * @typedef {Object} SymbolRecord
- * @property {?Symbol} symbol The symbol instruction this record belongs to, if it exists
- * @property {Statement[]} references List of instructions that reference this symbol
- */
-
-/** @type {Map<string, SymbolRecord>} */
-export var symbols = null;
 export const baseAddr = 0x400078;
 
 var prevInstr = null;
@@ -67,7 +59,7 @@ export class AssemblyState
             source +
             this.source.slice(range.end);
         
-        symbols = this.symbols;
+        loadSymbols(this.symbols);
 
         let headInstr = this.instructions, lastInstr = null, tailInstr = null;
         let instr = this.instructions.next;
@@ -94,8 +86,6 @@ export class AssemblyState
                     tailInstr = instr;
                 
                 instr.range.start += changeOffset;
-                if(instr.error)
-                    instr.error.range.start += changeOffset;
             }
 
             instr = instr.next;
@@ -121,7 +111,7 @@ export class AssemblyState
         
         while(match && currRange.end <= range.end)
         {
-            let pos = currRange;
+            let pos = startAbsRange();
             try
             {
                 if(token != '\n' && token != ';')
@@ -224,7 +214,7 @@ export class AssemblyState
     secondPass(haltOnError = false)
     {
         let currIndex = baseAddr, instr;
-        symbols = this.symbols;
+        loadSymbols(this.symbols);
 
         symbols.forEach((record, name) => {
             record.references = record.references.filter(instr => !instr.removed);

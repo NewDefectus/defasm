@@ -1,11 +1,14 @@
 import { Statement } from "./statement.js";
 /** @type {string} */          export var code;
 /** @type {boolean} */         export var comment;
-/** @type {Range} */           export var currRange;
+/** @type {RelativeRange} */   export var currRange;
 /** @type {Number} */          export var line;
 /** @type {RegExpExecArray} */ export var match;
-/** @type {Range} */           export var prevRange;
+/** @type {RelativeRange} */   export var prevRange;
 /** @type {string} */          export var token;
+
+/** @type {Range?} */
+var parentRange = null;
 
 export const defaultSyntax = {
     intel: false,
@@ -16,6 +19,11 @@ export var currSyntax = defaultSyntax;
 export function setSyntax(syntax)
 {
     currSyntax = syntax;
+}
+
+export function startAbsRange()
+{
+    return parentRange = currRange.abs();
 }
 
 const tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
@@ -29,7 +37,7 @@ export function loadCode(source, index = 0)
     line = (source.slice(0, index).match(/\n/g) || []).length + 1;
 
     next = defaultNext;
-    prevRange = currRange = new Range(index, 0);
+    parentRange = currRange = new Range(index, 0);
     match = 1; next();
 }
 
@@ -43,7 +51,7 @@ var defaultNext = () => {
     if(match)
     {
         token = match[0];
-        currRange = new Range(match.index, token.length);
+        currRange = new RelativeRange(parentRange, match.index, token.length);
         if(token == (currSyntax.intel ? ';' : '#'))
         {
             comment = true;
@@ -53,7 +61,7 @@ var defaultNext = () => {
     else
     {
         token = '\n';
-        currRange = new Range(code.length, 1);
+        currRange = new RelativeRange(parentRange, code.length, 1);
     }
 
     line += (token.match(/\n/g) || []).length;
@@ -78,14 +86,13 @@ export function setToken(tok, range = currRange)
 }
 
 
-
 export class Range
 {
     constructor(start = 0, length = 0)
     {
         if(start < 0 || length < 0)
             throw `Invalid range ${start} to ${start + length}`;
-        this.start = start;
+        this._start = start;
         this.length = length;
     }
 
@@ -107,9 +114,31 @@ export class Range
         return text.slice(this.start, this.end);
     }
 
-    get end()
+    get start() { return this._start; }
+    set start(val) { this._start = val; }
+
+    get end() { return this.start + this.length; }
+}
+
+class RelativeRange extends Range
+{
+    constructor(parent, start, length)
     {
-        return this.start + this.length;
+        super(start - parent.start, length);
+        this.parent = parent;
+    }
+
+    get start() { return this.parent.start + this._start; }
+    set start(val) { this._start = val - this.parent.start; }
+
+    abs()
+    {
+        return new Range(this.start, this.length);
+    }
+
+    until(end)
+    {
+        return new RelativeRange(this.parent, this.start, end.end - this.start);
     }
 }
 

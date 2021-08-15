@@ -1,6 +1,6 @@
 import { isRegister, OPT, parseRegister, PREFIX_ADDRSIZE, regParsePos } from "./operands.js";
 import { ASMError, currRange, currSyntax, next, Range, setToken, token, ungetToken } from "./parser.js";
-import { symbols } from "./compiler.js";
+import { symbols } from "./symbols.js";
 import { Statement } from "./statement.js";
 
 export var unaries = {
@@ -242,7 +242,7 @@ export function LabelExpression(instr)
 
 
 /** @param {Statement} instr */
-export function Expression(instr, minFloatPrec = 0, expectMemory = false)
+export function Expression(instr, minFloatPrec = 0, expectMemory = false, uses = null)
 {
     this.hasSymbols = false;
     this.stack = [];
@@ -487,13 +487,23 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
                 instr.ipRelative = true;
                 value.isIP = true;
             }
-            else if(symbols.has(value.name))
-                symbols.get(value.name).references.push(instr);
             else
-                symbols.set(value.name, {
-                    symbol: null,
-                    references: [instr]
-                });
+            {
+                let record;
+                if(symbols.has(value.name))
+                {
+                    record = symbols.get(value.name);
+                    record.references.push(instr);
+                }
+                else
+                    symbols.set(value.name, record = {
+                        symbol: null,
+                        references: [instr],
+                        uses: []
+                    });
+                if(uses !== null)
+                    uses.push(record);
+            }
             this.hasSymbols = true;
         }
     }
@@ -505,7 +515,7 @@ export function Expression(instr, minFloatPrec = 0, expectMemory = false)
         this.shift = 0;
 }
 
-Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
+Expression.prototype.evaluate = function(currIndex, requireSymbols = false, originRecord = null)
 {
     if(this.stack.length === 0)
         return null;
@@ -531,7 +541,8 @@ Expression.prototype.evaluate = function(currIndex, requireSymbols = false)
             else if(op.name) // Symbols
             {
                 let record = symbols.get(op.name);
-                if(record.symbol !== null && !record.symbol.error)
+                if(record.symbol !== null && !record.symbol.error
+                    && (originRecord === null || !checkSymbolRecursion(originRecord, record)))
                     op = symbols.get(op.name).symbol.value;
                 else if(!requireSymbols)
                     op = 1n;
@@ -562,4 +573,16 @@ Expression.prototype.add = function(expr)
         this.stack.push(...expr.stack, operators['+']);
     this.floatPrec = Math.max(this.floatPrec, expr.floatPrec);
     this.hasSymbols = this.hasSymbols || expr.hasSymbols;
+}
+
+
+
+function checkSymbolRecursion(origin, record)
+{
+    if(record === origin)
+        return true;
+    for(const use of record.uses)
+        if(use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
+            return true;
+    return false;
 }
