@@ -10,8 +10,9 @@ The package exports the `assembly()` function, which returns an extension that c
 * `errorMarking` - whether to draw a red underline beneath segments of code that cause errors
 * `errorTooltips` - whether to show a tooltip on these segments explaining the cause of the error
 * `highlighting` - whether to enable syntax highlighting using a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport) object
+* `intel` - set to `true` for Intel syntax, `false` for AT&T syntax
 
-By default, all of these fields, except for `debug`, are set to `true`.
+By default, all of these fields, except for `debug` and `intel`, are set to `true`.
 
 The `AssemblyState` object associated with the editor may be accessed through the `ASMStateField` state field, as such:
 

@@ -1,4 +1,4 @@
-import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, defaultSyntax, prevRange, line, comment, Range, startAbsRange } from "./parser.js";
+import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange } from "./parser.js";
 import { Directive, isDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
@@ -29,13 +29,24 @@ function addInstruction(instr, seekEnd = true)
 
 export class AssemblyState
 {
-    constructor()
+    /**
+     * @param {Object} config
+     * @param {boolean} config.intel Set to true for Intel syntax, false for AT&T syntax. Defaults to false
+     */
+    constructor({
+        intel = false
+    } = {})
     {
         /** @type {Map<string, SymbolRecord>} */
         this.symbols = new Map();
 
         /** @type {Statement} */
         this.instructions = new Statement();
+        this.instructions.syntax = {
+            intel,
+            prefix: !intel,
+            definer: null
+        }
 
         /** @type {string} */
         this.source = '';
@@ -104,7 +115,7 @@ export class AssemblyState
             range.length = source.length;
         
         headInstr.next = null;
-        setSyntax(headInstr ? headInstr.syntax : defaultSyntax);
+        setSyntax(headInstr.syntax);
         loadCode(this.source, range.start);
 
         prevInstr = headInstr;

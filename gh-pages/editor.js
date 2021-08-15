@@ -27,7 +27,7 @@ const editor = new EditorView({
             history(),
             keymap.of([...closeBracketsKeymap, ...historyKeymap, defaultTabBinding, ...standardKeymap]),
             lineNumbers(),
-            assembly({ debug: true })
+            assembly({ debug: true, intel: true })
         ]
     })
 });

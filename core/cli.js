@@ -11,11 +11,13 @@ let sizeOutFD = null;
 let execute = false;
 let outputFile = null, inputFile = null;
 let runtimeArgs = [];
+let intel = false;
 
 if(args[0] === '-h' || args[0] === '--help')
 {
     console.log(
-`Usage: defasm [file] [--output outfile] [--size-out=fd] [--run [arguments...]]
+`Usage: defasm [file] [--intel] [--output outfile] [--size-out=fd] [--run [arguments...]]
+    --intel         Use Intel syntax when assembling (defaults to AT&T)
     --output        The path to the output file (defaults to 'a' in current
                     directory, or /tmp/asm if --run is provided).
     --size-out      A file descriptor to write the number (in ASCII) of bytes
@@ -41,18 +43,24 @@ try
         if(arg.startsWith('--size-out='))
         {
             sizeOutFD = parseInt(arg.slice('--size-out='.length));
-            if(isNaN(sizeOutFD)) throw "--size-out expects a file descriptor";
+            if(isNaN(sizeOutFD))
+                throw "--size-out expects a file descriptor";
         }
-        else if(arg === '-r' || arg === '--run')
+        else if(arg == '-r' || arg == '--run')
         {
             execute = true;
             runtimeArgs = args;
             args = [];
         }
-        else if(arg === '-o' || arg === '--output')
+        else if(arg == '-o' || arg == '--output')
         {
             outputFile = args.shift();
-            if(outputFile === undefined) throw "No output file given";
+            if(outputFile === undefined)
+                throw "No output file given";
+        }
+        else if(arg == '-i' || arg == '--intel')
+        {
+            intel = true;
         }
         else
         {
@@ -99,7 +107,7 @@ function assemble()
         outputFile = './' + outputFile;
     }
 
-    let state = new AssemblyState();
+    let state = new AssemblyState({intel});
 
     try
     {

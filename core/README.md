@@ -45,7 +45,9 @@ mov BYTE PTR [%rsi + %rbx * 4], 4
 ```
 
 ## JavaScript exports
-The package also exports a JavaScript class called `AssemblyState`; it represents the assembler's state, and as such contains the following data:
+The package also exports a class called `AssemblyState`. An object of this type is needed for running the assembler; its constructor takes in an optional config object, which can be used to set the parsing syntax to Intel or AT&T (defaults to AT&T).
+
+The class has the following properties:
 * `bytes` - the number of bytes generated after the last call to `secondPass`
 * `compiledRange` - the range of text parsed by the compiler during the last call to `compile` (used for debugging)
 * `instructions` - the dummy header node of a linked list containing all the instructions of the program
@@ -59,6 +61,10 @@ The package also exports a JavaScript class called `AssemblyState`; it represent
 * `line` - creates a `Range` object that spans a given line (useful for replacing/inserting lines in `compile`)
 * `iterate` - iterates over the instructions using a given callback, passing the instruction's line as a second parameter (note that if an instruction spans multiple lines, it will be called once for each line).
 * `bytesPerLine` - iterate over each line in the program using a given callback, sending an array of Uint8Arrays (one per instruction) and a line number. Data directives spanning multiple lines may be sent multiple times. Empty instructions and lines are skipped.
+
+The package also exports a `Range` class, which is used within the compiler to keep track of each instruction's span. A `Range` object may be passed to the `compile` method of `AssemblyState` to specify the range in the code to replace. It can be created using the constructor, which receives the range's start index and length in characters, or using `AssemblyState`'s `line` method described above.
+
+There are also a number of functions exported by the package that identify or collect information about assembly keywords. These are mostly there for syntax highlighting.
 
 ### Example
 

@@ -1,5 +1,5 @@
 import { baseAddr } from "./compiler.js";
-import { ASMError, Range, defaultSyntax } from "./parser.js";
+import { ASMError, Range, currSyntax } from "./parser.js";
 
 var totalStatements = 0;
 
@@ -40,7 +40,7 @@ export class Statement
         }
         else
         {
-            this.syntax = defaultSyntax;
+            this.syntax = currSyntax;
             this.address = baseAddr;
         }
     }

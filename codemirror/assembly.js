@@ -4,6 +4,7 @@ import { parser }                                      from "./parser.js";
 import { debugPlugin }                                 from "./debugPlugin.js";
 import { LezerLanguage, LanguageSupport }              from '@codemirror/language';
 import { styleTags, tags }                             from '@codemirror/highlight';
+import { AssemblyState }                               from "@defasm/core";
 
 const assemblyLang = LezerLanguage.define({
     parser: parser.configure({
@@ -40,10 +41,15 @@ export function assembly({
     debug         = false,
     errorMarking  = true,
     errorTooltips = true,
-    highlighting  = true
+    highlighting  = true,
+    intel         = false
 } = {})
 {
-    const plugins = [ASMStateField.extension, ASMErrorField.extension];
+    const plugins = [ASMStateField.init(state => {
+        const asm = new AssemblyState({ intel });
+        asm.compile(state.sliceDoc());
+        return asm;
+    }), ASMErrorField.extension];
     if(byteDumps)     plugins.push(byteDumper);
     if(debug)         plugins.push(debugPlugin);
     if(errorMarking)  plugins.push(errorMarker);

@@ -10,12 +10,7 @@ import { Statement } from "./statement.js";
 /** @type {Range?} */
 var parentRange = null;
 
-export const defaultSyntax = {
-    intel: false,
-    prefix: true,
-    /** @type {Statement?} */ definer: null
-}
-export var currSyntax = defaultSyntax;
+export var currSyntax = null;
 export function setSyntax(syntax)
 {
     currSyntax = syntax;

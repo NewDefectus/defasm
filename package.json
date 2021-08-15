@@ -1,8 +1,7 @@
 {
   "scripts": {
     "build": "esbuild --bundle --sourcemap --outfile=gh-pages/index.js gh-pages/editor.js",
-    "debug": "esbuild --banner:js='\"use strict\";' --bundle --sourcemap --servedir=gh-pages --outfile=gh-pages/index.js gh-pages/editor.js",
-    "prepare": "npm run build",
+    "dev": "esbuild --banner:js='\"use strict\";' --bundle --sourcemap --servedir=gh-pages --outfile=gh-pages/index.js gh-pages/editor.js",
     "test": "node tests.js"
   },
   "dependencies": {
