@@ -11070,6 +11070,7 @@
   var match;
   var prevRange;
   var token;
+  var parentRange = null;
   var defaultSyntax = {
     intel: false,
     prefix: true,
@@ -11079,13 +11080,16 @@
   function setSyntax(syntax) {
     currSyntax = syntax;
   }
+  function startAbsRange() {
+    return parentRange = currRange.abs();
+  }
   var tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
   function loadCode(source, index = 0) {
     tokenizer.lastIndex = index;
     code = source;
     line = (source.slice(0, index).match(/\n/g) || []).length + 1;
     next = defaultNext;
-    prevRange = currRange = new Range2(index, 0);
+    parentRange = currRange = new Range2(index, 0);
     match = 1;
     next();
   }
@@ -11097,14 +11101,14 @@
     match = tokenizer.exec(code);
     if (match) {
       token = match[0];
-      currRange = new Range2(match.index, token.length);
+      currRange = new RelativeRange(parentRange, match.index, token.length);
       if (token == (currSyntax.intel ? ";" : "#")) {
         comment2 = true;
         token = ";";
       }
     } else {
       token = "\n";
-      currRange = new Range2(code.length, 1);
+      currRange = new RelativeRange(parentRange, code.length, 1);
     }
     line += (token.match(/\n/g) || []).length;
     return token;
@@ -11123,7 +11127,7 @@
     constructor(start = 0, length = 0) {
       if (start < 0 || length < 0)
         throw `Invalid range ${start} to ${start + length}`;
-      this.start = start;
+      this._start = start;
       this.length = length;
     }
     includes(pos) {
@@ -11135,8 +11139,32 @@
     slice(text) {
       return text.slice(this.start, this.end);
     }
+    get start() {
+      return this._start;
+    }
+    set start(val) {
+      this._start = val;
+    }
     get end() {
       return this.start + this.length;
+    }
+  };
+  var RelativeRange = class extends Range2 {
+    constructor(parent, start, length) {
+      super(start - parent.start, length);
+      this.parent = parent;
+    }
+    get start() {
+      return this.parent.start + this._start;
+    }
+    set start(val) {
+      this._start = val - this.parent.start;
+    }
+    abs() {
+      return new Range2(this.start, this.length);
+    }
+    until(end2) {
+      return new RelativeRange(this.parent, this.start, end2.end - this.start);
     }
   };
   var ASMError = class {
@@ -11510,6 +11538,85 @@
       this.attemptedSizes |= 1 << (size >> 4);
   };
 
+  // core/symbols.js
+  var recompQueue = [];
+  var symbols = null;
+  function loadSymbols(table) {
+    symbols = table;
+  }
+  function queueRecomp(instr) {
+    if (!instr.wantsRecomp)
+      recompQueue.push(instr);
+    instr.wantsRecomp = true;
+  }
+  var Symbol2 = class extends Statement {
+    record;
+    constructor(prev, name2, range, opcodeRange, isLabel = false) {
+      super(prev, 0, range);
+      this.name = name2;
+      let uses = [];
+      try {
+        this.expression = isLabel ? LabelExpression(this) : (next(), new Expression(this, 0, false, uses));
+      } catch (e) {
+        this.removed = true;
+        throw e;
+      }
+      if (symbols.has(name2)) {
+        this.record = symbols.get(name2);
+        if (this.record.symbol) {
+          this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
+          this.duplicate = true;
+          this.record.references.push(this);
+          return;
+        }
+        this.record.uses = uses;
+        this.duplicate = false;
+      } else
+        symbols.set(name2, this.record = {
+          symbol: null,
+          references: [],
+          uses
+        });
+      try {
+        this.value = this.expression.evaluate(this.address, false, this.record);
+        this.record.symbol = this;
+        for (let ref of this.record.references)
+          if (!ref.removed)
+            queueRecomp(ref);
+      } catch (e) {
+        this.removed = true;
+        this.error = e;
+      }
+    }
+    recompile() {
+      if (this.duplicate && this.record.symbol)
+        return;
+      this.duplicate = false;
+      let originValue = this.error ? null : this.value;
+      this.error = null;
+      try {
+        this.value = this.expression.evaluate(this.address, true, this.record);
+      } catch (e) {
+        this.error = e;
+      }
+      if (originValue !== (this.error ? null : this.value)) {
+        this.record.symbol = this;
+        for (let ref of this.record.references)
+          queueRecomp(ref);
+      }
+    }
+    remove() {
+      if (!this.duplicate) {
+        if (this.record.references.length > 0) {
+          this.record.symbol = null;
+          this.record.uses = [];
+        } else
+          symbols.delete(this.name);
+      }
+      super.remove();
+    }
+  };
+
   // core/shuntingYard.js
   var unaries = {
     "+": (a) => a,
@@ -11689,7 +11796,7 @@
     instr.ipRelative = true;
     return result;
   }
-  function Expression(instr, minFloatPrec = 0, expectMemory = false) {
+  function Expression(instr, minFloatPrec = 0, expectMemory = false, uses = null) {
     this.hasSymbols = false;
     this.stack = [];
     this.floatPrec = minFloatPrec;
@@ -11858,13 +11965,20 @@
         if (value.name === (instr.syntax.intel ? "$" : ".")) {
           instr.ipRelative = true;
           value.isIP = true;
-        } else if (symbols.has(value.name))
-          symbols.get(value.name).references.push(instr);
-        else
-          symbols.set(value.name, {
-            symbol: null,
-            references: [instr]
-          });
+        } else {
+          let record;
+          if (symbols.has(value.name)) {
+            record = symbols.get(value.name);
+            record.references.push(instr);
+          } else
+            symbols.set(value.name, record = {
+              symbol: null,
+              references: [instr],
+              uses: []
+            });
+          if (uses !== null)
+            uses.push(record);
+        }
         this.hasSymbols = true;
       }
     }
@@ -11873,7 +11987,7 @@
     if (this.shift === null)
       this.shift = 0;
   }
-  Expression.prototype.evaluate = function(currIndex, requireSymbols = false) {
+  Expression.prototype.evaluate = function(currIndex, requireSymbols = false, originRecord = null) {
     if (this.stack.length === 0)
       return null;
     let stack = [], len = 0;
@@ -11891,7 +12005,7 @@
           op = BigInt(currIndex);
         else if (op.name) {
           let record = symbols.get(op.name);
-          if (record.symbol !== null && !record.symbol.error)
+          if (record.symbol !== null && !record.symbol.error && (originRecord === null || !checkSymbolRecursion(originRecord, record)))
             op = symbols.get(op.name).symbol.value;
           else if (!requireSymbols)
             op = 1n;
@@ -11919,6 +12033,14 @@
     this.floatPrec = Math.max(this.floatPrec, expr.floatPrec);
     this.hasSymbols = this.hasSymbols || expr.hasSymbols;
   };
+  function checkSymbolRecursion(origin, record) {
+    if (record === origin)
+      return true;
+    for (const use of record.uses)
+      if (use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
+        return true;
+    return false;
+  }
 
   // core/directives.js
   var DIRECTIVE_BUFFER_SIZE = 15;
@@ -12092,74 +12214,6 @@
         }
       }
       this.lineEnds.offset = this.length;
-    }
-  };
-
-  // core/symbols.js
-  var recompQueue = [];
-  function queueRecomp(instr) {
-    if (!instr.wantsRecomp)
-      recompQueue.push(instr);
-    instr.wantsRecomp = true;
-  }
-  var Symbol2 = class extends Statement {
-    constructor(prev, name2, range, opcodeRange, isLabel = false) {
-      super(prev, 0, range);
-      this.name = name2;
-      try {
-        this.expression = isLabel ? LabelExpression(this) : (next(), new Expression(this));
-        this.value = this.expression.evaluate(this.address);
-      } catch (e) {
-        this.removed = true;
-        throw e;
-      }
-      if (symbols.has(name2)) {
-        let record = symbols.get(name2);
-        if (record.symbol) {
-          this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
-          this.duplicate = true;
-          record.references.push(this);
-        } else {
-          record.symbol = this;
-          this.duplicate = false;
-          for (let ref of record.references) {
-            if (!ref.removed)
-              queueRecomp(ref);
-          }
-        }
-      } else
-        symbols.set(name2, {
-          symbol: this,
-          references: []
-        });
-    }
-    recompile() {
-      let record = symbols.get(this.name);
-      if (this.duplicate && record.symbol)
-        return;
-      this.duplicate = false;
-      let originValue = this.error ? null : this.value;
-      this.error = null;
-      try {
-        this.value = this.expression.evaluate(this.address, true);
-      } catch (e) {
-        this.error = e;
-      }
-      if (originValue !== (this.error ? null : this.value)) {
-        record.symbol = this;
-        for (let ref of record.references)
-          queueRecomp(ref);
-      }
-    }
-    remove() {
-      if (!this.duplicate) {
-        let record = symbols.get(this.name);
-        if (record.references.length > 0)
-          record.symbol = null;
-        else
-          symbols.delete(this.name);
-      }
-      super.remove();
     }
   };
 
@@ -14715,7 +14769,6 @@ g nle`.split("\n");
 
   // core/compiler.js
   var linkedInstrQueue = [];
-  var symbols = null;
   var baseAddr = 4194424;
   var prevInstr = null;
   function addInstruction(instr, seekEnd = true) {
@@ -14742,7 +14795,7 @@ g nle`.split("\n");
       doSecondPass = true
     } = {}) {
       this.source = this.source.slice(0, range.start).padEnd(range.start, "\n") + source + this.source.slice(range.end);
-      symbols = this.symbols;
+      loadSymbols(this.symbols);
       let headInstr = this.instructions, lastInstr = null, tailInstr = null;
       let instr = this.instructions.next;
       let changeOffset = source.length - range.length;
@@ -14758,8 +14811,6 @@ g nle`.split("\n");
           if (tailInstr === null)
             tailInstr = instr;
           instr.range.start += changeOffset;
-          if (instr.error)
-            instr.error.range.start += changeOffset;
         }
         instr = instr.next;
       }
@@ -14776,7 +14827,7 @@ g nle`.split("\n");
       loadCode(this.source, range.start);
       prevInstr = headInstr;
       while (match && currRange.end <= range.end) {
-        let pos = currRange;
+        let pos = startAbsRange();
         try {
           if (token != "\n" && token != ";") {
             let lowerTok = token.toLowerCase();
@@ -14848,7 +14899,7 @@ g nle`.split("\n");
     }
     secondPass(haltOnError = false) {
       let currIndex = baseAddr, instr;
-      symbols = this.symbols;
+      loadSymbols(this.symbols);
       symbols.forEach((record, name2) => {
         record.references = record.references.filter((instr2) => !instr2.removed);
         if (record.symbol === null || record.symbol.error) {
