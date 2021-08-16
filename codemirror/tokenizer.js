@@ -6,7 +6,7 @@ import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
 
 import * as Terms from './parser.terms.js';
 
-var tok, end;
+var tok;
 
 /** @param {InputStream} input */
 function next(input)
@@ -14,18 +14,18 @@ function next(input)
     tok = '';
     let char;
     
-    while(char = input.peek(end), char >= 0 && char != 10 && String.fromCodePoint(char).match(/\s/))
-        end++;
-    if(char = input.peek(end), char >= 0 && !(char = String.fromCodePoint(char)).match(/[.\w]/))
+    while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
+        input.advance();
+    if(input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.\w]/))
     {
         tok = char;
-        end++;
+        input.advance();
     }
     else
-        while(char = input.peek(end), char >= 0 && (char = String.fromCodePoint(char)).match(/[.\w]/))
+        while(input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.\w]/))
         {
             tok += char;
-            end++;
+            input.advance();
         }
 
     return tok = tok.toLowerCase() || '\n';
@@ -37,7 +37,6 @@ export const ctxTracker = initialSyntax => new ContextTracker({
     shift: (ctx, term, stack, input) => {
         if(term != Terms.Directive)
             return ctx;
-        end = 0;
         let result = {}, syntax = next(input);
         if(syntax == ".intel_syntax")
         {
@@ -79,8 +78,8 @@ function tokenize({prefix, intel}, input)
 
     if(tok == (intel ? ';' : '#'))
     {
-        while(input.peek(end) != '\n'.charCodeAt(0))
-            end++;
+        while(input.next >= 0 && input.next != '\n'.charCodeAt(0))
+            input.advance();
         return Terms.Comment;
     }
 
@@ -121,21 +120,21 @@ function tokenize({prefix, intel}, input)
 
     if(intel && sizeHints.hasOwnProperty(tok))
     {
-        let prevEnd = end;
+        let prevEnd = input.pos;
         if(",;\n{:".includes(next(input)))
         {
-            end = prevEnd;
+            input.pos = prevEnd;
             return Terms.word;
         }
 
         if(tok == 'ptr')
         {
-            let nextPrevEnd = end;
-            end = ",;\n{:".includes(next(input)) ? prevEnd : nextPrevEnd;
+            let nextPrevEnd = input.pos;
+            input.pos = ",;\n{:".includes(next(input)) ? prevEnd : nextPrevEnd;
             return Terms.Ptr;
         }
 
-        end = prevEnd;
+        input.pos = prevEnd;
         return Terms.Ptr;
     }
 
@@ -150,12 +149,11 @@ export const tokenizer = new ExternalTokenizer(
     (input, stack) => {
         if(input.next < 0 || String.fromCharCode(input.next).match(/\s/))
             return;
-        
-        end = 0;
+
         next(input);
         const type = tokenize(stack.context, input);
         if(type !== null)
-            input.acceptToken(type, end);
+            input.acceptToken(type);
         
     }, {
         contextual: false

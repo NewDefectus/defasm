@@ -349,7 +349,7 @@ export class Instruction extends Statement
             if(!firstOrderPossible && secondOrderPossible)
                 throw new ASMError("Wrong operand order", errRange);
             
-            if(vexInfo.mask == 0 && operations.some(x => x.vexOpCatchers.length == operands.length && x.requireMask))
+            if(vexInfo.mask == 0 && operations.some(x => x.vexOpCatchers && x.vexOpCatchers.length == operands.length && x.requireMask))
                 throw new ASMError("Must use a mask for this instruction", errRange);
             
             throw new ASMError("Invalid operands", errRange);
