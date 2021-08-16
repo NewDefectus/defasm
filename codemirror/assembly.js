@@ -5,7 +5,7 @@ import { debugPlugin }                                 from "./debugPlugin.js";
 import { LRLanguage, LanguageSupport }                 from '@codemirror/language';
 import { styleTags, tags }                             from '@codemirror/highlight';
 import { AssemblyState }                               from '@defasm/core';
-import { makeTokenizer, tokenizer } from "./tokenizer.js";
+import { ctxTracker } from "./tokenizer.js";
 
 const assemblyLang = LRLanguage.define({
     parser: parser.configure({
@@ -58,10 +58,7 @@ export function assembly({
 
     if(highlighting)
         return new LanguageSupport(assemblyLang.configure({
-            tokenizers: [{
-                from: tokenizer,
-                to: makeTokenizer(intel)
-            }]
+            contextTracker: ctxTracker({ intel, prefix: !intel })
         }), plugins);
     return plugins;
 }

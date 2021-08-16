@@ -1,6 +1,5 @@
 @top Program { statement ((statementSeparator | '\n') statement)*  }
 
-@context ctxTracker from "./tokenizer"
 @external tokens tokenizer from "./tokenizer" {
   Register,
   Directive,

@@ -31,9 +31,9 @@ function next(input)
     return tok = tok.toLowerCase() || '\n';
 }
 
-export const ctxTracker = new ContextTracker({
-    /** @type {{intel: boolean, prefix: boolean}} */
-    start: null,
+/** @param {{intel: boolean, prefix: boolean}} initialSyntax */
+export const ctxTracker = initialSyntax => new ContextTracker({
+    start: initialSyntax,
     shift: (ctx, term, stack, input) => {
         if(term != Terms.Directive)
             return ctx;
@@ -147,10 +147,7 @@ function tokenize({prefix, intel}, input)
         return Terms.word;
     return Terms.number;
 }
-
-export const tokenizer = new ExternalTokenizer();
-
-export const makeTokenizer = intel => new ExternalTokenizer(
+export const tokenizer = new ExternalTokenizer(
     (input, stack) => {
         // Skip whitespace
         while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
@@ -158,7 +155,7 @@ export const makeTokenizer = intel => new ExternalTokenizer(
         
         end = 0;
         next(input);
-        const type = tokenize(stack.context ?? { intel, prefix: !intel }, input);
+        const type = tokenize(stack.context, input);
         if(type !== null)
             input.acceptToken(type, end);
         
