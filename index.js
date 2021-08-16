@@ -12646,6 +12646,7 @@
     this.evexPermits = null;
     this.actuallyNotVex = false;
     this.vexOnly = false;
+    this.requireMask = false;
     this.forceVex = format[0][0] == "V";
     this.vexOnly = format[0][0] == "v";
     if ("vVwl!".includes(format[0][0])) {
@@ -12696,6 +12697,10 @@
         continue;
       if (operand[0] == "{") {
         this.evexPermits = parseEvexPermits(operand.slice(1));
+        if (this.evexPermits & EVEXPERM_FORCE)
+          this.vexOnly = true;
+        if (this.evexPermits & EVEXPERM_FORCE_MASK)
+          this.requireMask = true;
         continue;
       }
       opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
@@ -12733,7 +12738,7 @@
     } else if (this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
       return false;
     if (this.evexPermits & EVEXPERM_FORCE_MASK && vexInfo.mask == 0)
-      throw new ASMError("Must use a mask for this instruction");
+      return false;
     return true;
   };
   Operation.prototype.fit = function(operands, instr, vexInfo) {
@@ -14586,7 +14591,7 @@ g nle`.split("\n");
     if (!isMnemonic(raw, intel))
       return [];
     const data = fetchMnemonic(raw, intel);
-    if (isVex && !data.some((x) => x.allowVex || x.actuallyNotVex))
+    if (isVex ? !data.some((x) => x.allowVex || x.actuallyNotVex) : !data.some((x) => !x.vexOnly))
       return [];
     return [{
       raw,
@@ -14860,13 +14865,16 @@ g nle`.split("\n");
           secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
           operands.reverse();
         }
+        const errRange = this.operandStartPos.until(this.endPos);
         if (operands.length < minOperandCount)
-          throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));
+          throw new ASMError("Not enough operands", errRange);
         if (operands.length > maxOperandCount)
-          throw new ASMError("Too many operands", this.operandStartPos.until(this.endPos));
+          throw new ASMError("Too many operands", errRange);
         if (!firstOrderPossible && secondOrderPossible)
-          throw new ASMError("Wrong operand order", this.operandStartPos.until(this.endPos));
-        throw new ASMError("Invalid operands", this.operandStartPos.until(this.endPos));
+          throw new ASMError("Wrong operand order", errRange);
+        if (vexInfo.mask == 0 && operations.some((x) => x.vexOpCatchers.length == operands.length && x.requireMask))
+          throw new ASMError("Must use a mask for this instruction", errRange);
+        throw new ASMError("Invalid operands", errRange);
       }
       if (op.rexw)
         rexVal |= 8, prefsToGen |= PREFIX_REX;
@@ -15102,7 +15110,7 @@ g nle`.split("\n");
               else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
                 addInstruction(new Symbol2(prevInstr, opcode, pos, pos));
               else if (currSyntax.intel && isDirective(token, true)) {
-                addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true));
+                addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true), false);
                 addInstruction(new Directive(prevInstr, token, pos));
               } else
                 addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
@@ -17212,11 +17220,10 @@ g nle`.split("\n");
     if (tok == "=" || intel && tok == "equ")
       return symEquals;
     if (tok == "{") {
-      let line2 = input.lineAfter(loadStart), pos = line2.indexOf("}") + 1;
-      let initEnd = pos || line2.length;
       if ((!prefix || next2(input) == "%") && isRegister(next2(input)))
         return null;
-      end = initEnd;
+      while (tok != "\n" && tok != "}")
+        next2(input);
       return VEXRound;
     }
     if (isDirective(tok, intel))
