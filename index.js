@@ -183,10 +183,10 @@
     }
     lineInner(target, isLine, line2, offset) {
       for (let i = 0; ; i++) {
-        let string2 = this.text[i], end2 = offset + string2.length;
-        if ((isLine ? line2 : end2) >= target)
-          return new Line(offset, end2, line2, string2);
-        offset = end2 + 1;
+        let string2 = this.text[i], end = offset + string2.length;
+        if ((isLine ? line2 : end) >= target)
+          return new Line(offset, end, line2, string2);
+        offset = end + 1;
         line2++;
       }
     }
@@ -217,12 +217,12 @@
     sliceString(from, to = this.length, lineSep = "\n") {
       let result = "";
       for (let pos = 0, i = 0; pos <= to && i < this.text.length; i++) {
-        let line2 = this.text[i], end2 = pos + line2.length;
+        let line2 = this.text[i], end = pos + line2.length;
         if (pos > from && i)
           result += lineSep;
-        if (from < end2 && to > pos)
+        if (from < end && to > pos)
           result += line2.slice(Math.max(0, from - pos), to - pos);
-        pos = end2 + 1;
+        pos = end + 1;
       }
       return result;
     }
@@ -257,31 +257,31 @@
     }
     lineInner(target, isLine, line2, offset) {
       for (let i = 0; ; i++) {
-        let child = this.children[i], end2 = offset + child.length, endLine = line2 + child.lines - 1;
-        if ((isLine ? endLine : end2) >= target)
+        let child = this.children[i], end = offset + child.length, endLine = line2 + child.lines - 1;
+        if ((isLine ? endLine : end) >= target)
           return child.lineInner(target, isLine, line2, offset);
-        offset = end2 + 1;
+        offset = end + 1;
         line2 = endLine + 1;
       }
     }
     decompose(from, to, target, open) {
       for (let i = 0, pos = 0; pos <= to && i < this.children.length; i++) {
-        let child = this.children[i], end2 = pos + child.length;
-        if (from <= end2 && to >= pos) {
-          let childOpen = open & ((pos <= from ? 1 : 0) | (end2 >= to ? 2 : 0));
-          if (pos >= from && end2 <= to && !childOpen)
+        let child = this.children[i], end = pos + child.length;
+        if (from <= end && to >= pos) {
+          let childOpen = open & ((pos <= from ? 1 : 0) | (end >= to ? 2 : 0));
+          if (pos >= from && end <= to && !childOpen)
             target.push(child);
           else
             child.decompose(from - pos, to - pos, target, childOpen);
         }
-        pos = end2 + 1;
+        pos = end + 1;
       }
     }
     replace(from, to, text) {
       if (text.lines < this.lines)
         for (let i = 0, pos = 0; i < this.children.length; i++) {
-          let child = this.children[i], end2 = pos + child.length;
-          if (from >= pos && to <= end2) {
+          let child = this.children[i], end = pos + child.length;
+          if (from >= pos && to <= end) {
             let updated = child.replace(from - pos, to - pos, text);
             let totalLines = this.lines - child.lines + updated.lines;
             if (updated.lines < totalLines >> 5 - 1 && updated.lines > totalLines >> 5 + 1) {
@@ -289,21 +289,21 @@
               copy[i] = updated;
               return new TextNode(copy, this.length - (to - from) + text.length);
             }
-            return super.replace(pos, end2, updated);
+            return super.replace(pos, end, updated);
           }
-          pos = end2 + 1;
+          pos = end + 1;
         }
       return super.replace(from, to, text);
     }
     sliceString(from, to = this.length, lineSep = "\n") {
       let result = "";
       for (let i = 0, pos = 0; i < this.children.length && pos <= to; i++) {
-        let child = this.children[i], end2 = pos + child.length;
+        let child = this.children[i], end = pos + child.length;
         if (pos > from && i)
           result += lineSep;
-        if (from < end2 && to > pos)
+        if (from < end && to > pos)
           result += child.sliceString(from - pos, to - pos, lineSep);
-        pos = end2 + 1;
+        pos = end + 1;
       }
       return result;
     }
@@ -365,9 +365,9 @@
   }
   function appendText(text, target, from = 0, to = 1e9) {
     for (let pos = 0, i = 0, first = true; i < text.length && pos <= to; i++) {
-      let line2 = text[i], end2 = pos + line2.length;
-      if (end2 >= from) {
-        if (end2 > to)
+      let line2 = text[i], end = pos + line2.length;
+      if (end >= from) {
+        if (end > to)
           line2 = line2.slice(0, to - pos);
         if (pos < from)
           line2 = line2.slice(from - pos);
@@ -377,7 +377,7 @@
         } else
           target.push(line2);
       }
-      pos = end2 + 1;
+      pos = end + 1;
     }
     return target;
   }
@@ -448,13 +448,13 @@
     }
   };
   var PartialTextCursor = class {
-    constructor(text, start, end2) {
+    constructor(text, start, end) {
       this.value = "";
       this.done = false;
-      this.cursor = new RawTextCursor(text, start > end2 ? -1 : 1);
-      this.pos = start > end2 ? text.length : 0;
-      this.from = Math.min(start, end2);
-      this.to = Math.max(start, end2);
+      this.cursor = new RawTextCursor(text, start > end ? -1 : 1);
+      this.pos = start > end ? text.length : 0;
+      this.from = Math.min(start, end);
+      this.to = Math.max(start, end);
     }
     nextInner(skip, dir) {
       if (dir < 0 ? this.pos <= this.from : this.pos >= this.to) {
@@ -581,10 +581,10 @@
     }
     touchesRange(from, to = from) {
       for (let i = 0, pos = 0; i < this.sections.length && pos <= to; ) {
-        let len = this.sections[i++], ins = this.sections[i++], end2 = pos + len;
-        if (ins >= 0 && pos <= to && end2 >= from)
-          return pos < from && end2 > to ? "cover" : true;
-        pos = end2;
+        let len = this.sections[i++], ins = this.sections[i++], end = pos + len;
+        if (ins >= 0 && pos <= to && end >= from)
+          return pos < from && end > to ? "cover" : true;
+        pos = end;
       }
       return false;
     }
@@ -665,11 +665,11 @@
             iter.forward(len);
             pos += len;
           }
-          let end2 = ranges[i++];
-          while (pos < end2) {
+          let end = ranges[i++];
+          while (pos < end) {
             if (iter.done)
               break done;
-            let len = Math.min(iter.len, end2 - pos);
+            let len = Math.min(iter.len, end - pos);
             addSection(resultSections, len, -1);
             addSection(filteredSections, len, iter.ins == -1 ? -1 : iter.off == 0 ? iter.ins : 0);
             iter.forward(len);
@@ -835,14 +835,14 @@
         posB += b.len;
         b.next();
       } else if (a.ins >= 0) {
-        let len = 0, end2 = posA + a.len;
+        let len = 0, end = posA + a.len;
         for (; ; ) {
-          if (b.ins >= 0 && posB > posA && posB + b.len < end2) {
+          if (b.ins >= 0 && posB > posA && posB + b.len < end) {
             len += b.ins;
             posB += b.len;
             b.next();
-          } else if (b.ins == -1 && posB < end2) {
-            let skip = Math.min(b.len, end2 - posB);
+          } else if (b.ins == -1 && posB < end) {
+            let skip = Math.min(b.len, end - posB);
             len += skip;
             b.forward(skip);
             posB += skip;
@@ -853,7 +853,7 @@
         addSection(sections, len, a.ins);
         if (insert2)
           addInsert(insert2, sections, a.text);
-        posA = end2;
+        posA = end;
         a.next();
       } else if (a.done && b.done) {
         return insert2 ? new ChangeSet(sections, insert2) : new ChangeDesc(sections);
@@ -1827,20 +1827,20 @@
     wordAt(pos) {
       let { text, from, length } = this.doc.lineAt(pos);
       let cat = this.charCategorizer(pos);
-      let start = pos - from, end2 = pos - from;
+      let start = pos - from, end = pos - from;
       while (start > 0) {
         let prev = findClusterBreak(text, start, false);
         if (cat(text.slice(prev, start)) != CharCategory.Word)
           break;
         start = prev;
       }
-      while (end2 < length) {
-        let next3 = findClusterBreak(text, end2);
-        if (cat(text.slice(end2, next3)) != CharCategory.Word)
+      while (end < length) {
+        let next3 = findClusterBreak(text, end);
+        if (cat(text.slice(end, next3)) != CharCategory.Word)
           break;
-        end2 = next3;
+        end = next3;
       }
-      return start == end2 ? null : EditorSelection.range(start + from, end2 + from);
+      return start == end ? null : EditorSelection.range(start + from, end + from);
     }
   };
   EditorState.allowMultipleSelections = allowMultipleSelections;
@@ -2003,13 +2003,13 @@
     get length() {
       return this.to[this.to.length - 1];
     }
-    findIndex(pos, side, end2, startAt = 0) {
-      let arr = end2 ? this.to : this.from;
+    findIndex(pos, side, end, startAt = 0) {
+      let arr = end ? this.to : this.from;
       for (let lo = startAt, hi = arr.length; ; ) {
         if (lo == hi)
           return lo;
         let mid = lo + hi >> 1;
-        let diff = arr[mid] - pos || (end2 ? this.value[mid].endSide : this.value[mid].startSide) - side;
+        let diff = arr[mid] - pos || (end ? this.value[mid].endSide : this.value[mid].startSide) - side;
         if (mid == lo)
           return diff >= 0 ? lo : hi;
         if (diff >= 0)
@@ -2562,7 +2562,7 @@
     let pos = startB, dPos = startB - startA;
     for (; ; ) {
       let diff = a.to + dPos - b.to || a.endSide - b.endSide;
-      let end2 = diff < 0 ? a.to + dPos : b.to, clipEnd = Math.min(end2, endB);
+      let end = diff < 0 ? a.to + dPos : b.to, clipEnd = Math.min(end, endB);
       if (a.point || b.point) {
         if (!(a.point && b.point && (a.point == b.point || a.point.eq(b.point)) && sameValues(a.activeForPoint(a.to + dPos), b.activeForPoint(b.to))))
           comparator.comparePoint(pos, clipEnd, a.point, b.point);
@@ -2570,9 +2570,9 @@
         if (clipEnd > pos && !sameValues(a.active, b.active))
           comparator.compareRange(pos, clipEnd, a.active, b.active);
       }
-      if (end2 > endB)
+      if (end > endB)
         break;
-      pos = end2;
+      pos = end;
       if (diff <= 0)
         a.next();
       if (diff >= 0)
@@ -3066,10 +3066,10 @@
     domBoundsAround(from, to, offset = 0) {
       let fromI = -1, fromStart = -1, toI = -1, toEnd = -1;
       for (let i = 0, pos = offset, prevEnd = offset; i < this.children.length; i++) {
-        let child = this.children[i], end2 = pos + child.length;
-        if (pos < from && end2 > to)
+        let child = this.children[i], end = pos + child.length;
+        if (pos < from && end > to)
           return child.domBoundsAround(from, to, pos);
-        if (end2 >= from && fromI == -1) {
+        if (end >= from && fromI == -1) {
           fromI = i;
           fromStart = pos;
         }
@@ -3078,8 +3078,8 @@
           toEnd = prevEnd;
           break;
         }
-        prevEnd = end2;
-        pos = end2 + child.breakAfter;
+        prevEnd = end;
+        pos = end + child.breakAfter;
       }
       return {
         from: fromStart,
@@ -3458,12 +3458,12 @@
       openEnd = toOff = 0;
     }
     if (toOff) {
-      let end2 = children[toI];
-      if (elts.length && end2.merge(0, toOff, elts[elts.length - 1], 0, openEnd)) {
+      let end = children[toI];
+      if (elts.length && end.merge(0, toOff, elts[elts.length - 1], 0, openEnd)) {
         elts.pop();
         openEnd = elts.length ? 0 : openStart;
       } else {
-        end2.merge(0, toOff, null, 0, 0);
+        end.merge(0, toOff, null, 0, 0);
       }
     } else if (toI < children.length && elts.length && children[toI].merge(0, 0, elts[elts.length - 1], 0, openEnd)) {
       elts.pop();
@@ -3479,8 +3479,8 @@
       }
       fromI++;
     } else if (fromI && elts.length) {
-      let end2 = children[fromI - 1];
-      if (end2.merge(end2.length, end2.length, elts[0], openStart, 0)) {
+      let end = children[fromI - 1];
+      if (end.merge(end.length, end.length, elts[0], openStart, 0)) {
         elts.shift();
         openStart = elts.length ? 0 : openEnd;
       }
@@ -3503,24 +3503,24 @@
   function sliceInlineChildren(children, from) {
     let result = [], off = 0;
     for (let elt of children) {
-      let end2 = off + elt.length;
-      if (end2 > from)
+      let end = off + elt.length;
+      if (end > from)
         result.push(off < from ? elt.slice(from - off) : elt);
-      off = end2;
+      off = end;
     }
     return result;
   }
   function inlineDOMAtPos(dom, children, pos) {
     let i = 0;
     for (let off = 0; i < children.length; i++) {
-      let child = children[i], end2 = off + child.length;
-      if (end2 == off && child.getSide() <= 0)
+      let child = children[i], end = off + child.length;
+      if (end == off && child.getSide() <= 0)
         continue;
-      if (pos > off && pos < end2 && child.dom.parentNode == dom)
+      if (pos > off && pos < end && child.dom.parentNode == dom)
         return child.domAtPos(pos - off);
       if (pos <= off)
         break;
-      off = end2;
+      off = end;
     }
     for (; i > 0; i--) {
       let before = children[i - 1].dom;
@@ -3541,10 +3541,10 @@
   }
   function coordsInChildren(view, pos, side) {
     for (let off = 0, i = 0; i < view.children.length; i++) {
-      let child = view.children[i], end2 = off + child.length, next3;
-      if ((side <= 0 || end2 == view.length || child.getSide() > 0 ? end2 >= pos : end2 > pos) && (pos < end2 || i + 1 == view.children.length || (next3 = view.children[i + 1]).length || next3.getSide() > 0)) {
+      let child = view.children[i], end = off + child.length, next3;
+      if ((side <= 0 || end == view.length || child.getSide() > 0 ? end >= pos : end > pos) && (pos < end || i + 1 == view.children.length || (next3 = view.children[i + 1]).length || next3.getSide() > 0)) {
         let flatten2 = 0;
-        if (end2 == off) {
+        if (end == off) {
           if (child.getSide() <= 0)
             continue;
           flatten2 = side = -child.getSide();
@@ -3552,7 +3552,7 @@
         let rect = child.coordsAt(pos - off, side);
         return flatten2 && rect ? flattenRect(rect, side < 0) : rect;
       }
-      off = end2;
+      off = end;
     }
     let last = view.dom.lastChild;
     if (!last)
@@ -3646,9 +3646,9 @@
     }
     static replace(spec) {
       let block = !!spec.block;
-      let { start, end: end2 } = getInclusive(spec);
+      let { start, end } = getInclusive(spec);
       let startSide = block ? -2e8 * (start ? 2 : 1) : 1e8 * (start ? -1 : 1);
-      let endSide = block ? 2e8 * (end2 ? 2 : 1) : 1e8 * (end2 ? 1 : -1);
+      let endSide = block ? 2e8 * (end ? 2 : 1) : 1e8 * (end ? 1 : -1);
       return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
     }
     static line(spec) {
@@ -3664,8 +3664,8 @@
   Decoration.none = RangeSet.empty;
   var MarkDecoration = class extends Decoration {
     constructor(spec) {
-      let { start, end: end2 } = getInclusive(spec);
-      super(1e8 * (start ? -1 : 1), 1e8 * (end2 ? 1 : -1), null, spec);
+      let { start, end } = getInclusive(spec);
+      super(1e8 * (start ? -1 : 1), 1e8 * (end ? 1 : -1), null, spec);
       this.tagName = spec.tagName || "span";
       this.class = spec.class || "";
       this.attrs = spec.attributes || null;
@@ -3721,12 +3721,12 @@
   };
   PointDecoration.prototype.point = true;
   function getInclusive(spec) {
-    let { inclusiveStart: start, inclusiveEnd: end2 } = spec;
+    let { inclusiveStart: start, inclusiveEnd: end } = spec;
     if (start == null)
       start = spec.inclusive;
-    if (end2 == null)
-      end2 = spec.inclusive;
-    return { start: start || false, end: end2 || false };
+    if (end == null)
+      end = spec.inclusive;
+    return { start: start || false, end: end || false };
   }
   function widgetsEq(a, b) {
     return a == b || !!(a && b && a.compare(b));
@@ -3760,18 +3760,18 @@
       return true;
     }
     split(at) {
-      let end2 = new LineView();
-      end2.breakAfter = this.breakAfter;
+      let end = new LineView();
+      end.breakAfter = this.breakAfter;
       if (this.length == 0)
-        return end2;
+        return end;
       let { i, off } = this.childPos(at);
       if (off) {
-        end2.append(this.children[i].slice(off), 0);
+        end.append(this.children[i].slice(off), 0);
         this.children[i].merge(off, this.children[i].length, null, 0, 0);
         i++;
       }
       for (let j = i; j < this.children.length; j++)
-        end2.append(this.children[j], 0);
+        end.append(this.children[j], 0);
       while (i > 0 && this.children[i - 1].length == 0) {
         this.children[i - 1].parent = null;
         i--;
@@ -3779,7 +3779,7 @@
       this.children.length = i;
       this.markDirty();
       this.length = at;
-      return end2;
+      return end;
     }
     transferDOM(other) {
       if (!this.dom)
@@ -3856,14 +3856,14 @@
     }
     static find(docView, pos) {
       for (let i = 0, off = 0; ; i++) {
-        let block = docView.children[i], end2 = off + block.length;
-        if (end2 >= pos) {
+        let block = docView.children[i], end = off + block.length;
+        if (end >= pos) {
           if (block instanceof LineView)
             return block;
           if (block.length)
             return null;
         }
-        off = end2 + block.breakAfter;
+        off = end + block.breakAfter;
       }
     }
   };
@@ -3924,10 +3924,10 @@
     }
   };
   var ContentBuilder = class {
-    constructor(doc2, pos, end2) {
+    constructor(doc2, pos, end) {
       this.doc = doc2;
       this.pos = pos;
-      this.end = end2;
+      this.end = end;
       this.content = [];
       this.curLine = null;
       this.breakAtStart = 0;
@@ -4199,13 +4199,13 @@
       let result = [];
       for (let dI = 0, rI = 0, posA = 0, posB = 0; ; dI++) {
         let next3 = dI == diff.length ? null : diff[dI], off = posA - posB;
-        let end2 = next3 ? next3.fromB : 1e9;
-        while (rI < ranges.length && ranges[rI] < end2) {
+        let end = next3 ? next3.fromB : 1e9;
+        while (rI < ranges.length && ranges[rI] < end) {
           let from = ranges[rI], to = ranges[rI + 1];
-          let fromB = Math.max(posB, from), toB = Math.min(end2, to);
+          let fromB = Math.max(posB, from), toB = Math.min(end, to);
           if (fromB <= toB)
             new ChangedRange(fromB + off, toB + off, fromB, toB).addToSet(result);
-          if (to > end2)
+          if (to > end)
             break;
           else
             rI += 2;
@@ -4493,8 +4493,8 @@
       let result = [], { from, to } = this.view.viewState.viewport;
       let minWidth = Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
       for (let pos = 0, i = 0; i < this.children.length; i++) {
-        let child = this.children[i], end2 = pos + child.length;
-        if (end2 > to)
+        let child = this.children[i], end = pos + child.length;
+        if (end > to)
           break;
         if (pos >= from) {
           result.push(child.dom.getBoundingClientRect().height);
@@ -4502,10 +4502,10 @@
           if (width > minWidth) {
             this.minWidth = minWidth = width;
             this.minWidthFrom = pos;
-            this.minWidthTo = end2;
+            this.minWidthTo = end;
           }
         }
-        pos = end2 + child.breakAfter;
+        pos = end + child.breakAfter;
       }
       return result;
     }
@@ -4539,10 +4539,10 @@
       let deco = [], vs = this.view.viewState;
       for (let pos = 0, i = 0; ; i++) {
         let next3 = i == vs.viewports.length ? null : vs.viewports[i];
-        let end2 = next3 ? next3.from - 1 : this.length;
-        if (end2 > pos) {
-          let height = vs.lineAt(end2, 0).bottom - vs.lineAt(pos, 0).top;
-          deco.push(Decoration.replace({ widget: new BlockGapWidget(height), block: true, inclusive: true }).range(pos, end2));
+        let end = next3 ? next3.from - 1 : this.length;
+        if (end > pos) {
+          let height = vs.lineAt(end, 0).bottom - vs.lineAt(pos, 0).top;
+          deco.push(Decoration.replace({ widget: new BlockGapWidget(height), block: true, inclusive: true }).range(pos, end));
         }
         if (!next3)
           break;
@@ -4735,8 +4735,8 @@
     get dir() {
       return this.level % 2 ? RTL : LTR;
     }
-    side(end2, dir) {
-      return this.dir == dir == end2 ? this.to : this.from;
+    side(end, dir) {
+      return this.dir == dir == end ? this.to : this.from;
     }
     static find(order, index, level, assoc) {
       let maybe = -1;
@@ -4778,13 +4778,13 @@
         else
           types[i] = 256;
       } else if (type == 64) {
-        let end2 = i + 1;
-        while (end2 < len && types[end2] == 64)
-          end2++;
-        let replace = i && prev == 8 || end2 < len && types[end2] == 8 ? prevStrong == 1 ? 1 : 8 : 256;
-        for (let j = i; j < end2; j++)
+        let end = i + 1;
+        while (end < len && types[end] == 64)
+          end++;
+        let replace = i && prev == 8 || end < len && types[end] == 8 ? prevStrong == 1 ? 1 : 8 : 256;
+        for (let j = i; j < end; j++)
           types[j] = replace;
-        i = end2 - 1;
+        i = end - 1;
       } else if (type == 8 && prevStrong == 1) {
         types[i] = 1;
       }
@@ -4831,15 +4831,15 @@
     }
     for (let i = 0; i < len; i++) {
       if (types[i] == 256) {
-        let end2 = i + 1;
-        while (end2 < len && types[end2] == 256)
-          end2++;
+        let end = i + 1;
+        while (end < len && types[end] == 256)
+          end++;
         let beforeL = (i ? types[i - 1] : outerType) == 1;
-        let afterL = (end2 < len ? types[end2] : outerType) == 1;
+        let afterL = (end < len ? types[end] : outerType) == 1;
         let replace = beforeL == afterL ? beforeL ? 1 : 2 : outerType;
-        for (let j = i; j < end2; j++)
+        for (let j = i; j < end; j++)
           types[j] = replace;
-        i = end2 - 1;
+        i = end - 1;
       }
     }
     let order = [];
@@ -4850,10 +4850,10 @@
           i++;
         if (rtl) {
           for (let j = i; j > start; ) {
-            let end2 = j, l = types[--j] != 2;
+            let end = j, l = types[--j] != 2;
             while (j > start && l == (types[j - 1] != 2))
               j--;
-            order.push(new BidiSpan(j, end2, l ? 2 : 1));
+            order.push(new BidiSpan(j, end, l ? 2 : 1));
           }
         } else {
           order.push(new BidiSpan(start, i, 0));
@@ -5109,8 +5109,8 @@
         return EditorSelection.cursor(pos, forward ? -1 : 1);
     }
     let lineView = LineView.find(view.docView, start.head);
-    let end2 = lineView ? forward ? lineView.posAtEnd : lineView.posAtStart : forward ? line2.to : line2.from;
-    return EditorSelection.cursor(end2, forward ? -1 : 1);
+    let end = lineView ? forward ? lineView.posAtEnd : lineView.posAtStart : forward ? line2.to : line2.from;
+    return EditorSelection.cursor(end, forward ? -1 : 1);
   }
   function moveByChar(view, start, forward, by) {
     let line2 = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line2);
@@ -5880,9 +5880,9 @@
       for (let i = changes.length - 1; i >= 0; i--) {
         let { fromA, toA, fromB, toB } = changes[i];
         let start = me.lineAt(fromA, QueryType.ByPosNoHeight, oldDoc, 0, 0);
-        let end2 = start.to >= toA ? start : me.lineAt(toA, QueryType.ByPosNoHeight, oldDoc, 0, 0);
-        toB += end2.to - toA;
-        toA = end2.to;
+        let end = start.to >= toA ? start : me.lineAt(toA, QueryType.ByPosNoHeight, oldDoc, 0, 0);
+        toB += end.to - toA;
+        toA = end.to;
         while (i > 0 && start.from <= changes[i - 1].toA) {
           fromA = changes[i - 1].fromA;
           fromB = changes[i - 1].fromB;
@@ -6030,7 +6030,7 @@
     }
     forEachLine(from, to, doc2, top2, offset, f) {
       let { firstLine, lineHeight } = this.lines(doc2, offset);
-      for (let pos = Math.max(from, offset), end2 = Math.min(offset + this.length, to); pos <= end2; ) {
+      for (let pos = Math.max(from, offset), end = Math.min(offset + this.length, to); pos <= end; ) {
         let line2 = doc2.lineAt(pos);
         if (pos == from)
           top2 += lineHeight * (line2.number - firstLine);
@@ -6064,12 +6064,12 @@
       result.push(null, new HeightMapGap(this.length - from - 1));
     }
     updateHeight(oracle, offset = 0, force = false, measured) {
-      let end2 = offset + this.length;
+      let end = offset + this.length;
       if (measured && measured.from <= offset + this.length && measured.more) {
         let nodes = [], pos = Math.max(offset, measured.from);
         if (measured.from > offset)
           nodes.push(new HeightMapGap(measured.from - offset - 1).updateHeight(oracle, offset));
-        while (pos <= end2 && measured.more) {
+        while (pos <= end && measured.more) {
           let len = oracle.doc.lineAt(pos).length;
           if (nodes.length)
             nodes.push(null);
@@ -6078,8 +6078,8 @@
           nodes.push(line2);
           pos += len + 1;
         }
-        if (pos <= end2)
-          nodes.push(null, new HeightMapGap(end2 - pos).updateHeight(oracle, pos));
+        if (pos <= end)
+          nodes.push(null, new HeightMapGap(end - pos).updateHeight(oracle, pos));
         oracle.heightChanged = true;
         return HeightMap.of(nodes);
       } else if (force || this.outdated) {
@@ -6231,13 +6231,13 @@
     }
     span(_from, to) {
       if (this.lineStart > -1) {
-        let end2 = Math.min(to, this.lineEnd), last = this.nodes[this.nodes.length - 1];
+        let end = Math.min(to, this.lineEnd), last = this.nodes[this.nodes.length - 1];
         if (last instanceof HeightMapText)
-          last.length += end2 - this.pos;
-        else if (end2 > this.pos || !this.isCovered)
-          this.nodes.push(new HeightMapText(end2 - this.pos, -1));
-        this.writtenTo = end2;
-        if (to > end2) {
+          last.length += end - this.pos;
+        else if (end > this.pos || !this.isCovered)
+          this.nodes.push(new HeightMapText(end - this.pos, -1));
+        this.writtenTo = end;
+        if (to > end) {
           this.nodes.push(null);
           this.writtenTo++;
           this.lineStart = -1;
@@ -7203,10 +7203,10 @@
       [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
     return { anchorNode, anchorOffset, focusNode, focusOffset };
   }
-  function applyDOMChange(view, start, end2, typeOver) {
+  function applyDOMChange(view, start, end, typeOver) {
     let change, newSel;
     let sel = view.state.selection.main, bounds;
-    if (start > -1 && (bounds = view.docView.domBoundsAround(start, end2, 0))) {
+    if (start > -1 && (bounds = view.docView.domBoundsAround(start, end, 0))) {
       let { from, to } = bounds;
       let selPoints = view.docView.impreciseHead || view.docView.impreciseAnchor ? [] : selectionPoints(view);
       let reader = new DOMReader(selPoints, view);
@@ -7318,7 +7318,7 @@
       this.text = "";
       this.lineBreak = view.state.lineBreak;
     }
-    readRange(start, end2) {
+    readRange(start, end) {
       if (!start)
         return;
       let parent = start.parentNode;
@@ -7326,14 +7326,14 @@
         this.findPointBefore(parent, cur);
         this.readNode(cur);
         let next3 = cur.nextSibling;
-        if (next3 == end2)
+        if (next3 == end)
           break;
         let view = ContentView.get(cur), nextView = ContentView.get(next3);
         if ((view ? view.breakAfter : isBlockElement(cur)) || (nextView ? nextView.breakAfter : isBlockElement(next3)) && !(cur.nodeName == "BR" && !cur.cmIgnore))
           this.text += this.lineBreak;
         cur = next3;
       }
-      this.findPointBefore(parent, end2);
+      this.findPointBefore(parent, end);
     }
     readNode(node) {
       if (node.cmIgnore)
@@ -8722,7 +8722,7 @@
     let types2 = nodeSet.types;
     let contextHash = 0, lookAhead = 0;
     function takeNode(parentStart, minPos, children2, positions2, inRepeat) {
-      let { id: id2, start, end: end2, size } = cursor;
+      let { id: id2, start, end, size } = cursor;
       let lookAheadAtStart = lookAhead;
       while (size < 0) {
         cursor.next();
@@ -8743,19 +8743,19 @@
       }
       let type = types2[id2], node, buffer2;
       let startPos = start - parentStart;
-      if (end2 - start <= maxBufferLength && (buffer2 = findBufferSize(cursor.pos - minPos, inRepeat))) {
+      if (end - start <= maxBufferLength && (buffer2 = findBufferSize(cursor.pos - minPos, inRepeat))) {
         let data2 = new Uint16Array(buffer2.size - buffer2.skip);
         let endPos = cursor.pos - buffer2.size, index = data2.length;
         while (cursor.pos > endPos)
           index = copyToBuffer(buffer2.start, data2, index);
-        node = new TreeBuffer(data2, end2 - buffer2.start, nodeSet);
+        node = new TreeBuffer(data2, end - buffer2.start, nodeSet);
         startPos = buffer2.start - parentStart;
       } else {
         let endPos = cursor.pos - size;
         cursor.next();
         let localChildren = [], localPositions = [];
         let localInRepeat = id2 >= minRepeatType ? id2 : -1;
-        let lastGroup = 0, lastEnd = end2;
+        let lastGroup = 0, lastEnd = end;
         while (cursor.pos > endPos) {
           if (localInRepeat >= 0 && cursor.id == localInRepeat && cursor.size >= 0) {
             if (cursor.end <= lastEnd - maxBufferLength) {
@@ -8774,9 +8774,9 @@
         localPositions.reverse();
         if (localInRepeat > -1 && lastGroup > 0) {
           let make = makeBalanced(type);
-          node = balanceRange(type, localChildren, localPositions, 0, localChildren.length, 0, end2 - start, make, make);
+          node = balanceRange(type, localChildren, localPositions, 0, localChildren.length, 0, end - start, make, make);
         } else {
-          node = makeTree(type, localChildren, localPositions, end2 - start, lookAheadAtStart - end2);
+          node = makeTree(type, localChildren, localPositions, end - start, lookAheadAtStart - end);
         }
       }
       children2.push(node);
@@ -8859,7 +8859,7 @@
       return result.size > 4 ? result : void 0;
     }
     function copyToBuffer(bufferStart, buffer2, index) {
-      let { id: id2, start, end: end2, size } = cursor;
+      let { id: id2, start, end, size } = cursor;
       cursor.next();
       if (size >= 0 && id2 < minRepeatType) {
         let startIndex = index;
@@ -8869,7 +8869,7 @@
             index = copyToBuffer(bufferStart, buffer2, index);
         }
         buffer2[--index] = startIndex;
-        buffer2[--index] = end2 - bufferStart;
+        buffer2[--index] = end - bufferStart;
         buffer2[--index] = start - bufferStart;
         buffer2[--index] = id2;
       } else if (size == -3) {
@@ -10730,8 +10730,8 @@
         this.span(this.at, to, this.class);
     }
     highlightRange(cursor, from, to, inheritedClass, depth, scope) {
-      let { type, from: start, to: end2 } = cursor;
-      if (start >= to || end2 <= from)
+      let { type, from: start, to: end } = cursor;
+      if (start >= to || end <= from)
         return;
       nodeStack[depth] = type.name;
       if (type.isTop)
@@ -10765,7 +10765,7 @@
         let hasChild2 = cursor.firstChild();
         for (let i = 0, pos = start; ; i++) {
           let next3 = i < mounted.overlay.length ? mounted.overlay[i] : null;
-          let nextPos = next3 ? next3.from + start : end2;
+          let nextPos = next3 ? next3.from + start : end;
           if (nextPos > pos && hasChild2) {
             while (cursor.from < nextPos) {
               this.highlightRange(cursor, pos, nextPos, inheritedClass, depth + 1, scope);
@@ -11370,8 +11370,8 @@
     includes(pos) {
       return this.end >= pos && pos >= this.start;
     }
-    until(end2) {
-      return new Range3(this.start, end2.end - this.start);
+    until(end) {
+      return new Range3(this.start, end.end - this.start);
     }
     slice(text) {
       return text.slice(this.start, this.end);
@@ -11400,8 +11400,8 @@
     abs() {
       return new Range3(this.start, this.length);
     }
-    until(end2) {
-      return new RelativeRange(this.parent, this.start, end2.end - this.start);
+    until(end) {
+      return new RelativeRange(this.parent, this.start, end.end - this.start);
     }
   };
   var ASMError = class {
@@ -14872,7 +14872,7 @@ g nle`.split("\n");
           throw new ASMError("Too many operands", errRange);
         if (!firstOrderPossible && secondOrderPossible)
           throw new ASMError("Wrong operand order", errRange);
-        if (vexInfo.mask == 0 && operations.some((x) => x.vexOpCatchers.length == operands.length && x.requireMask))
+        if (vexInfo.mask == 0 && operations.some((x) => x.vexOpCatchers && x.vexOpCatchers.length == operands.length && x.requireMask))
           throw new ASMError("Must use a mask for this instruction", errRange);
         throw new ASMError("Invalid operands", errRange);
       }
@@ -15240,10 +15240,10 @@ g nle`.split("\n");
           return new Range3(this.source.length + line2, 0);
         line2--;
       }
-      let end2 = this.source.indexOf("\n", start);
-      if (end2 < 0)
-        end2 = this.source.length;
-      return new Range3(start, end2 - start);
+      let end = this.source.indexOf("\n", start);
+      if (end < 0)
+        end = this.source.length;
+      return new Range3(start, end - start);
     }
     iterate(func) {
       let line2 = 1, nextLine = 0, instr = this.instructions.next;
@@ -15270,10 +15270,10 @@ g nle`.split("\n");
         while (instr && instr.range.start < nextLine) {
           if (instr.hasOwnProperty("lineEnds")) {
             let prevEnd = 0;
-            for (const end2 of instr.lineEnds.lineEnds) {
-              if (end2 <= instr.length)
-                lineQueue.push(instr.bytes.subarray(prevEnd, end2));
-              prevEnd = end2;
+            for (const end of instr.lineEnds.lineEnds) {
+              if (end <= instr.length)
+                lineQueue.push(instr.bytes.subarray(prevEnd, end));
+              prevEnd = end;
             }
             if (lineQueue.length > 0) {
               const line3 = lineQueue.shift();
@@ -15372,9 +15372,9 @@ g nle`.split("\n");
       }
       updateWidths(from, to, removedLines, { doc: doc2, tabSize }) {
         let start = doc2.lineAt(from).number;
-        let end2 = doc2.lineAt(to).number;
+        let end = doc2.lineAt(to).number;
         let newWidths = [];
-        for (let i = start; i <= end2; i++)
+        for (let i = start; i <= end; i++)
           newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, tabSize)).width);
         this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
       }
@@ -15667,8 +15667,8 @@ g nle`.split("\n");
         this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime);
       let tooltip = this.active;
       if (tooltip && !isInTooltip(event.target) || this.pending) {
-        let { pos } = tooltip || this.pending, end2 = (_a = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a !== void 0 ? _a : pos;
-        if (pos == end2 ? this.view.posAtCoords({ x: event.clientX, y: event.clientY }) != pos : !isOverRange(this.view, pos, end2, event.clientX, event.clientY, 6)) {
+        let { pos } = tooltip || this.pending, end = (_a = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a !== void 0 ? _a : pos;
+        if (pos == end ? this.view.posAtCoords({ x: event.clientX, y: event.clientY }) != pos : !isOverRange(this.view, pos, end, event.clientX, event.clientY, 6)) {
           this.view.dispatch({ effects: this.setHover.of(null) });
           this.pending = null;
         }
@@ -15888,7 +15888,7 @@ g nle`.split("\n");
         this.stack.pop();
       this.reduceContext(type, start);
     }
-    storeNode(term, start, end2, size = 4, isReduce = false) {
+    storeNode(term, start, end, size = 4, isReduce = false) {
       if (term == 0) {
         let cur = this, top2 = this.buffer.length;
         if (top2 == 0 && cur.parent) {
@@ -15896,20 +15896,20 @@ g nle`.split("\n");
           cur = cur.parent;
         }
         if (top2 > 0 && cur.buffer[top2 - 4] == 0 && cur.buffer[top2 - 1] > -1) {
-          if (start == end2)
+          if (start == end)
             return;
           if (cur.buffer[top2 - 2] >= start) {
-            cur.buffer[top2 - 2] = end2;
+            cur.buffer[top2 - 2] = end;
             return;
           }
         }
       }
-      if (!isReduce || this.pos == end2) {
-        this.buffer.push(term, start, end2, size);
+      if (!isReduce || this.pos == end) {
+        this.buffer.push(term, start, end, size);
       } else {
         let index = this.buffer.length;
         if (index > 0 && this.buffer[index - 4] != 0)
-          while (index > 0 && this.buffer[index - 2] > end2) {
+          while (index > 0 && this.buffer[index - 2] > end) {
             this.buffer[index] = this.buffer[index - 4];
             this.buffer[index + 1] = this.buffer[index - 3];
             this.buffer[index + 2] = this.buffer[index - 2];
@@ -15920,7 +15920,7 @@ g nle`.split("\n");
           }
         this.buffer[index] = term;
         this.buffer[index + 1] = start;
-        this.buffer[index + 2] = end2;
+        this.buffer[index + 2] = end;
         this.buffer[index + 3] = size;
       }
     }
@@ -16257,11 +16257,11 @@ g nle`.split("\n");
       return result;
     }
     acceptToken(token2, endOffset = 0) {
-      let end2 = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
-      if (end2 == null || end2 < this.token.start)
+      let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
+      if (end == null || end < this.token.start)
         throw new RangeError("Token end out of bounds");
       this.token.value = token2;
-      this.token.end = end2;
+      this.token.end = end;
     }
     getChunk() {
       if (this.pos >= this.chunk2Pos && this.pos < this.chunk2Pos + this.chunk2.length) {
@@ -16275,8 +16275,8 @@ g nle`.split("\n");
         this.chunk2 = this.chunk;
         this.chunk2Pos = this.chunkPos;
         let nextChunk = this.input.chunk(this.pos);
-        let end2 = this.pos + nextChunk.length;
-        this.chunk = end2 > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
+        let end = this.pos + nextChunk.length;
+        this.chunk = end > this.range.to ? nextChunk.slice(0, this.range.to - this.pos) : nextChunk;
         this.chunkPos = this.pos;
         this.chunkOff = 0;
       }
@@ -16517,10 +16517,10 @@ g nle`.split("\n");
           if (start == pos) {
             if (start < this.safeFrom)
               return null;
-            let end2 = start + next3.length;
-            if (end2 <= this.safeTo) {
+            let end = start + next3.length;
+            if (end <= this.safeTo) {
               let lookAhead = next3.prop(NodeProp.lookAhead);
-              if (!lookAhead || end2 + lookAhead < this.fragment.to)
+              if (!lookAhead || end + lookAhead < this.fragment.to)
                 return next3;
             }
           }
@@ -16617,16 +16617,16 @@ g nle`.split("\n");
         token2.end = stack.pos + 1;
       }
     }
-    putAction(action, token2, end2, index) {
+    putAction(action, token2, end, index) {
       for (let i = 0; i < index; i += 3)
         if (this.actions[i] == action)
           return index;
       this.actions[index++] = action;
       this.actions[index++] = token2;
-      this.actions[index++] = end2;
+      this.actions[index++] = end;
       return index;
     }
-    addActions(stack, token2, end2, index) {
+    addActions(stack, token2, end, index) {
       let { state } = stack, { parser: parser2 } = stack.p, { data } = parser2;
       for (let set = 0; set < 2; set++) {
         for (let i = parser2.stateSlot(state, set ? 2 : 1); ; i += 3) {
@@ -16635,12 +16635,12 @@ g nle`.split("\n");
               i = pair(data, i + 2);
             } else {
               if (index == 0 && data[i + 1] == 2)
-                index = this.putAction(pair(data, i + 1), token2, end2, index);
+                index = this.putAction(pair(data, i + 1), token2, end, index);
               break;
             }
           }
           if (data[i] == token2)
-            index = this.putAction(pair(data, i + 1), token2, end2, index);
+            index = this.putAction(pair(data, i + 1), token2, end, index);
         }
       }
       return index;
@@ -16783,10 +16783,10 @@ g nle`.split("\n");
       }
       let actions = this.tokens.getActions(stack);
       for (let i = 0; i < actions.length; ) {
-        let action = actions[i++], term = actions[i++], end2 = actions[i++];
+        let action = actions[i++], term = actions[i++], end = actions[i++];
         let last = i == actions.length || !split;
         let localStack = last ? stack : stack.split();
-        localStack.apply(action, term, end2);
+        localStack.apply(action, term, end);
         if (verbose)
           console.log(base2 + this.stackID(localStack) + ` (via ${(action & 65536) == 0 ? "shift" : `reduce of ${parser2.getName(action & 65535)}`} for ${parser2.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
         if (last)
@@ -16987,7 +16987,7 @@ g nle`.split("\n");
         let target = table[pos++];
         if (last && loose)
           return target;
-        for (let end2 = pos + (groupTag >> 1); pos < end2; pos++)
+        for (let end = pos + (groupTag >> 1); pos < end; pos++)
           if (table[pos] == state)
             return target;
         if (last)
@@ -17151,19 +17151,18 @@ g nle`.split("\n");
 
   // codemirror/tokenizer.js
   var tok;
-  var end;
   function next2(input) {
     tok = "";
     let char;
-    while (char = input.peek(end), char >= 0 && char != 10 && String.fromCodePoint(char).match(/\s/))
-      end++;
-    if (char = input.peek(end), char >= 0 && !(char = String.fromCodePoint(char)).match(/[.\w]/)) {
+    while (input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
+      input.advance();
+    if (input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.\w]/)) {
       tok = char;
-      end++;
+      input.advance();
     } else
-      while (char = input.peek(end), char >= 0 && (char = String.fromCodePoint(char)).match(/[.\w]/)) {
+      while (input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.\w]/)) {
         tok += char;
-        end++;
+        input.advance();
       }
     return tok = tok.toLowerCase() || "\n";
   }
@@ -17172,7 +17171,6 @@ g nle`.split("\n");
     shift: (ctx, term, stack, input) => {
       if (term != Directive2)
         return ctx;
-      end = 0;
       let result = {}, syntax = next2(input);
       if (syntax == ".intel_syntax") {
         result.intel = true;
@@ -17204,8 +17202,8 @@ g nle`.split("\n");
       return null;
     }
     if (tok == (intel ? ";" : "#")) {
-      while (input.peek(end) != "\n".charCodeAt(0))
-        end++;
+      while (input.next >= 0 && input.next != "\n".charCodeAt(0))
+        input.advance();
       return Comment2;
     }
     if (tok == ";")
@@ -17231,17 +17229,17 @@ g nle`.split("\n");
     if (opData.length > 0)
       return opData[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
     if (intel && sizeHints.hasOwnProperty(tok)) {
-      let prevEnd = end;
+      let prevEnd = input.pos;
       if (",;\n{:".includes(next2(input))) {
-        end = prevEnd;
+        input.pos = prevEnd;
         return word;
       }
       if (tok == "ptr") {
-        let nextPrevEnd = end;
-        end = ",;\n{:".includes(next2(input)) ? prevEnd : nextPrevEnd;
+        let nextPrevEnd = input.pos;
+        input.pos = ",;\n{:".includes(next2(input)) ? prevEnd : nextPrevEnd;
         return Ptr;
       }
-      end = prevEnd;
+      input.pos = prevEnd;
       return Ptr;
     }
     const idType = scanIdentifier(tok, intel);
@@ -17254,11 +17252,10 @@ g nle`.split("\n");
   var tokenizer2 = new ExternalTokenizer((input, stack) => {
     if (input.next < 0 || String.fromCharCode(input.next).match(/\s/))
       return;
-    end = 0;
     next2(input);
     const type = tokenize(stack.context, input);
     if (type !== null)
-      input.acceptToken(type, end);
+      input.acceptToken(type);
   }, {
     contextual: false
   });
