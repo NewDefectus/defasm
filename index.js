@@ -11284,10 +11284,8 @@
         prev.next = this;
         this.syntax = prev.syntax;
         this.address = prev.address + prev.length;
-      } else {
+      } else
         this.syntax = currSyntax;
-        this.address = baseAddr;
-      }
     }
     find(pos) {
       if (this.range.includes(pos))
@@ -15014,7 +15012,6 @@ g nle`.split("\n");
 
   // core/compiler.js
   var linkedInstrQueue = [];
-  var baseAddr = 4194424;
   var prevInstr = null;
   function addInstruction(instr, seekEnd = true) {
     prevInstr = instr;
@@ -15028,10 +15025,12 @@ g nle`.split("\n");
   }
   var AssemblyState = class {
     constructor({
-      intel = false
+      intel = false,
+      baseAddr = 4194424
     } = {}) {
       this.symbols = new Map();
       this.instructions = new Statement();
+      this.instructions.address = baseAddr;
       this.instructions.syntax = {
         intel,
         prefix: !intel
@@ -15163,7 +15162,7 @@ g nle`.split("\n");
         this.secondPass(haltOnError);
     }
     secondPass(haltOnError = false) {
-      let currIndex = baseAddr, instr;
+      let currIndex = this.instructions.address, instr;
       loadSymbols(this.symbols);
       symbols.forEach((record, name2) => {
         record.references = record.references.filter((instr2) => !instr2.removed);
@@ -15216,7 +15215,7 @@ g nle`.split("\n");
       });
       if (haltingErrors.length > 0)
         throw haltingErrors.join("\n");
-      this.bytes = lastInstr ? lastInstr.address + lastInstr.length - baseAddr : 0;
+      this.bytes = lastInstr ? lastInstr.address + lastInstr.length - this.instructions.address : 0;
     }
     dump() {
       let output, i = 0, instr = this.instructions;
@@ -17381,15 +17380,15 @@ g nle`.split("\n");
     })
   });
   function assembly({
+    assemblyConfig = {},
     byteDumps = true,
     debug = false,
     errorMarking = true,
     errorTooltips = true,
-    highlighting = true,
-    intel = false
+    highlighting = true
   } = {}) {
     const plugins = [ASMStateField.init((state) => {
-      const asm = new AssemblyState({ intel });
+      const asm = new AssemblyState(assemblyConfig);
       asm.compile(state.sliceDoc());
       return asm;
     })];
@@ -17401,10 +17400,12 @@ g nle`.split("\n");
       plugins.push(errorMarker);
     if (errorTooltips)
       plugins.push(errorTooltipper);
-    if (highlighting)
+    if (highlighting) {
+      const intel = assemblyConfig.intel ?? false;
       return new LanguageSupport(assemblyLang.configure({
         contextTracker: ctxTracker({ intel, prefix: !intel })
       }), plugins);
+    }
     return plugins;
   }
 
