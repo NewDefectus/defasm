@@ -16,11 +16,15 @@
   number
 }
 
+@skip {space}
+
 @tokens {
+  space { std.whitespace }
   charString { "'" (![\\'] | "\\" _)* "'"? }
   FullString { '"' (![\\"] | "\\" _)* '"'? }
   unary { '+' | '-' | '~' | '!' }
   operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
+  @precedence { '\n', space }
 }
 
 statement {
@@ -46,7 +50,7 @@ InstructionStatement {
 }
 
 DirectiveStatement {
-  Directive commaSep<Expression | FullString>
+  LabelName { word }? Directive commaSep<Expression | FullString>
 }
 
 Immediate {

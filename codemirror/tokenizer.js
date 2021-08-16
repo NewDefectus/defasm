@@ -148,9 +148,8 @@ function tokenize({prefix, intel}, input)
 }
 export const tokenizer = new ExternalTokenizer(
     (input, stack) => {
-        // Skip whitespace
-        while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
-            input.advance();
+        if(input.next < 0 || String.fromCharCode(input.next).match(/\s/))
+            return;
         
         end = 0;
         next(input);

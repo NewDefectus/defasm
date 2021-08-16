@@ -170,8 +170,12 @@ export class AssemblyState
                             addInstruction(new Symbol(prevInstr, opcode, pos, pos));
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true), false);
+                            /* The instructions are ordered like this so that both of them have an
+                            identical range (since Directive's constructor will extend the range), but
+                            not the same range object, otherwise it'll get offset twice when correcting. */
                             addInstruction(new Directive(prevInstr, token, pos));
+                            pos = new Range(pos.start, pos.length);
+                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true), false);
                         }
                         else // Instruction
                             addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));

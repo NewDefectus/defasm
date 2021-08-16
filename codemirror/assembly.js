@@ -20,6 +20,7 @@ const assemblyLang = LRLanguage.define({
                 Directive: tags.meta,
                 Comment: tags.lineComment,
                 LabelDefinition: tags.definition(tags.labelName),
+                LabelName: tags.definition(tags.labelName),
                 SymbolDefinition: tags.definition(tags.macroName),
                 Immediate: tags.literal,
                 IImmediate: tags.literal,
