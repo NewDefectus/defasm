@@ -11333,7 +11333,7 @@
   var defaultNext = () => {
     prevRange = currRange;
     if (!match)
-      return null;
+      return "\n";
     comment2 = false;
     match = tokenizer.exec(code);
     if (match) {
@@ -15078,7 +15078,7 @@ g nle`.split("\n");
       setSyntax(headInstr.syntax);
       loadCode(this.source, range.start);
       prevInstr = headInstr;
-      while (match && currRange.end <= range.end) {
+      while (match) {
         let pos = startAbsRange();
         try {
           if (token != "\n" && token != ";") {
@@ -15135,6 +15135,8 @@ g nle`.split("\n");
           addInstruction(new Comment(prevInstr, start.until(currRange)));
         }
         next();
+        if (currRange.end > range.end)
+          break;
       }
       instr = tailInstr;
       while (instr && instr.range.start < currRange.start) {
