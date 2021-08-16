@@ -17166,8 +17166,8 @@ g nle`.split("\n");
       }
     return tok = tok.toLowerCase() || "\n";
   }
-  var ctxTracker = new ContextTracker({
-    start: null,
+  var ctxTracker = (initialSyntax) => new ContextTracker({
+    start: initialSyntax,
     shift: (ctx, term, stack, input) => {
       if (term != Directive2)
         return ctx;
@@ -17251,13 +17251,12 @@ g nle`.split("\n");
       return word;
     return number2;
   }
-  var tokenizer2 = new ExternalTokenizer();
-  var makeTokenizer = (intel) => new ExternalTokenizer((input, stack) => {
+  var tokenizer2 = new ExternalTokenizer((input, stack) => {
     while (input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
       input.advance();
     end = 0;
     next2(input);
-    const type = tokenize(stack.context ?? { intel, prefix: !intel }, input);
+    const type = tokenize(stack.context, input);
     if (type !== null)
       input.acceptToken(type, end);
   }, {
@@ -17272,7 +17271,6 @@ g nle`.split("\n");
     goto: "+k!YPPPPPPPPPPPPP!Z!_!c!l#j$g$z%v&^!_P!_&q&x(U)Q)[)q*e*kPPPPP*qP*wPPPPPPPPP+RP+XPP+hTXO|TYO|WiS_k!QR#W!^SjUVQyWQ!O]S!PabQ!WfQ!mqQ#m!nS#p!q!uQ#s!vQ$Y#fS$a#o#rQ$n$ZT$r$`$bWhS_k!Q^oTV`br!i#gSuUaQ!rvQ!{!RU#S!Z!d!qQ#V!^U#y#Q#^#oV$c#x$Q$`WiS_k!QQjUS!PavQ!z!RR#W!^S!ahiQ!lpQ#[!`S#k!k!mS#}#V#WQ$X#eS$^#l#mQ$f#|S$l$W$YQ$q$_S$v$m$nR${$wSpT`Q!mrQ#_!dQ#e!iQ$R#^Q$Y#gR$h$QQjVSpT`Q!PbQ!mrQ#e!iR$Y#gSRO|R^RdeS_kv!Q!R!Z!^#Q#x`lT`r!d!i#^#g$Q^sUVab!q#o$`fwW]fq!n!u!v#f#r$Z$bY!Uelsw!eZ!en!h#b$T$iQ!YgQ!cmQ!ptQ!txQ#P!Vd#R!Y!c!p!t#P#]#a#n#q$SQ#]!bQ#a!fQ#n!oQ#q!sR$S#`Q!}!TS#v!}#zR#z#TS!_hiW#X!_#Y$O$gS#Y!`!aS$O#Z#[R$g$PQ!jp[#h!j#i$[$o$x$|U#i!k!l!mW$[#j#k#l#mU$o$]$^$_S$x$p$qR$|$yQ!wyR#t!wQ}ZR!y}QZOR!x|QjSS!P_kR!z!QQjTR!P`Q!gnQ#d!hQ$U#bQ$j$TR$t$iRzW",
     nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound Program LabelDefinition InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement FullString SymbolDefinition",
     maxTerm: 56,
-    context: ctxTracker,
     skippedNodes: [0],
     repeatNodeCount: 8,
     tokenData: "&y~RiYZ!pqr!urs#Utu#uuv#Pvw#zwx$Sxy$syz$xz{$}{|%U|}%]}!O%U!P!Q#P![!]%b!^!_%g!_!`%u!`!a%{!}#O&W#P#Q&]#Q#R#P#o#p&b#p#q&g#q#r&o#r#s&t~!uO!Y~R!|P!OQzP!_!`#PQ#UO!OQ~#ZTg~Or#Urs#js#O#U#O#P#o#P~#U~#oOg~~#rPO~#U~#zOy~Q$PP!OQvw#P~$XT|~Ow$Swx$hx#O$S#O#P$m#P~$S~$mO|~~$pPO~$S~$xO{~~$}O}~R%UO!WP!OQR%]O!OQzP~%bO!P~~%gOw~Q%lR!OQ!^!_#P!_!`#P!`!a#PQ%xP!_!`#PQ&QQ!OQ!_!`#P!`!a#P~&]O!T~~&bO!V~~&gO!Q~Q&lP!OQ#p#q#P~&tO!R~P&yOzP",
@@ -17407,10 +17405,7 @@ g nle`.split("\n");
       plugins.push(errorTooltipper);
     if (highlighting)
       return new LanguageSupport(assemblyLang.configure({
-        tokenizers: [{
-          from: tokenizer2,
-          to: makeTokenizer(intel)
-        }]
+        contextTracker: ctxTracker({ intel, prefix: !intel })
       }), plugins);
     return plugins;
   }
