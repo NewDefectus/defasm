@@ -9,7 +9,6 @@ exports.run = async function()
 {
     const { AssemblyState, scanMnemonic } = await import("@defasm/core");
     const { mnemonics, fetchMnemonic } = await import("@defasm/core/mnemonicList.js");
-    const { EVEXPERM_FORCE, EVEXPERM_FORCE_MASK } = await import("@defasm/core/mnemonics.js");
     const { execSync } = require('child_process');
     const { readFileSync } = require('fs');
 
@@ -128,7 +127,7 @@ exports.run = async function()
                     source += opcode + sizeSuffix + ' ' +
                     (opType == 'relative' && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
-                    + (operation.evexPermits & EVEXPERM_FORCE_MASK ? ' {%k1}' : '')
+                    + (operation.requireMask ? ' {%k1}' : '')
                     + '\n';
                 }
                 else
@@ -147,7 +146,7 @@ exports.run = async function()
     /** @param { Operation } operation */
     function sampleOperation(opcode, opType, operation)
     {
-        if(!(operation.vexOnly || operation.evexPermits & EVEXPERM_FORCE || opcode[0] == 'v' && !operation.actuallyNotVex))
+        if(!(operation.vexOnly || opcode[0] == 'v' && !operation.actuallyNotVex))
         {
             recurseOperands(opcode, opType, operation, false);
         }
@@ -194,7 +193,7 @@ exports.run = async function()
     catch(e)
     {
         let line = e.match(/(?<=line )\d+/)[0];
-        throw `${state.source[line - 1]}\n^ ${e}`;
+        throw `${state.line(line).slice(state.source)}\n^ ${e}`;
     }
 
 

@@ -1,19 +1,20 @@
 # DefAssembler - Core
-A fast and lightweight JavaScript x86-64 assembler, for use both in browsers and as a Node.js package.
+This package holds the core of [DefAssembler](https://github.com/NewDefectus/defAsm#readme), an incremental x86-64 assembler, for use both in browsers and as a Node.js package.
 
-DefAssembler is built from scratch without the use of any additional libraries, making it relatively lightweight (~100 KB) and fast. For a quick demonstration, I recommend checking out the [GitHub Pages site](http://newdefectus.github.io/defAsm) showcasing the [@defasm/codemirror](https://www.npmjs.com/package/@defasm/codemirror) package, which utilizes this assembler. Alternatively, you can try it out with the [Code Golf editor](https://code.golf/ng/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
+DefAssembler is built from scratch without the use of any additional libraries, making it relatively lightweight and fast. For a quick demonstration, I recommend checking out the [GitHub Pages site](http://newdefectus.github.io/defAsm) showcasing the [@defasm/codemirror](https://www.npmjs.com/package/@defasm/codemirror) package, which utilizes this assembler. Alternatively, you can try it out with the [Code Golf editor](https://code.golf/ng/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
 
 # Features
 
 ## Command-line interface
-The package exports a command-line program called `defasm`, with which you can assemble and (optionally) execute Assembly source code. Install the package globally with `npm install -g @defasm/core` and run `defasm --help` for more information.
+The package exports a command-line program called `defasm`, with which you can assemble and (optionally) execute Assembly source code. Install the package globally with `npm install -g @defasm/core` and run `defasm --help` for a list of parameters.
 
+Note that DefAssembler does *not* come with an emulator. The assembled code is saved into an ELF file and then executed directly. The command-line utility is currently functional only on Linux.
+
+### A note on core dumps
 When executing the code, after a crash, the assembler will attempt to gather more information about the crash from the process's [core dump](https://en.wikipedia.org/wiki/Core_dump). On most Linux systems, the core dump isn't readily accessible; to allow DefAssembler to read them, core dumps must be enabled (`ulimit -c unlimited`) and their output path configured (`sysctl -w kernel.core_pattern='/tmp/core'`). Note that the core dump path may be any path, so long as it doesn't contain '%' or '|' and the assembler can access it.
 
-The command-line utility is functional only on Linux.
-
 ## Intel and AT&T syntax support
-DefAssembler parses AT&T syntax by default, however Intel syntax is also supported. To switch between the two, you can use the `.att_syntax` and `.intel_syntax` directives respectively in your code. For example:
+DefAssembler parses AT&T syntax by default, however Intel syntax is also supported. To switch between the two, you can use the `.att_syntax` and `.intel_syntax` directives in your code. For example:
 
 ```
 .att_syntax # AT&T syntax
@@ -55,11 +56,11 @@ The class has the following properties:
 * `symbols` - a map from a symbol name to the symbol's definition (if it exists) and its references
 
 `AssemblyState` has 6 methods:
-* `compile` - usually assembles a given string of source code and discards the previous state; however, it can also be configured to replace parts of the code and update the state appropriately. The assembler aims to perform as few recompilations as possible, so you can rest assured this function is quite efficient.
+* `compile` - usually assembles a given string of source code and discards the previous state; however, it can also be configured to replace parts of the code and update the state appropriately. This is done by passing a `Range` object to the configuration parameter (see below). The assembler aims to perform as few recompilations as possible, so you can rest assured this function is quite efficient.
 * `secondPass` - performs a second pass on the state, resolving symbol references and reporting errors. You typically won't need to use this (it's called automatically after `compile` unless configured otherwise with `doSecondPass`); it's available in case you wish to make multiple changes at once before executing the second pass, which is more efficient.
 * `dump` - creates a `Buffer` containing the bytes of all the instructions, one after the other.
 * `line` - creates a `Range` object that spans a given line (useful for replacing/inserting lines in `compile`)
-* `iterate` - iterates over the instructions using a given callback, passing the instruction's line as a second parameter (note that if an instruction spans multiple lines, it will be called once for each line).
+* `iterate` - iterates over the instructions using a given callback, passing the instruction's line as a second parameter (for instructions that span multiple lines, this will be their first line).
 * `bytesPerLine` - iterate over each line in the program using a given callback, sending an array of Uint8Arrays (one per instruction) and a line number. Data directives spanning multiple lines may be sent multiple times. Empty instructions and lines are skipped.
 
 The package also exports a `Range` class, which is used within the compiler to keep track of each instruction's span. A `Range` object may be passed to the `compile` method of `AssemblyState` to specify the range in the code to replace. It can be created using the constructor, which receives the range's start index and length in characters, or using `AssemblyState`'s `line` method described above.

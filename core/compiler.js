@@ -170,7 +170,7 @@ export class AssemblyState
                             addInstruction(new Symbol(prevInstr, opcode, pos, pos));
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true));
+                            addInstruction(new Symbol(prevInstr, opcode, pos, pos, true), false);
                             addInstruction(new Directive(prevInstr, token, pos));
                         }
                         else // Instruction

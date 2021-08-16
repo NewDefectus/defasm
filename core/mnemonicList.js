@@ -1724,7 +1724,10 @@ function basicScanMnemonic(raw, intel, size, isVex)
     if(!isMnemonic(raw, intel))
         return [];
     const data = fetchMnemonic(raw, intel);
-    if(isVex && !data.some(x => x.allowVex || x.actuallyNotVex))
+    if(isVex ?
+        !data.some(x => x.allowVex || x.actuallyNotVex)
+        :
+        !data.some(x => !x.vexOnly))
         return [];
     return [{
         raw,

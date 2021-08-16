@@ -33,8 +33,8 @@ const EVEXPERM_BROADCAST = 12;
 const EVEXPERM_SAE = 16;
 const EVEXPERM_ROUNDING = 32;
 const EVEXPERM_FORCEW = 64;
-export const EVEXPERM_FORCE = 128;
-export const EVEXPERM_FORCE_MASK = 256;
+const EVEXPERM_FORCE = 128;
+const EVEXPERM_FORCE_MASK = 256;
 
 function parseEvexPermits(string)
 {
@@ -247,6 +247,7 @@ export function Operation(format)
     this.evexPermits = null;
     this.actuallyNotVex = false;
     this.vexOnly = false;
+    this.requireMask = false;
 
     // Interpreting the opcode
     this.forceVex = format[0][0] == 'V';
@@ -319,6 +320,10 @@ export function Operation(format)
         if(operand[0] == '{') // EVEX permits
         {
             this.evexPermits = parseEvexPermits(operand.slice(1));
+            if(this.evexPermits & EVEXPERM_FORCE)
+                this.vexOnly = true;
+            if(this.evexPermits & EVEXPERM_FORCE_MASK)
+                this.requireMask = true;
             continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
@@ -374,7 +379,7 @@ Operation.prototype.validateVEX = function(vexInfo)
         return false;
     
     if((this.evexPermits & EVEXPERM_FORCE_MASK) && vexInfo.mask == 0)
-        throw new ASMError("Must use a mask for this instruction");
+        return false;
     return true;
 }
 

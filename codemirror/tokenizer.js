@@ -92,11 +92,10 @@ function tokenize({prefix, intel}, input)
     
     if(tok == '{')
     {
-        let line = input.lineAfter(loadStart), pos = line.indexOf('}') + 1;
-        let initEnd = pos || line.length;
         if((!prefix || next(input) == '%') && isRegister(next(input)))
             return null;
-        end = initEnd;
+        while(tok != '\n' && tok != '}')
+            next(input);
         return Terms.VEXRound;
     }
 

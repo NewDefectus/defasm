@@ -5,6 +5,7 @@ import { ASMError, token, next, ungetToken, setToken, currRange, Range, Relative
 import { fetchMnemonic, scanMnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
+import { Operation } from "./mnemonics.js";
 
 export const prefixes = Object.freeze({
     lock: 0xF0,
@@ -83,6 +84,8 @@ export class Instruction extends Statement
 
         /** @type { Operand[] } */
         let operands = [];
+
+        /** @type { (Operation | {size: number})[] } */
         let operations = [];
 
         let opcodeInterps = scanMnemonic(opcode, this.syntax.intel);
@@ -335,16 +338,21 @@ export class Instruction extends Statement
                 operands.reverse();
             }
 
+            const errRange = this.operandStartPos.until(this.endPos)
+
             if(operands.length < minOperandCount)
-                throw new ASMError("Not enough operands", this.operandStartPos.until(this.endPos));
+                throw new ASMError("Not enough operands", errRange);
             
             if(operands.length > maxOperandCount)
-                throw new ASMError("Too many operands", this.operandStartPos.until(this.endPos));
+                throw new ASMError("Too many operands", errRange);
             
             if(!firstOrderPossible && secondOrderPossible)
-                throw new ASMError("Wrong operand order", this.operandStartPos.until(this.endPos));
+                throw new ASMError("Wrong operand order", errRange);
             
-            throw new ASMError("Invalid operands", this.operandStartPos.until(this.endPos));
+            if(vexInfo.mask == 0 && operations.some(x => x.vexOpCatchers.length == operands.length && x.requireMask))
+                throw new ASMError("Must use a mask for this instruction", errRange);
+            
+            throw new ASMError("Invalid operands", errRange);
         }
 
         if(op.rexw)
