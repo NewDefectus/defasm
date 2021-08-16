@@ -15038,6 +15038,7 @@ g nle`.split("\n");
       };
       this.source = "";
       this.compiledRange = new Range3();
+      this.errors = [];
       this.bytes = 0;
     }
     compile(source, {
@@ -15110,9 +15111,8 @@ g nle`.split("\n");
               else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
                 addInstruction(new Symbol2(prevInstr, opcode, pos, pos));
               else if (currSyntax.intel && isDirective(token, true)) {
-                addInstruction(new Directive(prevInstr, token, pos));
-                pos = new Range3(pos.start, pos.length);
                 addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true), false);
+                addInstruction(new Directive(prevInstr, token, startAbsRange()));
               } else
                 addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
             }
@@ -15194,6 +15194,7 @@ g nle`.split("\n");
         } while (instr && instr.address != currIndex);
       }
       let haltingErrors = [], lastInstr = null;
+      this.errors = [];
       this.iterate((instr2, line2) => {
         lastInstr = instr2;
         if (instr2.outline && instr2.outline.operands)
@@ -15201,6 +15202,7 @@ g nle`.split("\n");
             op.attemptedSizes = op.attemptedUnsignedSizes = 0;
         let e = instr2.error;
         if (e) {
+          this.errors.push(e);
           if (haltOnError)
             haltingErrors.push(`Error on line ${line2}: ${e.message}`);
           if (!e.range) {
@@ -15738,18 +15740,6 @@ g nle`.split("\n");
   }
 
   // codemirror/errorPlugin.js
-  function findErrors(state) {
-    let errors = [];
-    state.field(ASMStateField).iterate((instr) => {
-      if (instr.error)
-        errors.push(instr.error);
-    });
-    return errors;
-  }
-  var ASMErrorField = StateField.define({
-    create: findErrors,
-    update: (errors, transaction) => transaction.docChanged ? findErrors(transaction.state) : errors
-  });
   var EOLError = class extends WidgetType {
     constructor() {
       super();
@@ -15778,7 +15768,7 @@ g nle`.split("\n");
           this.markErrors(update.state);
       }
       markErrors(state) {
-        this.marks = Decoration.set(state.field(ASMErrorField).map((error) => {
+        this.marks = Decoration.set(state.field(ASMStateField).errors.map((error) => {
           let content2 = state.sliceDoc(error.range.start, error.range.end);
           if (content2 == "\n" || !content2)
             return Decoration.widget({
@@ -15820,7 +15810,7 @@ g nle`.split("\n");
       }
     }),
     hoverTooltip((view, pos) => {
-      for (let { range, message } of view.state.field(ASMErrorField))
+      for (let { range, message } of view.state.field(ASMStateField).errors)
         if (range.start <= pos && range.end >= pos)
           return {
             pos: range.start,
@@ -17403,7 +17393,7 @@ g nle`.split("\n");
       const asm = new AssemblyState({ intel });
       asm.compile(state.sliceDoc());
       return asm;
-    }), ASMErrorField.extension];
+    })];
     if (byteDumps)
       plugins.push(byteDumper);
     if (debug)
