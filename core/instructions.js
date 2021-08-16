@@ -1,7 +1,7 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
-import { ASMError, token, next, ungetToken, setToken, currRange, Range } from "./parser.js";
+import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
 import { fetchMnemonic, scanMnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
@@ -43,7 +43,7 @@ export class Instruction extends Statement
     {
         super(prev, MAX_INSTR_SIZE, range);
         this.opcode = opcode;
-        this.opcodeRange = new Range(range.start, range.length);
+        this.opcodeRange = new RelativeRange(range, range.start, range.length);
 
         this.interpret();
     }

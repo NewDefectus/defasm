@@ -16,11 +16,6 @@ export class Statement
         this.range = range;
         this.id = totalStatements++; // Each Statement gets a unique ID
 
-        /* effectiveRange is the range that the instruction affects.
-        It may differ from range if the instruction causes parser changes
-        to other instructions (e.g. syntax changes) */
-        this.effectiveRange = range;
-
         /** @type {Number} */
         this.length = 0;
 

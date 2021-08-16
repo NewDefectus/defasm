@@ -540,8 +540,8 @@ Expression.prototype.evaluate = function(currIndex, requireSymbols = false, orig
                 op = BigInt(currIndex);
             else if(op.name) // Symbols
             {
-                let record = symbols.get(op.name);
-                if(record.symbol !== null && !record.symbol.error
+                const record = symbols.get(op.name);
+                if(record && record.symbol && !record.symbol.error
                     && (originRecord === null || !checkSymbolRecursion(originRecord, record)))
                     op = symbols.get(op.name).symbol.value;
                 else if(!requireSymbols)

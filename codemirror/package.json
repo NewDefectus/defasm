@@ -30,7 +30,10 @@
     "@codemirror/tooltip": "",
     "@codemirror/view": "",
     "@defasm/core": "",
-    "lezer": "",
-    "lezer-generator": ""
+    "@lezer/common": "",
+    "@lezer/lr": ""
+  },
+  "devDependencies": {
+    "@lezer/generator": ""
   }
 }

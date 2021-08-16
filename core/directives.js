@@ -106,7 +106,7 @@ export class Directive extends Statement
                 case directives.att_syntax:
                     let intel = dir == directives.intel_syntax;
                     // Set the syntax now so we can correctly skip comments
-                    setSyntax({ prefix: currSyntax.prefix, intel, definer: this });
+                    setSyntax({ prefix: currSyntax.prefix, intel });
                     let prefix = !intel;
                     let prefSpecifier = next().toLowerCase();
 

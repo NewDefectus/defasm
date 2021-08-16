@@ -115,7 +115,7 @@ export class Range
     get end() { return this.start + this.length; }
 }
 
-class RelativeRange extends Range
+export class RelativeRange extends Range
 {
     constructor(parent, start, length)
     {

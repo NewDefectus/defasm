@@ -2,11 +2,12 @@ import { ASMStateField, byteDumper }                   from "./compilerPlugin.js
 import { ASMErrorField, errorMarker, errorTooltipper } from "./errorPlugin.js";
 import { parser }                                      from "./parser.js";
 import { debugPlugin }                                 from "./debugPlugin.js";
-import { LezerLanguage, LanguageSupport }              from '@codemirror/language';
+import { LRLanguage, LanguageSupport }                 from '@codemirror/language';
 import { styleTags, tags }                             from '@codemirror/highlight';
-import { AssemblyState }                               from "@defasm/core";
+import { AssemblyState }                               from '@defasm/core';
+import { makeTokenizer, tokenizer } from "./tokenizer.js";
 
-const assemblyLang = LezerLanguage.define({
+const assemblyLang = LRLanguage.define({
     parser: parser.configure({
         props: [
             styleTags({
@@ -56,7 +57,12 @@ export function assembly({
     if(errorTooltips) plugins.push(errorTooltipper);
 
     if(highlighting)
-        return new LanguageSupport(assemblyLang, plugins);
+        return new LanguageSupport(assemblyLang.configure({
+            tokenizers: [{
+                from: tokenizer,
+                to: makeTokenizer(intel)
+            }]
+        }), plugins);
     return plugins;
 }
 

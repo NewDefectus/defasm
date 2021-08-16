@@ -15,6 +15,9 @@
     "@codemirror/view": "",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",
+    "@lezer/common": "",
+    "@lezer/generator": "",
+    "@lezer/lr": "",
     "esbuild": ""
   }
 }

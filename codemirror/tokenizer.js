@@ -2,32 +2,43 @@ import {
     scanMnemonic, isRegister, sizeHints, prefixes,
     isDirective, scanIdentifier
 } from '@defasm/core';
-import { ContextTracker, ExternalTokenizer } from 'lezer';
+import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
 
 import * as Terms from './parser.terms.js';
 
-var allTokens, tok, loadStart, end;
+var tok, end;
 
-function load(input, start)
+/** @param {InputStream} input */
+function next(input)
 {
-    allTokens = input.lineAfter(loadStart = start).matchAll(/[.\w]+|\S/g) || [];
-}
+    tok = '';
+    let char;
+    
+    while(char = input.peek(end), char >= 0 && char != 10 && String.fromCodePoint(char).match(/\s/))
+        end++;
+    if(char = input.peek(end), char >= 0 && !(char = String.fromCodePoint(char)).match(/[.\w]/))
+    {
+        tok = char;
+        end++;
+    }
+    else
+        while(char = input.peek(end), char >= 0 && (char = String.fromCodePoint(char)).match(/[.\w]/))
+        {
+            tok += char;
+            end++;
+        }
 
-function next()
-{
-    let match = allTokens.next();
-    if(!match.done)
-        end = match.value.index + match.value[0].length;
-    return tok = match.done ? '\n' : match.value[0].toLowerCase();
+    return tok = tok.toLowerCase() || '\n';
 }
 
 export const ctxTracker = new ContextTracker({
-    start: { intel: false, prefix: true },
-    shift: (ctx, term, input, stack) => {
+    /** @type {{intel: boolean, prefix: boolean}} */
+    start: null,
+    shift: (ctx, term, stack, input) => {
         if(term != Terms.Directive)
             return ctx;
-        load(input, stack.ruleStart);
-        let result = {}, syntax = next();
+        end = 0;
+        let result = {}, syntax = next(input);
         if(syntax == ".intel_syntax")
         {
             result.intel = true;
@@ -40,7 +51,7 @@ export const ctxTracker = new ContextTracker({
         }
         else
             return ctx;
-        let pref = next();
+        const pref = next(input);
         if(pref == 'prefix')
             result.prefix = true;
         else if(pref == 'noprefix')
@@ -54,64 +65,65 @@ export const ctxTracker = new ContextTracker({
     strict: false
 });
 
-function tokenize(ctx, input)
+function tokenize({prefix, intel}, input)
 {
-    if(tok == '%' && (ctx.prefix || ctx.intel))
+    if(tok == '%' && (prefix || intel))
     {
-        next();
-        if(ctx.prefix && isRegister(tok))
+        next(input);
+        if(prefix && isRegister(tok))
             return Terms.Register;
-        if(ctx.intel && isDirective('%' + tok, true))
+        if(intel && isDirective('%' + tok, true))
             return Terms.Directive;
         return null;
     }
 
-    if(tok == (ctx.intel ? ';' : '#'))
+    if(tok == (intel ? ';' : '#'))
     {
-        end = input.lineAfter(loadStart).length;
+        while(input.peek(end) != '\n'.charCodeAt(0))
+            end++;
         return Terms.Comment;
     }
 
     if(tok == ';')
         return Terms.statementSeparator;
 
-    if(tok == '=' || ctx.intel && tok == 'equ')
+    if(tok == '=' || intel && tok == 'equ')
         return Terms.symEquals;
     
     if(tok == '{')
     {
         let line = input.lineAfter(loadStart), pos = line.indexOf('}') + 1;
         let initEnd = pos || line.length;
-        if((!ctx.prefix || next() == '%') && isRegister(next()))
+        if((!prefix || next(input) == '%') && isRegister(next(input)))
             return null;
         end = initEnd;
         return Terms.VEXRound;
     }
 
-    if(isDirective(tok, ctx.intel))
+    if(isDirective(tok, intel))
         return Terms.Directive;
 
-    if(!ctx.prefix && isRegister(tok))
+    if(!prefix && isRegister(tok))
         return Terms.Register;
 
-    if(ctx.intel && tok == 'offset')
+    if(intel && tok == 'offset')
         return Terms.Offset;
 
     if(prefixes.hasOwnProperty(tok))
         return Terms.Prefix;
 
-    let opcode = tok, opData = scanMnemonic(opcode, ctx.intel);
+    let opcode = tok, opData = scanMnemonic(opcode, intel);
     if(opData.length > 0)
         return opData[0].relative
         ?
-            ctx.intel ? Terms.IRelOpcode : Terms.RelOpcode
+            intel ? Terms.IRelOpcode : Terms.RelOpcode
         :
-            ctx.intel ? Terms.IOpcode : Terms.Opcode;
+            intel ? Terms.IOpcode : Terms.Opcode;
 
-    if(ctx.intel && sizeHints.hasOwnProperty(tok))
+    if(intel && sizeHints.hasOwnProperty(tok))
     {
         let prevEnd = end;
-        if(",;\n{:".includes(next()))
+        if(",;\n{:".includes(next(input)))
         {
             end = prevEnd;
             return Terms.word;
@@ -120,7 +132,7 @@ function tokenize(ctx, input)
         if(tok == 'ptr')
         {
             let nextPrevEnd = end;
-            end = ",;\n{:".includes(next()) ? prevEnd : nextPrevEnd;
+            end = ",;\n{:".includes(next(input)) ? prevEnd : nextPrevEnd;
             return Terms.Ptr;
         }
 
@@ -128,7 +140,7 @@ function tokenize(ctx, input)
         return Terms.Ptr;
     }
 
-    const idType = scanIdentifier(tok, ctx.intel);
+    const idType = scanIdentifier(tok, intel);
     if(idType === null)
         return null;
     if(idType.type == 'symbol')
@@ -136,15 +148,19 @@ function tokenize(ctx, input)
     return Terms.number;
 }
 
-export const tokenizer = new ExternalTokenizer(
-    (input, token, stack) => {
-        if(input.read(token.start, token.start + 1).match(/\s/))
-            return;
-        load(input, token.start);
-        next();
-        let type = tokenize(stack.context, input);
+export const tokenizer = new ExternalTokenizer();
+
+export const makeTokenizer = intel => new ExternalTokenizer(
+    (input, stack) => {
+        // Skip whitespace
+        while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
+            input.advance();
+        
+        end = 0;
+        next(input);
+        const type = tokenize(stack.context ?? { intel, prefix: !intel }, input);
         if(type !== null)
-            token.accept(type, loadStart + end);
+            input.acceptToken(type, end);
         
     }, {
         contextual: false

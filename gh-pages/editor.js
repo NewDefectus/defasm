@@ -1,5 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/closebrackets";
-import { standardKeymap, defaultTabBinding }  from "@codemirror/commands";
+import { standardKeymap, indentWithTab }      from "@codemirror/commands";
 import { lineNumbers }                        from "@codemirror/gutter";
 import { defaultHighlightStyle }              from "@codemirror/highlight";
 import { history, historyKeymap }             from "@codemirror/history";
@@ -25,9 +25,9 @@ const editor = new EditorView({
             defaultHighlightStyle,
             closeBrackets(),
             history(),
-            keymap.of([...closeBracketsKeymap, ...historyKeymap, defaultTabBinding, ...standardKeymap]),
+            keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
             lineNumbers(),
-            assembly({ debug: true, intel: true })
+            assembly({ debug: true })
         ]
     })
 });

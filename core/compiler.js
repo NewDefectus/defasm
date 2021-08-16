@@ -44,8 +44,7 @@ export class AssemblyState
         this.instructions = new Statement();
         this.instructions.syntax = {
             intel,
-            prefix: !intel,
-            definer: null
+            prefix: !intel
         }
 
         /** @type {string} */
@@ -105,12 +104,12 @@ export class AssemblyState
         // Expand the range a bit so as not to cut off the first and last instructions
         if(lastInstr)
         {
-            if(range.start > headInstr.next.effectiveRange.start)
-                range.start = headInstr.next.effectiveRange.start;
-            range = range.until(lastInstr.effectiveRange);
+            if(range.start > headInstr.next.range.start)
+                range.start = headInstr.next.range.start;
+            range = range.until(lastInstr.range);
         }
         else if(tailInstr)
-            range.length = tailInstr.effectiveRange.start - range.start - 1;
+            range.length = tailInstr.range.start - range.start - 1;
         else
             range.length = source.length;
         
@@ -213,6 +212,22 @@ export class AssemblyState
             // Link the last instruction to the next
             prevInstr.next = instr;
             linkedInstrQueue.push(prevInstr);
+
+            if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
+            {
+                // Syntax has been changed, we have to recompile some of the source
+                let nextSyntaxChange = instr;
+                while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
+                    nextSyntaxChange = nextSyntaxChange.next;
+                
+                const recompRange = instr.range.until(nextSyntaxChange.range);
+                
+                this.compile(recompRange.slice(this.source), {
+                    haltOnError,
+                    range: recompRange,
+                    doSecondPass: false
+                });
+            }
         }
 
         this.compiledRange = range.until(prevRange);
