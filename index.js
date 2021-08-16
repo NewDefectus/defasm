@@ -15110,8 +15110,9 @@ g nle`.split("\n");
               else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
                 addInstruction(new Symbol2(prevInstr, opcode, pos, pos));
               else if (currSyntax.intel && isDirective(token, true)) {
+                addInstruction(new Directive(prevInstr, token, pos));
+                pos = new Range3(pos.start, pos.length);
                 addInstruction(new Symbol2(prevInstr, opcode, pos, pos, true), false);
-                addInstruction(new Directive(prevInstr, token, new Range3(pos.start, pos.length)));
               } else
                 addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
             }
