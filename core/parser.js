@@ -39,7 +39,7 @@ export function loadCode(source, index = 0)
 var defaultNext = () => {
     prevRange = currRange;
     if(!match) // Make sure not to loop around
-        return null;
+        return '\n';
     
     comment = false;
     match = tokenizer.exec(code);

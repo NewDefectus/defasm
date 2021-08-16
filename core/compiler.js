@@ -122,7 +122,7 @@ export class AssemblyState
 
         prevInstr = headInstr;
         
-        while(match && currRange.end <= range.end)
+        while(match)
         {
             let pos = startAbsRange();
             try
@@ -200,6 +200,8 @@ export class AssemblyState
                 addInstruction(new Comment(prevInstr, start.until(currRange)));
             }
             next();
+            if(currRange.end > range.end)
+                break;
         }
 
         // Delete the replaced instructions
