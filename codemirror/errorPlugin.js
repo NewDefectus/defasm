@@ -105,7 +105,7 @@ export const errorTooltipper = [
             if(range.start <= pos && range.end >= pos)
                 return {
                     pos: range.start,
-                    end: range.end,
+                    end: Math.min(range.end, view.state.doc.length),
                     above: true,
                     create: view => {
                         let dom = document.createElement('div');

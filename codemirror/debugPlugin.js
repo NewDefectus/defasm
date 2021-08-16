@@ -21,7 +21,7 @@ export const debugPlugin = [
             return null;
         return {
             pos: instr.range.start,
-            end: instr.range.end,
+            end: Math.min(instr.range.end, view.state.doc.length),
             above: true,
             create: view => {
                 let dom = document.createElement('div');
