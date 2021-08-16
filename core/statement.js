@@ -1,4 +1,3 @@
-import { baseAddr } from "./compiler.js";
 import { ASMError, Range, currSyntax } from "./parser.js";
 
 var totalStatements = 0;
@@ -34,10 +33,7 @@ export class Statement
             this.address = prev.address + prev.length;
         }
         else
-        {
             this.syntax = currSyntax;
-            this.address = baseAddr;
-        }
     }
 
     /**

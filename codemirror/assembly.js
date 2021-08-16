@@ -38,17 +38,26 @@ const assemblyLang = LRLanguage.define({
     })
 });
 
+/** Create a CodeMirror extension utilizing DefAssembler
+ * @param {Object} config
+ * @param {import("@defasm/core/compiler").AssemblyConfig} config.assemblyConfig The config object passed to the `AssemblyState` constructor
+ * @param {boolean} config.byteDumps Whether to display the results of the assembly on the side of the editor
+ * @param {boolean} config.debug Whether to enable toggling debug mode when pressing F3
+ * @param {boolean} config.errorMarking Whether to draw a red underline beneath segments of code that cause errors
+ * @param {boolean} config.errorTooltips Whether to show a tooltip on these segments explaining the cause of the error
+ * @param {boolean} config.highlighting Whether to enable syntax highlighting using a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport) object
+*/
 export function assembly({
-    byteDumps     = true,
-    debug         = false,
-    errorMarking  = true,
-    errorTooltips = true,
-    highlighting  = true,
-    intel         = false
+    assemblyConfig = {},
+    byteDumps      = true,
+    debug          = false,
+    errorMarking   = true,
+    errorTooltips  = true,
+    highlighting   = true,
 } = {})
 {
     const plugins = [ASMStateField.init(state => {
-        const asm = new AssemblyState({ intel });
+        const asm = new AssemblyState(assemblyConfig);
         asm.compile(state.sliceDoc());
         return asm;
     })];
@@ -58,9 +67,12 @@ export function assembly({
     if(errorTooltips) plugins.push(errorTooltipper);
 
     if(highlighting)
+    {
+        const intel = assemblyConfig.intel ?? false;
         return new LanguageSupport(assemblyLang.configure({
             contextTracker: ctxTracker({ intel, prefix: !intel })
         }), plugins);
+    }
     return plugins;
 }
 

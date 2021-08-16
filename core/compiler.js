@@ -6,8 +6,6 @@ import { Comment, Statement } from "./statement.js";
 
 var linkedInstrQueue = [];
 
-export const baseAddr = 0x400078;
-
 var prevInstr = null;
 
 /** @param {Statement} instr */
@@ -27,21 +25,26 @@ function addInstruction(instr, seekEnd = true)
     instr.range.length = currRange.end - instr.range.start - (seekEnd ? 1 : 0);
 }
 
+/**
+ * @typedef {Object} AssemblyConfig
+ * @property {boolean} config.intel Set to true for Intel syntax, false for AT&T syntax. Defaults to false
+ * @property {Number} config.baseAddr The starting address of the program
+ */
+
 export class AssemblyState
-{
-    /**
-     * @param {Object} config
-     * @param {boolean} config.intel Set to true for Intel syntax, false for AT&T syntax. Defaults to false
-     */
+{ 
+    /** @param {AssemblyConfig} */
     constructor({
-        intel = false
+        intel = false,
+        baseAddr = 0x400078
     } = {})
     {
-        /** @type {Map<string, SymbolRecord>} */
+        /** @type {Map<string, import("./symbols.js").SymbolRecord>} */
         this.symbols = new Map();
 
         /** @type {Statement} */
         this.instructions = new Statement();
+        this.instructions.address = baseAddr;
         this.instructions.syntax = {
             intel,
             prefix: !intel
@@ -244,7 +247,7 @@ export class AssemblyState
     // Run the second pass on the instruction list
     secondPass(haltOnError = false)
     {
-        let currIndex = baseAddr, instr;
+        let currIndex = this.instructions.address, instr;
         loadSymbols(this.symbols);
 
         symbols.forEach((record, name) => {
@@ -317,7 +320,7 @@ export class AssemblyState
         if(haltingErrors.length > 0)
             throw haltingErrors.join('\n');
         
-        this.bytes = lastInstr ? lastInstr.address + lastInstr.length - baseAddr : 0;
+        this.bytes = lastInstr ? lastInstr.address + lastInstr.length - this.instructions.address : 0;
     }
 
     dump()

@@ -2,7 +2,7 @@
 
 import fs from "fs";
 import child_process from "child_process";
-import { AssemblyState, baseAddr } from "./compiler.js";
+import { AssemblyState } from "./compiler.js";
 
 
 let args = process.argv.slice(2);
@@ -11,12 +11,26 @@ let sizeOutFD = null;
 let execute = false;
 let outputFile = null, inputFile = null;
 let runtimeArgs = [];
-let intel = false;
+let assemblyConfig = {};
+
+let elfHeader = Buffer.from([
+    127,69, 76, 70, 2,  1,  1,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+    2,  0,  62, 0,  1,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+    64, 0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  64, 0, 56,  0,        1,  0,  0,  0,  0,  0,  0,  0,
+    1,  0,  0,  0,  7,  0,  0,  0,        0  ,0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
+    0,  0,  0,  0,  0,  0,  0,  0
+]);
+
+const ELF_SIZE = elfHeader.length;
 
 if(args[0] === '-h' || args[0] === '--help')
 {
     console.log(
-`Usage: defasm [file] [--intel] [--output outfile] [--size-out=fd] [--run [arguments...]]
+`Usage: defasm [file] [--init-addr=num] [--intel] [--output outfile] [--size-out=fd] [--run [arguments...]]
+    --init-addr     Set the starting address of the program
     --intel         Use Intel syntax when assembling (defaults to AT&T)
     --output        The path to the output file (defaults to 'a' in current
                     directory, or /tmp/asm if --run is provided).
@@ -40,31 +54,45 @@ try
             continue;
         }
 
-        if(arg.startsWith('--size-out='))
+        if(arg.startsWith('--init-addr='))
+        {
+            assemblyConfig.baseAddr = parseInt(arg.slice('--init-addr='.length));
+            if(isNaN(assemblyConfig.baseAddr))
+                throw "--init-addr expects a number";
+            const minAddr = parseInt(fs.readFileSync("/proc/sys/vm/mmap_min_addr")) + ELF_SIZE;
+            if(assemblyConfig.baseAddr < minAddr)
+                throw `--init-addr must be >= ${minAddr.toString(16)}`;
+        }
+        else if(arg.startsWith('--size-out='))
         {
             sizeOutFD = parseInt(arg.slice('--size-out='.length));
             if(isNaN(sizeOutFD))
                 throw "--size-out expects a file descriptor";
         }
-        else if(arg == '-r' || arg == '--run')
+        else switch(arg)
         {
-            execute = true;
-            runtimeArgs = args;
-            args = [];
-        }
-        else if(arg == '-o' || arg == '--output')
-        {
-            outputFile = args.shift();
-            if(outputFile === undefined)
-                throw "No output file given";
-        }
-        else if(arg == '-i' || arg == '--intel')
-        {
-            intel = true;
-        }
-        else
-        {
-            throw "Unknown flag " + arg;
+            case '-r':
+            case '--run':
+                execute = true;
+                runtimeArgs = args;
+                args = [];
+                break;
+
+            case '-o':
+            case '--output':
+                
+                outputFile = args.shift();
+                if(outputFile === undefined)
+                    throw "No output file given";
+                break;
+
+            case '-i':
+            case '--intel':
+                assemblyConfig.intel = true;
+                break;
+            
+            default:
+                throw "Unknown flag " + arg;
         }
     }
 
@@ -102,12 +130,12 @@ function writeSize(size)
 function assemble()
 {
     // Ensure the output path is correct
-    if(outputFile[0] !== '/' && outputFile[0] !== '.')
+    if(outputFile[0] != '/' && outputFile[0] != '.')
     {
         outputFile = './' + outputFile;
     }
 
-    let state = new AssemblyState({intel});
+    let state = new AssemblyState(assemblyConfig);
 
     try
     {
@@ -124,24 +152,21 @@ function assemble()
 
 
     // Construct the ELF header
-    let elfHeader = Buffer.from([
-        127,69, 76, 70, 2,  1,  1,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        2,  0,  62, 0,  1,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        64, 0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  64, 0, 56,  0,        1,  0,  0,  0,  0,  0,  0,  0,
-        1,  0,  0,  0,  7,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-        0,  16, 0,  0,  0,  0,  0,  0
-    ]);
+    
 
-    elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18);
-    elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x50);
-    elfHeader.writeBigUInt64LE(BigInt(baseAddr - 0x78), 0x58);
-    let size = BigInt(state.bytes + 0x78);
-    elfHeader.writeBigInt64LE(size, 0x60); elfHeader.writeBigInt64LE(size, 0x68); // Write the size twice
+    let baseAddr = state.instructions.address;
+    let fileStartAddr = Math.floor((baseAddr - ELF_SIZE) / 0x1000) * 0x1000 + ELF_SIZE;
+    elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18); // e_entry
+    elfHeader.writeBigUInt64LE(BigInt(ELF_SIZE), 0x48); // p_offset
+    elfHeader.writeBigUInt64LE(BigInt(fileStartAddr), 0x50); // p_vaddr
+    elfHeader.writeBigUInt64LE(BigInt(fileStartAddr), 0x58); // p_paddr
+    let size = BigInt(state.bytes + baseAddr - fileStartAddr);
+    elfHeader.writeBigInt64LE(size, 0x60); // p_filesz
+    elfHeader.writeBigInt64LE(size, 0x68); // p_memsz
     outputStream.write(elfHeader);
 
+    // Alignment
+    outputStream.write(Buffer.alloc(baseAddr - fileStartAddr));
 
     // Write the code
     outputStream.write(state.dump());
@@ -164,7 +189,7 @@ function assemble()
             try
             {
                 let coreDumpLocation = fs.readFileSync("/proc/sys/kernel/core_pattern").toString().trim();
-                if(coreDumpLocation[0] === '|' || coreDumpLocation.includes('%')) throw "";
+                if(coreDumpLocation[0] == '|' || coreDumpLocation.includes('%')) throw "";
                 let data = fs.readFileSync(coreDumpLocation);
                 let lastIP = null;
                 
@@ -173,7 +198,8 @@ function assemble()
 
                 for(let e_phnum = data.readInt16LE(0x38); e_phnum--; e_phoff += e_phentsize)
                 {
-                    if(data.readInt32LE(e_phoff) != 4) continue;
+                    if(data.readInt32LE(e_phoff) != 4)
+                        continue;
                     
                     let p_offset = Number(data.readBigInt64LE(e_phoff + 8));
                     let pt_regs = 124 + p_offset + Math.ceil(data.readInt32LE(p_offset) / 4) * 4;
@@ -191,14 +217,23 @@ function assemble()
 
                 if(lastIP !== null)
                 {
-                    lastIP -= baseAddr;
-                    if(lastIP < 0) throw "";
+                    if(lastIP < state.instructions.address)
+                        throw "";
 
-                    if(signal == "SIGTRAP" || signal == "SIGSYS") lastIP--; // Weird behavior with breakpoints
+                    if(signal == "SIGTRAP" || signal == "SIGSYS")
+                        lastIP--; // Weird behavior with breakpoints
 
-                    for(errLine = 0; errLine < state.instructions.length && lastIP >= 0; errLine++)
-                        state.instructions[errLine].map(instr => lastIP -= instr.length);
-                    if(lastIP >= 0) pos = 'after';
+                    state.iterate((instr, line) => {
+                        if(errLine)
+                            return;
+                        if(instr.address + instr.length > lastIP)
+                            errLine = line;
+                    });
+                    if(!errLine)
+                    {
+                        pos = 'after';
+                        errLine = (state.source.match(/\n/g) || []).length + 1;
+                    }
                 }
             }
             catch(e) {}
