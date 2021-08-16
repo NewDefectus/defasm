@@ -1,11 +1,11 @@
 import { ASMStateField, byteDumper }                   from "./compilerPlugin.js";
-import { ASMErrorField, errorMarker, errorTooltipper } from "./errorPlugin.js";
+import { errorMarker, errorTooltipper }                from "./errorPlugin.js";
 import { parser }                                      from "./parser.js";
 import { debugPlugin }                                 from "./debugPlugin.js";
+import { ctxTracker }                                  from "./tokenizer.js";
 import { LRLanguage, LanguageSupport }                 from '@codemirror/language';
 import { styleTags, tags }                             from '@codemirror/highlight';
 import { AssemblyState }                               from '@defasm/core';
-import { ctxTracker } from "./tokenizer.js";
 
 const assemblyLang = LRLanguage.define({
     parser: parser.configure({
@@ -51,7 +51,7 @@ export function assembly({
         const asm = new AssemblyState({ intel });
         asm.compile(state.sliceDoc());
         return asm;
-    }), ASMErrorField.extension];
+    })];
     if(byteDumps)     plugins.push(byteDumper);
     if(debug)         plugins.push(debugPlugin);
     if(errorMarking)  plugins.push(errorMarker);
@@ -64,5 +64,4 @@ export function assembly({
     return plugins;
 }
 
-export { ASMStateField } from "./compilerPlugin";
-export { ASMErrorField } from "./errorPlugin";
+export { ASMStateField };

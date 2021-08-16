@@ -1,26 +1,7 @@
 import { hoverTooltip } from '@codemirror/tooltip';
 import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
 import { ASMStateField } from "./compilerPlugin";
-import { ASMError } from "@defasm/core";
-import { EditorState, StateField } from '@codemirror/state';
-
-/** @param {EditorState} state */
-function findErrors(state)
-{
-    let errors = [];
-    state.field(ASMStateField).iterate(instr => {
-        if(instr.error)
-            errors.push(instr.error);
-    });
-    return errors;
-}
-
-/** @type {StateField<ASMError[]>} */
-export const ASMErrorField = StateField.define({
-    create: findErrors,
-    update: (errors, transaction) =>
-        transaction.docChanged ? findErrors(transaction.state) : errors
-});
+import { EditorState } from '@codemirror/state';
 
 class EOLError extends WidgetType
 {
@@ -55,7 +36,7 @@ export const errorMarker = [
             /** @param {EditorState} state */
             markErrors(state)
             {
-                this.marks = Decoration.set(state.field(ASMErrorField).map(error => {
+                this.marks = Decoration.set(state.field(ASMStateField).errors.map(error => {
                     let content = state.sliceDoc(error.range.start, error.range.end);
                     if(content == '\n' || !content)
                         return Decoration.widget({
@@ -101,7 +82,7 @@ export const errorTooltipper = [
         }
     }),
     hoverTooltip((view, pos) => {
-        for(let { range, message } of view.state.field(ASMErrorField))
+        for(let { range, message } of view.state.field(ASMStateField).errors)
             if(range.start <= pos && range.end >= pos)
                 return {
                     pos: range.start,

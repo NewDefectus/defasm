@@ -28,19 +28,3 @@ new EditorView({
     state: EditorState.create({ extensions: [assembly()] })
 });
 ```
-
-Errors from the assembler are also collected into a list; they may be accessed through the `ASMErrorField` state field:
-
-```js
-import { assembly, ASMErrorField } from "@defasm/codemirror";
-new EditorView({
-    dispatch: tr => {
-        const result = editor.update([tr]);
-        const errors = editor.state.field(ASMErrorField);
-        for(const { range, message } of errors)
-            console.warn(`Error (${range.start}-${range.end}): ${message}`);
-        return result;
-    },
-    state: EditorState.create({ extensions: [assembly()] })
-});
-```

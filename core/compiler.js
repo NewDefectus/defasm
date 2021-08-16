@@ -53,6 +53,9 @@ export class AssemblyState
         /** @type {Range} */
         this.compiledRange = new Range();
 
+        /** @type {ASMError[]} */
+        this.errors = [];
+
         this.bytes = 0;
     }
 
@@ -170,12 +173,8 @@ export class AssemblyState
                             addInstruction(new Symbol(prevInstr, opcode, pos, pos));
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            /* The instructions are ordered like this so that both of them have an
-                            identical range (since Directive's constructor will extend the range), but
-                            not the same range object, otherwise it'll get offset twice when correcting. */
-                            addInstruction(new Directive(prevInstr, token, pos));
-                            pos = new Range(pos.start, pos.length);
                             addInstruction(new Symbol(prevInstr, opcode, pos, pos, true), false);
+                            addInstruction(new Directive(prevInstr, token, startAbsRange()));
                         }
                         else // Instruction
                             addInstruction(new Instruction(prevInstr, opcode.toLowerCase(), pos));
@@ -289,6 +288,7 @@ export class AssemblyState
 
         // Error collection
         let haltingErrors = [], lastInstr = null;
+        this.errors = [];
         this.iterate((instr, line) => {
             lastInstr = instr;
             if(instr.outline && instr.outline.operands)
@@ -298,6 +298,7 @@ export class AssemblyState
             let e = instr.error;
             if(e)
             {
+                this.errors.push(e);
                 if(haltOnError)
                     haltingErrors.push(`Error on line ${line}: ${e.message}`);
 
