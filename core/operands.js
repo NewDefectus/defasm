@@ -1,4 +1,4 @@
-import { ASMError, token, next, ungetToken, currRange, currSyntax } from "./parser.js";
+import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange } from "./parser.js";
 import { Expression } from "./shuntingYard.js";
 
 // Operand types
@@ -381,6 +381,7 @@ export function Operand(instr, forceImmToRel = false)
                 next();
             }
         }
+        this.endPos = prevRange;
     }
 }
 

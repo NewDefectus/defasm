@@ -1,8 +1,8 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
-import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
-import { fetchMnemonic, scanMnemonic } from "./mnemonicList.js";
+import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange, match } from "./parser.js";
+import { fetchMnemonic, Mnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { Operation } from "./mnemonics.js";
@@ -37,6 +37,51 @@ function parseRoundingMode(vexInfo)
     if(vexInfo.round < 0)
         throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
 }
+
+/** Find the correct error to throw when no mnemonics fit the given operand list
+ * @param {Mnemonic[]} mnemonics
+ * @param {Operand[]} operands */
+function explainNoMatch(mnemonics, operands, vexInfo)
+{
+    let minOperandCount = Infinity, maxOperandCount = 0;
+    let firstOrderPossible = false, secondOrderPossible = false;
+    let requiresMask = false;
+
+    for(const mnemonic of mnemonics)
+        for(const operation of mnemonic.operations)
+        {
+            let opCount = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers).length;
+            if(opCount > maxOperandCount)
+                maxOperandCount = opCount;
+            if(opCount < minOperandCount)
+                minOperandCount = opCount;
+            if(opCount == operands.length && operation.requireMask)
+                requiresMask = true;
+
+            vexInfo.needed = mnemonic.vex;
+            firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
+            operands.reverse();
+            secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
+            operands.reverse();
+        }
+
+    if(operands.length < minOperandCount)
+        return "Not enough operands";
+    
+    if(operands.length > maxOperandCount)
+        return "Too many operands";
+    
+    if(!firstOrderPossible && secondOrderPossible)
+        return "Wrong operand order";
+    
+    if(vexInfo.mask == 0 && requiresMask)
+        return "Must use a mask for this instruction";
+    
+    
+    
+    return "Wrong operand type" + (operands.length == 1 ? '' : 's');
+}
+
 
 export class Instruction extends Statement
 {
@@ -78,38 +123,25 @@ export class Instruction extends Statement
             broadcast: null
         };
 
-        let usesMemory = false;
+        /** @type {Operand?} */
+        let memoryOperand = null;
         this.needsRecompilation = false;
         this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
 
         /** @type { Operand[] } */
         let operands = [];
 
-        /** @type { (Operation | {size: number})[] } */
-        let operations = [];
-
-        let opcodeInterps = scanMnemonic(opcode, this.syntax.intel);
-
-        for(let interp of opcodeInterps)
-        {
-            if(interp.size === null)
-            {
-                if(operations.length == 0)
-                    throw new ASMError("Invalid opcode suffix",
-                        new Range(this.opcodeRange.start + this.opcodeRange.length - 1, 1)
-                    );
-            }
-            else if(interp.size !== undefined)
-                operations = [...operations, { size: interp.size }, ...fetchMnemonic(interp.raw, false)];
-            else
-                operations = [...operations, ...fetchMnemonic(interp.raw, this.syntax.intel)];
-            
-            if(interp.vex)
-                vexInfo.needed = true;
-        }
-        
-        if(operations.length == 0)
+        let mnemonics = fetchMnemonic(opcode, this.syntax.intel);
+        if(mnemonics.length == 0)
             throw new ASMError("Unknown opcode", this.opcodeRange);
+        
+        mnemonics = mnemonics.filter(mnemonic => mnemonic.size !== null);
+        if(mnemonics.length == 0)
+            throw new ASMError("Invalid opcode suffix",
+                new RelativeRange(this.range, this.opcodeRange.start + this.opcodeRange.length - 1, 1)
+            );
+        
+        let forceImmToRel = this.syntax.intel && mnemonics.some(mnemonic => mnemonic.relative);
 
         if(!this.syntax.intel && token == '{')
         {
@@ -119,11 +151,10 @@ export class Instruction extends Statement
             next();
         }
 
-        let forceImmToRel = this.syntax.intel && operations.some(x => x.relativeSizes !== null);
-
         // Collecting the operands
         while(token != ';' && token != '\n')
         {
+            let sizePtrRange = currRange, enforcedSize = null;
             if(this.syntax.intel)
             {
                 if(token == '{')
@@ -138,7 +169,8 @@ export class Instruction extends Statement
                     let following = next();
                     if(following.toLowerCase() == 'ptr')
                     {
-                        operations = [{size: sizeHints[sizePtr.toLowerCase()]}, ...operations];
+                        sizePtrRange = sizePtrRange.until(currRange);
+                        enforcedSize = sizeHints[sizePtr.toLowerCase()];
                         if(",;\n{:".includes(next()))
                         {
                             ungetToken();
@@ -153,7 +185,7 @@ export class Instruction extends Statement
                             setToken(sizePtr);
                         }
                         else
-                            operations = [{size: sizeHints[sizePtr.toLowerCase()]}, ...operations];
+                            enforcedSize = sizeHints[sizePtr.toLowerCase()];
                     }
                 }
             }
@@ -177,8 +209,14 @@ export class Instruction extends Statement
 
             if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
                 vexInfo.evex = true;
-            if(operand.type == OPT.MEM)
-                usesMemory = true;
+            if(operand.type == OPT.MEM || operand.type == OPT.REL)
+            {
+                memoryOperand = operand;
+                if(enforcedSize)
+                    operand.size = enforcedSize;
+            }
+            else if(enforcedSize)
+                throw new ASMError("Size hints work only for memory operands", sizePtrRange);
 
             while(token == '{') // Decorator (mask or broadcast specifier)
             {
@@ -215,10 +253,24 @@ export class Instruction extends Statement
         if(this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
             operands.reverse();
 
-        if(usesMemory && vexInfo.round !== null)
+        if(memoryOperand && vexInfo.round !== null)
             throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+        
+        // Filter out operations whose types don't match
+        /** @type {Mnemonic[]} */
+        let matchingMnemonics = [];
+        for(const mnemonic of mnemonics)
+        {
+            vexInfo.needed = mnemonic.vex;
+            const matchingOps = mnemonic.operations.filter(operation => operation.matchTypes(operands, vexInfo));
+            if(matchingOps.length > 0)
+                matchingMnemonics.push({ ...mnemonic, operations: matchingOps })
+        }
 
-        this.outline = { operands, operations, prefsToGen, vexInfo };
+        if(matchingMnemonics.length == 0) // No operations match; find out why
+            throw new ASMError(explainNoMatch(mnemonics, operands, vexInfo), this.operandStartPos.until(currRange));
+
+        this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, prefsToGen, vexInfo };
         this.endPos = currRange;
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
@@ -243,8 +295,7 @@ export class Instruction extends Statement
 
     compile()
     {
-        let { operands, operations, prefsToGen, vexInfo } = this.outline;
-        let enforcedSize = 0;
+        let { operands, memoryOperand, mnemonics, prefsToGen, vexInfo } = this.outline;
         this.length = 0;
 
         // Before we compile, we'll get the immediates' sizes
@@ -293,66 +344,34 @@ export class Instruction extends Statement
         }
 
         // Now, we'll find the matching operation for this operand list
-        let op, found = false, rexVal = 0x40;
+        let op, found = false, rexVal = 0x40, memOpSize = memoryOperand?.size;
         
-        for(let operation of operations)
+        mnemonicLoop:
+        for(const mnemonic of mnemonics)
         {
-            if(operation.size !== undefined)
+            if(memoryOperand)
+                memoryOperand.size = mnemonic.size || memOpSize;
+
+            vexInfo.needed = mnemonic.vex;
+            for(const operation of mnemonic.operations)
             {
-                enforcedSize = operation.size;
-                for(let operand of operands)
-                    if(operand.type == OPT.MEM || operand.type == OPT.REL)
-                        operand.size = enforcedSize;
-                continue;
-            }
-            op = operation.fit(operands, this, vexInfo);
-            if(op !== null)
-            {
-                found = true;
-                break;
+                op = operation.fit(operands, this, vexInfo);
+                if(op !== null)
+                {
+                    found = true;
+                    break mnemonicLoop;
+                }
             }
         }
 
         if(!found)
         {
-            // Try to find why the error occurred
-            let minOperandCount = Infinity, maxOperandCount = 0;
-            let firstOrderPossible = false, secondOrderPossible = false;
-
-            for(let operation of operations)
-            {
-                if(operation.size !== undefined)
-                    continue;
-                if(vexInfo.needed && !operation.allowVex)
-                    continue;
-
-                let opCount = (vexInfo.needed ? operation.vexOpCatchers : operation.opCatchers).length;
-                if(opCount > maxOperandCount)
-                    maxOperandCount = opCount;
-                if(opCount < minOperandCount)
-                    minOperandCount = opCount;
-
-                firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
-                operands.reverse();
-                secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
-                operands.reverse();
-            }
-
-            const errRange = this.operandStartPos.until(this.endPos)
-
-            if(operands.length < minOperandCount)
-                throw new ASMError("Not enough operands", errRange);
-            
-            if(operands.length > maxOperandCount)
-                throw new ASMError("Too many operands", errRange);
-            
-            if(!firstOrderPossible && secondOrderPossible)
-                throw new ASMError("Wrong operand order", errRange);
-            
-            if(vexInfo.mask == 0 && operations.some(x => x.vexOpCatchers && x.vexOpCatchers.length == operands.length && x.requireMask))
-                throw new ASMError("Must use a mask for this instruction", errRange);
-            
-            throw new ASMError("Invalid operands", errRange);
+            if(memoryOperand && isNaN(memoryOperand.size))
+                throw new ASMError("Ambiguous memory size", memoryOperand.startPos.until(memoryOperand.endPos));
+            throw new ASMError(
+                "Wrong operand size" + (operands.length == 1 ? '' : 's'),
+                this.operandStartPos.until(this.endPos)
+            );
         }
 
         if(op.rexw)

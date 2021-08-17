@@ -7,8 +7,8 @@ const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[o
 
 exports.run = async function()
 {
-    const { AssemblyState, scanMnemonic } = await import("@defasm/core");
-    const { mnemonics, fetchMnemonic } = await import("@defasm/core/mnemonicList.js");
+    const { AssemblyState, fetchMnemonic } = await import("@defasm/core");
+    const { mnemonics } = await import("@defasm/core/mnemonicList.js");
     const { execSync } = require('child_process');
     const { readFileSync } = require('fs');
 
@@ -45,9 +45,21 @@ exports.run = async function()
 
     let source = "";
 
-    function recurseOperands(opcode, opType, operation, isVex, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
+    /**
+     * 
+     * @param {string} opcode 
+     * @param {import('@defasm/core/mnemonicList.js').Mnemonic} mnemonic 
+     * @param {Operation} operation 
+     * @param {number} i 
+     * @param {string[]} operands 
+     * @param {number} prevSize 
+     * @param {number} total 
+     * @param {string} sizeSuffix 
+     * @returns 
+     */
+    function recurseOperands(opcode, mnemonic, operation, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
     {
-        let opCatchers = isVex ? operation.vexOpCatchers : operation.opCatchers;
+        let opCatchers = mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers;
         if(opCatchers.length == 0)
         {
             source += opcode + '\n';
@@ -81,7 +93,7 @@ exports.run = async function()
             }
             else
             {
-                recurseOperands(opcode, opType, operation, isVex, nextI, operands);
+                recurseOperands(opcode, mnemonic, operation, nextI, operands);
                 return;
             }
         }
@@ -104,7 +116,7 @@ exports.run = async function()
             {
                 let type = forceMemory ? OPT.MEM : catcher.type;
                 let sizeSuffixOriginal = sizeSuffix;
-                if(type == OPT.MEM && showSuffix && size != (isVex ? catcher.defVexSize : catcher.defSize))
+                if(type == OPT.MEM && showSuffix && size != (mnemonic.vex ? catcher.defVexSize : catcher.defSize))
                 {
                     sizeSuffix = (
                         opcode[0] == 'f' ?
@@ -115,9 +127,9 @@ exports.run = async function()
                         :
                             suffixNames)[size & ~7];
                 }
-                if(!isVex && size >= 256 || (size & ~7) == 48)
+                if(!mnemonic.vex && size >= 256 || (size & ~7) == 48)
                     continue;
-                if(isVex && size < 128 && type == OPT.VEC)
+                if(mnemonic.vex && size < 128 && type == OPT.VEC)
                     continue;
                 
                 operands[i] = makeOperand(type, size & ~7, total + 1, catcher.implicitValue);
@@ -125,13 +137,13 @@ exports.run = async function()
                 if(total + 1 >= opCatchers.length)
                 {
                     source += opcode + sizeSuffix + ' ' +
-                    (opType == 'relative' && type != OPT.REL ? '*' : '')
+                    (mnemonic.relative && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
                     + (operation.requireMask ? ' {%k1}' : '')
                     + '\n';
                 }
                 else
-                    recurseOperands(opcode, opType, operation, isVex, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+                    recurseOperands(opcode, mnemonic, operation, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
 
                 sizeSuffix = sizeSuffixOriginal;
             }
@@ -140,20 +152,6 @@ exports.run = async function()
                 forceMemory = true;
             else
                 break;
-        }
-    }
-
-    /** @param { Operation } operation */
-    function sampleOperation(opcode, opType, operation)
-    {
-        if(!(operation.vexOnly || opcode[0] == 'v' && !operation.actuallyNotVex))
-        {
-            recurseOperands(opcode, opType, operation, false);
-        }
-
-        if((operation.allowVex || operation.vexOnly) && !operation.forceVex)
-        {
-            recurseOperands(opcode[0] == 'v' ? opcode : 'v' + opcode, opType, operation, true);
         }
     }
 
@@ -173,15 +171,17 @@ exports.run = async function()
     const uncheckedOpcodes = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
 
     // Main starts here
-    for(let opcode of Object.keys(mnemonics))
+    for(const opcode of Object.keys(mnemonics))
     {
-        let opType = scanMnemonic(opcode, false);
-        if(opType === null || uncheckedOpcodes.includes(opcode))
+        if(uncheckedOpcodes.includes(opcode))
             continue;
-        let ops = fetchMnemonic(opcode, false);
+        let start = source.length;
 
-        for(let operation of ops)
-            sampleOperation(opcode, opType, operation);
+        for(const op of [opcode, 'v' + opcode])
+            for(const mnemonic of fetchMnemonic(op, false, false))
+                for(const operation of mnemonic.operations)
+                    recurseOperands(op, mnemonic, operation);
+        console.assert(source.includes(opcode, start))
     }
 
     let state = new AssemblyState();
@@ -201,20 +201,16 @@ exports.run = async function()
     if(!asOutput.equals(state.dump()))
     {
         let cmpPtr = 0, discrepancies = [];
-        for(let i = 0; i < state.instructions.length; i++)
-        {
-            let instr = state.instructions[i][0];
-            if(!instr)
-                continue;
+        state.iterate(instr => {
             if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0)
             {
-                let code = state.source[i];
-                let correctOutput = gassemble(code);
+                const code = instr.range.slice(state.source);
+                const correctOutput = gassemble(code);
 
                 discrepancies.push(`- '${
                     code
                 }' compiles to ${
-                    hex(instr.bytes.slice(0, instr.length))
+                    hex(instr.bytes.subarray(0, instr.length))
                 }, should be ${
                     hex(correctOutput)
                 }`);
@@ -222,7 +218,7 @@ exports.run = async function()
             }
             else
                 cmpPtr += instr.length;
-        }
+        });
 
         throw `Discrepancies detected:\n${
             discrepancies.join('\n')

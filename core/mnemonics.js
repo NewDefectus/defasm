@@ -151,22 +151,6 @@ function OpCatcher(format)
     }
 }
 
-OpCatcher.prototype.matchType = function(operand)
-{
-    // Check that the types match
-    if(operand.type != this.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && this.acceptsMemory))
-        return false;
-
-    // In case of implicit operands, check that the values match
-    if(this.implicitValue !== null)
-    {
-        let opValue = (operand.type == OPT.IMM ? Number(operand.value) : operand.reg);
-        if(this.implicitValue !== opValue)
-            return false;
-    }
-    return true;
-}
-
 /** Attempt to "catch" a given operand.
  * @param {Operand} operand
  * @param {number} prevSize
@@ -175,9 +159,6 @@ OpCatcher.prototype.matchType = function(operand)
  */
 OpCatcher.prototype.catch = function(operand, prevSize, isVex)
 {
-    if(!this.matchType(operand))
-        return null;
-
     // Check that the sizes match
     let opSize = this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
@@ -647,7 +628,7 @@ Operation.prototype.generateRelative = function(operand, instr)
 /* Check if a list of operands has the right types for this operation */
 Operation.prototype.matchTypes = function(operands, vexInfo)
 {
-    if(!this.validateVEX(vexInfo))
+    if(vexInfo.mask == 0 && this.requireMask)
         return false;
 
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
@@ -655,8 +636,18 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
         return false;
 
     for(let i = 0; i < operands.length; i++)
-        if(!opCatchers[i].matchType(operands[i]))
+    {
+        const catcher = opCatchers[i], operand = operands[i];
+        if(
+            // Check that the types match
+            operand.type != catcher.type &&
+            !((operand.type == OPT.MEM || operand.type == OPT.REL) && catcher.acceptsMemory)
+            ||
+            // In case of implicit operands, check that the values match
+            catcher.implicitValue !== null &&
+            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value) : operand.reg))
             return false;
+    }
     
     return true;
 }

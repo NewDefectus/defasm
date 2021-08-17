@@ -1,5 +1,5 @@
 import {
-    scanMnemonic, isRegister, sizeHints, prefixes,
+    fetchMnemonic, isRegister, sizeHints, prefixes,
     isDirective, scanIdentifier
 } from '@defasm/core';
 import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
@@ -110,9 +110,9 @@ function tokenize({prefix, intel}, input)
     if(prefixes.hasOwnProperty(tok))
         return Terms.Prefix;
 
-    let opcode = tok, opData = scanMnemonic(opcode, intel);
-    if(opData.length > 0)
-        return opData[0].relative
+    let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
+    if(mnemonics.length > 0)
+        return mnemonics[0].relative
         ?
             intel ? Terms.IRelOpcode : Terms.RelOpcode
         :
