@@ -2,7 +2,9 @@
 
 import fs from "fs";
 import child_process from "child_process";
-import { AssemblyState } from "./compiler.js";
+import { AssemblyState } from "@defasm/core";
+
+import { ELFHeader, ProgramHeader, SectionHeader } from "./elf.js";
 
 
 let args = process.argv.slice(2);
@@ -13,18 +15,7 @@ let outputFile = null, inputFile = null;
 let runtimeArgs = [];
 let assemblyConfig = {};
 
-let elfHeader = Buffer.from([
-    127,69, 76, 70, 2,  1,  1,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-    2,  0,  62, 0,  1,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-    64, 0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  64, 0, 56,  0,        1,  0,  0,  0,  0,  0,  0,  0,
-    1,  0,  0,  0,  7,  0,  0,  0,        0  ,0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0,        0,  0,  0,  0,  0,  0,  0,  0,
-    0,  0,  0,  0,  0,  0,  0,  0
-]);
-
-const ELF_SIZE = elfHeader.length;
+const ELF_SIZE = ELFHeader.length + ProgramHeader.length;
 
 if(args[0] === '-h' || args[0] === '--help')
 {
@@ -150,21 +141,43 @@ function assemble()
     }
     let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
 
-
-    // Construct the ELF header
-    
-
     let baseAddr = state.instructions.address;
     let fileStartAddr = Math.floor((baseAddr - ELF_SIZE) / 0x1000) * 0x1000 + ELF_SIZE;
-    elfHeader.writeBigUInt64LE(BigInt(baseAddr), 0x18); // e_entry
-    elfHeader.writeBigUInt64LE(BigInt(ELF_SIZE), 0x48); // p_offset
-    elfHeader.writeBigUInt64LE(BigInt(fileStartAddr), 0x50); // p_vaddr
-    elfHeader.writeBigUInt64LE(BigInt(fileStartAddr), 0x58); // p_paddr
-    let size = BigInt(state.bytes + baseAddr - fileStartAddr);
-    elfHeader.writeBigInt64LE(size, 0x60); // p_filesz
-    elfHeader.writeBigInt64LE(size, 0x68); // p_memsz
-    outputStream.write(elfHeader);
 
+    ELFHeader.EI_MAG = 0x46_4C_45_7F;
+    ELFHeader.EI_CLASS = 2;
+    ELFHeader.EI_DATA = 1;
+    ELFHeader.EI_VERSION = 1;
+    ELFHeader.EI_OSABI = 0;
+    ELFHeader.EI_VERSION = 0;
+
+    ELFHeader.e_type = 2;
+    ELFHeader.e_machine = 0x3E;
+    ELFHeader.e_version = 1;
+    ELFHeader.e_entry = baseAddr;
+    ELFHeader.e_phoff = ELFHeader.length;
+    ELFHeader.e_shoff = 0;
+    ELFHeader.e_flags = 0;
+    ELFHeader.e_ehsize = ELFHeader.length;
+    ELFHeader.e_phentsize = ProgramHeader.length;
+    ELFHeader.e_phnum = 1;
+    ELFHeader.e_shentsize = SectionHeader.length;
+    ELFHeader.e_shnum = 0;
+    ELFHeader.e_shstrndx = 0;
+
+    outputStream.write(ELFHeader);
+
+
+    ProgramHeader.p_type = 1;
+    ProgramHeader.p_flags = 0b111;
+    ProgramHeader.p_offset = ELFHeader.length + ProgramHeader.length;
+    ProgramHeader.p_vaddr = ProgramHeader.p_paddr = fileStartAddr;
+    ProgramHeader.p_filesz = ProgramHeader.p_memsz = state.bytes + baseAddr - fileStartAddr;
+    ProgramHeader.p_align = 0;
+
+    outputStream.write(ProgramHeader);
+
+    
     // Alignment
     outputStream.write(Buffer.alloc(baseAddr - fileStartAddr));
 
