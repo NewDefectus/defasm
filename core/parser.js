@@ -1,4 +1,9 @@
-import { Statement } from "./statement.js";
+/**
+ * @typedef {Object} Syntax
+ * @property {boolean} intel
+ * @property {boolean} prefix
+ */
+
 /** @type {string} */          export var code;
 /** @type {boolean} */         export var comment;
 /** @type {RelativeRange} */   export var currRange;
@@ -6,11 +11,12 @@ import { Statement } from "./statement.js";
 /** @type {RegExpExecArray} */ export var match;
 /** @type {RelativeRange} */   export var prevRange;
 /** @type {string} */          export var token;
+/** @type {Syntax?} */         export var currSyntax = null;
 
 /** @type {Range?} */
 var parentRange = null;
 
-export var currSyntax = null;
+/** @param {Syntax} syntax */
 export function setSyntax(syntax)
 {
     currSyntax = syntax;

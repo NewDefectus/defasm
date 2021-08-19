@@ -22,7 +22,7 @@ export function loadSymbols(table)
 export function queueRecomp(instr)
 {
     if(!instr.wantsRecomp)
-        recompQueue.push(instr);
+        recompQueue.push(instr.sectionNode);
     instr.wantsRecomp = true;
 }
 
@@ -30,9 +30,9 @@ export class Symbol extends Statement
 {
     /** @type {SymbolRecord} */
     record;
-    constructor(prev, name, range, opcodeRange, isLabel = false)
+    constructor(addr, name, range, opcodeRange, isLabel = false)
     {
-        super(prev, 0, range);
+        super(addr, 0, range);
         this.name = name;
         let uses = [];
         try

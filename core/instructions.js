@@ -85,9 +85,9 @@ function explainNoMatch(mnemonics, operands, vexInfo)
 
 export class Instruction extends Statement
 {
-    constructor(prev, opcode, range)
+    constructor(addr, opcode, range)
     {
-        super(prev, MAX_INSTR_SIZE, range);
+        super(addr, MAX_INSTR_SIZE, range);
         this.opcode = opcode;
         this.opcodeRange = new RelativeRange(range, range.start, range.length);
 

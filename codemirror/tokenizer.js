@@ -31,7 +31,7 @@ function next(input)
     return tok = tok.toLowerCase() || '\n';
 }
 
-/** @param {{intel: boolean, prefix: boolean}} initialSyntax */
+/** @param {import('@defasm/core/parser.js').Syntax} initialSyntax */
 export const ctxTracker = initialSyntax => new ContextTracker({
     start: initialSyntax,
     shift: (ctx, term, stack, input) => {
@@ -64,7 +64,7 @@ export const ctxTracker = initialSyntax => new ContextTracker({
     strict: false
 });
 
-function tokenize({prefix, intel}, input)
+function tokenize({ prefix, intel }, input)
 {
     if(tok == '%' && (prefix || intel))
     {

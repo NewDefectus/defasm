@@ -27,26 +27,32 @@ export const ASMStateField = StateField.define({
 
 class AsmDumpWidget extends WidgetType
 {
-    constructor(bytes, offset)
+    constructor(buffers, offset)
     {
         super();
-        this.bytes = bytes;
+        this.buffers = buffers;
         this.offset = offset;
     }
 
     toDOM()
     {
         let node = document.createElement('span');
-        let finalText = "";
         node.setAttribute('aria-hidden', 'true');
         node.className = 'cm-asm-dump';
         node.style.marginLeft = this.offset + 'px';
 
-        for(const byteArray of this.bytes)
-            for(const byte of byteArray)
-                finalText += ' ' + byte.toString(16).toUpperCase().padStart(2, '0');
+        for(const buffer of this.buffers)
+        {
+            let text = '';
+            let span = document.createElement('span');
+            span.setAttribute('section', buffer.section.name);
 
-        node.innerText = finalText.slice(1);
+            for(const byte of buffer.bytes)
+                text += byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
+            span.innerText = text;
+            node.appendChild(span);
+        }
+
         return node;
     }
 }
@@ -74,9 +80,12 @@ function expandTabs(text, tabSize)
 export const byteDumper = [
     EditorView.baseTheme({
         '.cm-asm-dump': {
-            fontStyle: "italic",
-            color: "#666"
+            fontStyle: "italic"
         },
+        '.cm-asm-dump [section]'        : { color: "#A66" },
+        '.cm-asm-dump [section=".text"]': { color: "#666" },
+        '.cm-asm-dump [section=".data"]': { color: "#66A" },
+        '.cm-asm-dump [section=".bss"]' : { color: "#6A6" },
         '&dark .cm-asm-dump': {
             color: "#aaa"
         }
@@ -154,10 +163,10 @@ export const byteDumper = [
             let maxOffset = Math.max(...this.lineWidths) + 50;
             let widgets   = [];
 
-            state.field(ASMStateField).bytesPerLine((bytes, line) => {
-                if(bytes.length > 0)
+            state.field(ASMStateField).bytesPerLine((buffers, line) => {
+                if(buffers.length > 0)
                     widgets.push(Decoration.widget({
-                            widget: new AsmDumpWidget(bytes, maxOffset - this.lineWidths[line - 1]),
+                            widget: new AsmDumpWidget(buffers, maxOffset - this.lineWidths[line - 1]),
                             side: 2
                         }).range(doc.line(line).to));
             });

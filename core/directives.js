@@ -1,4 +1,5 @@
 import { ASMError, token, next, setSyntax, currSyntax } from "./parser.js";
+import { sections } from "./section.js";
 import { capLineEnds, Expression, readString } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
 
@@ -25,7 +26,10 @@ const directives = {
     ascii:  9,
     string: 9, // .string = .ascii
     intel_syntax: 10,
-    att_syntax: 11
+    att_syntax: 11,
+    text: 12,
+    data: 13,
+    bss: 14
 };
 
 const intelDirectives = {
@@ -53,9 +57,9 @@ export function isDirective(directive, intel)
 
 export class Directive extends Statement
 {
-    constructor(prev, dir, range)
+    constructor(addr, dir, range)
     {
-        super(prev, DIRECTIVE_BUFFER_SIZE, range);
+        super(addr, DIRECTIVE_BUFFER_SIZE, range);
         this.outline = null;
         this.floatPrec = 0;
         this.lineEnds = { lineEnds: [], offset: 0 };
@@ -68,8 +72,8 @@ export class Directive extends Statement
             let dirs = this.syntax.intel ? intelDirectives : directives;
             if(!dirs.hasOwnProperty(dir))
                 throw new ASMError("Unknown directive");
-            dir = dirs[dir];
-            switch(dir)
+            let dirID = dirs[dir];
+            switch(dirID)
             {
                 case intelDirectives.db:  this.compileValues(1, true); break;
                 case directives.byte:     this.compileValues(1); break;
@@ -104,7 +108,7 @@ export class Directive extends Statement
 
                 case directives.intel_syntax:
                 case directives.att_syntax:
-                    let intel = dir == directives.intel_syntax;
+                    let intel = dirID == directives.intel_syntax;
                     // Set the syntax now so we can correctly skip comments
                     setSyntax({ prefix: currSyntax.prefix, intel });
                     let prefix = !intel;
@@ -120,6 +124,14 @@ export class Directive extends Statement
                     this.switchSyntax = true;
                     if(token != '\n' && token != ';')
                         next();
+                    break;
+                
+                case directives.text:
+                case directives.data:
+                case directives.bss:
+                    this.section = sections['.' + dir];
+                    this.switchSection = true;
+                    next();
                     break;
             }
         }

@@ -141,7 +141,7 @@ function assemble()
     }
     let outputStream = fs.createWriteStream(outputFile, {mode: 0o0755});
 
-    let baseAddr = state.instructions.address;
+    let baseAddr = state.data.address;
     let fileStartAddr = Math.floor((baseAddr - ELF_SIZE) / 0x1000) * 0x1000 + ELF_SIZE;
 
     ELFHeader.EI_MAG = 0x46_4C_45_7F;
@@ -230,7 +230,7 @@ function assemble()
 
                 if(lastIP !== null)
                 {
-                    if(lastIP < state.instructions.address)
+                    if(lastIP < state.data.address)
                         throw "";
 
                     if(signal == "SIGTRAP" || signal == "SIGSYS")

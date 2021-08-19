@@ -16,9 +16,10 @@ export const debugPlugin = [
     hoverTooltip((view, pos) => {
         if(!debugEnabled)
             return null;
-        const instr = view.state.field(ASMStateField).instructions.find(pos);
-        if(!instr)
+        const node = view.state.field(ASMStateField).data.find(pos);
+        if(!node)
             return null;
+        const instr = node.statement;
         return {
             pos: instr.range.start,
             end: Math.min(instr.range.end, view.state.doc.length),
@@ -35,7 +36,7 @@ export const debugPlugin = [
         mousedown: (event, view) => {
             if(debugEnabled && event.ctrlKey)
             {
-                console.log(view.state.field(ASMStateField).instructions.find(view.posAtCoords(event)));
+                console.log(view.state.field(ASMStateField).data.find(view.posAtCoords(event)));
                 return true;
             }
         },
