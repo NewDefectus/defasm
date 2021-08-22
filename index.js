@@ -12200,6 +12200,7 @@
   var Expression = class {
     constructor(instr, expectMemory = false, uses = null) {
       this.hasSymbols = false;
+      this.vecSize = 0;
       this.stack = [];
       let opStack = [];
       let lastOp, lastWasNum = false;
@@ -12276,7 +12277,6 @@
           throw new ASMError("Mismatched parentheses", opStack[opStack.length - 1].range);
         this.stack.push(opStack.pop());
       }
-      this.vecSize = 0;
       for (const id2 of this.stack) {
         if (id2.register && id2.register.type == OPT.VEC)
           this.vecSize = id2.register.size;
@@ -12393,13 +12393,11 @@
       this.vecSize = this.vecSize || expr.vecSize;
     }
   };
-  var LabelExpression = class extends Expression {
-    constructor(instr) {
-      super();
-      this.hasSymbols = true;
-      this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? "$" : ".", currRange)];
-    }
-  };
+  function LabelExpression(instr) {
+    this.hasSymbols = true;
+    this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? "$" : ".", currRange)];
+  }
+  LabelExpression.prototype = Object.create(Expression.prototype);
   function checkSymbolRecursion(origin, record) {
     if (record === origin)
       return true;
