@@ -94,22 +94,6 @@ export class Instruction extends Statement
         this.interpret();
     }
 
-    // Generate a single byte
-    genByte(byte)
-    {
-        this.bytes[this.length++] = Number(byte);
-    }
-
-    // Generate an integer with a given size
-    genInteger(byte, size)
-    {
-        do
-        {
-            this.genByte(byte & 0xffn);
-            byte >>= 8n;
-        } while(size -= 8);
-    }
-
     // Generate Instruction.outline
     interpret()
     {
@@ -298,6 +282,9 @@ export class Instruction extends Statement
         let { operands, memoryOperand, mnemonics, prefsToGen, vexInfo } = this.outline;
         this.length = 0;
 
+        if(memoryOperand)
+            memoryOperand.evaluate(this, this.syntax.intel);
+
         // Before we compile, we'll get the immediates' sizes
         for(let op of operands)
         {
@@ -310,6 +297,7 @@ export class Instruction extends Statement
                 }
                 else
                 {
+                    op.evaluate(this);
                     let max = inferImmSize(op.value);
                     for(let size = 8; size <= max; size *= 2)
                     {
@@ -424,10 +412,12 @@ export class Instruction extends Statement
             this.genByte(sib);
 
         // Generating the displacement and immediate
-        if(op.rm !== null && op.rm.value !== null)
-            this.genInteger(op.rm.value, op.rm.dispSize || 32);
+        if(op.rm?.value?.value != null)
+            this.genValue(op.rm.value, op.rm.dispSize || 32);
         for(let imm of op.imms)
-            this.genInteger(imm.value, imm.size);
+            this.genValue(imm.value, imm.size);
+        if(op.evexImm !== null)
+            this.genByte(op.evexImm);
     }
 
     // Generate the ModRM byte
@@ -448,18 +438,19 @@ export class Instruction extends Statement
         // Special case for RIP-relative addressing
         if(rm.ripRelative)
         {
-            rm.value = rm.value || 0n;
+            rm.value.value = rm.value.value || 0n;
             // mod = 00, reg = (reg), rm = 101
             return [rex, modrm | 5, null];
         }
 
         // Encoding the "mod" (modifier) field
-        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL) modrm |= 0xC0; // mod=11
+        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL)
+            modrm |= 0xC0; // mod=11
         else if(rmReg >= 0)
         {
-            if(rm.value !== null)
+            if(rm.value.value !== null)
             {
-                if(inferImmSize(rm.value) === 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
+                if(inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
                 {
                     rm.dispSize = 8;
                     modrm |= 0x40; // mod=01
@@ -486,7 +477,7 @@ export class Instruction extends Statement
             rmReg = 5;
             if(rmReg2 < 0)
                 rmReg2 = 4;
-            rm.value = rm.value || 0n;
+            rm.value.value = rm.value.value || 0n;
         }
         
         // Encoding the "rm" field
@@ -506,6 +497,24 @@ export class Instruction extends Statement
             return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
         }
         return [rex, modrm | rmReg, null];
+    }
+
+    recompile()
+    {
+        this.error = null;
+        try
+        {
+            for(const op of this.outline.operands)
+                if(op.expression && op.expression.hasSymbols)
+                    op.value = op.expression.evaluate(this);
+
+            this.compile();
+        }
+        catch(e)
+        {
+            this.length = 0;
+            throw e;
+        }
     }
 }
 
@@ -529,25 +538,6 @@ function makeVexPrefix(vex, rex, isEvex)
     return [0xC4, vex1, vex2];
 }
 
-Instruction.prototype.recompile = function()
-{
-    this.error = null;
-    try
-    {
-        for(let op of this.outline.operands)
-        {
-            if(op.expression && op.expression.hasSymbols)
-                op.value = op.expression.evaluate(this.address, true);
-        }
-        this.compile();
-    }
-    catch(e)
-    {
-        this.length = 0;
-        throw e;
-    }
-}
-
 export class Prefix extends Statement
 {
     constructor(prev, name, range)
@@ -560,24 +550,28 @@ export class Prefix extends Statement
 
 
 
-// Infer the size of an immediate from its value
+/** Infer the size of an immediate from its value
+ * @param {import("./shuntingYard.js").IdentifierValue} value */
 export function inferImmSize(value)
 {
-    if(value < 0n) // Correct for negative values
-        value = ~value;
+    let num = value.value;
+    if(num < 0n) // Correct for negative values
+        num = ~num;
 
-    return value < 0x80n ? 8 :
-            value < 0x8000n ? 16 :
-            value < 0x80000000n ? 32 : 64;
+    return num < 0x80n ? 8 :
+            num < 0x8000n ? 16 :
+            num < 0x80000000n ? 32 : 64;
 }
 
-// Ditto, but for unsigned values
+/** Ditto, but for unsigned values
+ * @param {import("./shuntingYard.js").IdentifierValue} value */
 function inferUnsignedImmSize(value)
 {
-    if(value < 0n) // Technically this doesn't make sense, but we'll allow it
-        value = -2n * value - 1n;
+    let num = value.value;
+    if(num < 0n) // Technically this doesn't make sense, but we'll allow it
+        num = -2n * num - 1n;
 
-    return value < 0x100n ? 8 :
-            value < 0x10000n ? 16 :
-            value < 0x100000000n ? 32 : 64;
+    return num < 0x100n ? 8 :
+            num < 0x10000n ? 16 :
+            num < 0x100000000n ? 32 : 64;
 }

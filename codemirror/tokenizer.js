@@ -1,5 +1,5 @@
 import {
-    fetchMnemonic, isRegister, sizeHints, prefixes,
+    fetchMnemonic, sizeHints, prefixes, isRegister,
     isDirective, scanIdentifier
 } from '@defasm/core';
 import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
@@ -101,9 +101,6 @@ function tokenize({ prefix, intel }, input)
     if(isDirective(tok, intel))
         return Terms.Directive;
 
-    if(!prefix && isRegister(tok))
-        return Terms.Register;
-
     if(intel && tok == 'offset')
         return Terms.Offset;
 
@@ -141,7 +138,9 @@ function tokenize({ prefix, intel }, input)
     const idType = scanIdentifier(tok, intel);
     if(idType === null)
         return null;
-    if(idType.type == 'symbol')
+    if(!prefix && isRegister(tok))
+        return Terms.Register;
+    if(idType == 'symbol')
         return Terms.word;
     return Terms.number;
 }

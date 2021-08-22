@@ -1,4 +1,4 @@
-import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange } from "./parser.js";
+import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange } from "./parser.js";
 import { Directive, isDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
@@ -232,7 +232,7 @@ export class AssemblyState
         {
             let instr = tail.statement;
 
-            if(currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel)
+            if((currSyntax.prefix != instr.syntax.prefix || currSyntax.intel != instr.syntax.intel) && !instr.switchSyntax)
             {
                 // Syntax has been changed, we have to recompile some of the source
                 let nextSyntaxChange = tail;
@@ -308,7 +308,7 @@ export class AssemblyState
         }
 
         // Error collection
-        let haltingErrors = [], lastInstr = null;
+        let lastInstr = null;
         this.errors = [];
         this.iterate((instr, line) => {
             lastInstr = instr;
@@ -320,21 +320,19 @@ export class AssemblyState
             if(e)
             {
                 this.errors.push(e);
-                if(haltOnError)
-                    haltingErrors.push(`Error on line ${line}: ${e.message}`);
 
                 /* Errors whose pos can't be determined should be logged,
                 not marked (these are usually internal compiler errors) */
                 if(!e.range)
                 {
                     console.error(`Error on line ${line}:\n`, e);
-                    instr.error = null;
+                    e.range = new RelativeRange(instr.range, instr.range.start, instr.range.length);
                 }
             }
         });
 
-        if(haltingErrors.length > 0)
-            throw haltingErrors.join('\n');
+        if(haltOnError && this.errors.length > 0)
+            throw this.errors.map(e => e.range.parent.slice(this.source) + '\n^' + e.message).join('\n');
         
         this.bytes = lastInstr ? lastInstr.address + lastInstr.length - this.data.address : 0;
     }

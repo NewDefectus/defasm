@@ -63,6 +63,11 @@ export const sizeHints = Object.freeze({
     zmmword: 512
 });
 
+export function nameRegister(name, size, syntax)
+{
+    return `${syntax.prefix ? '%' : ''}${size == 32 ? 'e' : 'r'}` + name;
+}
+
 export const    PREFIX_REX = 1,
                 PREFIX_NOREX = 2,
                 PREFIX_CLASHREX = 3,
@@ -106,6 +111,15 @@ export function isRegister(reg)
     return false;
 }
 
+/**
+ * @typedef {Object} Register
+ * @property {Number} reg
+ * @property {Number} type
+ * @property {Number} size
+ * @property {Number} prefs
+ */
+
+/** @returns {Register} */
 export function parseRegister(expectedType = null)
 {
     let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
@@ -141,7 +155,7 @@ export function parseRegister(expectedType = null)
     else if(reg == registers.rip || reg == registers.eip)
     {
         if(expectedType == null || !expectedType.includes(OPT.IP))
-            throw new ASMError(`Can't use ${currSyntax.prefix ? '%' : ''}${reg == registers.eip ? 'e' : 'r'}ip here`);
+            throw new ASMError(`Can't use ${nameRegister('ip', reg == registers.eip ? 32 : 64, currSyntax)} here`);
         type = OPT.IP;
         size = reg == registers.eip ? 32 : 64;
         reg = 0;
@@ -241,9 +255,9 @@ export function Operand(instr, forceImmToRel = false)
                     mayBeRel = false;
                 }
                 this.expression = new Expression(instr);
-                this.value = this.expression.evaluate(instr.address);
-
-                if(mayBeRel && this.expression.hasSymbols)
+                if(!this.expression.hasSymbols)
+                    this.evaluate(instr);
+                else if(mayBeRel)
                     this.type = OPT.REL;
             }
 
@@ -253,34 +267,20 @@ export function Operand(instr, forceImmToRel = false)
                 this.type = OPT.MEM;
                 next();
                 
-                let secExpr = new Expression(instr, 0, true);
+                let secExpr = new Expression(instr, true);
                 if(this.expression) // Combining the first and second expressions
                     this.expression.add(secExpr);
                 else
                     this.expression = secExpr;
-                    
-                this.value = this.expression.evaluate(instr.address);
-                if(secExpr.regBase)
-                    this.reg = secExpr.regBase.reg;
-                if(secExpr.regIndex)
-                    this.reg2 = secExpr.regIndex.reg;
-                    
-                this.prefs = secExpr.prefs;
-                this.shift = secExpr.shift;
-
-                if(secExpr.regBase && secExpr.regBase.type == OPT.IP)
-                    this.ripRelative = true;
                 
-                if(secExpr.regIndex && secExpr.regIndex.type == OPT.VEC)
+                if(this.expression.vecSize)
                 {
+                    this.size = this.expression.vecSize;
                     this.type = OPT.VMEM;
-                    this.size = secExpr.regIndex.size;
                 }
-
-                if((this.reg & 7) == 5)
-                    this.value = this.value || 0n; 
-                if(this.reg == 4 && this.reg2 < 0)
-                    this.reg2 = 4;
+                if(!this.expression.hasSymbols)
+                    this.evaluate(instr);
+                
                 if(token != ']')
                     throw new ASMError("Expected ']'");
                 next();
@@ -293,14 +293,21 @@ export function Operand(instr, forceImmToRel = false)
             {
                 next();
                 this.expression = new Expression(instr);
-                this.value = this.expression.evaluate(instr.address);
+                if(!this.expression.hasSymbols)
+                    this.evaluate(instr);
                 this.type = OPT.IMM;
             }
             else // Address
             {
                 this.type = OPT.MEM;
-                this.expression = new Expression(instr, 0, true);
-                this.value = this.expression.evaluate(instr.address);
+                this.expression = new Expression(instr, true);
+                if(!this.expression.hasSymbols)
+                    this.evaluate(instr);
+                if(this.expression.vecSize)
+                {
+                    this.size = this.expression.vecSize;
+                    this.type = OPT.VMEM;
+                }
                 if(token != '(')
                 {
                     if(!indirect)
@@ -314,7 +321,7 @@ export function Operand(instr, forceImmToRel = false)
                 let tempReg;
                 if(instr.syntax.prefix ? next() == '%' : isRegister(next()))
                 {
-                    tempReg = parseRegister([OPT.REG, OPT.IP, OPT.VEC]);
+                    tempReg = parseRegister([OPT.REG, OPT.IP]);
                     this.reg = tempReg.reg;
                 }
                 else if(token == ',')
@@ -325,57 +332,47 @@ export function Operand(instr, forceImmToRel = false)
                 else
                     throw new ASMError("Expected register");
                 
-                if(tempReg.type == OPT.VEC)
+                if(tempReg.size == 32)
+                    this.prefs |= PREFIX_ADDRSIZE;
+                else if(tempReg.size != 64)
+                    throw new ASMError("Invalid register size", regParsePos);
+                if(tempReg.type == OPT.IP)
+                    this.ripRelative = true;
+                else if(token == ',')
                 {
-                    this.type = OPT.VMEM; this.size = tempReg.size;
-                    if(tempReg.size < 128)
-                        throw new ASMError("Invalid register size", regParsePos);
-                    this.reg2 = this.reg;
-                    this.reg = -1;
-                }
-                else
-                {
-                    if(tempReg.size == 32)
-                        this.prefs |= PREFIX_ADDRSIZE;
-                    else if(tempReg.size != 64)
-                        throw new ASMError("Invalid register size", regParsePos);
-                    if(tempReg.type == OPT.IP)
-                        this.ripRelative = true;
-                    else if(token == ',')
+                    if(instr.syntax.prefix ? next() != '%' : !isRegister(next()))
+                        throw new ASMError("Expected register");
+                    tempReg = parseRegister([OPT.REG, OPT.VEC]);
+                    this.reg2 = tempReg.reg;
+                    if(tempReg.type == OPT.VEC)
                     {
-                        if(instr.syntax.prefix ? next() != '%' : !isRegister(next()))
-                            throw new ASMError("Expected register");
-                        tempReg = parseRegister([OPT.REG, OPT.VEC]);
-                        this.reg2 = tempReg.reg;
-                        if(tempReg.type == OPT.VEC)
-                        {
-                            this.type = OPT.VMEM; this.size = tempReg.size;
-                            if(tempReg.size < 128)
-                                throw new ASMError("Invalid register size", regParsePos);
-                        }
-                        else
-                        {
-                            if(this.reg2 == 4)
-                                throw new ASMError("Memory index cannot be RSP", regParsePos);
-                            if(tempReg.size == 32)
-                                this.prefs |= PREFIX_ADDRSIZE;
-                            else if(tempReg.size != 64)
-                                throw new ASMError("Invalid register size", regParsePos);
-                        }
-
-                        if(token == ',')
-                        {
-                            this.shift = "1248".indexOf(next());
-                            if(this.shift < 0)
-                                throw new ASMError("Scale must be 1, 2, 4, or 8");
-                            next();
-                        }
+                        this.type = OPT.VMEM; this.size = tempReg.size;
+                        if(tempReg.size < 128)
+                            throw new ASMError("Invalid register size", regParsePos);
                     }
-                    else if(this.reg == 4)
-                        this.reg2 = 4;
+                    else
+                    {
+                        if(this.reg2 == 4)
+                            throw new ASMError("Memory index cannot be RSP", regParsePos);
+                        if(tempReg.size == 32)
+                            this.prefs |= PREFIX_ADDRSIZE;
+                        else if(tempReg.size != 64)
+                            throw new ASMError("Invalid register size", regParsePos);
+                    }
+
+                    if(token == ',')
+                    {
+                        this.shift = "1248".indexOf(next());
+                        if(this.shift < 0)
+                            throw new ASMError("Scale must be 1, 2, 4, or 8");
+                        next();
+                    }
                 }
+                else if(this.reg == 4)
+                    this.reg2 = 4;
+                
                 if((this.reg & 7) == 5)
-                    this.value = this.value || 0n; 
+                    this.value.value = this.value.value || 0n; 
                 if(token != ')')
                     throw new ASMError("Expected ')'");
                 next();
@@ -399,4 +396,35 @@ Operand.prototype.recordSizeUse = function(size, unsigned = false)
         this.attemptedUnsignedSizes |= 1 << (size >> 4);
     else
         this.attemptedSizes |= 1 << (size >> 4);
+}
+
+Operand.prototype.evaluate = function(instr, intelMemory = false)
+{
+    this.value = this.expression.evaluate(instr);
+    if(!intelMemory)
+        return;
+    
+    this.prefs = 0;
+    let { regBase = null, regIndex = null, shift = 1 } = this.value.regData ?? {};
+    if(regBase)
+        this.reg = regBase.reg;
+    if(regIndex)
+        this.reg2 = regIndex.reg;
+    if(regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
+        this.prefs |= PREFIX_ADDRSIZE;
+    this.shift = [1, 2, 4, 8].indexOf(shift);
+    if(this.shift < 0)
+        throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
+
+    if(regBase && regBase.type == OPT.IP || regIndex && regIndex.type == OPT.IP)
+    {
+        this.ripRelative = true;
+        if(regIndex)
+            throw new ASMError(`Can't use another register with ${nameRegister('ip', regBase.size, instr.syntax)}`, this.value.range);
+    }
+
+    if((this.reg & 7) == 5)
+        this.value.value = this.value.value || 0n;
+    if(this.reg == 4 && this.reg2 < 0)
+        this.reg2 = 4;
 }

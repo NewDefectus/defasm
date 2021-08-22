@@ -9,10 +9,11 @@ export var recompQueue = [];
  * @property {Symbol?} symbol The symbol instruction this record belongs to, if it exists
  * @property {Statement[]} references List of instructions that reference this symbol
  * @property {SymbolRecord[]} uses List of records of symbols used in this symbol's definition
+ * @property {import('./shuntingYard.js').IdentifierValue} value The symbol's value
  */
 
 /** @type {Map<string, SymbolRecord>} */
-export var symbols = null;
+export var symbols = new Map();
 
 export function loadSymbols(table)
 {
@@ -37,7 +38,13 @@ export class Symbol extends Statement
         let uses = [];
         try
         {
-            this.expression = isLabel ? LabelExpression(this) : (next(), new Expression(this, 0, false, uses));
+            if(isLabel)
+                this.expression = new LabelExpression(this);
+            else
+            {
+                next();
+                this.expression = new Expression(this, false, uses);
+            }
         }
         catch(e)
         {
@@ -67,7 +74,7 @@ export class Symbol extends Statement
 
         try
         {
-            this.value = this.expression.evaluate(this.address, false, this.record);
+            this.record.value = this.expression.evaluate(this);
             this.record.symbol = this;
             for(let ref of this.record.references)
                 if(!ref.removed)
@@ -86,22 +93,24 @@ export class Symbol extends Statement
             return;
         this.duplicate = false;
 
-        let originValue = this.error ? null : this.value;
+        let originError = this.error;
+        let originValue = this.record.value;
         this.error = null;
 
+        let value;
         try
         {
-            this.value = this.expression.evaluate(this.address, true, this.record);
+            this.record.value = value = this.expression.evaluate(this);
         }
         catch(e)
         {
             this.error = e;
         }
 
-        if(originValue !== (this.error ? null : this.value))
+        if(!(originError && this.error) && (originValue.value !== value.value || originValue.section !== value.section))
         {
             this.record.symbol = this;
-            for(let ref of this.record.references)
+            for(const ref of this.record.references)
                 queueRecomp(ref);
         }
     }

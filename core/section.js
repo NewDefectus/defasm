@@ -1,5 +1,4 @@
-import { currSyntax } from "./parser";
-import { Statement, StatementNode } from "./statement";
+import { StatementNode } from "./statement.js";
 
 /** @type {Object.<string, Section>} */
 export var sections = null;
@@ -12,6 +11,11 @@ export function loadSections(table, range)
     sections = table;
     for(const name of Object.keys(table))
         table[name].cursor = table[name].head.getAffectedArea(range);
+}
+
+export const pseudoSections = {
+    ABS: 0,
+    UND: 1
 }
 
 export const sectionFlags = {

@@ -32,7 +32,14 @@ export class StatementNode
 
     get length()
     {
-        return (this.statement ? this.statement.length : 0) + (this.next ? this.next.length : 0);
+        let node = this, length = 0;
+        while(node)
+        {
+            if(node.statement)
+                length += node.statement.length;
+            node = node.next;
+        }
+        return length;
     }
 
     dump()
@@ -45,8 +52,11 @@ export class StatementNode
 
         while(node)
         {
-            for(let j = 0; j < node.length; j++)
-                output[i++] = node.bytes[j];
+            if(node.statement)
+            {
+                output.set(node.statement.bytes.subarray(0, node.statement.length), i);
+                i += node.statement.length;
+            }
             node = node.next;
         }
 
@@ -140,6 +150,26 @@ export class Statement
         this.section = currSection;
 
         this.sectionNode = new StatementNode(this);
+    }
+
+    /** @param {BigInt|Number} byte */
+    genByte(byte)
+    {
+        this.bytes[this.length++] = Number(byte);
+    }
+
+    /**
+     * @param {import("./shuntingYard.js").IdentifierValue} value
+     * @param {Number} size
+     */
+    genValue(value, size)
+    {
+        let num = value.value;
+        do
+        {
+            this.genByte(num & 0xffn);
+            num >>= 8n;
+        } while(size -= 8);
     }
 
     remove()

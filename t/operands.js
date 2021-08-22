@@ -22,7 +22,7 @@ $54/7 $54/7 54/7 54/7 IMM
 %xmm1 xmm1 %xmm1 xmm1 VEC
 %ymm1 ymm1 %ymm1 ymm1 VEC
 %zmm1 zmm1 %zmm1 zmm1 VEC
-(%xmm1) (xmm1) [%xmm1] [xmm1] VMEM
+(,%xmm1) (,xmm1) [%xmm1] [xmm1] VMEM
 (%rax,%xmm1) (rax,xmm1) [%xmm1+%rax] [rax+xmm1] VMEM
 (%rax,%xmm1,2) (rax,xmm1,2) [%xmm1*2+%rax] [rax+2*xmm1] VMEM
 %bnd1 bnd1 %bnd1 bnd1 BND
@@ -37,7 +37,8 @@ let syntaxes = [
     {intel: false,  prefix: true},
     {intel: false,  prefix: false},
     {intel: true,   prefix: true},
-    {intel: true,   prefix: false}];
+    {intel: true,   prefix: false}
+];
 
 
 exports.run = async function()
@@ -52,8 +53,8 @@ exports.run = async function()
 
         for(let i = 0; i < 4; i++)
         {
-            loadCode(test[i]);
             setSyntax(syntaxes[i]);
+            loadCode(test[i]);
             let type = new Operand({syntax: syntaxes[i]}).type;
             if(type !== expectedType)
                 throw `${test[i]} (.${

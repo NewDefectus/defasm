@@ -21,6 +21,10 @@ let exitCode = 0;
         }
         catch(e)
         {
+            if(e.range)
+            {
+                e = e.message;
+            }
             console.error("Failed: " + e);
             exitCode = 1;
         }

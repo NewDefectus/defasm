@@ -186,19 +186,11 @@ exports.run = async function()
 
     let state = new AssemblyState();
 
-    try
-    {
-        state.compile(source, { haltOnError: true });
-    }
-    catch(e)
-    {
-        let line = e.match(/(?<=line )\d+/)[0];
-        throw `${state.line(line).slice(state.source)}\n^ ${e}`;
-    }
+    state.compile(source, { haltOnError: true });
 
 
     let asOutput = gassemble(source);
-    if(!asOutput.equals(state.dump()))
+    if(!asOutput.equals(state.data.dump()))
     {
         let cmpPtr = 0, discrepancies = [];
         state.iterate(instr => {

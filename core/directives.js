@@ -94,8 +94,8 @@ export class Directive extends Statement
                     {
                         if(next()[0] == '"')
                         {
-                            let strBytes = readString(token, this.lineEnds);
-                            let temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
+                            const strBytes = readString(token, this.lineEnds);
+                            const temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                             temp.set(this.bytes);
                             temp.set(strBytes, this.length);
                             this.bytes = temp;
@@ -151,26 +151,53 @@ export class Directive extends Statement
         this.valSize = valSize;
         let value, expression, needsRecompilation = false;
         this.outline = [];
+        const startAddr = this.address;
         try {
             do
             {
                 if(next()[0] === '"')
                 {
                     if(acceptStrings)
-                        readString(token, this.lineEnds).forEach(byte => this.genValue(BigInt(byte)));
+                    {
+                        const strBytes = readString(token, this.lineEnds);
+                        const temp = new Uint8Array(this.length + strBytes.length);
+                        temp.set(this.bytes);
+                        temp.set(strBytes, this.length);
+                        this.bytes = temp;
+                        this.lineEnds.offset = this.length = temp.length;
+                    }
                     else
                         throw new ASMError("Unexpected string");
                     next();
                 }
                 else
                 {
-                    expression = new Expression(this, this.floatPrec);
-                    value = expression.evaluate(this.address);
-                    if(expression.hasSymbols)
-                        needsRecompilation = true;
+                    if(this.floatPrec)
+                    {
+                        let values = [];
+                        do
+                        {
+                            if(isNaN(next()))
+                                throw new ASMError("Expected number");
+                            values.push(token);
+                        } while(next() == ',');
 
-                    this.outline.push({ value, expression });
-                    this.genValue(value);
+                        this.bytes = new Uint8Array((
+                            this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)
+                        ).buffer);
+                        this.length = this.bytes.length;
+                    }
+                    else
+                    {
+                        expression = new Expression(this);
+                        value = expression.evaluate(this);
+                        if(expression.hasSymbols)
+                            needsRecompilation = true;
+
+                        this.outline.push({ value, expression });
+                        this.genValue(value, this.valSize * 8);
+                        this.address = startAddr + this.length;
+                    }
                 }
             } while(token === ',');
         }
@@ -178,12 +205,14 @@ export class Directive extends Statement
         {
             if(!needsRecompilation)
                 this.outline = null;
+            this.address = startAddr;
         }
     }
 
     recompile()
     {
         let op, outlineLength = this.outline.length;
+        const startAddr = this.address;
         this.length = 0;
         this.error = null;
 
@@ -193,8 +222,9 @@ export class Directive extends Statement
             try
             {
                 if(op.expression.hasSymbols)
-                    op.value = op.expression.evaluate(this.address + i * this.valSize, true);
-                this.genValue(op.value);
+                    op.value = op.expression.evaluate(this, true);
+                this.genValue(op.value, this.valSize * 8);
+                this.address = startAddr + this.length;
             }
             catch(e)
             {
@@ -204,24 +234,20 @@ export class Directive extends Statement
                 this.length = 0;
             }
         }
+        this.address = startAddr;
     }
 
-    genValue(value)
+    genByte(byte)
     {
-        for(let i = 0; i < this.valSize; i++)
+        super.genByte(byte);
+
+        // Resize the array if necessary
+        if(this.length == this.bytes.length)
         {
-            this.bytes[this.length++] = Number(value & 0xffn);
-            value >>= 8n;
-
-            // Resize the array if necessary
-            if(this.length === this.bytes.length)
-            {
-                let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
-                temp.set(this.bytes);
-                this.bytes = temp;
-            }
+            let temp = new Uint8Array(this.bytes.length + DIRECTIVE_BUFFER_SIZE);
+            temp.set(this.bytes);
+            this.bytes = temp;
         }
-
         this.lineEnds.offset = this.length;
     }
 }

@@ -1,4 +1,5 @@
-import { OPT, suffixes } from "./operands.js";
+import { Instruction } from "./instructions.js";
+import { Operand, OPT, suffixes } from "./operands.js";
 import { ASMError } from "./parser.js";
 import { queueRecomp } from "./symbols.js";
 
@@ -439,7 +440,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     // be redundant as we wouldn't know if the operation is encodable at all.
     // In other words, this aids performance.
 
-    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null;
     let extendOp = false;
 
     let operand;
@@ -460,7 +461,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
             else if(catcher.type == OPT.REL)
             {
                 imms.push({
-                    value: operand.virtualValue,
+                    value: { value: operand.virtualValue },
                     size: size
                 });
                 instr.ipRelative = true;
@@ -470,7 +471,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
             else if(catcher.vexOp)
             {
                 if(catcher.vexOpImm)
-                    imms.push({ value: BigInt(operand.reg << 4), size: 8 });
+                    evexImm = BigInt(operand.reg << 4);
                 else
                     vex = (vex & ~0x7800) | ((~operand.reg & 15) << 11);
 
@@ -574,6 +575,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         reg,
         rm,
         vex: vexInfo.needed ? vex : null,
+        evexImm,
         imms
     };
 }
@@ -582,10 +584,13 @@ const sizeLen = x => x == 32 ? 4n : x == 16 ? 2n : 1n;
 const absolute = x => x < 0n ? ~x : x;
 
 
-/* Predict a fitting value and size for a given relative operand */
+/** Predict a fitting value and size for a given relative operand
+ * @param {Operand} operand
+ * @param {Instruction} instr
+*/
 Operation.prototype.generateRelative = function(operand, instr)
 {
-    let target = operand.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    let target = operand.value.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative
     if(this.relativeSizes.length == 1)
@@ -645,7 +650,7 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
             ||
             // In case of implicit operands, check that the values match
             catcher.implicitValue !== null &&
-            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value) : operand.reg))
+            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.value) : operand.reg))
             return false;
     }
     
