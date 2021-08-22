@@ -12562,7 +12562,7 @@
               this.length = this.bytes.length;
             } else {
               expression = new Expression(this);
-              value = expression.evaluate(this.address);
+              value = expression.evaluate(this);
               if (expression.hasSymbols)
                 needsRecompilation = true;
               this.outline.push({ value, expression });
@@ -12585,7 +12585,7 @@
         try {
           if (op.expression.hasSymbols)
             op.value = op.expression.evaluate(this, true);
-          this.genValue(op.value, this.valSize);
+          this.genValue(op.value, this.valSize * 8);
           this.address = startAddr + this.length;
         } catch (e) {
           this.error = e;
