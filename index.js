@@ -11896,10 +11896,8 @@
     if (regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
       this.prefs |= PREFIX_ADDRSIZE;
     this.shift = [1, 2, 4, 8].indexOf(shift2);
-    if (this.shift < 0) {
-      console.log(shift2);
+    if (this.shift < 0)
       throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
-    }
     if (regBase && regBase.type == OPT.IP || regIndex && regIndex.type == OPT.IP) {
       this.ripRelative = true;
       if (regIndex)
@@ -12537,6 +12535,7 @@
       this.valSize = valSize;
       let value, expression, needsRecompilation = false;
       this.outline = [];
+      const startAddr = this.address;
       try {
         do {
           if (next()[0] === '"') {
@@ -12567,12 +12566,14 @@
                 needsRecompilation = true;
               this.outline.push({ value, expression });
               this.genValue(value, this.valSize * 8);
+              this.address = startAddr + this.length;
             }
           }
         } while (token === ",");
       } finally {
         if (!needsRecompilation)
           this.outline = null;
+        this.address = startAddr;
       }
     }
     recompile() {
@@ -12593,8 +12594,8 @@
           i = -1;
           this.length = 0;
         }
-        this.address = startAddr;
       }
+      this.address = startAddr;
     }
     genByte(byte) {
       super.genByte(byte);
