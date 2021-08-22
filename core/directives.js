@@ -15,9 +15,13 @@ const directives = {
     short:  2,
     word:   2, // .word = .short
     hword:  2, // .hword = .short
+    value:  2, // .value = .short
+    '2byte':2, // .2byte = .short
     int:    3,
     long:   3, // .long = .int
+    '4byte':4, // .4byte = .int
     quad:   4,
+    '8byte':4, // .8byte = .quad
     octa:   5,
     float:  6,
     single: 6, // .single = .float
