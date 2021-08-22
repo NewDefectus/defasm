@@ -12414,9 +12414,13 @@
     short: 2,
     word: 2,
     hword: 2,
+    value: 2,
+    "2byte": 2,
     int: 3,
     long: 3,
+    "4byte": 4,
     quad: 4,
+    "8byte": 4,
     octa: 5,
     float: 6,
     single: 6,
@@ -12427,7 +12431,8 @@
     intel_syntax: 10,
     att_syntax: 11,
     text: 12,
-    data: 13
+    data: 13,
+    bss: 14
   };
   var intelDirectives = {
     "%assign": -1,
