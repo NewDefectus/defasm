@@ -11473,6 +11473,8 @@
     }
     genValue(value, size) {
       let num = value.value;
+      if (value.relative)
+        num -= BigInt(this.length + size / 8);
       do {
         this.genByte(num & 0xffn);
         num >>= 8n;
@@ -11745,7 +11747,7 @@
     next();
     return { reg, type, size, prefs };
   }
-  function Operand(instr, forceImmToRel = false) {
+  function Operand(instr, expectRelative = false) {
     this.reg = this.reg2 = -1;
     this.shift = 0;
     this.value = null;
@@ -11765,34 +11767,30 @@
       this.endPos = regParsePos;
     } else {
       if (instr.syntax.intel) {
-        this.type = forceImmToRel ? OPT.REL : OPT.IMM;
+        this.type = expectRelative ? OPT.REL : OPT.IMM;
         if (token != "[") {
-          let mayBeRel = true;
+          let mayBeMem = !expectRelative;
           if (token.toLowerCase() == "offset") {
             next();
             this.type = OPT.IMM;
-            mayBeRel = false;
+            mayBeMem = false;
           }
           this.expression = new Expression(instr);
-          if (!this.expression.hasSymbols)
-            this.evaluate(instr);
-          else if (mayBeRel)
-            this.type = OPT.REL;
+          if (this.expression.hasSymbols && mayBeMem)
+            this.type = OPT.MEM;
         }
         if (token == "[") {
           this.type = OPT.MEM;
           next();
           let secExpr = new Expression(instr, true);
           if (this.expression)
-            this.expression.add(secExpr);
+            this.expression.apply("+", secExpr);
           else
             this.expression = secExpr;
           if (this.expression.vecSize) {
             this.size = this.expression.vecSize;
             this.type = OPT.VMEM;
           }
-          if (!this.expression.hasSymbols)
-            this.evaluate(instr);
           if (token != "]")
             throw new ASMError("Expected ']'");
           next();
@@ -11801,72 +11799,74 @@
         if (token == "$") {
           next();
           this.expression = new Expression(instr);
-          if (!this.expression.hasSymbols)
-            this.evaluate(instr);
           this.type = OPT.IMM;
         } else {
           this.type = OPT.MEM;
           this.expression = new Expression(instr, true);
-          if (!this.expression.hasSymbols)
-            this.evaluate(instr);
           if (this.expression.vecSize) {
             this.size = this.expression.vecSize;
             this.type = OPT.VMEM;
           }
           if (token != "(") {
-            if (!indirect) {
+            if (!indirect && expectRelative)
               this.type = OPT.REL;
-              this.endPos = currRange;
-            }
-            return;
-          }
-          let tempReg;
-          if (instr.syntax.prefix ? next() == "%" : isRegister(next())) {
-            tempReg = parseRegister([OPT.REG, OPT.IP]);
-            this.reg = tempReg.reg;
-          } else if (token == ",") {
-            this.reg = -1;
-            tempReg = { type: -1, size: 64 };
-          } else
-            throw new ASMError("Expected register");
-          if (tempReg.size == 32)
-            this.prefs |= PREFIX_ADDRSIZE;
-          else if (tempReg.size != 64)
-            throw new ASMError("Invalid register size", regParsePos);
-          if (tempReg.type == OPT.IP)
-            this.ripRelative = true;
-          else if (token == ",") {
-            if (instr.syntax.prefix ? next() != "%" : !isRegister(next()))
+          } else {
+            let tempReg;
+            if (instr.syntax.prefix ? next() == "%" : isRegister(next())) {
+              tempReg = parseRegister([OPT.REG, OPT.IP]);
+              this.reg = tempReg.reg;
+            } else if (token == ",") {
+              this.reg = -1;
+              tempReg = { type: -1, size: 64 };
+            } else
               throw new ASMError("Expected register");
-            tempReg = parseRegister([OPT.REG, OPT.VEC]);
-            this.reg2 = tempReg.reg;
-            if (tempReg.type == OPT.VEC) {
-              this.type = OPT.VMEM;
-              this.size = tempReg.size;
-              if (tempReg.size < 128)
-                throw new ASMError("Invalid register size", regParsePos);
-            } else {
-              if (this.reg2 == 4)
-                throw new ASMError("Memory index cannot be RSP", regParsePos);
-              if (tempReg.size == 32)
-                this.prefs |= PREFIX_ADDRSIZE;
-              else if (tempReg.size != 64)
-                throw new ASMError("Invalid register size", regParsePos);
-            }
-            if (token == ",") {
-              this.shift = "1248".indexOf(next());
-              if (this.shift < 0)
-                throw new ASMError("Scale must be 1, 2, 4, or 8");
-              next();
-            }
-          } else if (this.reg == 4)
-            this.reg2 = 4;
-          if ((this.reg & 7) == 5)
-            this.value.value = this.value.value || 0n;
-          if (token != ")")
-            throw new ASMError("Expected ')'");
-          next();
+            if (tempReg.size == 32)
+              this.prefs |= PREFIX_ADDRSIZE;
+            else if (tempReg.size != 64)
+              throw new ASMError("Invalid register size", regParsePos);
+            if (tempReg.type == OPT.IP)
+              this.ripRelative = true;
+            else if (token == ",") {
+              if (instr.syntax.prefix ? next() != "%" : !isRegister(next()))
+                throw new ASMError("Expected register");
+              tempReg = parseRegister([OPT.REG, OPT.VEC]);
+              this.reg2 = tempReg.reg;
+              if (tempReg.type == OPT.VEC) {
+                this.type = OPT.VMEM;
+                this.size = tempReg.size;
+                if (tempReg.size < 128)
+                  throw new ASMError("Invalid register size", regParsePos);
+              } else {
+                if (this.reg2 == 4)
+                  throw new ASMError("Memory index cannot be RSP", regParsePos);
+                if (tempReg.size == 32)
+                  this.prefs |= PREFIX_ADDRSIZE;
+                else if (tempReg.size != 64)
+                  throw new ASMError("Invalid register size", regParsePos);
+              }
+              if (token == ",") {
+                this.shift = "1248".indexOf(next());
+                if (this.shift < 0)
+                  throw new ASMError("Scale must be 1, 2, 4, or 8");
+                next();
+              }
+            } else if (this.reg == 4)
+              this.reg2 = 4;
+            if ((this.reg & 7) == 5)
+              this.value.value = this.value.value || 0n;
+            if (token != ")")
+              throw new ASMError("Expected ')'");
+            next();
+          }
         }
+      }
+      if (this.expression) {
+        if (this.type == OPT.REL) {
+          this.expression.apply("-", new CurrentIP(instr));
+          this.expression.relative = true;
+        }
+        if (!this.expression.hasSymbols)
+          this.evaluate(instr);
       }
       this.endPos = prevRange;
     }
@@ -11928,7 +11928,7 @@
       let uses = [];
       try {
         if (isLabel)
-          this.expression = new LabelExpression(this);
+          this.expression = new CurrentIP(this);
         else {
           next();
           this.expression = new Expression(this, false, uses);
@@ -12199,6 +12199,7 @@
     constructor(instr, expectMemory = false, uses = null) {
       this.hasSymbols = false;
       this.vecSize = 0;
+      this.relative = false;
       this.stack = [];
       let opStack = [];
       let lastOp, lastWasNum = false;
@@ -12382,20 +12383,25 @@
       }
       if (stack.length > 1)
         throw new ASMError("Invalid expression");
+      stack[0].relative = this.relative;
       return stack[0];
     }
-    add(expr) {
-      if (expr.stack.length > 0)
-        this.stack.push(...expr.stack, { func: "+", unary: false });
-      this.hasSymbols = this.hasSymbols || expr.hasSymbols;
-      this.vecSize = this.vecSize || expr.vecSize;
+    apply(func, expr = null) {
+      if (expr === null)
+        this.stack.push({ func, unary: true });
+      else if (expr.stack.length > 0) {
+        this.stack.push(...expr.stack, { func, unary: false });
+        this.hasSymbols = this.hasSymbols || expr.hasSymbols;
+        this.vecSize = this.vecSize || expr.vecSize;
+      }
     }
   };
-  function LabelExpression(instr) {
+  function CurrentIP(instr) {
     this.hasSymbols = true;
+    this.relative = false;
     this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? "$" : ".", currRange)];
   }
-  LabelExpression.prototype = Object.create(Expression.prototype);
+  CurrentIP.prototype = Object.create(Expression.prototype);
   function checkSymbolRecursion(origin, record) {
     if (record === origin)
       return true;
@@ -12895,7 +12901,7 @@
     if (this.relativeSizes) {
       if (!(operands.length == 1 && operands[0].type == OPT.REL))
         return null;
-      this.generateRelative(operands[0], instr);
+      operands[0].size = this.getRelSize(operands[0], instr);
     }
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
     if (operands.length != opCatchers.length)
@@ -12940,10 +12946,7 @@
         if (operand.type == OPT.IMM)
           imms.push(operand);
         else if (catcher.type == OPT.REL) {
-          imms.push({
-            value: { value: operand.virtualValue },
-            size
-          });
+          imms.push(operand);
           instr.ipRelative = true;
         } else if (catcher.forceRM)
           rm2 = operand;
@@ -13033,33 +13036,26 @@
   };
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
-  Operation.prototype.generateRelative = function(operand, instr) {
-    let target = operand.value.value - BigInt(instr.address + ((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+  Operation.prototype.getRelSize = function(operand, instr) {
+    const target = operand.value.value - BigInt((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0));
     if (this.relativeSizes.length == 1) {
-      let size = this.relativeSizes[0];
-      operand.size = size;
-      operand.virtualValue = target - sizeLen(size);
-      if (absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
+      const size = this.relativeSizes[0];
+      if (absolute(target - sizeLen(size)) >= 1n << BigInt(size - 1))
         throw new ASMError(`Can't fit offset in ${size >> 3} byte${size != 8 ? "s" : ""}`, operand.startPos.until(operand.endPos));
-      return;
+      return size;
     }
     let [small, large] = this.relativeSizes;
     let smallLen = sizeLen(small), largeLen = sizeLen(large) + (this.opDiff > 256 ? 1n : 0n);
     if (absolute(target - smallLen) >= 1n << BigInt(small - 1) || !operand.sizeAllowed(small, false)) {
       if (small != operand.size && operand.sizeAllowed(small, false)) {
-        operand.size = small;
-        operand.virtualValue = target - smallLen;
         queueRecomp(instr);
-      } else {
-        if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
-          throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
-        operand.size = large;
-        operand.virtualValue = target - largeLen;
+        return small;
       }
-    } else {
-      operand.size = small;
-      operand.virtualValue = target - smallLen;
+      if (absolute(target - largeLen) >= 1n << BigInt(large - 1))
+        throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
+      return large;
     }
+    return small;
   };
   Operation.prototype.matchTypes = function(operands, vexInfo) {
     if (vexInfo.mask == 0 && this.requireMask)
@@ -14867,7 +14863,7 @@ g nle`.split("\n");
       mnemonics2 = mnemonics2.filter((mnemonic) => mnemonic.size !== null);
       if (mnemonics2.length == 0)
         throw new ASMError("Invalid opcode suffix", new RelativeRange(this.range, this.opcodeRange.start + this.opcodeRange.length - 1, 1));
-      let forceImmToRel = this.syntax.intel && mnemonics2.some((mnemonic) => mnemonic.relative);
+      const expectRelative = mnemonics2.some((mnemonic) => mnemonic.relative);
       if (!this.syntax.intel && token == "{") {
         parseRoundingMode(vexInfo);
         if (next() != ",")
@@ -14901,13 +14897,13 @@ g nle`.split("\n");
             }
           }
         }
-        operand = new Operand(this, forceImmToRel);
+        operand = new Operand(this, expectRelative);
         if (token == ":") {
           if (operand.type != OPT.SEG)
             throw new ASMError("Incorrect prefix");
           prefsToGen |= operand.reg + 1 << 3;
           next();
-          operand = new Operand(this, forceImmToRel);
+          operand = new Operand(this, expectRelative);
           if (operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
             throw new ASMError("Segment prefix must be followed by memory reference");
         }
@@ -15073,7 +15069,7 @@ g nle`.split("\n");
         this.genByte(sib);
       if (op.rm?.value?.value != null)
         this.genValue(op.rm.value, op.rm.dispSize || 32);
-      for (let imm of op.imms)
+      for (const imm of op.imms)
         this.genValue(imm.value, imm.size);
       if (op.evexImm !== null)
         this.genByte(op.evexImm);
