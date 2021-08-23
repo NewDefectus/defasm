@@ -1,4 +1,4 @@
-import { Expression, LabelExpression } from "./shuntingYard.js";
+import { Expression, CurrentIP } from "./shuntingYard.js";
 import { ASMError, next } from "./parser.js";
 import { Statement } from "./statement.js";
 
@@ -39,7 +39,7 @@ export class Symbol extends Statement
         try
         {
             if(isLabel)
-                this.expression = new LabelExpression(this);
+                this.expression = new CurrentIP(this);
             else
             {
                 next();

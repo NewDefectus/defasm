@@ -199,7 +199,8 @@ function parseIdentifier(instr)
  * @property {BigInt} value
  * @property {Section} section
  * @property {Range} range
- * @property {RegisterData?} regData */
+ * @property {RegisterData?} regData
+ * @property {boolean?} relative */
 
 class Identifier
 {
@@ -313,6 +314,7 @@ export class Expression
     {
         this.hasSymbols = false;
         this.vecSize = 0;
+        this.relative = false;
 
         /** @type {(Identifier|RegisterIdentifier|Operator)[]} */
         this.stack = [];
@@ -570,28 +572,33 @@ export class Expression
         if(stack.length > 1)
             throw new ASMError("Invalid expression");
 
+        stack[0].relative = this.relative;
         return stack[0];
     }
 
-    /** @param {Expression} expr */
-    add(expr)
+    /**
+     * @param {string} func
+     * @param {Expression} expr */
+    apply(func, expr = null)
     {
-        if(expr.stack.length > 0)
-            this.stack.push(...expr.stack, { func: '+', unary: false });
-        this.hasSymbols = this.hasSymbols || expr.hasSymbols;
-        this.vecSize = this.vecSize || expr.vecSize;
+        if(expr === null)
+            this.stack.push({ func, unary: true });
+        else if(expr.stack.length > 0)
+        {
+            this.stack.push(...expr.stack, { func, unary: false });
+            this.hasSymbols = this.hasSymbols || expr.hasSymbols;
+            this.vecSize = this.vecSize || expr.vecSize;
+        }
     }
 }
 
-export function LabelExpression(instr)
+export function CurrentIP(instr)
 {
     this.hasSymbols = true;
+    this.relative = false;
     this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? '$' : '.', currRange)];
 }
-
-LabelExpression.prototype = Object.create(Expression.prototype);
-
-
+CurrentIP.prototype = Object.create(Expression.prototype);
 
 function checkSymbolRecursion(origin, record)
 {

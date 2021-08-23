@@ -165,6 +165,8 @@ export class Statement
     genValue(value, size)
     {
         let num = value.value;
+        if(value.relative)
+            num -= BigInt(this.length + size / 8);
         do
         {
             this.genByte(num & 0xffn);

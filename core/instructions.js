@@ -125,7 +125,7 @@ export class Instruction extends Statement
                 new RelativeRange(this.range, this.opcodeRange.start + this.opcodeRange.length - 1, 1)
             );
         
-        let forceImmToRel = this.syntax.intel && mnemonics.some(mnemonic => mnemonic.relative);
+        const expectRelative = mnemonics.some(mnemonic => mnemonic.relative);
 
         if(!this.syntax.intel && token == '{')
         {
@@ -173,14 +173,14 @@ export class Instruction extends Statement
                     }
                 }
             }
-            operand = new Operand(this, forceImmToRel);
+            operand = new Operand(this, expectRelative);
             if(token == ':') // Segment specification for addressing
             {
                 if(operand.type != OPT.SEG)
                     throw new ASMError("Incorrect prefix");
                 prefsToGen |= (operand.reg + 1) << 3;
                 next();
-                operand = new Operand(this, forceImmToRel);
+                operand = new Operand(this, expectRelative);
                 if(operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
                     throw new ASMError("Segment prefix must be followed by memory reference");
             }
@@ -414,7 +414,7 @@ export class Instruction extends Statement
         // Generating the displacement and immediate
         if(op.rm?.value?.value != null)
             this.genValue(op.rm.value, op.rm.dispSize || 32);
-        for(let imm of op.imms)
+        for(const imm of op.imms)
             this.genValue(imm.value, imm.size);
         if(op.evexImm !== null)
             this.genByte(op.evexImm);

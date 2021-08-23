@@ -392,7 +392,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     {
         if(!(operands.length == 1 && operands[0].type == OPT.REL))
             return null;
-        this.generateRelative(operands[0], instr);
+        operands[0].size = this.getRelSize(operands[0], instr);
     }
 
     let opCatchers = vexInfo.needed ? this.vexOpCatchers : this.opCatchers;
@@ -460,10 +460,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
                 imms.push(operand);
             else if(catcher.type == OPT.REL)
             {
-                imms.push({
-                    value: { value: operand.virtualValue },
-                    size: size
-                });
+                imms.push(operand);
                 instr.ipRelative = true;
             }
             else if(catcher.forceRM)
@@ -584,23 +581,21 @@ const sizeLen = x => x == 32 ? 4n : x == 16 ? 2n : 1n;
 const absolute = x => x < 0n ? ~x : x;
 
 
-/** Predict a fitting value and size for a given relative operand
+/** Predict a fitting size for a given relative operand
  * @param {Operand} operand
  * @param {Instruction} instr
 */
-Operation.prototype.generateRelative = function(operand, instr)
+Operation.prototype.getRelSize = function(operand, instr)
 {
-    let target = operand.value.value - BigInt(instr.address + ((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    const target = operand.value.value - BigInt(((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative
     if(this.relativeSizes.length == 1)
     {
-        let size = this.relativeSizes[0];
-        operand.size = size;
-        operand.virtualValue = target - sizeLen(size);
-        if(absolute(operand.virtualValue) >= 1n << BigInt(size - 1))
+        const size = this.relativeSizes[0];
+        if(absolute(target - sizeLen(size)) >= 1n << BigInt(size - 1))
             throw new ASMError(`Can't fit offset in ${size >> 3} byte${size != 8 ? 's' : ''}`, operand.startPos.until(operand.endPos));
-        return;
+        return size;
     }
     
     // Now we have the second, more complicated case. There's a threshold between the two sizes we must find
@@ -611,23 +606,14 @@ Operation.prototype.generateRelative = function(operand, instr)
     {
         if(small != operand.size && operand.sizeAllowed(small, false))
         {
-            operand.size = small;
-            operand.virtualValue = target - smallLen;
             queueRecomp(instr);
+            return small;
         }
-        else
-        {
-            if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
-                throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
-            operand.size = large;
-            operand.virtualValue = target - largeLen;
-        }
+        if(absolute(target - largeLen) >= 1n << BigInt(large - 1))
+            throw new ASMError(`Can't fit offset in ${large >> 3} bytes`, operand.startPos.until(operand.endPos));
+        return large;
     }
-    else
-    {
-        operand.size = small;
-        operand.virtualValue = target - smallLen;
-    }
+    return small;
 }
 
 /* Check if a list of operands has the right types for this operation */
