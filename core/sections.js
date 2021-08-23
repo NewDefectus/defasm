@@ -46,8 +46,8 @@ export class Section
             switch(name)
             {
                 case '.text': this.flags = sectionFlags.a | sectionFlags.x; break;
-                case '.data': this.flags = sectionFlags.a | sectionFlags.w | sectionFlags.x; break;
-                case '.bss' : this.flags = sectionFlags.a; break;
+                case '.data':
+                case '.bss' : this.flags = sectionFlags.a | sectionFlags.w; break;
             }
         else
             for(const flag of flags)

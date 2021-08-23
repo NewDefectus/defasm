@@ -334,8 +334,6 @@ export class AssemblyState
 
         if(haltOnError && this.errors.length > 0)
             throw this.errors.map(e => e.range.parent.slice(this.source) + '\n^' + e.message).join('\n');
-        
-        this.bytes = lastInstr ? lastInstr.address + lastInstr.length - this.data.address : 0;
     }
 
     line(line)

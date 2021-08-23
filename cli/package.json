@@ -3,6 +3,10 @@
   "version": "1.0.0",
   "description": "Command-line utility for DefAssembler",
   "main": "main.js",
+  "scripts": {
+    "build": "gcc debug.c -o debug",
+    "prepare": "npm run build"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/NewDefectus/defAsm.git"
@@ -24,6 +28,6 @@
     "@defasm/core": ""
   },
   "bin": {
-    "defasm": "cli.js"
+    "defasm": "./main.js"
   }
 }
