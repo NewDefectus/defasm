@@ -27,7 +27,7 @@ export function startAbsRange()
     return parentRange = currRange.abs();
 }
 
-const tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.]+|[\S\n]/g;
+const tokenizer = /(["'])(\\(.|\n|$)|[^\\])*?(\1|$)|>>|<<|\|\||&&|>=|<=|<>|==|!=|[\w.$]+|[\S\n]/g;
 
 /** @param {string} source */
 export function loadCode(source, index = 0)
@@ -82,7 +82,7 @@ export function ungetToken()
 
 export function setToken(tok, range = currRange)
 {
-    token = tok;
+    token = tok || '\n';
     currRange = range;
 }
 

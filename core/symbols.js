@@ -31,9 +31,11 @@ export class Symbol extends Statement
 {
     /** @type {SymbolRecord} */
     record;
-    constructor(addr, name, range, opcodeRange, isLabel = false)
+    constructor({ name, opcodeRange = null, isLabel = false, ...config })
     {
-        super(addr, 0, range);
+        if(opcodeRange === null)
+            opcodeRange = config.range;
+        super(config);
         this.name = name;
         let uses = [];
         try

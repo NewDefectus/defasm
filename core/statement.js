@@ -133,11 +133,12 @@ export class StatementNode
 export class Statement
 {
     /**
-     * @param {Number} addr
-     * @param {Number} maxSize
-     * @param {Range} range
-     * @param {ASMError?} error */
-    constructor(addr = 0, maxSize = 0, range = new Range(), error = null)
+     * @param {Object} config
+     * @param {Number} config.addr
+     * @param {Number} config.maxSize
+     * @param {Range} config.range
+     * @param {ASMError?} config.error */
+    constructor({ addr = 0, maxSize = 0, range = new Range(), error = null, section = currSection } = {})
     {
         this.id = totalStatements++; // Each Statement gets a unique ID
         
@@ -147,7 +148,7 @@ export class Statement
         this.bytes = new Uint8Array(maxSize);
         this.syntax = currSyntax;
         this.address = addr;
-        this.section = currSection;
+        this.section = section;
 
         this.sectionNode = new StatementNode(this);
     }
@@ -161,11 +162,12 @@ export class Statement
     /**
      * @param {import("./shuntingYard.js").IdentifierValue} value
      * @param {Number} size
+     * @param {boolean} sizeRelative
      */
-    genValue(value, size)
+    genValue(value, size, sizeRelative = false)
     {
         let num = value.value;
-        if(value.relative)
+        if(sizeRelative)
             num -= BigInt(this.length + size / 8);
         do
         {
@@ -177,13 +179,5 @@ export class Statement
     remove()
     {
         this.removed = true;
-    }
-}
-
-export class Comment extends Statement
-{
-    constructor(prev, range)
-    {
-        super(prev, 0, range);
     }
 }

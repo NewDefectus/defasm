@@ -1,4 +1,4 @@
-import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange } from "./parser.js";
+import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange, setToken } from "./parser.js";
 import { Expression, CurrentIP } from "./shuntingYard.js";
 
 // Operand types
@@ -285,9 +285,15 @@ export function Operand(instr, expectRelative = false)
         else
         {
             // AT&T syntax
-            if(token == '$') // Immediate
+            if(token[0] == '$') // Immediate
             {
-                next();
+                if(token.length > 1)
+                {
+                    setToken(token.slice(1));
+                    currRange.start++;
+                }
+                else
+                    next();
                 this.expression = new Expression(instr);
                 this.type = OPT.IMM;
             }
@@ -371,10 +377,7 @@ export function Operand(instr, expectRelative = false)
         if(this.expression)
         {
             if(this.type == OPT.REL)
-            {
                 this.expression.apply('-', new CurrentIP(instr));
-                this.expression.relative = true;
-            }
             if(!this.expression.hasSymbols)
                 this.evaluate(instr);
         }

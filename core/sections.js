@@ -1,4 +1,6 @@
+import { Range } from "./parser.js";
 import { StatementNode } from "./statement.js";
+import { Symbol } from "./symbols.js";
 
 /** @type {Object.<string, Section>} */
 export var sections = null;
@@ -38,7 +40,7 @@ export class Section
         /** @type {import('./statement.js').InstructionRange} */
         this.cursor = null;
 
-        this.head = new StatementNode();
+        this.head = new StatementNode(new Symbol({ addr: 0, name, isLabel: true, section: this }));
         this.flags = 0;
         if(flags === null)
             switch(name)

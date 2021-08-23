@@ -2,7 +2,7 @@ import { isRegister, nameRegister, OPT, parseRegister, regParsePos } from "./ope
 import { ASMError, currRange, next, Range, setToken, token, ungetToken } from "./parser.js";
 import { symbols } from "./symbols.js";
 import { Statement } from "./statement.js";
-import { pseudoSections, Section } from "./section.js";
+import { pseudoSections, Section } from "./sections.js";
 
 let unaryTemps = {
     '+': a=>a,
@@ -127,7 +127,7 @@ export function readString(string, { offset = 0, lineEnds = [] } = {})
  */
 export function scanIdentifier(id, intel)
 {
-    if(id == (intel ? '$' : '.') || id[0].match(/[a-z_]/i))
+    if(id[0].match(/[a-z_.$]/i))
         return 'symbol';
     if(id[0].match(/[^0-9]/))
         return null;
@@ -200,7 +200,7 @@ function parseIdentifier(instr)
  * @property {Section} section
  * @property {Range} range
  * @property {RegisterData?} regData
- * @property {boolean?} relative */
+ * @property {boolean?} pcRelative */
 
 class Identifier
 {
@@ -222,7 +222,8 @@ class Identifier
         return {
             value: this.value,
             section: pseudoSections.ABS,
-            range: this.range
+            range: this.range,
+            pcRelative: false,
         };
     }
 }
@@ -261,13 +262,15 @@ class SymbolIdentifier extends Identifier
             return {
                 value: record.value.value,
                 section: record.value.section,
-                range: this.range
+                range: this.range,
+                pcRelative: false,
             };
         }
         return {
             value: 0n,
             section: pseudoSections.UND,
-            range: this.range
+            range: this.range,
+            pcRelative: false,
         };
     }
 }
@@ -290,6 +293,7 @@ class RegisterIdentifier extends Identifier
             value: null,
             section: pseudoSections.ABS,
             range: this.range,
+            pcRelative: false,
             regData: this.register.type == OPT.VEC 
             ?
                 {
@@ -314,7 +318,6 @@ export class Expression
     {
         this.hasSymbols = false;
         this.vecSize = 0;
-        this.relative = false;
 
         /** @type {(Identifier|RegisterIdentifier|Operator)[]} */
         this.stack = [];
@@ -491,10 +494,12 @@ export class Expression
 
                     if(op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
                         ;
-                    else if(op1.section == pseudoSections.ABS && (func == '+' || (func == '-' && op2.section == instr.section)))
+                    else if(op1.section == pseudoSections.ABS && func == '+')
                         op1.section = op2.section;
                     else if(op2.section == pseudoSections.ABS && (func == '+' || func == '-'))
                         ;
+                    else if(!instr.record && op2.section == instr.section && func == '-')
+                        op1.pcRelative = true;
                     else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
                         op1.section = pseudoSections.ABS;
                     else
@@ -564,6 +569,7 @@ export class Expression
                     }
                     else
                         op1.value = operators[func].func(op1.value, op2.value);
+                    op1.pcRelative = op1.pcRelative || op2.pcRelative;
                 }
             }
             else
@@ -572,7 +578,6 @@ export class Expression
         if(stack.length > 1)
             throw new ASMError("Invalid expression");
 
-        stack[0].relative = this.relative;
         return stack[0];
     }
 
@@ -595,7 +600,7 @@ export class Expression
 export function CurrentIP(instr)
 {
     this.hasSymbols = true;
-    this.relative = false;
+    this.pcRelative = false;
     this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? '$' : '.', currRange)];
 }
 CurrentIP.prototype = Object.create(Expression.prototype);

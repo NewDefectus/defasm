@@ -85,11 +85,11 @@ function explainNoMatch(mnemonics, operands, vexInfo)
 
 export class Instruction extends Statement
 {
-    constructor(addr, opcode, range)
+    constructor({ opcode, ...config })
     {
-        super(addr, MAX_INSTR_SIZE, range);
+        super({ ...config, maxSize: MAX_INSTR_SIZE });
         this.opcode = opcode;
-        this.opcodeRange = new RelativeRange(range, range.start, range.length);
+        this.opcodeRange = new RelativeRange(config.range, config.range.start, config.range.length);
 
         this.interpret();
     }
@@ -414,10 +414,13 @@ export class Instruction extends Statement
         // Generating the displacement and immediate
         if(op.rm?.value?.value != null)
             this.genValue(op.rm.value, op.rm.dispSize || 32);
-        for(const imm of op.imms)
-            this.genValue(imm.value, imm.size);
-        if(op.evexImm !== null)
+        if(op.relImm !== null)
+            this.genValue(op.relImm.value, op.relImm.size, true);
+        else if(op.evexImm !== null)
             this.genByte(op.evexImm);
+        else for(const imm of op.imms)
+            this.genValue(imm.value, imm.size);
+        
     }
 
     // Generate the ModRM byte
@@ -540,9 +543,9 @@ function makeVexPrefix(vex, rex, isEvex)
 
 export class Prefix extends Statement
 {
-    constructor(prev, name, range)
+    constructor({ name, ...config })
     {
-        super(prev, 1, range);
+        super({ ...config, maxSize: 1 });
         this.bytes[0] = prefixes[name];
         this.length = 1;
     }

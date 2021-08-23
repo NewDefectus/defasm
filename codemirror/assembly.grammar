@@ -1,4 +1,4 @@
-@top Program { statement ((statementSeparator | '\n') statement)*  }
+@top Program { statement ((';' | '\n') statement)*  }
 
 @external tokens tokenizer from "./tokenizer" {
   Register,
@@ -12,19 +12,19 @@
   Offset,
   symEquals,
   VEXRound,
-  statementSeparator,
-  number
+  number,
+  immPrefix
 }
 
-@skip {space}
+@skip {Space}
 
 @tokens {
-  space { std.whitespace }
+  Space { std.whitespace }
   charString { "'" (![\\'] | "\\" _)* "'"? }
   FullString { '"' (![\\"] | "\\" _)* '"'? }
   unary { '+' | '-' | '~' | '!' }
   operator { $[+\-/*%|&^<>!] | '||' | '&&' | '>>' | '<<' | '<>' | '==' | '!=' | '>=' | '<='}
-  @precedence { '\n', space }
+  @precedence { '\n', Space }
 }
 
 statement {
@@ -54,7 +54,7 @@ DirectiveStatement {
 }
 
 Immediate {
-  '$' Expression
+  immPrefix Expression
 }
 
 Memory {
@@ -76,5 +76,5 @@ LabelDefinition { word ':' }
 SymbolDefinition { word symEquals Expression }
 
 commaSep<content> {
-  "" | content ("," content?)*
+  "" | content (',' content?)*
 }

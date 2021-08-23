@@ -440,7 +440,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     // be redundant as we wouldn't know if the operation is encodable at all.
     // In other words, this aids performance.
 
-    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
     let extendOp = false;
 
     let operand;
@@ -460,7 +460,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
                 imms.push(operand);
             else if(catcher.type == OPT.REL)
             {
-                imms.push(operand);
+                relImm = operand;
                 instr.ipRelative = true;
             }
             else if(catcher.forceRM)
@@ -573,6 +573,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         rm,
         vex: vexInfo.needed ? vex : null,
         evexImm,
+        relImm,
         imms
     };
 }

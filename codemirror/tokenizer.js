@@ -16,13 +16,13 @@ function next(input)
     
     while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
         input.advance();
-    if(input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.\w]/))
+    if(input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.$\w]/))
     {
         tok = char;
         input.advance();
     }
     else
-        while(input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.\w]/))
+        while(input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.$\w]/))
         {
             tok += char;
             input.advance();
@@ -31,42 +31,68 @@ function next(input)
     return tok = tok.toLowerCase() || '\n';
 }
 
+const
+    STATE_SYNTAX_INTEL = 1,
+    STATE_SYNTAX_PREFIX = 2,
+    STATE_IN_INSTRUCTION = 4,
+    STATE_ALLOW_IMM = 8;
+
 /** @param {import('@defasm/core/parser.js').Syntax} initialSyntax */
 export const ctxTracker = initialSyntax => new ContextTracker({
-    start: initialSyntax,
+    start: (initialSyntax.intel * STATE_SYNTAX_INTEL) | (initialSyntax.prefix * STATE_SYNTAX_PREFIX),
     shift: (ctx, term, stack, input) => {
+        if(term == Terms.Opcode)
+            ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
+        else if((ctx & STATE_IN_INSTRUCTION) && term != Terms.Space)
+        {
+            if(input.next == ','.charCodeAt(0))
+                ctx |= STATE_ALLOW_IMM;
+            else
+                ctx &= ~STATE_ALLOW_IMM;
+        }
+        
+        if(input.next == '\n'.charCodeAt(0) || input.next == ';'.charCodeAt(0))
+            ctx &= ~STATE_IN_INSTRUCTION;
         if(term != Terms.Directive)
             return ctx;
-        let result = {}, syntax = next(input);
+        let result = ctx, syntax = next(input);
         if(syntax == ".intel_syntax")
         {
-            result.intel = true;
-            result.prefix = false;
+            result |= STATE_SYNTAX_INTEL;
+            result &= ~STATE_SYNTAX_PREFIX;
         }
         else if(syntax == ".att_syntax")
         {
-            result.intel = false;
-            result.prefix = true;
+            result &= ~STATE_SYNTAX_INTEL;
+            result |= STATE_SYNTAX_PREFIX;
         }
         else
             return ctx;
         const pref = next(input);
         if(pref == 'prefix')
-            result.prefix = true;
+            result |= STATE_SYNTAX_PREFIX;
         else if(pref == 'noprefix')
-            result.prefix = false;
-        else if(pref != '\n' && pref != ';' && (result.intel || pref != '#'))
+            result &= ~STATE_SYNTAX_PREFIX;
+        else if(pref != '\n' && pref != ';' && ((result & STATE_SYNTAX_INTEL) || pref != '#'))
             return ctx;
         
         return result;
     },
-    hash: ctx => (ctx.intel ? 1 : 0) | (ctx.prefix ? 2 : 0),
+    hash: ctx => ctx,
     strict: false
 });
 
-function tokenize({ prefix, intel }, input)
+/** @param {InputStream} input */
+function tokenize(ctx, input)
 {
-    if(tok == '%' && (prefix || intel))
+    if((ctx & STATE_ALLOW_IMM) && tok[0] == '$')
+    {
+        input.pos -= tok.length - 1;
+        return Terms.immPrefix;
+    }
+
+    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    if(tok == '%' && (intel || prefix))
     {
         next(input);
         if(prefix && isRegister(tok))
@@ -83,9 +109,6 @@ function tokenize({ prefix, intel }, input)
         return Terms.Comment;
     }
 
-    if(tok == ';')
-        return Terms.statementSeparator;
-
     if(tok == '=' || intel && tok == 'equ')
         return Terms.symEquals;
     
@@ -98,23 +121,25 @@ function tokenize({ prefix, intel }, input)
         return Terms.VEXRound;
     }
 
-    if(isDirective(tok, intel))
-        return Terms.Directive;
+    if(!(ctx & STATE_IN_INSTRUCTION))
+    {
+        if(isDirective(tok, intel))
+            return Terms.Directive;
 
-    if(intel && tok == 'offset')
-        return Terms.Offset;
+        if(intel && tok == 'offset')
+            return Terms.Offset;
 
-    if(prefixes.hasOwnProperty(tok))
-        return Terms.Prefix;
+        if(prefixes.hasOwnProperty(tok))
+            return Terms.Prefix;
 
-    let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
-    if(mnemonics.length > 0)
-        return mnemonics[0].relative
-        ?
-            intel ? Terms.IRelOpcode : Terms.RelOpcode
-        :
-            intel ? Terms.IOpcode : Terms.Opcode;
-
+        let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
+        if(mnemonics.length > 0)
+            return mnemonics[0].relative
+            ?
+                intel ? Terms.IRelOpcode : Terms.RelOpcode
+            :
+                intel ? Terms.IOpcode : Terms.Opcode;
+    }
     if(intel && sizeHints.hasOwnProperty(tok))
     {
         let prevEnd = input.pos;

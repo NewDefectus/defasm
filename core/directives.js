@@ -1,5 +1,5 @@
 import { ASMError, token, next, setSyntax, currSyntax } from "./parser.js";
-import { sections } from "./section.js";
+import { sections } from "./sections.js";
 import { capLineEnds, Expression, readString } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
 
@@ -61,9 +61,9 @@ export function isDirective(directive, intel)
 
 export class Directive extends Statement
 {
-    constructor(addr, dir, range)
+    constructor({ dir, ...config })
     {
-        super(addr, DIRECTIVE_BUFFER_SIZE, range);
+        super({ ...config, maxSize: DIRECTIVE_BUFFER_SIZE });
         this.outline = null;
         this.floatPrec = 0;
         this.lineEnds = { lineEnds: [], offset: 0 };

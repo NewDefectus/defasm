@@ -2,24 +2,22 @@ import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSynta
 import { Directive, isDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
-import { Comment, Statement, StatementNode } from "./statement.js";
-import { loadSections, Section, sections } from "./section.js";
+import { Statement, StatementNode } from "./statement.js";
+import { loadSections, Section, sections } from "./sections.js";
 
 var linkedInstrQueue = [];
 
 /** @type {StatementNode} */ var prevNode = null;
 /** @type {Section}       */ export var currSection = null;
 
-var currAddr = 0;
+var addr = 0;
 
 /** @param {Section} section */
 function setSection(section)
 {
     currSection = section;
-    let prevSectionNode = section.cursor.prev;
-    if(prevSectionNode.statement)
-        return prevSectionNode.statement.address + prevSectionNode.statement.length;
-    return 0;
+    const prevInstr = section.cursor.prev.statement;
+    return prevInstr.address + prevInstr.length;
 }
 
 /** @param {Statement} instr */
@@ -40,7 +38,7 @@ function addInstruction(instr, seekEnd = true)
             next();
     }
 
-    currAddr = instr.address + instr.length;
+    addr = instr.address + instr.length;
     instr.range.length = currRange.end - instr.range.start - (seekEnd ? 1 : 0);
 }
 
@@ -63,12 +61,14 @@ export class AssemblyState
 
         /** @type {Map<string, import("./symbols.js").SymbolRecord>} */
         this.symbols = new Map();
+        setSyntax(syntax);
+        loadSymbols(this.symbols);
 
         this.sections = {
             '.text': new Section('.text'),
             '.data': new Section('.data'),
             '.bss':  new Section('.bss')
-        }
+        };
 
         this.data = new StatementNode();
 
@@ -85,30 +85,30 @@ export class AssemblyState
     /* Compile Assembly from source code into machine code */
     compile(source, {
         haltOnError = false,
-        range = new Range(),
+        range: replacementRange = new Range(),
         doSecondPass = true } = {})
     {
         this.source =
             /* If the given range is outside the current
             code's span, fill the in-between with newlines */
-            this.source.slice(0, range.start).padEnd(range.start, '\n') +
+            this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, '\n') +
             source +
-            this.source.slice(range.end);
+            this.source.slice(replacementRange.end);
         
         loadSymbols(this.symbols);
-        loadSections(this.sections, range);
+        loadSections(this.sections, replacementRange);
 
-        let { head, tail } = this.data.getAffectedArea(range, true, source.length);
+        let { head, tail } = this.data.getAffectedArea(replacementRange, true, source.length);
         
         setSyntax(head.statement ? head.statement.syntax : this.defaultSyntax);
-        currAddr = setSection(head.statement ? head.statement.section : this.sections['.text']);
-        loadCode(this.source, range.start);
+        addr = setSection(head.statement ? head.statement.section : this.sections['.text']);
+        loadCode(this.source, replacementRange.start);
 
         prevNode = head;
         
         while(match)
         {
-            let pos = startAbsRange();
+            let range = startAbsRange();
             try
             {
                 if(token != '\n' && token != ';')
@@ -135,56 +135,56 @@ export class AssemblyState
                             :
                             lowerTok == '.equ' || lowerTok == '.set')
                         {
-                            let opcode = next();
-                            let opcodePos = currRange;
+                            let name = next();
+                            let opcodeRange = currRange;
                             if(!currSyntax.intel && next() !== ',')
                                 throw new ASMError("Expected ','");
-                            addInstruction(new Symbol(currAddr, opcode, pos, opcodePos));
+                            addInstruction(new Symbol({ addr, name, range, opcodeRange }));
                         }
                         else
-                            addInstruction(new Directive(currAddr, currSyntax.intel ? token : token.slice(1), pos));
+                            addInstruction(new Directive({ addr, dir: currSyntax.intel ? token : token.slice(1), range }));
                     }
                     else if(prefixes.hasOwnProperty(lowerTok)) // Prefix
-                        addInstruction(new Prefix(currAddr, lowerTok, pos), false);
+                        addInstruction(new Prefix({ addr, range, name: lowerTok }), false);
                     else // Instruction, label or symbol
                     {
-                        let opcode = token;
+                        let name = token;
                         next();
 
                         if(token == ':') // Label definition
-                            addInstruction(new Symbol(currAddr, opcode, pos, pos, true), false);
+                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
                         else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                            addInstruction(new Symbol(currAddr, opcode, pos, pos));
+                            addInstruction(new Symbol({ addr, name, range }));
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol(currAddr, opcode, pos, pos, true), false);
-                            addInstruction(new Directive(currAddr, token, startAbsRange()));
+                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                            addInstruction(new Directive({ addr, dir: token, range: startAbsRange() }));
                         }
                         else // Instruction
-                            addInstruction(new Instruction(currAddr, opcode.toLowerCase(), pos));
+                            addInstruction(new Instruction({ addr, opcode: name.toLowerCase(), range }));
                     }
                 }
             }
-            catch(e)
+            catch(error)
             {
                 while(token != '\n' && token != ';')
                     next();
                     
                 if(haltOnError && !doSecondPass)
-                    throw `Error on line ${line}: ${e.message}`;
-                if(!e.range)
-                    console.error(`Error on line ${line}:\n`, e);
+                    throw `Error on line ${line}: ${error.message}`;
+                if(!error.range)
+                    console.error(`Error on line ${line}:\n`, error);
                 else
-                    addInstruction(new Statement(currAddr, 0, pos, e));
+                    addInstruction(new Statement({ addr, range, error }));
             }
             if(comment)
             {
                 let start = startAbsRange();
                 while(next() != '\n');
-                addInstruction(new Comment(currAddr, start.until(currRange)));
+                addInstruction(new Statement({ addr, range: start.until(currRange) }));
             }
             next();
-            if(currRange.end > range.end)
+            if(currRange.end > replacementRange.end)
                 break;
         }
 
@@ -239,7 +239,8 @@ export class AssemblyState
                 while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
                     nextSyntaxChange = nextSyntaxChange.next;
                 
-                const recompRange = tail.statement.range.until(nextSyntaxChange.statement.range);
+                const recompStart = prevNode.statement.range.end;
+                const recompRange = new Range(recompStart, nextSyntaxChange.statement.range.end - recompStart);
                 
                 this.compile(recompRange.slice(this.source), {
                     haltOnError,
@@ -249,7 +250,7 @@ export class AssemblyState
             }
         }
 
-        this.compiledRange = range.until(prevRange);
+        this.compiledRange = replacementRange.until(prevRange);
 
         if(doSecondPass)
             this.secondPass(haltOnError);
@@ -258,7 +259,7 @@ export class AssemblyState
     // Run the second pass on the instruction list
     secondPass(haltOnError = false)
     {
-        currAddr = 0;
+        addr = 0;
         let node;
         loadSymbols(this.symbols);
 
@@ -275,13 +276,13 @@ export class AssemblyState
 
         while(node = linkedInstrQueue.shift() || recompQueue.shift())
         {
-            currAddr = node.statement ? node.statement.address : 0;
+            addr = node.statement.address;
             do
             {
                 let instr = node.statement;
                 if(instr)
                 {
-                    instr.address = currAddr;
+                    instr.address = addr;
                     if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
                     {
                         // Recompiling the instruction
@@ -301,10 +302,10 @@ export class AssemblyState
                                     queueRecomp(ref);
                         }
                     }
-                    currAddr = instr.address + instr.length;
+                    addr = instr.address + instr.length;
                 }
                 node = node.next;
-            } while(node && node.statement.address != currAddr);
+            } while(node && node.statement.address != addr);
         }
 
         // Error collection
