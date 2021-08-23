@@ -12403,10 +12403,8 @@
             this.flags = sectionFlags.a | sectionFlags.x;
             break;
           case ".data":
-            this.flags = sectionFlags.a | sectionFlags.w | sectionFlags.x;
-            break;
           case ".bss":
-            this.flags = sectionFlags.a;
+            this.flags = sectionFlags.a | sectionFlags.w;
             break;
         }
       else
@@ -15393,7 +15391,6 @@ g nle`.split("\n");
       });
       if (haltOnError && this.errors.length > 0)
         throw this.errors.map((e) => e.range.parent.slice(this.source) + "\n^" + e.message).join("\n");
-      this.bytes = lastInstr ? lastInstr.address + lastInstr.length - this.data.address : 0;
     }
     line(line2) {
       if (line2-- < 1)
