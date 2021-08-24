@@ -11377,6 +11377,17 @@
     }
   };
 
+  // core/relocations.js
+  var signed32 = 33;
+  var RelocEntry = class {
+    constructor({ offset, addend, symbol, size, pcRelative }) {
+      this.offset = offset;
+      this.addend = addend;
+      this.symbol = symbol;
+      this.type = (pcRelative ? "PC" : "") + size;
+    }
+  };
+
   // core/statement.js
   var totalStatements = 0;
   var StatementNode = class {
@@ -11467,6 +11478,11 @@
       this.address = addr2;
       this.section = section;
       this.sectionNode = new StatementNode(this);
+      this.relocations = [];
+    }
+    clear() {
+      this.length = 0;
+      this.relocations = [];
     }
     genByte(byte) {
       this.bytes[this.length++] = Number(byte);
@@ -11482,9 +11498,14 @@
         if (value.pcRelative) {
           addend += BigInt(this.length);
           signed = false;
-        } else
-          signed = signed && size == 32;
-        console.log(`#${this.id}: ${value.symbol ? value.symbol.name + " + " : ""}${addend} (size ${size}${signed ? "s" : ""}, section ${value.section.name}${value.pcRelative ? ", relative" : ""})`);
+        }
+        this.relocations.push({
+          offset: this.length,
+          addend: value.addend,
+          symbol: value.symbol,
+          size: signed && size == 32 ? signed32 : size,
+          pcRelative: value.pcRelative
+        });
         num = 0n;
       }
       do {
@@ -12454,6 +12475,15 @@
         for (const flag of flags)
           this.flags |= sectionFlags[flag];
     }
+    getRelocations() {
+      let node = this.head, relocations = [];
+      while (node) {
+        for (const reloc of node.statement.relocations)
+          relocations.push(new RelocEntry({ ...reloc, offset: node.statement.address + reloc.offset }));
+        node = node.next;
+      }
+      return relocations;
+    }
   };
 
   // core/directives.js
@@ -12635,7 +12665,7 @@
     recompile() {
       let op, outlineLength = this.outline.length;
       const startAddr = this.address;
-      this.length = 0;
+      this.clear();
       this.error = null;
       for (let i = 0; i < outlineLength; i++) {
         op = this.outline[i];
@@ -15015,14 +15045,14 @@ g nle`.split("\n");
         this.compile();
       } catch (e) {
         this.error = e;
-        this.length = 0;
+        this.clear();
       }
       if (!this.needsRecompilation && !this.ipRelative)
         this.outline = void 0;
     }
     compile() {
       let { operands, memoryOperand, mnemonics: mnemonics2, prefsToGen, vexInfo } = this.outline;
-      this.length = 0;
+      this.clear();
       if (memoryOperand)
         memoryOperand.evaluate(this, this.syntax.intel);
       for (let i = 0; i < operands.length; i++) {
@@ -15214,7 +15244,7 @@ g nle`.split("\n");
             op.value = op.expression.evaluate(this);
         this.compile();
       } catch (e) {
-        this.length = 0;
+        this.clear();
         throw e;
       }
     }
