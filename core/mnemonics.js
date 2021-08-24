@@ -588,7 +588,7 @@ const absolute = x => x < 0n ? ~x : x;
 */
 Operation.prototype.getRelSize = function(operand, instr)
 {
-    const target = operand.value.value - BigInt(((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
+    const target = operand.value.addend - BigInt(((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative
     if(this.relativeSizes.length == 1)
@@ -637,7 +637,7 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
             ||
             // In case of implicit operands, check that the values match
             catcher.implicitValue !== null &&
-            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.value) : operand.reg))
+            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
             return false;
     }
     

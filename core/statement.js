@@ -1,5 +1,6 @@
 import { currSection } from "./compiler.js";
 import { ASMError, currSyntax, Range } from "./parser.js";
+import { pseudoSections } from "./sections.js";
 
 var totalStatements = 0;
 
@@ -166,9 +167,13 @@ export class Statement
      */
     genValue(value, size, sizeRelative = false)
     {
-        let num = value.value;
+        let num = value.addend;
+        if(value.symbol && value.section == pseudoSections.ABS)
+            num += value.symbol.value.addend;
         if(sizeRelative)
             num -= BigInt(this.length + size / 8);
+        //if(value.symbol && value.section != pseudoSections.ABS || value.pcRelative)
+        //    console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${num}${value.pcRelative ? ' (relative)' : ''}`);
         do
         {
             this.genByte(num & 0xffn);

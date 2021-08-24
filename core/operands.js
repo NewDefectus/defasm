@@ -367,7 +367,7 @@ export function Operand(instr, expectRelative = false)
                         this.reg2 = 4;
                     
                     if((this.reg & 7) == 5)
-                        this.value.value = this.value.value || 0n; 
+                        this.value.addend = this.value.addend || 0n; 
                     if(token != ')')
                         throw new ASMError("Expected ')'");
                     next();
@@ -427,7 +427,7 @@ Operand.prototype.evaluate = function(instr, intelMemory = false)
     }
 
     if((this.reg & 7) == 5)
-        this.value.value = this.value.value || 0n;
+        this.value.addend = this.value.addend || 0n;
     if(this.reg == 4 && this.reg2 < 0)
         this.reg2 = 4;
 }

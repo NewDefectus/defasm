@@ -196,7 +196,8 @@ function parseIdentifier(instr)
 
 /**
  * @typedef {Object} IdentifierValue
- * @property {BigInt} value
+ * @property {BigInt?} addend
+ * @property {import('./symbols.js').SymbolRecord} symbol
  * @property {Section} section
  * @property {Range} range
  * @property {RegisterData?} regData
@@ -220,10 +221,11 @@ class Identifier
     getValue(instr)
     {
         return {
-            value: this.value,
+            addend: this.value,
+            symbol: null,
             section: pseudoSections.ABS,
             range: this.range,
-            pcRelative: false,
+            pcRelative: false
         };
     }
 }
@@ -250,24 +252,28 @@ class SymbolIdentifier extends Identifier
     {
         if(this.isIP)
             return {
-                value: BigInt(instr.address),
+                addend: BigInt(instr.address),
+                symbol: null,
                 section: instr.section,
-                range: this.range
+                range: this.range,
+                pcRelative: false
             };
         const record = symbols.get(this.name);
-        if(record && record.symbol && !record.symbol.error)
+        if(record.symbol && !record.symbol.error)
         {
             if(instr.record && checkSymbolRecursion(instr.record, record))
                 throw new ASMError(`Recursive definition`, this.range);
             return {
-                value: record.value.value,
+                addend: 0n,
+                symbol: record,
                 section: record.value.section,
                 range: this.range,
                 pcRelative: false,
             };
         }
         return {
-            value: 0n,
+            addend: 0n,
+            symbol: record,
             section: pseudoSections.UND,
             range: this.range,
             pcRelative: false,
@@ -290,7 +296,8 @@ class RegisterIdentifier extends Identifier
     getValue()
     {
         return {
-            value: null,
+            addend: null,
+            symbol: null,
             section: pseudoSections.ABS,
             range: this.range,
             pcRelative: false,
@@ -446,6 +453,7 @@ export class Expression
                     else
                         symbols.set(id.name, record = {
                             symbol: null,
+                            name: id.name,
                             references: [instr],
                             uses: []
                         });
@@ -479,12 +487,12 @@ export class Expression
                 {
                     if(func == '+')
                         continue;
-                    const val = stack[len - 1];
-                    if(val.regData ||
-                        val.section != pseudoSections.ABS &&
-                        (val.section != instr.section || func == '-'))
+                    const val = stack[len - 1], minusRelative = val.section == instr.section && func == '-';
+                    if(val.regData || val.section != pseudoSections.ABS && !minusRelative)
                         throw new ASMError("Bad operand", val.range);
-                    val.value = unaries[func].func(val.value);
+                    if(minusRelative)
+                        val.pcRelative = true;
+                    val.addend = unaries[func].func(val.addend);
                 }
                 else
                 {
@@ -494,14 +502,26 @@ export class Expression
 
                     if(op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
                         ;
-                    else if(op1.section == pseudoSections.ABS && func == '+')
+                    else if(op1.section == pseudoSections.ABS && !op1.pcRelative && func == '+')
+                    {
                         op1.section = op2.section;
+                        op1.symbol = op2.symbol;
+                    }
                     else if(op2.section == pseudoSections.ABS && (func == '+' || func == '-'))
                         ;
+                    else if(op1.pcRelative || op2.pcRelative)
+                        throw new ASMError("Bad operands", op1.range);
+                    else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
+                    {
+                        op1.section = pseudoSections.ABS;
+                        if(op1.symbol)
+                            op1.addend += op1.symbol.value.addend;
+                        if(op2.symbol)
+                            op2.addend += op2.symbol.value.addend;
+                        op1.symbol = null;
+                    }
                     else if(!instr.record && op2.section == instr.section && func == '-')
                         op1.pcRelative = true;
-                    else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
-                        op1.section = pseudoSections.ABS;
                     else
                         throw new ASMError("Bad operands", op1.range);
                     
@@ -559,16 +579,14 @@ export class Expression
                                 nonRegOp.regData.regIndex = scaled;
                                 nonRegOp.regData.regBase = null;
                             }
-                            nonRegOp.regData.shift *= Number(nonRegOp.value);   
-                            nonRegOp.value = regOp.value !== null ? nonRegOp.value * regOp.value : null;
+                            nonRegOp.regData.shift *= Number(nonRegOp.addend);   
+                            nonRegOp.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
                         }
-                        else if(op1.value !== null || op2.value !== null)
-                        {
-                            nonRegOp.value = operators[func].func(op1.value ?? 0n, op2.value ?? 0n);
-                        }
+                        else if(op1.addend !== null || op2.addend !== null)
+                            nonRegOp.addend = operators[func].func(op1.addend ?? 0n, op2.addend ?? 0n);
                     }
                     else
-                        op1.value = operators[func].func(op1.value, op2.value);
+                        op1.addend = operators[func].func(op1.addend, op2.addend);
                     op1.pcRelative = op1.pcRelative || op2.pcRelative;
                 }
             }

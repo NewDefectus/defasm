@@ -259,22 +259,17 @@ export class Instruction extends Statement
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
 
-        if(this.needsRecompilation)
-            queueRecomp(this);
-        else
+        try
         {
-            try
-            {
-                this.compile();
-            }
-            catch(e)
-            {
-                this.error = e;
-                this.length = 0;
-            }
-            if(!this.needsRecompilation && !this.ipRelative)
-                this.outline = undefined;
+            this.compile();
         }
+        catch(e)
+        {
+            this.error = e;
+            this.length = 0;
+        }
+        if(!this.needsRecompilation && !this.ipRelative)
+            this.outline = undefined;
     }
 
     compile()
@@ -412,7 +407,7 @@ export class Instruction extends Statement
             this.genByte(sib);
 
         // Generating the displacement and immediate
-        if(op.rm?.value?.value != null)
+        if(op.rm?.value?.addend != null)
             this.genValue(op.rm.value, op.rm.dispSize || 32);
         if(op.relImm !== null)
             this.genValue(op.relImm.value, op.relImm.size, true);
@@ -441,7 +436,7 @@ export class Instruction extends Statement
         // Special case for RIP-relative addressing
         if(rm.ripRelative)
         {
-            rm.value.value = rm.value.value || 0n;
+            rm.value.addend = rm.value.addend || 0n;
             // mod = 00, reg = (reg), rm = 101
             return [rex, modrm | 5, null];
         }
@@ -451,7 +446,7 @@ export class Instruction extends Statement
             modrm |= 0xC0; // mod=11
         else if(rmReg >= 0)
         {
-            if(rm.value.value !== null)
+            if(rm.value.addend != null)
             {
                 if(inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
                 {
@@ -480,7 +475,7 @@ export class Instruction extends Statement
             rmReg = 5;
             if(rmReg2 < 0)
                 rmReg2 = 4;
-            rm.value.value = rm.value.value || 0n;
+            rm.value.addend = rm.value.addend || 0n;
         }
         
         // Encoding the "rm" field
@@ -557,7 +552,7 @@ export class Prefix extends Statement
  * @param {import("./shuntingYard.js").IdentifierValue} value */
 export function inferImmSize(value)
 {
-    let num = value.value;
+    let num = value.addend;
     if(num < 0n) // Correct for negative values
         num = ~num;
 
@@ -570,7 +565,7 @@ export function inferImmSize(value)
  * @param {import("./shuntingYard.js").IdentifierValue} value */
 function inferUnsignedImmSize(value)
 {
-    let num = value.value;
+    let num = value.addend;
     if(num < 0n) // Technically this doesn't make sense, but we'll allow it
         num = -2n * num - 1n;
 

@@ -7,6 +7,7 @@ export var recompQueue = [];
 /**
  * @typedef {Object} SymbolRecord
  * @property {Symbol?} symbol The symbol instruction this record belongs to, if it exists
+ * @property {string} name The symbol's name
  * @property {Statement[]} references List of instructions that reference this symbol
  * @property {SymbolRecord[]} uses List of records of symbols used in this symbol's definition
  * @property {import('./shuntingYard.js').IdentifierValue} value The symbol's value
@@ -70,6 +71,7 @@ export class Symbol extends Statement
         else
             symbols.set(name, this.record = {
                 symbol: null,
+                name,
                 references: [],
                 uses
             });
@@ -109,7 +111,7 @@ export class Symbol extends Statement
             this.error = e;
         }
 
-        if(!(originError && this.error) && (originValue.value !== value.value || originValue.section !== value.section))
+        if(!(originError && this.error) && (originValue.addend !== value.addend || originValue.section !== value.section))
         {
             this.record.symbol = this;
             for(const ref of this.record.references)
