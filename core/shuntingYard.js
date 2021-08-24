@@ -1,6 +1,6 @@
 import { isRegister, nameRegister, OPT, parseRegister, regParsePos } from "./operands.js";
 import { ASMError, currRange, next, Range, setToken, token, ungetToken } from "./parser.js";
-import { symbols } from "./symbols.js";
+import { referenceSymbol, symbols } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { pseudoSections, Section } from "./sections.js";
 
@@ -448,19 +448,7 @@ export class Expression
             {
                 if(!id.isIP)
                 {
-                    let record;
-                    if(symbols.has(id.name))
-                    {
-                        record = symbols.get(id.name);
-                        record.references.push(instr);
-                    }
-                    else
-                        symbols.set(id.name, record = {
-                            symbol: null,
-                            name: id.name,
-                            references: [instr],
-                            uses: []
-                        });
+                    let record = referenceSymbol(instr, id.name);
                     if(uses !== null)
                         uses.push(record);
                 }

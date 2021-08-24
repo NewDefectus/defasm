@@ -1,5 +1,5 @@
 import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange } from "./parser.js";
-import { Directive, isDirective } from "./directives.js";
+import { isDirective, makeDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
 import { Statement, StatementNode } from "./statement.js";
@@ -142,7 +142,7 @@ export class AssemblyState
                             addInstruction(new Symbol({ addr, name, range, opcodeRange }));
                         }
                         else
-                            addInstruction(new Directive({ addr, dir: currSyntax.intel ? token : token.slice(1), range }));
+                            addInstruction(makeDirective({ addr, range }, currSyntax.intel ? token : token.slice(1)));
                     }
                     else if(prefixes.hasOwnProperty(lowerTok)) // Prefix
                         addInstruction(new Prefix({ addr, range, name: lowerTok }), false);
@@ -158,7 +158,7 @@ export class AssemblyState
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
                             addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
-                            addInstruction(new Directive({ addr, dir: token, range: startAbsRange() }));
+                            addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
                         }
                         else // Instruction
                             addInstruction(new Instruction({ addr, opcode: name.toLowerCase(), range }));

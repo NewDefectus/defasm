@@ -1,3 +1,5 @@
+import { pseudoSections } from "./sections";
+
 const relocTypes = {
     NONE      : 0,
     64        : 1,
@@ -26,11 +28,27 @@ export const signed32 = 33;
 
 export class RelocEntry
 {
+    /**
+     * 
+     * @param {Object} config
+     * @param {number} config.offset
+     * @param {number} config.addend
+     * @param {import("./symbols").SymbolRecord} config.symbol
+     * @param {number} config.size
+     * @param {boolean} config.pcRelative
+     * @param {boolean} config.functionAddr
+     */
     constructor({ offset, addend, symbol, size, pcRelative, functionAddr })
     {
         this.offset = offset;
         this.addend = addend;
-        this.symbol = symbol;
+        if(symbol.global || symbol.value.section == pseudoSections.UND)
+            this.symbol = symbol;
+        else
+        {
+           this.symbol = symbol.value.section.head.statement.record;
+           this.addend += symbol.value.addend;
+        }
 
         this.type = (pcRelative ? functionAddr ? 'PLT' : 'PC' : '') + size;
     }

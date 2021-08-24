@@ -1,7 +1,6 @@
 import { Expression, CurrentIP } from "./shuntingYard.js";
 import { ASMError, next } from "./parser.js";
 import { Statement } from "./statement.js";
-import { pseudoSections } from "./sections.js";
 
 export var recompQueue = [];
 
@@ -11,6 +10,7 @@ export var recompQueue = [];
  * @property {string} name The symbol's name
  * @property {Statement[]} references List of instructions that reference this symbol
  * @property {SymbolRecord[]} uses List of records of symbols used in this symbol's definition
+ * @property {boolean} global Whether or not the symbol appears as global in the ELF file
  * @property {import('./shuntingYard.js').IdentifierValue} value The symbol's value
  */
 
@@ -74,7 +74,8 @@ export class Symbol extends Statement
                 symbol: null,
                 name,
                 references: [],
-                uses
+                uses,
+                global: false
             });
 
         try
@@ -136,4 +137,23 @@ export class Symbol extends Statement
         }
         super.remove();
     }
+}
+
+export function referenceSymbol(instr, name)
+{
+    let record;
+    if(symbols.has(name))
+    {
+        record = symbols.get(name);
+        record.references.push(instr);
+    }
+    else
+        symbols.set(name, record = {
+            symbol: null,
+            name: name,
+            references: [instr],
+            uses: [],
+            global: false
+        });
+    return record;
 }

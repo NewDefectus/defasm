@@ -1,7 +1,8 @@
 import { ASMError, token, next, setSyntax, currSyntax } from "./parser.js";
 import { sections } from "./sections.js";
-import { capLineEnds, Expression, readString } from "./shuntingYard.js";
+import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
+import { referenceSymbol } from "./symbols.js";
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -33,7 +34,8 @@ const directives = {
     att_syntax: 11,
     text: 12,
     data: 13,
-    bss: 14
+    bss: 14,
+    globl: 15
 };
 
 const intelDirectives = {
@@ -59,9 +61,77 @@ export function isDirective(directive, intel)
         directive[0] == '.' && directives.hasOwnProperty(directive.slice(1));
 }
 
-export class Directive extends Statement
+export function makeDirective(config, dir)
 {
-    constructor({ dir, ...config })
+    dir = dir.toLowerCase();
+    let dirs = currSyntax.intel ? intelDirectives : directives;
+    if(!dirs.hasOwnProperty(dir))
+        throw new ASMError("Unknown directive");
+    let dirID = dirs[dir];
+    switch(dirID)
+    {
+        case intelDirectives.db:
+        case directives.byte:
+        case directives.word:
+        case directives.int:
+        case directives.quad:
+        case directives.octa:
+        case directives.float:
+        case directives.double:
+        case directives.asciz:
+        case directives.ascii:
+            return new DataDirective(config, dirID);
+
+        case directives.intel_syntax:
+        case directives.att_syntax:
+            let intel = dirID == directives.intel_syntax;
+            // Set the syntax now so we can correctly skip comments
+            setSyntax({ prefix: currSyntax.prefix, intel });
+            let prefix = !intel;
+            let prefSpecifier = next().toLowerCase();
+
+            if(prefSpecifier == 'prefix')
+                prefix = true;
+            else if(prefSpecifier == 'noprefix')
+                prefix = false;
+            else if(prefSpecifier != '\n' && prefSpecifier != ';')
+                throw new ASMError("Expected 'prefix' or 'noprefix'");
+            if(token != '\n' && token != ';')
+                next();
+            return new SyntaxDirective(config, intel, prefix);
+        
+        case directives.text:
+        case directives.data:
+        case directives.bss:
+            next();
+            return new SectionDirective(config, sections['.' + dir]);
+        
+        case directives.globl: 
+            return new GloblDirective(config);
+    }
+}
+
+class SectionDirective extends Statement
+{
+    constructor(config, section)
+    {
+        super({ ...config, maxSize: 0, section });
+        this.switchSection = true;
+    }
+}
+
+class SyntaxDirective extends Statement
+{
+    constructor(config, intel, prefix)
+    {
+        super({ ...config, maxSize: 0, syntax: { intel, prefix } });
+        this.switchSyntax = true;
+    }
+}
+
+class DataDirective extends Statement
+{
+    constructor(config, dirID)
     {
         super({ ...config, maxSize: DIRECTIVE_BUFFER_SIZE });
         this.outline = null;
@@ -69,14 +139,10 @@ export class Directive extends Statement
         this.lineEnds = { lineEnds: [], offset: 0 };
 
         let appendNullByte = 0;
-        dir = dir.toLowerCase();
+        
 
         try
         {
-            let dirs = this.syntax.intel ? intelDirectives : directives;
-            if(!dirs.hasOwnProperty(dir))
-                throw new ASMError("Unknown directive");
-            let dirID = dirs[dir];
             switch(dirID)
             {
                 case intelDirectives.db:  this.compileValues(1, true); break;
@@ -85,7 +151,6 @@ export class Directive extends Statement
                 case directives.int:      this.compileValues(4); break;
                 case directives.quad:     this.compileValues(8); break;
                 case directives.octa:     this.compileValues(16); break;
-
 
                 case directives.float:    this.floatPrec = 1; this.compileValues(4); break;
                 case directives.double:   this.floatPrec = 2; this.compileValues(8); break;
@@ -108,34 +173,6 @@ export class Directive extends Statement
                         else
                             throw new ASMError("Expected string");
                     } while(next() == ',');
-                    break;
-
-                case directives.intel_syntax:
-                case directives.att_syntax:
-                    let intel = dirID == directives.intel_syntax;
-                    // Set the syntax now so we can correctly skip comments
-                    setSyntax({ prefix: currSyntax.prefix, intel });
-                    let prefix = !intel;
-                    let prefSpecifier = next().toLowerCase();
-
-                    if(prefSpecifier == 'prefix')
-                        prefix = true;
-                    else if(prefSpecifier == 'noprefix')
-                        prefix = false;
-                    else if(prefSpecifier != '\n' && prefSpecifier != ';')
-                        throw new ASMError("Expected 'prefix' or 'noprefix'");
-                    this.syntax = { intel, prefix };
-                    this.switchSyntax = true;
-                    if(token != '\n' && token != ';')
-                        next();
-                    break;
-                
-                case directives.text:
-                case directives.data:
-                case directives.bss:
-                    this.section = sections['.' + dir];
-                    this.switchSection = true;
-                    next();
                     break;
             }
         }
@@ -253,5 +290,36 @@ export class Directive extends Statement
             this.bytes = temp;
         }
         this.lineEnds.offset = this.length;
+    }
+}
+
+class GloblDirective extends Statement
+{
+    constructor(config)
+    {
+        super({ ...config, maxSize: 0 });
+        this.globalDirective = true;
+        this.symbols = [];
+        do
+        {
+            if(scanIdentifier(next()) != 'symbol')
+                throw new ASMError("Expected symbol name");
+            let record = referenceSymbol(this, token);
+            this.symbols.push(record);
+            record.global = true;
+        } while(next() == ',');
+    }
+    
+    recompile()
+    {
+        
+    }
+
+    remove()
+    {
+        super.remove();
+        for(const symbol of this.symbols)
+            if(!symbol.references.some(x => !x.removed && x.globalDirective))
+                symbol.global = false;
     }
 }

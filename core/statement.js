@@ -141,7 +141,7 @@ export class Statement
      * @param {Range} config.range
      * @param {ASMError?} config.error
      * @param {Section} config.section */
-    constructor({ addr = 0, maxSize = 0, range = new Range(), error = null, section = currSection } = {})
+    constructor({ addr = 0, maxSize = 0, range = new Range(), error = null, section = currSection, syntax = currSyntax } = {})
     {
         this.id = totalStatements++; // Each Statement gets a unique ID
         
@@ -149,7 +149,7 @@ export class Statement
         this.range = range;
         this.length = 0;
         this.bytes = new Uint8Array(maxSize);
-        this.syntax = currSyntax;
+        this.syntax = syntax;
         this.address = addr;
         this.section = section;
 
