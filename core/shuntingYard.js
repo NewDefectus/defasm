@@ -253,7 +253,7 @@ class SymbolIdentifier extends Identifier
         if(this.isIP)
             return {
                 addend: BigInt(instr.address),
-                symbol: null,
+                symbol: (instr.section.head?.statement ?? instr).record,
                 section: instr.section,
                 range: this.range,
                 pcRelative: false
@@ -521,7 +521,11 @@ export class Expression
                         op1.symbol = null;
                     }
                     else if(!instr.record && op2.section == instr.section && func == '-')
+                    {
                         op1.pcRelative = true;
+                        if(op2.addend)
+                            op2.addend = 0n;
+                    }
                     else
                         throw new ASMError("Bad operands", op1.range);
                     

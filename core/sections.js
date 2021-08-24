@@ -16,9 +16,9 @@ export function loadSections(table, range)
 }
 
 export const pseudoSections = {
-    ABS: 0,
-    UND: 1
-}
+    ABS: { name: '*ABS*' },
+    UND: { name: '*UND*' }
+};
 
 export const sectionFlags = {
     a: 2, // SHF_ALLOC

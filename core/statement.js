@@ -1,6 +1,6 @@
 import { currSection } from "./compiler.js";
 import { ASMError, currSyntax, Range } from "./parser.js";
-import { pseudoSections } from "./sections.js";
+import { pseudoSections, Section } from "./sections.js";
 
 var totalStatements = 0;
 
@@ -138,7 +138,8 @@ export class Statement
      * @param {Number} config.addr
      * @param {Number} config.maxSize
      * @param {Range} config.range
-     * @param {ASMError?} config.error */
+     * @param {ASMError?} config.error
+     * @param {Section} config.section */
     constructor({ addr = 0, maxSize = 0, range = new Range(), error = null, section = currSection } = {})
     {
         this.id = totalStatements++; // Each Statement gets a unique ID
@@ -172,8 +173,13 @@ export class Statement
             num += value.symbol.value.addend;
         if(sizeRelative)
             num -= BigInt(this.length + size / 8);
-        //if(value.symbol && value.section != pseudoSections.ABS || value.pcRelative)
-        //    console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${num}${value.pcRelative ? ' (relative)' : ''}`);
+        /*if(value.symbol && value.section != pseudoSections.ABS || value.pcRelative)
+        {
+            let addend = num;
+            if(value.pcRelative)
+                addend += BigInt(this.length);
+            console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${addend} (section ${value.section.name}${value.pcRelative ? ', relative' : ''})`);
+        }*/
         do
         {
             this.genByte(num & 0xffn);
