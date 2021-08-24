@@ -326,6 +326,7 @@ export class Expression
     {
         this.hasSymbols = false;
         this.vecSize = 0;
+        this.ripRelative = false;
 
         /** @type {(Identifier|RegisterIdentifier|Operator)[]} */
         this.stack = [];
@@ -441,6 +442,8 @@ export class Expression
         {
             if(id.register && id.register.type == OPT.VEC)
                 this.vecSize = id.register.size;
+            else if(id.register && id.register.type == OPT.IP)
+                this.ripRelative = true;
             else if(id.name)
             {
                 if(!id.isIP)
@@ -497,102 +500,8 @@ export class Expression
                 }
                 else
                 {
-                    let op1 = stack[len - 2], op2 = stack.pop();
+                    stack[len - 2] = applyValue(instr, stack[len - 2], func, stack.pop());
                     len--;
-                    op1.range = op1.range.until(op2.range);
-
-                    if(op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
-                        ;
-                    else if(op1.section == pseudoSections.ABS && !op1.pcRelative && func == '+')
-                    {
-                        op1.section = op2.section;
-                        op1.symbol = op2.symbol;
-                    }
-                    else if(op2.section == pseudoSections.ABS && (func == '+' || func == '-'))
-                        ;
-                    else if(op1.pcRelative || op2.pcRelative)
-                        throw new ASMError("Bad operands", op1.range);
-                    else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
-                    {
-                        op1.section = pseudoSections.ABS;
-                        if(op1.symbol)
-                            op1.addend += op1.symbol.value.addend;
-                        if(op2.symbol)
-                            op2.addend += op2.symbol.value.addend;
-                        op1.symbol = null;
-                    }
-                    else if(!instr.record && op2.section == instr.section && func == '-')
-                    {
-                        op1.pcRelative = true;
-                        if(op2.addend)
-                            op2.addend = 0n;
-                    }
-                    else
-                        throw new ASMError("Bad operands", op1.range);
-                    
-                    if(op1.regData || op2.regData)
-                    {
-                        let regOp = op1.regData ? op1 : op2;
-                        let nonRegOp = op1.regData ? op2 : op1;
-                        stack[len - 1] = nonRegOp;
-
-                        if(func != '+' && func != '-' && func != '*' ||
-                            func == '-' && op2.regData)
-                            throw new ASMError("Bad operands", op1.range);
-                        
-                        if(!nonRegOp.regData)
-                            nonRegOp.regData = regOp.regData;
-                        else
-                        {
-                            if(func == '*')
-                                throw new ASMError("Bad operands", op1.range);
-                            if(regOp.regData.regIndex && nonRegOp.regData.regIndex)
-                                throw new ASMError("Can't have multiple index registers", op1.range);
-                            if([regOp.regData, nonRegOp.regData].some(data => data.regBase && data.regIndex))
-                                throw new ASMError("Too many registers", op1.range);
-                            
-                            if(regOp.regData.regBase && nonRegOp.regData.regBase)
-                            {
-                                nonRegOp.regData.regIndex = [nonRegOp.regData.regBase, regOp.regData.regBase].find(reg => reg.reg != 4);
-                                if(nonRegOp.regData.regIndex === undefined)
-                                    throw new ASMError(`Can't have both registers be ${instr.syntax.prefix ? '%' : ''}rsp`, op1.range);
-                                if(nonRegOp.regData.regIndex == nonRegOp.regData.regBase)
-                                    nonRegOp.regData.regBase = regOp.regData.regBase;
-                            }
-                            else if(regOp.regData.regIndex)
-                            {
-                                nonRegOp.regData.regIndex = regOp.regData.regIndex;
-                                nonRegOp.regData.shift = regOp.regData.shift;
-                            }
-                            else
-                                nonRegOp.regData.regBase = regOp.regData.regBase;
-                        }
-
-                        if(func == '*')
-                        {
-                            if(nonRegOp.section != pseudoSections.ABS)
-                                throw new ASMError("Scale must be absolute", nonRegOp.range);
-                            if(regOp.regData.regIndex && regOp.regData.regBase)
-                                throw new ASMError("Can't scale both base and index registers", op1.range);
-                            if(regOp.regData.regBase)
-                            {
-                                const scaled = regOp.regData.regBase;
-                                if(scaled.reg == 4)
-                                    throw new ASMError(`Can't scale ${nameRegister('sp', scaled.size, instr.syntax)}`, op1.range);
-                                if(scaled.type == OPT.IP)
-                                    throw new ASMError(`Can't scale ${nameRegister('ip', scaled.size, instr.syntax)}`, op1.range);
-                                nonRegOp.regData.regIndex = scaled;
-                                nonRegOp.regData.regBase = null;
-                            }
-                            nonRegOp.regData.shift *= Number(nonRegOp.addend);   
-                            nonRegOp.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
-                        }
-                        else if(op1.addend !== null || op2.addend !== null)
-                            nonRegOp.addend = operators[func].func(op1.addend ?? 0n, op2.addend ?? 0n);
-                    }
-                    else
-                        op1.addend = operators[func].func(op1.addend, op2.addend);
-                    op1.pcRelative = op1.pcRelative || op2.pcRelative;
                 }
             }
             else
@@ -601,7 +510,7 @@ export class Expression
         if(stack.length > 1)
             throw new ASMError("Invalid expression");
         
-        stack[0].relocatable = stack[0].symbol && stack[0].section != pseudoSections.ABS || stack[0].pcRelative;
+        stack[0].relocatable = isRelocatable(stack[0]);
         return stack[0];
     }
 
@@ -617,6 +526,7 @@ export class Expression
             this.stack.push(...expr.stack, { func, unary: false });
             this.hasSymbols = this.hasSymbols || expr.hasSymbols;
             this.vecSize = this.vecSize || expr.vecSize;
+            this.ripRelative = this.ripRelative || expr.ripRelative;
         }
     }
 }
@@ -628,6 +538,119 @@ export function CurrentIP(instr)
     this.stack = [new SymbolIdentifier(instr, instr.syntax.intel ? '$' : '.', currRange)];
 }
 CurrentIP.prototype = Object.create(Expression.prototype);
+
+/**
+ * @param {Statement} instr
+ * @param {IdentifierValue} op1
+ * @param {string} func
+ * @param {IdentifierValue} op2
+ */
+export function applyValue(instr, op1, func, op2)
+{
+    let returnValue = op1;
+    op1.range = op1.range.until(op2.range);
+
+    if(op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
+        ;
+    else if(op1.section == pseudoSections.ABS && !op1.pcRelative && func == '+')
+    {
+        op1.section = op2.section;
+        op1.symbol = op2.symbol;
+    }
+    else if(op2.section == pseudoSections.ABS && (func == '+' || func == '-'))
+        ;
+    else if(op1.pcRelative || op2.pcRelative)
+        throw new ASMError("Bad operands", op1.range);
+    else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
+    {
+        op1.section = op2.section = pseudoSections.ABS;
+        if(op1.symbol)
+            op1.addend += op1.symbol.value.addend;
+        if(op2.symbol)
+            op2.addend += op2.symbol.value.addend;
+        op1.symbol = op2.symbol = null;
+    }
+    else if(!instr.record && op2.section == instr.section && func == '-')
+    {
+        op1.pcRelative = true;
+        if(op2.addend)
+            op2.addend = 0n;
+    }
+    else
+        throw new ASMError("Bad operands", op1.range);
+    
+    if(op1.regData || op2.regData)
+    {
+        let regOp = op1.regData ? op1 : op2;
+        let nonRegOp = op1.regData ? op2 : op1;
+        returnValue = nonRegOp;
+
+        if(func != '+' && func != '-' && func != '*' ||
+            func == '-' && op2.regData)
+            throw new ASMError("Bad operands", op1.range);
+        
+        if(!nonRegOp.regData)
+            nonRegOp.regData = regOp.regData;
+        else
+        {
+            if(func == '*')
+                throw new ASMError("Bad operands", op1.range);
+            if(regOp.regData.regIndex && nonRegOp.regData.regIndex)
+                throw new ASMError("Can't have multiple index registers", op1.range);
+            if([regOp.regData, nonRegOp.regData].some(data => data.regBase && data.regIndex))
+                throw new ASMError("Too many registers", op1.range);
+            
+            if(regOp.regData.regBase && nonRegOp.regData.regBase)
+            {
+                nonRegOp.regData.regIndex = [nonRegOp.regData.regBase, regOp.regData.regBase].find(reg => reg.reg != 4);
+                if(nonRegOp.regData.regIndex === undefined)
+                    throw new ASMError(`Can't have both registers be ${instr.syntax.prefix ? '%' : ''}rsp`, op1.range);
+                if(nonRegOp.regData.regIndex == nonRegOp.regData.regBase)
+                    nonRegOp.regData.regBase = regOp.regData.regBase;
+            }
+            else if(regOp.regData.regIndex)
+            {
+                nonRegOp.regData.regIndex = regOp.regData.regIndex;
+                nonRegOp.regData.shift = regOp.regData.shift;
+            }
+            else
+                nonRegOp.regData.regBase = regOp.regData.regBase;
+        }
+
+        if(func == '*')
+        {
+            if(nonRegOp.section != pseudoSections.ABS)
+                throw new ASMError("Scale must be absolute", nonRegOp.range);
+            if(regOp.regData.regIndex && regOp.regData.regBase)
+                throw new ASMError("Can't scale both base and index registers", op1.range);
+            if(regOp.regData.regBase)
+            {
+                const scaled = regOp.regData.regBase;
+                if(scaled.reg == 4)
+                    throw new ASMError(`Can't scale ${nameRegister('sp', scaled.size, instr.syntax)}`, op1.range);
+                if(scaled.type == OPT.IP)
+                    throw new ASMError(`Can't scale ${nameRegister('ip', scaled.size, instr.syntax)}`, op1.range);
+                nonRegOp.regData.regIndex = scaled;
+                nonRegOp.regData.regBase = null;
+            }
+            nonRegOp.regData.shift *= Number(nonRegOp.addend);   
+            nonRegOp.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
+        }
+        else if(op1.addend !== null || op2.addend !== null)
+            nonRegOp.addend = operators[func].func(op1.addend ?? 0n, op2.addend ?? 0n);
+    }
+    else
+        op1.addend = operators[func].func(op1.addend, op2.addend);
+    op1.pcRelative = op1.pcRelative || op2.pcRelative;
+
+    return returnValue;
+}
+
+/** @param {IdentifierValue} val */
+export function isRelocatable(val)
+{
+    return val.symbol && val.section != pseudoSections.ABS || val.pcRelative;
+}
 
 function checkSymbolRecursion(origin, record)
 {

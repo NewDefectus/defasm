@@ -176,7 +176,6 @@ export class Statement
             num -= BigInt(this.length + size / 8);
         if(value.relocatable)
         {
-            /*
             let addend = num;
             if(value.pcRelative)
             {
@@ -186,7 +185,7 @@ export class Statement
             else
                 signed = signed && size == 32;
             console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${addend} (size ${size}${signed ? 's' : ''}, section ${value.section.name}${value.pcRelative ? ', relative' : ''})`);
-            */
+            
             num = 0n;
         }
         do

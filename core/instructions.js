@@ -6,6 +6,8 @@ import { fetchMnemonic, Mnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { Operation } from "./mnemonics.js";
+import { pseudoSections } from "./sections.js";
+import { applyValue, isRelocatable } from "./shuntingYard.js";
 
 export const prefixes = Object.freeze({
     lock: 0xF0,
@@ -436,7 +438,23 @@ export class Instruction extends Statement
 
         // Generating the displacement and immediate
         if(op.rm?.value?.addend != null)
-            this.genValue(op.rm.value, op.rm.dispSize || 32, true);
+        {
+            let sizeRelative = false, value = op.rm.value;
+            if(op.rm.ripRelative && op.rm.value.section != pseudoSections.ABS && !op.rm.value.pcRelative)
+            {
+                sizeRelative = true;
+                value = applyValue(this, value, '-', {
+                    addend: BigInt(this.address),
+                    symbol: (this.section.head.statement ?? instr).record,
+                    section: this.section,
+                    range: value.range,
+                    pcRelative: false
+                });
+                value.relocatable = isRelocatable(value);
+                this.ipRelative = true;
+            }
+            this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
+        }
         if(op.relImm !== null)
             this.genValue(op.relImm.value, op.relImm.size, false, true);
         else if(op.evexImm !== null)

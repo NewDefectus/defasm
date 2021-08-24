@@ -271,6 +271,7 @@ export function Operand(instr, expectRelative = false)
                 else
                     this.expression = secExpr;
                 
+                this.ripRelative = this.expression.ripRelative;
                 if(this.expression.vecSize)
                 {
                     this.size = this.expression.vecSize;
@@ -419,12 +420,8 @@ Operand.prototype.evaluate = function(instr, intelMemory = false)
     if(this.shift < 0)
         throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
 
-    if(regBase && regBase.type == OPT.IP || regIndex && regIndex.type == OPT.IP)
-    {
-        this.ripRelative = true;
-        if(regIndex)
-            throw new ASMError(`Can't use another register with ${nameRegister('ip', regBase.size, instr.syntax)}`, this.value.range);
-    }
+    if(this.ripRelative && regIndex)
+        throw new ASMError(`Can't use another register with ${nameRegister('ip', regBase.size, instr.syntax)}`, this.value.range);
 
     if((this.reg & 7) == 5)
         this.value.addend = this.value.addend || 0n;
