@@ -1,6 +1,7 @@
 import { Expression, CurrentIP } from "./shuntingYard.js";
 import { ASMError, next } from "./parser.js";
 import { Statement } from "./statement.js";
+import { pseudoSections } from "./sections.js";
 
 export var recompQueue = [];
 
@@ -127,6 +128,8 @@ export class Symbol extends Statement
             {
                 this.record.symbol = null;
                 this.record.uses = [];
+                for(const instr of this.record.references)
+                    queueRecomp(instr);
             }
             else
                 symbols.delete(this.name);

@@ -281,18 +281,46 @@ export class Instruction extends Statement
             memoryOperand.evaluate(this, this.syntax.intel);
 
         // Before we compile, we'll get the immediates' sizes
-        for(let op of operands)
+        for(let i = 0; i < operands.length; i++)
         {
+            const op = operands[i];
             if(op.type == OPT.IMM)
             {
-                if(!op.expression.hasSymbols)
+                if(op.expression.hasSymbols)
+                    op.evaluate(this);
+                if(op.value.relocatable)
+                {
+                    // Get the maximum possible value for this relocatable immediate
+                    const firstMnem = mnemonics[0];
+                    if(firstMnem.operations.length == 1)
+                        op.size = Math.max(
+                            ...(firstMnem.vex ? firstMnem.operations[0].vexOpCatchers : firstMnem.operations[0].opCatchers)[i].sizes
+                        ) & ~7;
+                    else
+                    {
+                        op.size = 8;
+                        relocationSizeLoop:
+                        for(const mnemonic of mnemonics) for(const operation of mnemonic.operations)
+                        {
+                            const sizes = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
+                            if(sizes.length != 1 || (sizes[0] & ~7) != 8)
+                            {
+                                op.size = operands.length > 2 ? operands[2].size : operands[1].size;
+                                if(op.size > 32)
+                                    op.size = 32;
+                                break relocationSizeLoop;
+                            }
+                        }
+                    }
+                    op.unsignedSize = op.size;
+                }
+                else if(!op.expression.hasSymbols)
                 {
                     op.size = inferImmSize(op.value);
                     op.unsignedSize = inferUnsignedImmSize(op.value);
                 }
                 else
                 {
-                    op.evaluate(this);
                     let max = inferImmSize(op.value);
                     for(let size = 8; size <= max; size *= 2)
                     {
@@ -408,17 +436,19 @@ export class Instruction extends Statement
 
         // Generating the displacement and immediate
         if(op.rm?.value?.addend != null)
-            this.genValue(op.rm.value, op.rm.dispSize || 32);
+            this.genValue(op.rm.value, op.rm.dispSize || 32, true);
         if(op.relImm !== null)
-            this.genValue(op.relImm.value, op.relImm.size, true);
+            this.genValue(op.relImm.value, op.relImm.size, false, true);
         else if(op.evexImm !== null)
             this.genByte(op.evexImm);
         else for(const imm of op.imms)
-            this.genValue(imm.value, imm.size);
+            this.genValue(imm.value, imm.size, !op.unsigned);
         
     }
 
-    // Generate the ModRM byte
+    /** Generate the ModRM byte
+     * @param {Operand} rm
+     * @param {Operand} r */
     makeModRM(rm, r)
     {
         let modrm = 0, rex = 0;
@@ -448,13 +478,13 @@ export class Instruction extends Statement
         {
             if(rm.value.addend != null)
             {
-                if(inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
+                if(!rm.value.relocatable && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
                 {
                     rm.dispSize = 8;
                     modrm |= 0x40; // mod=01
                     rm.recordSizeUse(SHORT_DISP);
                 }
-                else if(rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
+                else if(!rm.value.relocatable && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
                 {
                     rm.dispSize = 8;
                     modrm |= 0x40; // mod=01

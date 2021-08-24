@@ -164,22 +164,31 @@ export class Statement
     /**
      * @param {import("./shuntingYard.js").IdentifierValue} value
      * @param {Number} size
+     * @param {boolean} signed
      * @param {boolean} sizeRelative
      */
-    genValue(value, size, sizeRelative = false)
+    genValue(value, size, signed = false, sizeRelative = false)
     {
         let num = value.addend;
         if(value.symbol && value.section == pseudoSections.ABS)
             num += value.symbol.value.addend;
         if(sizeRelative)
             num -= BigInt(this.length + size / 8);
-        /*if(value.symbol && value.section != pseudoSections.ABS || value.pcRelative)
+        if(value.relocatable)
         {
+            /*
             let addend = num;
             if(value.pcRelative)
+            {
                 addend += BigInt(this.length);
-            console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${addend} (section ${value.section.name}${value.pcRelative ? ', relative' : ''})`);
-        }*/
+                signed = false;
+            }
+            else
+                signed = signed && size == 32;
+            console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${addend} (size ${size}${signed ? 's' : ''}, section ${value.section.name}${value.pcRelative ? ', relative' : ''})`);
+            */
+            num = 0n;
+        }
         do
         {
             this.genByte(num & 0xffn);

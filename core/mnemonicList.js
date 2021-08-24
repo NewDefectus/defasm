@@ -1618,7 +1618,7 @@ let shiftMnemonics = `rol ror rcl rcr shl shr  sar`.split(' ');
 shiftMnemonics.forEach((name, i) => {
     if(name)
         mnemonics[name] = [
-            "D0." + i + " i_1 rbwlq",
+            "D0." + i + " i_1B rbwlq",
             "D2." + i + " R_1b rbwlq",
             "C0." + i + " iB rbwlq"
         ];
@@ -1670,7 +1670,7 @@ fpuArithMnemonics.split(' ').forEach((name, i) => {
     let list = ["D8." + i + " ml", "DC." + i + " m$q"];
     mnemonics['fi' + name] = ["DA." + i + " ml", "DE." + i + " m$w"];
 
-    if(i === 2 || i === 3) list.push("D8." + i + " F", hex(0xD8C1 + i * 8));
+    if(i == 2 || i == 3) list.push("D8." + i + " F", hex(0xD8C1 + i * 8));
     else
     {
         list.push("D8." + i + " F F_0");

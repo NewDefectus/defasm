@@ -201,7 +201,8 @@ function parseIdentifier(instr)
  * @property {Section} section
  * @property {Range} range
  * @property {RegisterData?} regData
- * @property {boolean?} pcRelative */
+ * @property {boolean?} pcRelative
+ * @property {boolean?} relocatable */
 
 class Identifier
 {
@@ -599,7 +600,8 @@ export class Expression
         }
         if(stack.length > 1)
             throw new ASMError("Invalid expression");
-
+        
+        stack[0].relocatable = stack[0].symbol && stack[0].section != pseudoSections.ABS || stack[0].pcRelative;
         return stack[0];
     }
 

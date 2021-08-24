@@ -43,6 +43,8 @@ export const ctxTracker = initialSyntax => new ContextTracker({
     shift: (ctx, term, stack, input) => {
         if(term == Terms.Opcode)
             ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
+        else if(term == Terms.RelOpcode || term == Terms.IOpcode || term == Terms.IRelOpcode)
+            ctx |= STATE_IN_INSTRUCTION;
         else if((ctx & STATE_IN_INSTRUCTION) && term != Terms.Space)
         {
             if(input.next == ','.charCodeAt(0))

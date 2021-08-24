@@ -441,7 +441,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     // In other words, this aids performance.
 
     let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
-    let extendOp = false;
+    let extendOp = false, unsigned = false;
 
     let operand;
 
@@ -451,6 +451,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         size = correctedSizes[i];
         operand.size = size & ~7;
         operand.recordSizeUse(operand.size, catcher.unsigned);
+        if(catcher.unsigned)
+            unsigned = true;
 
         if(operand.size == 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors)
             rexw = true;
@@ -574,7 +576,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         vex: vexInfo.needed ? vex : null,
         evexImm,
         relImm,
-        imms
+        imms,
+        unsigned
     };
 }
 
@@ -588,6 +591,8 @@ const absolute = x => x < 0n ? ~x : x;
 */
 Operation.prototype.getRelSize = function(operand, instr)
 {
+    if(operand.value.relocatable)
+        return Math.max(...this.relativeSizes);
     const target = operand.value.addend - BigInt(((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     
     // In x86-64 there are always either 1 or 2 possible sizes for a relative

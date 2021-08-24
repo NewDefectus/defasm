@@ -265,13 +265,8 @@ export class AssemblyState
 
         symbols.forEach((record, name) => {
             record.references = record.references.filter(instr => !instr.removed);
-            if(record.symbol === null || record.symbol.error)
-            {
-                if(record.references.length == 0)
-                    symbols.delete(name);
-                else for(let ref of record.references)
-                    queueRecomp(ref);
-            }
+            if((record.symbol === null || record.symbol.error) && record.references.length == 0)
+                symbols.delete(name);
         });
 
         while(node = linkedInstrQueue.shift() || recompQueue.shift())
