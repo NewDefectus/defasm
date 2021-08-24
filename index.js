@@ -12027,7 +12027,7 @@
       if (this.isIP)
         return {
           addend: BigInt(instr.address),
-          symbol: null,
+          symbol: (instr.section.head?.statement ?? instr).record,
           section: instr.section,
           range: this.range,
           pcRelative: false
@@ -12219,9 +12219,11 @@
               if (op2.symbol)
                 op2.addend += op2.symbol.value.addend;
               op1.symbol = null;
-            } else if (!instr.record && op2.section == instr.section && func == "-")
+            } else if (!instr.record && op2.section == instr.section && func == "-") {
               op1.pcRelative = true;
-            else
+              if (op2.addend)
+                op2.addend = 0n;
+            } else
               throw new ASMError("Bad operands", op1.range);
             if (op1.regData || op2.regData) {
               let regOp = op1.regData ? op1 : op2;
@@ -12401,8 +12403,8 @@
       table[name2].cursor = table[name2].head.getAffectedArea(range);
   }
   var pseudoSections = {
-    ABS: 0,
-    UND: 1
+    ABS: { name: "*ABS*" },
+    UND: { name: "*UND*" }
   };
   var sectionFlags = {
     a: 2,
