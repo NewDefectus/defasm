@@ -11472,7 +11472,9 @@
       this.bytes[this.length++] = Number(byte);
     }
     genValue(value, size, sizeRelative = false) {
-      let num = value.value;
+      let num = value.addend;
+      if (value.symbol && value.section == pseudoSections.ABS)
+        num += value.symbol.value.addend;
       if (sizeRelative)
         num -= BigInt(this.length + size / 8);
       do {
@@ -11811,7 +11813,7 @@
             } else if (this.reg == 4)
               this.reg2 = 4;
             if ((this.reg & 7) == 5)
-              this.value.value = this.value.value || 0n;
+              this.value.addend = this.value.addend || 0n;
             if (token != ")")
               throw new ASMError("Expected ')'");
             next();
@@ -11860,7 +11862,7 @@
         throw new ASMError(`Can't use another register with ${nameRegister("ip", regBase.size, instr.syntax)}`, this.value.range);
     }
     if ((this.reg & 7) == 5)
-      this.value.value = this.value.value || 0n;
+      this.value.addend = this.value.addend || 0n;
     if (this.reg == 4 && this.reg2 < 0)
       this.reg2 = 4;
   };
@@ -12005,7 +12007,8 @@
     }
     getValue(instr) {
       return {
-        value: this.value,
+        addend: this.value,
+        symbol: null,
         section: pseudoSections.ABS,
         range: this.range,
         pcRelative: false
@@ -12023,23 +12026,27 @@
     getValue(instr) {
       if (this.isIP)
         return {
-          value: BigInt(instr.address),
+          addend: BigInt(instr.address),
+          symbol: null,
           section: instr.section,
-          range: this.range
+          range: this.range,
+          pcRelative: false
         };
       const record = symbols.get(this.name);
-      if (record && record.symbol && !record.symbol.error) {
+      if (record.symbol && !record.symbol.error) {
         if (instr.record && checkSymbolRecursion(instr.record, record))
           throw new ASMError(`Recursive definition`, this.range);
         return {
-          value: record.value.value,
+          addend: 0n,
+          symbol: record,
           section: record.value.section,
           range: this.range,
           pcRelative: false
         };
       }
       return {
-        value: 0n,
+        addend: 0n,
+        symbol: record,
         section: pseudoSections.UND,
         range: this.range,
         pcRelative: false
@@ -12053,7 +12060,8 @@
     }
     getValue() {
       return {
-        value: null,
+        addend: null,
+        symbol: null,
         section: pseudoSections.ABS,
         range: this.range,
         pcRelative: false,
@@ -12161,6 +12169,7 @@
             } else
               symbols.set(id2.name, record = {
                 symbol: null,
+                name: id2.name,
                 references: [instr],
                 uses: []
               });
@@ -12184,24 +12193,34 @@
           if (op.unary) {
             if (func == "+")
               continue;
-            const val = stack[len - 1];
-            if (val.regData || val.section != pseudoSections.ABS && (val.section != instr.section || func == "-"))
+            const val = stack[len - 1], minusRelative = val.section == instr.section && func == "-";
+            if (val.regData || val.section != pseudoSections.ABS && !minusRelative)
               throw new ASMError("Bad operand", val.range);
-            val.value = unaries[func].func(val.value);
+            if (minusRelative)
+              val.pcRelative = true;
+            val.addend = unaries[func].func(val.addend);
           } else {
             let op1 = stack[len - 2], op2 = stack.pop();
             len--;
             op1.range = op1.range.until(op2.range);
             if (op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
               ;
-            else if (op1.section == pseudoSections.ABS && func == "+")
+            else if (op1.section == pseudoSections.ABS && !op1.pcRelative && func == "+") {
               op1.section = op2.section;
-            else if (op2.section == pseudoSections.ABS && (func == "+" || func == "-"))
+              op1.symbol = op2.symbol;
+            } else if (op2.section == pseudoSections.ABS && (func == "+" || func == "-"))
               ;
-            else if (!instr.record && op2.section == instr.section && func == "-")
-              op1.pcRelative = true;
-            else if (op1.section == op2.section && op1.section != pseudoSections.UND && func == "-")
+            else if (op1.pcRelative || op2.pcRelative)
+              throw new ASMError("Bad operands", op1.range);
+            else if (op1.section == op2.section && op1.section != pseudoSections.UND && func == "-") {
               op1.section = pseudoSections.ABS;
+              if (op1.symbol)
+                op1.addend += op1.symbol.value.addend;
+              if (op2.symbol)
+                op2.addend += op2.symbol.value.addend;
+              op1.symbol = null;
+            } else if (!instr.record && op2.section == instr.section && func == "-")
+              op1.pcRelative = true;
             else
               throw new ASMError("Bad operands", op1.range);
             if (op1.regData || op2.regData) {
@@ -12245,13 +12264,12 @@
                   nonRegOp.regData.regIndex = scaled;
                   nonRegOp.regData.regBase = null;
                 }
-                nonRegOp.regData.shift *= Number(nonRegOp.value);
-                nonRegOp.value = regOp.value !== null ? nonRegOp.value * regOp.value : null;
-              } else if (op1.value !== null || op2.value !== null) {
-                nonRegOp.value = operators[func].func(op1.value ?? 0n, op2.value ?? 0n);
-              }
+                nonRegOp.regData.shift *= Number(nonRegOp.addend);
+                nonRegOp.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
+              } else if (op1.addend !== null || op2.addend !== null)
+                nonRegOp.addend = operators[func].func(op1.addend ?? 0n, op2.addend ?? 0n);
             } else
-              op1.value = operators[func].func(op1.value, op2.value);
+              op1.addend = operators[func].func(op1.addend, op2.addend);
             op1.pcRelative = op1.pcRelative || op2.pcRelative;
           }
         } else
@@ -12329,6 +12347,7 @@
       } else
         symbols.set(name2, this.record = {
           symbol: null,
+          name: name2,
           references: [],
           uses
         });
@@ -12356,7 +12375,7 @@
       } catch (e) {
         this.error = e;
       }
-      if (!(originError && this.error) && (originValue.value !== value.value || originValue.section !== value.section)) {
+      if (!(originError && this.error) && (originValue.addend !== value.addend || originValue.section !== value.section)) {
         this.record.symbol = this;
         for (const ref of this.record.references)
           queueRecomp(ref);
@@ -13040,7 +13059,7 @@
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
   Operation.prototype.getRelSize = function(operand, instr) {
-    const target = operand.value.value - BigInt((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0));
+    const target = operand.value.addend - BigInt((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0));
     if (this.relativeSizes.length == 1) {
       const size = this.relativeSizes[0];
       if (absolute(target - sizeLen(size)) >= 1n << BigInt(size - 1))
@@ -13068,7 +13087,7 @@
       return false;
     for (let i = 0; i < operands.length; i++) {
       const catcher = opCatchers[i], operand = operands[i];
-      if (operand.type != catcher.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.value) : operand.reg))
+      if (operand.type != catcher.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
         return false;
     }
     return true;
@@ -14963,18 +14982,14 @@ g nle`.split("\n");
       this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, prefsToGen, vexInfo };
       this.endPos = currRange;
       this.removed = false;
-      if (this.needsRecompilation)
-        queueRecomp(this);
-      else {
-        try {
-          this.compile();
-        } catch (e) {
-          this.error = e;
-          this.length = 0;
-        }
-        if (!this.needsRecompilation && !this.ipRelative)
-          this.outline = void 0;
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+        this.length = 0;
       }
+      if (!this.needsRecompilation && !this.ipRelative)
+        this.outline = void 0;
     }
     compile() {
       let { operands, memoryOperand, mnemonics: mnemonics2, prefsToGen, vexInfo } = this.outline;
@@ -15070,7 +15085,7 @@ g nle`.split("\n");
         this.genByte(modRM);
       if (sib !== null)
         this.genByte(sib);
-      if (op.rm?.value?.value != null)
+      if (op.rm?.value?.addend != null)
         this.genValue(op.rm.value, op.rm.dispSize || 32);
       if (op.relImm !== null)
         this.genValue(op.relImm.value, op.relImm.size, true);
@@ -15089,13 +15104,13 @@ g nle`.split("\n");
       }
       modrm |= rReg << 3;
       if (rm2.ripRelative) {
-        rm2.value.value = rm2.value.value || 0n;
+        rm2.value.addend = rm2.value.addend || 0n;
         return [rex, modrm | 5, null];
       }
       if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM && rm2.type !== OPT.REL)
         modrm |= 192;
       else if (rmReg >= 0) {
-        if (rm2.value.value !== null) {
+        if (rm2.value.addend != null) {
           if (inferImmSize(rm2.value) == 8 && (rm2.dispSize == 8 || rm2.sizeAvailable(SHORT_DISP))) {
             rm2.dispSize = 8;
             modrm |= 64;
@@ -15114,7 +15129,7 @@ g nle`.split("\n");
         rmReg = 5;
         if (rmReg2 < 0)
           rmReg2 = 4;
-        rm2.value.value = rm2.value.value || 0n;
+        rm2.value.addend = rm2.value.addend || 0n;
       }
       rex |= rmReg >> 3;
       rmReg &= 7;
@@ -15160,13 +15175,13 @@ g nle`.split("\n");
     }
   };
   function inferImmSize(value) {
-    let num = value.value;
+    let num = value.addend;
     if (num < 0n)
       num = ~num;
     return num < 0x80n ? 8 : num < 0x8000n ? 16 : num < 0x80000000n ? 32 : 64;
   }
   function inferUnsignedImmSize(value) {
-    let num = value.value;
+    let num = value.addend;
     if (num < 0n)
       num = -2n * num - 1n;
     return num < 0x100n ? 8 : num < 0x10000n ? 16 : num < 0x100000000n ? 32 : 64;
