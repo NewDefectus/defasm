@@ -268,7 +268,7 @@ export class Instruction extends Statement
         catch(e)
         {
             this.error = e;
-            this.length = 0;
+            this.clear();
         }
         if(!this.needsRecompilation && !this.ipRelative)
             this.outline = undefined;
@@ -277,7 +277,7 @@ export class Instruction extends Statement
     compile()
     {
         let { operands, memoryOperand, mnemonics, prefsToGen, vexInfo } = this.outline;
-        this.length = 0;
+        this.clear();
 
         if(memoryOperand)
             memoryOperand.evaluate(this, this.syntax.intel);
@@ -456,7 +456,7 @@ export class Instruction extends Statement
             this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
         }
         if(op.relImm !== null)
-            this.genValue(op.relImm.value, op.relImm.size, false, true);
+            this.genValue(op.relImm.value, op.relImm.size, false, true, true);
         else if(op.evexImm !== null)
             this.genByte(op.evexImm);
         else for(const imm of op.imms)
@@ -558,7 +558,7 @@ export class Instruction extends Statement
         }
         catch(e)
         {
-            this.length = 0;
+            this.clear();
             throw e;
         }
     }

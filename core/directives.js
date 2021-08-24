@@ -217,7 +217,7 @@ export class Directive extends Statement
     {
         let op, outlineLength = this.outline.length;
         const startAddr = this.address;
-        this.length = 0;
+        this.clear();
         this.error = null;
 
         for(let i = 0; i < outlineLength; i++)

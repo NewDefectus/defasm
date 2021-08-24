@@ -1,4 +1,5 @@
 import { Range } from "./parser.js";
+import { RelocEntry } from "./relocations.js";
 import { StatementNode } from "./statement.js";
 import { Symbol } from "./symbols.js";
 
@@ -52,5 +53,17 @@ export class Section
         else
             for(const flag of flags)
                 this.flags |= sectionFlags[flag];
+    }
+
+    getRelocations()
+    {
+        let node = this.head, relocations = [];
+        while(node)
+        {
+            for(const reloc of node.statement.relocations)
+                relocations.push(new RelocEntry({ ...reloc, offset: node.statement.address + reloc.offset }));
+            node = node.next;
+        }
+        return relocations;
     }
 }

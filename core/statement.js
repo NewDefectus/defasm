@@ -1,5 +1,6 @@
 import { currSection } from "./compiler.js";
 import { ASMError, currSyntax, Range } from "./parser.js";
+import { RelocEntry, signed32 } from "./relocations.js";
 import { pseudoSections, Section } from "./sections.js";
 
 var totalStatements = 0;
@@ -153,6 +154,15 @@ export class Statement
         this.section = section;
 
         this.sectionNode = new StatementNode(this);
+
+        /** @type {RelocEntry[]}  */
+        this.relocations = [];
+    }
+
+    clear()
+    {
+        this.length = 0;
+        this.relocations = [];
     }
 
     /** @param {BigInt|Number} byte */
@@ -166,8 +176,9 @@ export class Statement
      * @param {Number} size
      * @param {boolean} signed
      * @param {boolean} sizeRelative
+     * @param {boolean} functionAddr
      */
-    genValue(value, size, signed = false, sizeRelative = false)
+    genValue(value, size, signed = false, sizeRelative = false, functionAddr = false)
     {
         let num = value.addend;
         if(value.symbol && value.section == pseudoSections.ABS)
@@ -182,9 +193,15 @@ export class Statement
                 addend += BigInt(this.length);
                 signed = false;
             }
-            else
-                signed = signed && size == 32;
-            console.log(`#${this.id}: ${value.symbol ? value.symbol.name + ' + ' : ''}${addend} (size ${size}${signed ? 's' : ''}, section ${value.section.name}${value.pcRelative ? ', relative' : ''})`);
+
+            this.relocations.push({
+                offset: this.length,
+                addend: value.addend,
+                symbol: value.symbol,
+                size: signed && size == 32 ? signed32 : size,
+                pcRelative: value.pcRelative,
+                functionAddr: functionAddr && value.section == pseudoSections.UND,
+            });
             
             num = 0n;
         }
