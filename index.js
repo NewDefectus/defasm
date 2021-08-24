@@ -11380,11 +11380,11 @@
   // core/relocations.js
   var signed32 = 33;
   var RelocEntry = class {
-    constructor({ offset, addend, symbol, size, pcRelative }) {
+    constructor({ offset, addend, symbol, size, pcRelative, functionAddr }) {
       this.offset = offset;
       this.addend = addend;
       this.symbol = symbol;
-      this.type = (pcRelative ? "PC" : "") + size;
+      this.type = (pcRelative ? functionAddr ? "PLT" : "PC" : "") + size;
     }
   };
 
@@ -11487,7 +11487,7 @@
     genByte(byte) {
       this.bytes[this.length++] = Number(byte);
     }
-    genValue(value, size, signed = false, sizeRelative = false) {
+    genValue(value, size, signed = false, sizeRelative = false, functionAddr = false) {
       let num = value.addend;
       if (value.symbol && value.section == pseudoSections.ABS)
         num += value.symbol.value.addend;
@@ -11504,7 +11504,8 @@
           addend: value.addend,
           symbol: value.symbol,
           size: signed && size == 32 ? signed32 : size,
-          pcRelative: value.pcRelative
+          pcRelative: value.pcRelative,
+          functionAddr: functionAddr && value.section == pseudoSections.UND
         });
         num = 0n;
       }
@@ -15182,7 +15183,7 @@ g nle`.split("\n");
         this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
       }
       if (op.relImm !== null)
-        this.genValue(op.relImm.value, op.relImm.size, false, true);
+        this.genValue(op.relImm.value, op.relImm.size, false, true, true);
       else if (op.evexImm !== null)
         this.genByte(op.evexImm);
       else
