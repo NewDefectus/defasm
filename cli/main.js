@@ -4,7 +4,8 @@ import fs from "fs";
 import child_process from "child_process";
 import { AssemblyState } from "@defasm/core";
 
-import { ELFHeader, ELFSection, ProgramHeader, SectionHeader, StringTable } from "./elf.js";
+import { ELFHeader, ELFSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
+import { pseudoSections, Section, STT_SECTION } from "@defasm/core/sections.js";
 
 
 let args = process.argv.slice(2);
@@ -129,21 +130,48 @@ function assemble()
     }
     let outputStream = fs.createWriteStream(outputFile, { mode: 0o0755 });
 
-    let shstrtab = new StringTable('.shstrtab');
-    let sections = [
-        new ELFSection('', shstrtab),
-        ...Object.values(state.sections).map(section =>
-            new ELFSection(section.name, shstrtab, section.progbits ? 0x1 : 0x8, section.head.dump(), section.flags)),
-        shstrtab
-    ];
+    let shstrtab = new StringTable();
+    let sections = [];
+    for(const section of Object.values(state.sections))
+    {
+        section.index = sections.length + 1;
+        sections.push(new ELFSection({
+            type: section.progbits ? 0x1 : 0x8,
+            buffer: section.head.dump(),
+            flags: section.flags,
+            section
+        }));
+    }
 
+    let recordedSymbols = [];
+    state.symbols.forEach(record => {
+        if(record.bind || record.value.section == pseudoSections.UND || record.type == STT_SECTION && record.references.length > 0)
+            recordedSymbols.push(record);
+    });
+
+    if(recordedSymbols.length > 0)
+    {
+        const strtab = new StringTable();
+        const symtab = new SymbolTable({ link: sections.length + 2 }, recordedSymbols, strtab)
+        symtab.name('.symtab', shstrtab);
+        strtab.name('.strtab', shstrtab);
+
+        sections.push(symtab, strtab);
+    }
+    sections.push(shstrtab);
+    shstrtab.name('.shstrtab', shstrtab);
     let fileOffset = ELFHeader.size;
 
     for(const section of sections)
     {
         section.header.sh_offset = fileOffset;
         fileOffset += section.buffer.length;
+        if(section.section)
+            section.name(section.section.name, shstrtab);
     }
+
+    // 8-byte alignment
+    let alignedFileOffset = Math.ceil(fileOffset / 8) * 8;
 
     outputStream.write(new ELFHeader({
         EI_MAG: 0x46_4C_45_7F,
@@ -157,18 +185,18 @@ function assemble()
         e_version: 1,
         e_entry: 0,
         e_phoff: 0,
-        e_shoff: fileOffset,
+        e_shoff: alignedFileOffset,
         e_flags: 0,
         e_ehsize: ELFHeader.size,
-        e_phentsize: ProgramHeader.size,
-        e_phnum: 0,
         e_shentsize: SectionHeader.size,
-        e_shnum: sections.length,
-        e_shstrndx: sections.indexOf(shstrtab)
+        e_shnum: sections.length + 1,
+        e_shstrndx: sections.indexOf(shstrtab) + 1
     }).dump());
 
     for(const section of sections)
         outputStream.write(section.buffer);
+    
+    outputStream.write(Buffer.alloc(alignedFileOffset - fileOffset + SectionHeader.size));
     
     for(const section of sections)
         outputStream.write(section.header.dump());

@@ -4,6 +4,8 @@ import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingY
 import { Statement } from "./statement.js";
 import { referenceSymbol } from "./symbols.js";
 
+const STB_GLOBAL = 1, STB_WEAK = 2;
+
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
 
@@ -35,7 +37,8 @@ const directives = {
     text: 12,
     data: 13,
     bss: 14,
-    globl: 15
+    globl: 15,
+    weak: 16,
 };
 
 const intelDirectives = {
@@ -106,8 +109,8 @@ export function makeDirective(config, dir)
             next();
             return new SectionDirective(config, sections['.' + dir]);
         
-        case directives.globl: 
-            return new GloblDirective(config);
+        case directives.globl: return new SymBindDirective(config, STB_GLOBAL);
+        case directives.weak:  return new SymBindDirective(config, STB_WEAK);
     }
 }
 
@@ -293,12 +296,12 @@ class DataDirective extends Statement
     }
 }
 
-class GloblDirective extends Statement
+class SymBindDirective extends Statement
 {
-    constructor(config)
+    constructor(config, bind)
     {
         super({ ...config, maxSize: 0 });
-        this.globalDirective = true;
+        this.symBind = bind;
         this.symbols = [];
         do
         {
@@ -306,20 +309,20 @@ class GloblDirective extends Statement
                 throw new ASMError("Expected symbol name");
             let record = referenceSymbol(this, token);
             this.symbols.push(record);
-            record.global = true;
+            record.bind |= bind;
         } while(next() == ',');
     }
     
     recompile()
     {
-        
+
     }
 
     remove()
     {
         super.remove();
         for(const symbol of this.symbols)
-            if(!symbol.references.some(x => !x.removed && x.globalDirective))
-                symbol.global = false;
+            if(!symbol.references.some(x => !x.removed && (x.symBind & this.symBind)))
+                symbol.bind &= ~this.symBind;
     }
 }

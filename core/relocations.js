@@ -1,4 +1,4 @@
-import { pseudoSections } from "./sections";
+import { pseudoSections } from "./sections.js";
 
 const relocTypes = {
     NONE      : 0,
@@ -42,7 +42,7 @@ export class RelocEntry
     {
         this.offset = offset;
         this.addend = addend;
-        if(symbol.global || symbol.value.section == pseudoSections.UND)
+        if(symbol.bind || symbol.value.section == pseudoSections.UND)
             this.symbol = symbol;
         else
         {

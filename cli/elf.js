@@ -84,25 +84,6 @@ export const ELFHeader = header({
     e_shstrndx:    [0x3E, 2]
 });
 
-export const ProgramHeader = header({
-    /** Identifies the type of the segment. */
-    p_type:   [0x00, 4],
-    /** Segment-dependent flags. */
-    p_flags:  [0x04, 4],
-    /** Offset of the segment in the file image. */
-    p_offset: [0x08, 8],
-    /** Virtual address of the segment in memory. */
-    p_vaddr:  [0x10, 8],
-    /** On systems where physical address is relevant, reserved for segment's physical address. */
-    p_paddr:  [0x18, 8],
-    /** Size in bytes of the segment in the file image. May be 0. */
-    p_filesz: [0x20, 8],
-    /** Size in bytes of the segment in memory. May be 0. */
-    p_memsz:  [0x28, 8],
-    /** 0 and 1 specify no alignment. Otherwise should be a positive, integral power of 2, with p_vaddr equating p_offset modulus p_align. */
-    p_align:  [0x30, 8],
-});
-
 export const SectionHeader = header({
     /** An offset to a string in the .shstrtab section that represents the name of this section. */
     sh_name:      [0x00, 4],
@@ -129,19 +110,29 @@ export const SectionHeader = header({
 export class ELFSection
 {
     /**
-     * @param {string} name
-     * @param {StringTable} shstrtab */
-    constructor(name, shstrtab, type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0)
+     * @param {Object} config
+     * @param {string} config.name
+     * @param {StringTable} config.shstrtab
+     * @param {number} config.type
+     * @param {Buffer} config.buffer
+     * @param {number} config.flags
+     * @param {number} config.address
+     * @param {number} config.entrySize
+     * @param {import('@defasm/core/sections.js').Section} config.section */
+    constructor({ type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0, link = 0, info = 0, align = 1, section = null } = {})
     {
         this.buffer = buffer;
         this.header = new SectionHeader({
-            sh_name: shstrtab ? shstrtab.getIndex(name) : 1,
             sh_type: type,
             sh_flags: flags,
             sh_addr: address,
+            sh_addralign: align,
             sh_size: buffer.length,
-            sh_entsize: entrySize
+            sh_link: link,
+            sh_entsize: entrySize,
+            sh_info: info,
         });
+        this.section = section;
     }
 
     add(buffer)
@@ -149,16 +140,23 @@ export class ELFSection
         this.buffer = Buffer.concat([this.buffer, buffer]);
         this.header.sh_size = this.buffer.length;
     }
+
+    /**
+     * @param {string} name
+     * @param {StringTable} shstrtab
+     */
+    name(name, shstrtab)
+    {
+        this.header.sh_name = shstrtab.getIndex(name);
+    }
 }
 
 export class StringTable extends ELFSection
 {
-    constructor(name, shstrtab = null)
+    constructor(config)
     {
-        super(name, shstrtab, 0x3, shstrtab ? Buffer.alloc(1) : Buffer.from(`\0${name}\0`));
+        super({ ...config, type: 0x3, buffer: Buffer.alloc(1) });
         this.indices = { "": 0 };
-        if(!shstrtab)
-            this.indices[name] = 1;
     }
 
     getIndex(string)
@@ -169,5 +167,28 @@ export class StringTable extends ELFSection
             this.add(Buffer.from(string + '\0'));
         }
         return this.indices[string];
+    }
+}
+
+export class SymbolTable extends ELFSection
+{
+    /**
+     * @param {import("@defasm/core/symbols").SymbolRecord[]} symbols
+     * @param {StringTable} strtab */
+    constructor(config, symbols, strtab)
+    {
+        super({ ...config, type: 0x2, entrySize: 0x18, buffer: Buffer.alloc(0x18 * (symbols.length + 1)), info: 1, align: 8 });
+        for(let i = 0, index = 0x18; i < symbols.length; i++, index += 0x18)
+        {
+            const symbol = symbols[i];
+            this.buffer.writeUInt32LE(strtab.getIndex(symbol.name), index);
+            this.buffer.writeUInt8(symbol.type | symbol.bind << 4, index + 4);
+            this.buffer.writeUInt8(0, index + 5);
+            this.buffer.writeUInt16LE(symbol.value.section.index, index + 6);
+            this.buffer.writeBigUInt64LE(symbol.value.addend, index + 8);
+
+            if(symbol.bind == 0)
+                this.header.sh_info = i + 2;
+        }
     }
 }

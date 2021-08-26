@@ -17,8 +17,8 @@ export function loadSections(table, range)
 }
 
 export const pseudoSections = {
-    ABS: { name: '*ABS*' },
-    UND: { name: '*UND*' }
+    ABS: { name: '*ABS*', index: 0xfff1 },
+    UND: { name: '*UND*', index: 0 }
 };
 
 export const sectionFlags = {
@@ -26,6 +26,8 @@ export const sectionFlags = {
     w: 1, // SHF_WRITE
     x: 4, // SHF_EXECINSTR
 };
+
+export const STT_SECTION = 3;
 
 export class Section
 {
@@ -41,7 +43,7 @@ export class Section
         /** @type {import('./statement.js').InstructionRange} */
         this.cursor = null;
 
-        this.head = new StatementNode(new Symbol({ addr: 0, name, isLabel: true, section: this }));
+        this.head = new StatementNode(new Symbol({ addr: 0, name, isLabel: true, type: STT_SECTION, section: this }));
         this.flags = 0;
         if(flags === null)
             switch(name)
