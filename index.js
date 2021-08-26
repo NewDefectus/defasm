@@ -11383,7 +11383,12 @@
     constructor({ offset, addend, symbol, size, pcRelative, functionAddr }) {
       this.offset = offset;
       this.addend = addend;
-      this.symbol = symbol;
+      if (symbol.bind || symbol.value.section == pseudoSections.UND)
+        this.symbol = symbol;
+      else {
+        this.symbol = symbol.value.section.head.statement.record;
+        this.addend += symbol.value.addend;
+      }
       this.type = (pcRelative ? functionAddr ? "PLT" : "PC" : "") + size;
     }
   };
@@ -11468,13 +11473,13 @@
     }
   };
   var Statement = class {
-    constructor({ addr: addr2 = 0, maxSize = 0, range = new Range3(), error = null, section = currSection } = {}) {
+    constructor({ addr: addr2 = 0, maxSize = 0, range = new Range3(), error = null, section = currSection, syntax = currSyntax } = {}) {
       this.id = totalStatements++;
       this.error = error;
       this.range = range;
       this.length = 0;
       this.bytes = new Uint8Array(maxSize);
-      this.syntax = currSyntax;
+      this.syntax = syntax;
       this.address = addr2;
       this.section = section;
       this.sectionNode = new StatementNode(this);
@@ -12195,17 +12200,7 @@
           this.ripRelative = true;
         else if (id2.name) {
           if (!id2.isIP) {
-            let record;
-            if (symbols.has(id2.name)) {
-              record = symbols.get(id2.name);
-              record.references.push(instr2);
-            } else
-              symbols.set(id2.name, record = {
-                symbol: null,
-                name: id2.name,
-                references: [instr2],
-                uses: []
-              });
+            let record = referenceSymbol(instr2, id2.name);
             if (uses !== null)
               uses.push(record);
           }
@@ -12361,7 +12356,7 @@
   }
   var Symbol2 = class extends Statement {
     record;
-    constructor({ name: name2, opcodeRange = null, isLabel = false, ...config2 }) {
+    constructor({ name: name2, opcodeRange = null, isLabel = false, type = 0, ...config2 }) {
       if (opcodeRange === null)
         opcodeRange = config2.range;
       super(config2);
@@ -12393,7 +12388,9 @@
           symbol: null,
           name: name2,
           references: [],
-          uses
+          uses,
+          type,
+          bind: 0
         });
       try {
         this.record.value = this.expression.evaluate(this);
@@ -12438,6 +12435,23 @@
       super.remove();
     }
   };
+  function referenceSymbol(instr2, name2) {
+    let record;
+    if (symbols.has(name2)) {
+      record = symbols.get(name2);
+      record.references.push(instr2);
+    } else
+      symbols.set(name2, record = {
+        symbol: null,
+        name: name2,
+        references: [instr2],
+        uses: [],
+        type: 0,
+        value: { addend: 0n, section: pseudoSections.UND },
+        bind: 0
+      });
+    return record;
+  }
 
   // core/sections.js
   var sections = null;
@@ -12447,20 +12461,21 @@
       table[name2].cursor = table[name2].head.getAffectedArea(range);
   }
   var pseudoSections = {
-    ABS: { name: "*ABS*" },
-    UND: { name: "*UND*" }
+    ABS: { name: "*ABS*", index: 65521 },
+    UND: { name: "*UND*", index: 0 }
   };
   var sectionFlags = {
     a: 2,
     w: 1,
     x: 4
   };
+  var STT_SECTION = 3;
   var Section = class {
     constructor(name2, flags = null, progbits = null) {
       this.name = name2;
       this.progbits = progbits ?? (name2 == ".text" || name2 == ".data");
       this.cursor = null;
-      this.head = new StatementNode(new Symbol2({ addr: 0, name: name2, isLabel: true, section: this }));
+      this.head = new StatementNode(new Symbol2({ addr: 0, name: name2, isLabel: true, type: STT_SECTION, section: this }));
       this.flags = 0;
       if (flags === null)
         switch (name2) {
@@ -12488,6 +12503,8 @@
   };
 
   // core/directives.js
+  var STB_GLOBAL = 1;
+  var STB_WEAK = 2;
   var DIRECTIVE_BUFFER_SIZE = 15;
   var directives = {
     equ: -1,
@@ -12514,7 +12531,9 @@
     att_syntax: 11,
     text: 12,
     data: 13,
-    bss: 14
+    bss: 14,
+    globl: 15,
+    weak: 16
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12529,19 +12548,70 @@
     directive = directive.toLowerCase();
     return intel ? intelDirectives.hasOwnProperty(directive) : directive[0] == "." && directives.hasOwnProperty(directive.slice(1));
   }
-  var Directive = class extends Statement {
-    constructor({ dir, ...config2 }) {
+  function makeDirective(config2, dir) {
+    dir = dir.toLowerCase();
+    let dirs = currSyntax.intel ? intelDirectives : directives;
+    if (!dirs.hasOwnProperty(dir))
+      throw new ASMError("Unknown directive");
+    let dirID = dirs[dir];
+    switch (dirID) {
+      case intelDirectives.db:
+      case directives.byte:
+      case directives.word:
+      case directives.int:
+      case directives.quad:
+      case directives.octa:
+      case directives.float:
+      case directives.double:
+      case directives.asciz:
+      case directives.ascii:
+        return new DataDirective(config2, dirID);
+      case directives.intel_syntax:
+      case directives.att_syntax:
+        let intel = dirID == directives.intel_syntax;
+        setSyntax({ prefix: currSyntax.prefix, intel });
+        let prefix = !intel;
+        let prefSpecifier = next().toLowerCase();
+        if (prefSpecifier == "prefix")
+          prefix = true;
+        else if (prefSpecifier == "noprefix")
+          prefix = false;
+        else if (prefSpecifier != "\n" && prefSpecifier != ";")
+          throw new ASMError("Expected 'prefix' or 'noprefix'");
+        if (token != "\n" && token != ";")
+          next();
+        return new SyntaxDirective(config2, intel, prefix);
+      case directives.text:
+      case directives.data:
+      case directives.bss:
+        next();
+        return new SectionDirective(config2, sections["." + dir]);
+      case directives.globl:
+        return new SymBindDirective(config2, STB_GLOBAL);
+      case directives.weak:
+        return new SymBindDirective(config2, STB_WEAK);
+    }
+  }
+  var SectionDirective = class extends Statement {
+    constructor(config2, section) {
+      super({ ...config2, maxSize: 0, section });
+      this.switchSection = true;
+    }
+  };
+  var SyntaxDirective = class extends Statement {
+    constructor(config2, intel, prefix) {
+      super({ ...config2, maxSize: 0, syntax: { intel, prefix } });
+      this.switchSyntax = true;
+    }
+  };
+  var DataDirective = class extends Statement {
+    constructor(config2, dirID) {
       super({ ...config2, maxSize: DIRECTIVE_BUFFER_SIZE });
       this.outline = null;
       this.floatPrec = 0;
       this.lineEnds = { lineEnds: [], offset: 0 };
       let appendNullByte = 0;
-      dir = dir.toLowerCase();
       try {
-        let dirs = this.syntax.intel ? intelDirectives : directives;
-        if (!dirs.hasOwnProperty(dir))
-          throw new ASMError("Unknown directive");
-        let dirID = dirs[dir];
         switch (dirID) {
           case intelDirectives.db:
             this.compileValues(1, true);
@@ -12584,30 +12654,6 @@
               } else
                 throw new ASMError("Expected string");
             } while (next() == ",");
-            break;
-          case directives.intel_syntax:
-          case directives.att_syntax:
-            let intel = dirID == directives.intel_syntax;
-            setSyntax({ prefix: currSyntax.prefix, intel });
-            let prefix = !intel;
-            let prefSpecifier = next().toLowerCase();
-            if (prefSpecifier == "prefix")
-              prefix = true;
-            else if (prefSpecifier == "noprefix")
-              prefix = false;
-            else if (prefSpecifier != "\n" && prefSpecifier != ";")
-              throw new ASMError("Expected 'prefix' or 'noprefix'");
-            this.syntax = { intel, prefix };
-            this.switchSyntax = true;
-            if (token != "\n" && token != ";")
-              next();
-            break;
-          case directives.text:
-          case directives.data:
-          case directives.bss:
-            this.section = sections["." + dir];
-            this.switchSection = true;
-            next();
             break;
         }
       } catch (e) {
@@ -12692,6 +12738,28 @@
         this.bytes = temp;
       }
       this.lineEnds.offset = this.length;
+    }
+  };
+  var SymBindDirective = class extends Statement {
+    constructor(config2, bind) {
+      super({ ...config2, maxSize: 0 });
+      this.symBind = bind;
+      this.symbols = [];
+      do {
+        if (scanIdentifier(next()) != "symbol")
+          throw new ASMError("Expected symbol name");
+        let record = referenceSymbol(this, token);
+        this.symbols.push(record);
+        record.bind |= bind;
+      } while (next() == ",");
+    }
+    recompile() {
+    }
+    remove() {
+      super.remove();
+      for (const symbol of this.symbols)
+        if (!symbol.references.some((x) => !x.removed && x.symBind & this.symBind))
+          symbol.bind &= ~this.symBind;
     }
   };
 
@@ -15362,7 +15430,7 @@ g nle`.split("\n");
                   throw new ASMError("Expected ','");
                 addInstruction(new Symbol2({ addr, name: name2, range, opcodeRange }));
               } else
-                addInstruction(new Directive({ addr, dir: currSyntax.intel ? token : token.slice(1), range }));
+                addInstruction(makeDirective({ addr, range }, currSyntax.intel ? token : token.slice(1)));
             } else if (prefixes.hasOwnProperty(lowerTok))
               addInstruction(new Prefix({ addr, range, name: lowerTok }), false);
             else {
@@ -15374,7 +15442,7 @@ g nle`.split("\n");
                 addInstruction(new Symbol2({ addr, name: name2, range }));
               else if (currSyntax.intel && isDirective(token, true)) {
                 addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
-                addInstruction(new Directive({ addr, dir: token, range: startAbsRange() }));
+                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
               } else
                 addInstruction(new Instruction({ addr, opcode: name2.toLowerCase(), range }));
             }
@@ -17415,7 +17483,7 @@ g nle`.split("\n");
 
   // codemirror/parser.terms.js
   var Register = 1;
-  var Directive2 = 2;
+  var Directive = 2;
   var Comment = 3;
   var Opcode = 4;
   var IOpcode = 5;
@@ -17467,7 +17535,7 @@ g nle`.split("\n");
       }
       if (input.next == "\n".charCodeAt(0) || input.next == ";".charCodeAt(0))
         ctx &= ~STATE_IN_INSTRUCTION;
-      if (term != Directive2)
+      if (term != Directive)
         return ctx;
       let result = ctx, syntax = next2(input);
       if (syntax == ".intel_syntax") {
@@ -17501,7 +17569,7 @@ g nle`.split("\n");
       if (prefix && isRegister(tok))
         return Register;
       if (intel && isDirective("%" + tok, true))
-        return Directive2;
+        return Directive;
       return null;
     }
     if (tok == (intel ? ";" : "#")) {
@@ -17520,7 +17588,7 @@ g nle`.split("\n");
     }
     if (!(ctx & STATE_IN_INSTRUCTION)) {
       if (isDirective(tok, intel))
-        return Directive2;
+        return Directive;
       if (intel && tok == "offset")
         return Offset;
       if (prefixes.hasOwnProperty(tok))
@@ -17720,6 +17788,7 @@ g nle`.split("\n");
       const bytes = editor.state.field(ASMStateField).data.length;
       document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
       byteCount.innerText = `${bytes} byte${bytes != 1 ? "s" : ""}`;
+      console.log(editor.state.field(ASMStateField).sections[".text"].getRelocations());
       return result;
     },
     parent: document.getElementById("inputAreaContainer"),
