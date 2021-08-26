@@ -164,6 +164,10 @@ function assemble()
 
     for(const section of sections)
     {
+        const align = section.header.sh_addralign;
+        if(align)
+            fileOffset = Math.ceil(fileOffset / align) * align;
+        
         section.header.sh_offset = fileOffset;
         fileOffset += section.buffer.length;
         if(section.section)
@@ -173,6 +177,8 @@ function assemble()
     // 8-byte alignment
     let alignedFileOffset = Math.ceil(fileOffset / 8) * 8;
 
+    
+    /* Outputting */
     outputStream.write(new ELFHeader({
         EI_MAG: 0x46_4C_45_7F,
         EI_CLASS: 2,
@@ -193,8 +199,15 @@ function assemble()
         e_shstrndx: sections.indexOf(shstrtab) + 1
     }).dump());
 
+    fileOffset = ELFHeader.size;
+
     for(const section of sections)
+    {
+        outputStream.write(Buffer.alloc(section.header.sh_offset - fileOffset));
+        fileOffset = section.header.sh_offset;
         outputStream.write(section.buffer);
+        fileOffset += section.buffer.length;
+    }
     
     outputStream.write(Buffer.alloc(alignedFileOffset - fileOffset + SectionHeader.size));
     
