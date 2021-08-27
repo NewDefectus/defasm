@@ -144,13 +144,19 @@ class SectionDirective extends Statement
         let flags = 0, type = 0, attribRange = null;
         if(section === null)
         {
-            const sectionName = token;
-            if(sectionName == ',' || sectionName == ';' || sectionName == '\n')
+            let sectionName = '';
+            while(token != ',' && token != ';' && token != '\n')
+            {
+                sectionName += token;
+                next();
+            }
+            if(sectionName == '')
                 throw new ASMError("Expected section name");
+            
             if(sections.hasOwnProperty(sectionName))
                 section = sections[sectionName];
             
-            if(next() == ',')
+            if(token == ',')
             {
                 const flagString = readString(next());
                 attribRange = currRange;
