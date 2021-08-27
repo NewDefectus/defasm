@@ -12229,7 +12229,7 @@
         }
       }
     }
-    evaluate(instr2) {
+    evaluate(instr2, allowPCRelative = true) {
       if (this.stack.length == 0)
         return {
           section: pseudoSections.ABS,
@@ -12243,13 +12243,13 @@
             if (func == "+")
               continue;
             const val = stack[len - 1], minusRelative = val.section == instr2.section && func == "-";
-            if (val.regData || val.section != pseudoSections.ABS && !minusRelative)
+            if (val.regData || val.section != pseudoSections.ABS && !minusRelative || minusRelative && !allowPCRelative)
               throw new ASMError("Bad operand", val.range);
             if (minusRelative)
               val.pcRelative = true;
             val.addend = unaries[func].func(val.addend);
           } else {
-            stack[len - 2] = applyValue(instr2, stack[len - 2], func, stack.pop());
+            stack[len - 2] = applyValue(instr2, stack[len - 2], func, stack.pop(), allowPCRelative);
             len--;
           }
         } else
@@ -12277,7 +12277,7 @@
     this.stack = [new SymbolIdentifier(instr2, instr2.syntax.intel ? "$" : ".", currRange)];
   }
   CurrentIP.prototype = Object.create(Expression.prototype);
-  function applyValue(instr2, op1, func, op2) {
+  function applyValue(instr2, op1, func, op2, allowPCRelative = true) {
     let returnValue = op1;
     op1.range = op1.range.until(op2.range);
     if (op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
@@ -12296,7 +12296,7 @@
       if (op2.symbol)
         op2.addend += op2.symbol.value.addend;
       op1.symbol = op2.symbol = null;
-    } else if (!instr2.record && op2.section == instr2.section && func == "-") {
+    } else if (allowPCRelative && op2.section == instr2.section && func == "-") {
       op1.pcRelative = true;
       if (op2.addend)
         op2.addend = 0n;
@@ -12366,6 +12366,17 @@
 
   // core/symbols.js
   var recompQueue = [];
+  function makeRecord({ name: name2, type = void 0, uses = [], references = [], definitions = [] } = {}) {
+    return {
+      symbol: null,
+      name: name2,
+      references,
+      definitions,
+      uses,
+      value: { addend: 0n, section: pseudoSections.UND },
+      type
+    };
+  }
   var symbols = new Map();
   function loadSymbols(table) {
     symbols = table;
@@ -12405,16 +12416,9 @@
         this.record.uses = uses;
         this.duplicate = false;
       } else
-        symbols.set(name2, this.record = {
-          symbol: null,
-          name: name2,
-          references: [],
-          uses,
-          type,
-          bind: 0
-        });
+        symbols.set(name2, this.record = makeRecord({ name: name2, type, uses, definitions: [this] }));
       try {
-        this.record.value = this.expression.evaluate(this);
+        this.record.value = this.expression.evaluate(this, false);
         this.record.symbol = this;
         for (let ref of this.record.references)
           if (!ref.removed)
@@ -12433,7 +12437,7 @@
       this.error = null;
       let value;
       try {
-        this.record.value = value = this.expression.evaluate(this);
+        this.record.value = value = this.expression.evaluate(this, false);
       } catch (e) {
         this.error = e;
       }
@@ -12456,21 +12460,15 @@
       super.remove();
     }
   };
-  function referenceSymbol(instr2, name2) {
+  function referenceSymbol(instr2, name2, defining = false) {
     let record;
     if (symbols.has(name2)) {
       record = symbols.get(name2);
       record.references.push(instr2);
+      if (defining)
+        record.definitions.push(instr2);
     } else
-      symbols.set(name2, record = {
-        symbol: null,
-        name: name2,
-        references: [instr2],
-        uses: [],
-        type: 0,
-        value: { addend: 0n, section: pseudoSections.UND },
-        bind: 0
-      });
+      symbols.set(name2, record = makeRecord({ name: name2, references: [instr2], definitions: defining ? [instr2] : [] }));
     return record;
   }
 
@@ -12526,6 +12524,20 @@
   // core/directives.js
   var STB_GLOBAL = 1;
   var STB_WEAK = 2;
+  var SYM_TYPES = {
+    "no_type": 0,
+    "object": 1,
+    "function": 2,
+    "tls_object": 6
+  };
+  var SYM_VISIBS = {
+    "internal": 1,
+    "hidden": 2,
+    "protected": 3,
+    "exported": 4,
+    "singleton": 5,
+    "eliminate": 6
+  };
   var DIRECTIVE_BUFFER_SIZE = 15;
   var directives = {
     equ: -1,
@@ -12554,7 +12566,9 @@
     data: 13,
     bss: 14,
     globl: 15,
-    weak: 16
+    weak: 16,
+    size: 17,
+    type: 18
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12610,6 +12624,10 @@
         return new SymBindDirective(config2, STB_GLOBAL);
       case directives.weak:
         return new SymBindDirective(config2, STB_WEAK);
+      case directives.size:
+        return new SymSizeDirective(config2);
+      case directives.type:
+        return new SymTypeDirective(config2);
     }
   }
   var SectionDirective = class extends Statement {
@@ -12759,26 +12777,135 @@
       this.lineEnds.offset = this.length;
     }
   };
-  var SymBindDirective = class extends Statement {
-    constructor(config2, bind) {
+  var SymInfo = class extends Statement {
+    addSymbol() {
+      if (scanIdentifier(token, this.syntax.intel) != "symbol")
+        return false;
+      const symbol = referenceSymbol(this, token, true);
+      if (symbol.type == STT_SECTION)
+        throw new ASMError("Can't modify section labels");
+      this.symbols.push({ range: currRange, symbol });
+      return true;
+    }
+    constructor(config2, name2, proceedings = true) {
       super({ ...config2, maxSize: 0 });
-      this.symBind = bind;
       this.symbols = [];
-      do {
-        if (scanIdentifier(token) != "symbol")
-          throw new ASMError("Expected symbol name");
-        let record = referenceSymbol(this, token);
-        this.symbols.push(record);
-        record.bind |= bind;
-      } while (next() == "," && next());
+      if (!this.addSymbol())
+        throw new ASMError("Expected symbol name");
+      this.infoName = "setSymbol-" + name2;
+      this.errName = name2;
+      this[this.infoName] = true;
+      this.removed = true;
+      while (true) {
+        if (next() != ",") {
+          if (proceedings)
+            throw new ASMError("Expected ','");
+          break;
+        }
+        next();
+        if (!this.addSymbol())
+          break;
+      }
+    }
+    compile() {
+      this.removed = false;
+      for (const { symbol, range } of this.symbols) {
+        if (symbol.definitions.some((x) => x !== this && !x.removed && !x.error && x[this.infoName]))
+          throw new ASMError(`${this.errName} already set for this symbol`, range);
+        this.setInfo(symbol);
+      }
     }
     recompile() {
+      this.error = null;
+      this.compile();
     }
     remove() {
       super.remove();
-      for (const symbol of this.symbols)
-        if (!symbol.references.some((x) => !x.removed && x.symBind & this.symBind))
-          symbol.bind &= ~this.symBind;
+      for (const { symbol } of this.symbols)
+        for (const def of symbol.definitions)
+          if (!def.removed && def[this.infoName])
+            queueRecomp(def);
+    }
+  };
+  var SymBindDirective = class extends SymInfo {
+    constructor(config2, bind) {
+      super(config2, "Binding", false);
+      this.binding = bind;
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+      }
+    }
+    setInfo(symbol) {
+      symbol.bind = this.binding;
+    }
+    remove() {
+      super.remove();
+      for (const { symbol } of this.symbols)
+        symbol.bind = void 0;
+    }
+  };
+  var SymSizeDirective = class extends SymInfo {
+    constructor(config2) {
+      super(config2, "Size");
+      this.expression = new Expression(this);
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+      }
+    }
+    compile() {
+      this.value = this.expression.evaluate(this, false);
+      if (this.value.section != pseudoSections.ABS)
+        throw new ASMError("Size expression must be absolute", this.value.range);
+      super.compile();
+    }
+    setInfo(symbol) {
+      symbol.size = this.value.addend;
+    }
+    remove() {
+      super.remove();
+      for (const { symbol } of this.symbols)
+        symbol.size = void 0;
+    }
+  };
+  var SymTypeDirective = class extends SymInfo {
+    constructor(config2) {
+      super(config2, "Type");
+      this.visib = void 0;
+      if (token != "@")
+        throw new ASMError("Expected '@'");
+      let type = next().toLowerCase();
+      if (!SYM_TYPES.hasOwnProperty(type))
+        throw new ASMError("Unknown symbol type");
+      this.type = SYM_TYPES[type];
+      if (next() == ",") {
+        if (next() != "@")
+          throw new ASMError("Expected '@'");
+        let visib = next().toLowerCase();
+        if (!SYM_VISIBS.hasOwnProperty(visib))
+          throw new ASMError("Unknown symbol visibility");
+        this.visib = SYM_VISIBS[visib];
+        next();
+      }
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+      }
+    }
+    setInfo(symbol) {
+      symbol.type = this.type;
+      symbol.visibility = this.visib;
+    }
+    remove() {
+      super.remove();
+      for (const { symbol } of this.symbols) {
+        symbol.type = void 0;
+        symbol.visibility = void 0;
+      }
     }
   };
 
@@ -15437,6 +15564,8 @@ g nle`.split("\n");
             next();
             if (token == ":")
               addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
+            else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
+              addInstruction(new Symbol2({ addr, name: name2, range }));
             else {
               let isDir = false;
               if (currSyntax.intel) {
@@ -15459,15 +15588,11 @@ g nle`.split("\n");
               } else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
                 ungetToken();
                 addInstruction(new Prefix({ addr, range, name: name2 }), false);
-              } else {
-                if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
-                  addInstruction(new Symbol2({ addr, name: name2, range }));
-                else if (currSyntax.intel && isDirective(token, true)) {
-                  addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
-                  addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
-                } else
-                  addInstruction(new Instruction({ addr, name: name2, range }));
-              }
+              } else if (currSyntax.intel && isDirective(token, true)) {
+                addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
+                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+              } else
+                addInstruction(new Instruction({ addr, name: name2, range }));
             }
           }
         } catch (error) {
@@ -15542,7 +15667,8 @@ g nle`.split("\n");
       loadSymbols(this.symbols);
       symbols.forEach((record, name2) => {
         record.references = record.references.filter((instr2) => !instr2.removed);
-        if ((record.symbol === null || record.symbol.error) && record.references.length == 0)
+        record.definitions = record.definitions.filter((instr2) => !instr2.removed);
+        if ((record.symbol === null || record.symbol.error) && record.references.length == 0 && record.definitions.length == 0)
           symbols.delete(name2);
       });
       while (node = linkedInstrQueue.shift() || recompQueue.shift()) {
@@ -15568,10 +15694,8 @@ g nle`.split("\n");
           node = node.next;
         } while (node && node.statement.address != addr);
       }
-      let lastInstr = null;
       this.errors = [];
       this.iterate((instr2, line2) => {
-        lastInstr = instr2;
         if (instr2.outline && instr2.outline.operands)
           for (let op of instr2.outline.operands)
             op.attemptedSizes = op.attemptedUnsignedSizes = 0;
@@ -17540,11 +17664,18 @@ g nle`.split("\n");
       }
     return tok = tok.toLowerCase() || "\n";
   }
-  function peekChar(input) {
+  function peekNext(input) {
     let i = 0, char;
     while ((char = input.peek(i)) >= 0 && char != 10 && String.fromCharCode(char).match(/\s/))
       i++;
-    return char ? String.fromCharCode(char) : "\n";
+    if ((char = input.peek(i)) >= 0 && !(char = String.fromCharCode(char)).match(/[.$\w]/))
+      return char;
+    let result = "";
+    while ((char = input.peek(i)) >= 0 && (char = String.fromCharCode(char)).match(/[.$\w]/)) {
+      result += char;
+      i++;
+    }
+    return result.toLowerCase() || "\n";
   }
   var STATE_SYNTAX_INTEL = 1;
   var STATE_SYNTAX_PREFIX = 2;
@@ -17555,7 +17686,7 @@ g nle`.split("\n");
     shift: (ctx, term, stack, input) => {
       if (term == Opcode)
         ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
-      else if (term == RelOpcode || term == IOpcode || term == IRelOpcode)
+      else if (term == RelOpcode || term == IOpcode || term == IRelOpcode || term == symEquals || term == Directive)
         ctx |= STATE_IN_INSTRUCTION;
       else if (ctx & STATE_IN_INSTRUCTION && term != Space) {
         if (input.next == ",".charCodeAt(0))
@@ -17590,9 +17721,19 @@ g nle`.split("\n");
   });
   function tokenize(ctx, input) {
     const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    if (tok == (intel ? ";" : "#")) {
+      while (input.next >= 0 && input.next != "\n".charCodeAt(0))
+        input.advance();
+      return Comment;
+    }
     if (!(ctx & STATE_IN_INSTRUCTION)) {
-      if (peekChar(input) == ":")
+      const nextTok = peekNext(input);
+      if (nextTok == ":")
         return LabelDefinition;
+      if (nextTok == "=" || intel && nextTok == "equ") {
+        next2(input);
+        return symEquals;
+      }
       if (tok == "%" && intel)
         return isDirective("%" + next2(input), true) ? Directive : null;
       if (isDirective(tok, intel))
@@ -17604,6 +17745,7 @@ g nle`.split("\n");
       let opcode = tok, mnemonics2 = fetchMnemonic(opcode, intel);
       if (mnemonics2.length > 0)
         return mnemonics2[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
+      return null;
     }
     if (ctx & STATE_ALLOW_IMM && tok[0] == "$") {
       input.pos -= tok.length - 1;
@@ -17611,13 +17753,6 @@ g nle`.split("\n");
     }
     if (tok == "%" && prefix)
       return isRegister(next2(input)) ? Register : null;
-    if (tok == (intel ? ";" : "#")) {
-      while (input.next >= 0 && input.next != "\n".charCodeAt(0))
-        input.advance();
-      return Comment;
-    }
-    if (tok == "=" || intel && tok == "equ")
-      return symEquals;
     if (tok == "{") {
       if ((!prefix || next2(input) == "%") && isRegister(next2(input)))
         return null;
@@ -17662,9 +17797,9 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = LRParser.deserialize({
     version: 13,
-    states: "9[OVQROOOOQP'#Cw'#CwO}QRO'#CkO#aQRO'#CkO#hQRO'#CkO$tQRO'#CkO%OQRO'#CkO%YQRO'#CtO%bQRO'#CsO&SQRO'#CsOOQO'#DV'#DVO&XQRO'#DVQ&gQQOOOOQP-E6u-E6uO&oQRO,59VO#hQRO,59VO'XQRO,59VO'cQRO,59VOOQP'#Cx'#CxO'mQRO'#CxO(UQRO'#CnO(gQRO'#ClO(xQTO'#CnO*UQRO'#DWO)mQRO'#DWOOQP,59V,59VO!lQRO,59VO*]QRO'#CnO*nQTO'#CnO+`QRO'#CrO+tQQO'#CrO+yQRO'#DaO(gQRO'#DaO,vQRO'#DaO-QQRO'#CmO-tQTO'#CmO.RQQO'#CoO.iQRO,59VO(gQRO,59bO.pQRO'#CmO/RQTO'#CmO/cQRO'#DfOOQP,59_,59_O%bQRO,59_OOQO,59q,59qOVQRO'#DOQ&gQQOOOOQP1G.q1G.qO!lQRO1G.qO/tQRO1G.qOOQP,59Z,59ZO/{QQO,59ZOOQP-E6v-E6vO0TQTO,59YOOQP,59W,59WOOQP'#Cy'#CyO0TQTO,59YO0xQRO,59YO1ZQRO,59ZO1cQRO'#CpO1hQRO'#C{O2RQRO,59rO2dQRO,59rO2nQRO,59rO2uQTO,59YO2uQTO,59YO3gQRO,59YO3xQRO'#DcO4^QSO'#DcO4iQQO,59^O+`QRO,59^O4nQRO'#C|O5[QRO,59{O5mQRO,59{O5wQRO,59{O6OQRO,59{O(gQRO,59{O6YQTO,59XO6YQTO,59XO6tQRO,59XO7VQRO1G.qOOQP1G.|1G.|O7hQTO,59XO7hQTO,59XO(gQRO,59XO8VQRO'#C}O8mQRO,5:QOOQP1G.y1G.yOOQO,59j,59jOOQO-E6|-E6|OOQP7+$]7+$]O9OQRO7+$]O9aQRO'#CzO9oQQO1G.uOOQP1G.u1G.uO9wQTO1G.tO0xQRO1G.tOOQP-E6w-E6wOOQP1G.t1G.tO9oQQO1G.uO:lQQO,59[O;YQRO,59gO:qQRO,59gOOQP-E6y-E6yO;aQRO1G/^O;aQRO1G/^O;rQRO1G/^O;yQTO1G.tO3gQRO1G.tOOQP1G.w1G.wO<kQSO,59}O<kQSO,59}O+`QRO,59}OOQP1G.x1G.xO<vQQO1G.xO<{QRO,59hO(gQRO,59hO=dQRO,59hOOQP-E6z-E6zO=nQRO1G/gO=nQRO1G/gO>PQRO1G/gO>WQRO1G/gO>bQRO1G/gO>}QTO1G.sO6tQRO1G.sOOQP1G.s1G.sO?[QTO1G.sO(gQRO1G.sOOQP,59i,59iOOQP-E6{-E6{OOQO,59f,59fOOQO-E6x-E6xOOQP7+$a7+$aO0xQRO7+$`OOQP7+$`7+$`O?lQQO7+$aOOQP1G.v1G.vO@YQRO1G/RO?tQRO1G/RO@aQRO7+$xO@aQRO7+$xO3gQRO7+$`OOQP7+$c7+$cO@rQSO1G/iO+`QRO1G/iOOQO1G/i1G/iOOQP7+$d7+$dOAcQRO1G/SO@}QRO1G/SOAjQRO1G/SO(gQRO1G/SOBRQRO7+%ROBRQRO7+%ROBdQRO7+%ROBkQRO7+%RO6tQRO7+$_OOQP7+$_7+$_O(gQRO7+$_OOQP<<Gz<<GzOOQP<<G{<<G{OOQP7+$m7+$mOBuQRO7+$mOCZQRO<<HdOOQP<<G}<<G}O+`QRO7+%TOOQO7+%T7+%TOOQP7+$n7+$nOClQRO7+$nODQQRO7+$nODXQRO7+$nODpQRO<<HmODpQRO<<HmOERQRO<<HmOOQP<<Gy<<GyOOQP<<HX<<HXOOQO<<Ho<<HoOOQP<<HY<<HYOEYQRO<<HYOEnQRO<<HYOEuQROAN>XOEuQROAN>XOOQPAN=tAN=tOFWQROAN=tOFlQROG23sOOQPG23`G23`",
-    stateData: "F}~O]OS~OQWOSROTSOUTOVUOWPO[YOtVOR_Ps_P!Z_P![_P~OS^OT_OU`OVaOWPOR_Xs_X!Z_X![_X~OPhOtfOvfOweO{bO|cO}fORzPszP!ZzP![zP~OZjO~P!lOPoOXqOYpOtfOvlO{bO|bO}lO!UmOR!TPs!TP!Z!TP![!TP~OPiOtsOvsO{bO}sO~O|cO!XuO~P$cO|bO!UmO~P$cOuvOQhX~OiyOtxOvxO{bO|bO}xOR!YPs!YP!Z!YP![!YP~OQ{O~OR|OsyX!ZyX![yX~O!Z}O![}O~OZ!QO~P!lOP!POtsOvsO{bO}sO~O|cO!X!RO~P&vO|bO!UmO~P&vOP!TO!O!SOtlXvlX{lX|lX}lX~Ot!VOv!VO{bO|bO}!VO~OtxOvxO{bO|bO}xO~O!O!XO!P!ZORbXZbXsbX|bX!QbX!RbX!ZbX![bX!UbX~OZ!`O!Q!^O!R!]ORzXszX!ZzX![zX~O|![O~P)mOt!VOv!bO{bO|bO}!bO~O!O!XO!P!dOReXZeXseX!QeX!ReX!UbX!ZeX![eX~OP!fOt!fOv!fO{bO|bO}!fO~O!U!hO~OZ!kO!Q!iO!R!]OR!TXs!TX!Z!TX![!TX~OtfOvlO{bO|bO}lO!UmO~OP!mOY!nO~P,bOt!oOv!oO{bO|bO}!oO~O!O!XORaXsaX!ZaX![aX~O!P!qO|bX!UbX~P-cO|![O~OtfOvfO{bO|cO}fO~OP!PO~P.WOt!tOv!tO{bO|bO}!tO~O!P!vO!QaXZaX!RaX~P-cO!Q!wOR!YXs!YX!Z!YX![!YX~OP!|O~P.WO!O#QO!Q#OO~O!O!XO!P#SORbaZbasba|ba!Qba!Rba!Zba![ba!Uba~OtfOvfO{bO|bO}fO~OP#VO!O#QO~OP#WO~OP#YOweORoXsoX!QoX!ZoX![oX~P.WO!Q!^ORzasza!Zza![za~OZ#]O!R!]O~P2ROZ#]O~P2RO!O!XO!P#`OReaZeasea!Qea!Rea!Uba!Zea![ea~OtfOvlO{bO|bO}lO~OP#bOt#bOv#bO{bO|bO}#bO~O!O!XO!P#dO!W!VX~O!W#eO~OP#gOX#iOY#hORpXspX!QpX!ZpX![pX~P,bO!Q!iOR!Tas!Ta!Z!Ta![!Ta~OZ#lO!R!]O~P5[OZ#lO~P5[OZ#nO!R!]O~P5[O!O!XO!P#qORaasaa|ba!Zaa![aa!Uba~OtsOvsO{bO|bO}sO~O|![OR_is_i!Z_i![_i~O!O!XO!P#tORaasaa!Qaa!Zaa![aaZaa!Raa~Oi#uORqXsqX!QqX!ZqX![qX~P(gO!Q!wOR!Yas!Ya!Z!Ya![!Ya~O|![OR_qs_q!Z_q![_q~OP#wOv#wO!OnX!QnX~O!O#yO!Q#OO~O!O!XO!P#zORbiZbisbi|bi!Qbi!Rbi!Zbi![bi!Ubi~O!S#}O~OZ$OO!R!]ORoasoa!Qoa!Zoa![oa~O|![O~P:qO!Q!^ORziszi!Zzi![zi~OZ$RO~P;aO!O!XO!P$SOReiZeisei!Qei!Rei!Ubi!Zei![ei~O!O!XO!P$VO!W!Va~O!W$XO~OZ$YO!R!]ORpaspa!Qpa!Zpa![pa~OP$[OY$]O~P,bO!Q!iOR!Tis!Ti!Z!Ti![!Ti~OZ$_O~P=nOZ$_O!R!]O~P=nOZ$aO!R!]O~P=nO!O!XORaisai!Zai![ai~O!P$bO|bi!Ubi~P>lO!P$dO!QaiZai!Rai~P>lO!O$fO!Q#OO~OZ$gORoisoi!Qoi!Zoi![oi~O!R!]O~P?tO!Q!^ORzqszq!Zzq![zq~O!O!XO!P$kO!W!Vi~OZ$mORpispi!Qpi!Zpi![pi~O!R!]O~P@}OZ$oO!R!]ORpispi!Qpi!Zpi![pi~O!Q!iOR!Tqs!Tq!Z!Tq![!Tq~OZ$rO~PBROZ$rO!R!]O~PBROZ$uORoqsoq!Qoq!Zoq![oq~O!Q!^ORzyszy!Zzy![zy~OZ$wORpqspq!Qpq!Zpq![pq~O!R!]O~PClOZ$yO!R!]ORpqspq!Qpq!Zpq![pq~O!Q!iOR!Tys!Ty!Z!Ty![!Ty~OZ${O~PDpOZ$|ORpyspy!Qpy!Zpy![py~O!R!]O~PEYO!Q!iOR!T!Rs!T!R!Z!T!R![!T!R~OZ%PORp!Rsp!R!Qp!R!Zp!R![p!R~O!Q!iOR!T!Zs!T!Z!Z!T!Z![!T!Z~O",
-    goto: "+q!ZPPPPPPPPPPPPPPP![!`!i#h$e$x%t&[![&oP![&s&z(X)T)_)t*h*nPPPPPP*t*zPPPPPPPP+UP+[PP+kTZO}WhR^j!QR#Y!^SiTUSyW{S!P`aQ!WeQ!mpQ!svQ#o!nS#r!q!vQ#u!wQ$[#hS$c#q#tQ$p$]T$t$b$dWgR^j!Q^nSU_aq!i#iStT`Q!ruQ!}!RU#U!Z!d!qQ#X!^U#{#S#`#qV$e#z$S$bWhR^j!QQiTS!P`uQ!|!RR#Y!^S!aghQ!loQ#^!`S#m!k!mS$P#X#YQ$Z#gS$`#n#oQ$h$OS$n$Y$[Q$s$aS$x$o$pR$}$ySoS_Q!mqQ#a!dQ#g!iQ$T#`Q$[#iR$j$SQiUSoS_Q!PaQ!mqQ#g!iR$[#iTXO}SQO}R]QddR^ju!Q!R!Z!^#S#z`kS_q!d!i#`#i$S^rTU`a!q#q$bhwWepv{!n!v!w#h#t$]$dY!Udkrw!eZ!em!h#d$V$kQ!YfQ!clQ!psQ!uxQ#R!Vd#T!Y!c!p!u#R#_#c#p#s$UQ#_!bQ#c!fQ#p!oQ#s!tR$U#bQ#P!TS#x#P#|R#|#VS!_ghW#Z!_#[$Q$iS#[!`!aS$Q#]#^R$i$RQ!jo[#j!j#k$^$q$z%OU#k!k!l!mW$^#l#m#n#oU$q$_$`$aS$z$r$sR%O${Q!xyR#v!xQ!O[R!{!OQ[OR!z}QiRS!P^jR!|!QQiSR!P_Q!gmQ#f!hQ$W#dQ$l$VR$v$kQzWR!y{",
+    states: "9[OVQROOOOQP'#Cw'#CwO!QQRO'#CkO#dQRO'#CkO#kQRO'#CkO$wQRO'#CkO%RQRO'#CkOOQP'#Ct'#CtO%]QRO'#CsO%}QRO'#CsO&SQRO'#CvOOQO'#DV'#DVO&eQRO'#DVQ&sQQOOOOQP-E6u-E6uO&{QRO,59VO#kQRO,59VO'eQRO,59VO'oQRO,59VOOQP'#Cx'#CxO'yQRO'#CxO(bQRO'#CnO&SQRO'#ClO(sQTO'#CnO*PQRO'#DWO)hQRO'#DWOOQP,59V,59VO!oQRO,59VO*WQRO'#CnO*iQTO'#CnO+ZQRO'#CrO+oQQO'#CrO+tQRO'#DaO&SQRO'#DaO,qQRO'#DaO,{QRO'#CmO-oQTO'#CmO-|QQO'#CoO.dQRO,59VO.kQRO'#CmO.|QTO'#CmO/^QRO'#DfOOQP,59_,59_O%]QRO,59_OOQP,59b,59bOOQO,59q,59qOVQRO'#DOQ&sQQOOOOQP1G.q1G.qO!oQRO1G.qO/oQRO1G.qOOQP,59Z,59ZO/vQQO,59ZOOQP-E6v-E6vO0OQTO,59YOOQP,59W,59WOOQP'#Cy'#CyO0OQTO,59YO0sQRO,59YO1UQRO,59ZO1^QRO'#CpO1cQRO'#C{O1|QRO,59rO2_QRO,59rO2iQRO,59rO2pQTO,59YO2pQTO,59YO3bQRO,59YO3sQRO'#DcO4XQSO'#DcO4dQQO,59^O+ZQRO,59^O4iQRO'#C|O5VQRO,59{O5hQRO,59{O5rQRO,59{O5yQRO,59{O&SQRO,59{O6TQTO,59XO6TQTO,59XO6oQRO,59XO7QQRO1G.qO7cQTO,59XO7cQTO,59XO&SQRO,59XO8QQRO'#C}O8hQRO,5:QOOQP1G.y1G.yOOQO,59j,59jOOQO-E6|-E6|OOQP7+$]7+$]O8yQRO7+$]O9[QRO'#CzO9jQQO1G.uOOQP1G.u1G.uO9rQTO1G.tO0sQRO1G.tOOQP-E6w-E6wOOQP1G.t1G.tO9jQQO1G.uO:gQQO,59[O;TQRO,59gO:lQRO,59gOOQP-E6y-E6yO;[QRO1G/^O;[QRO1G/^O;mQRO1G/^O;tQTO1G.tO3bQRO1G.tOOQP1G.w1G.wO<fQSO,59}O<fQSO,59}O+ZQRO,59}OOQP1G.x1G.xO<qQQO1G.xO<vQRO,59hO&SQRO,59hO=_QRO,59hOOQP-E6z-E6zO=iQRO1G/gO=iQRO1G/gO=zQRO1G/gO>RQRO1G/gO>]QRO1G/gO>xQTO1G.sO6oQRO1G.sOOQP1G.s1G.sO?VQTO1G.sO&SQRO1G.sOOQP,59i,59iOOQP-E6{-E6{OOQO,59f,59fOOQO-E6x-E6xOOQP7+$a7+$aO0sQRO7+$`OOQP7+$`7+$`O?gQQO7+$aOOQP1G.v1G.vO@TQRO1G/RO?oQRO1G/RO@[QRO7+$xO@[QRO7+$xO3bQRO7+$`OOQP7+$c7+$cO@mQSO1G/iO+ZQRO1G/iOOQO1G/i1G/iOOQP7+$d7+$dOA^QRO1G/SO@xQRO1G/SOAeQRO1G/SO&SQRO1G/SOA|QRO7+%ROA|QRO7+%ROB_QRO7+%ROBfQRO7+%RO6oQRO7+$_OOQP7+$_7+$_O&SQRO7+$_OOQP<<Gz<<GzOOQP<<G{<<G{OOQP7+$m7+$mOBpQRO7+$mOCUQRO<<HdOOQP<<G}<<G}O+ZQRO7+%TOOQO7+%T7+%TOOQP7+$n7+$nOCgQRO7+$nOC{QRO7+$nODSQRO7+$nODkQRO<<HmODkQRO<<HmOD|QRO<<HmOOQP<<Gy<<GyOOQP<<HX<<HXOOQO<<Ho<<HoOOQP<<HY<<HYOETQRO<<HYOEiQRO<<HYOEpQROAN>XOEpQROAN>XOOQPAN=tAN=tOFRQROAN=tOFgQROG23sOOQPG23`G23`",
+    stateData: "Fx~O]OS~OQWOSROTSOUTOVUOWPO[ZOtVOuYOR_Ps_P!Z_P![_P~OS_OT`OUaOVbOWPOR_Xs_X!Z_X![_X~OPiOtgOvgOwfO{cO|dO}gORzPszP!ZzP![zP~OZkO~P!oOPpOXrOYqOtgOvmO{cO|cO}mO!UnOR!TPs!TP!Z!TP![!TP~OPjOttOvtO{cO}tO~O|dO!XvO~P$fO|cO!UnO~P$fOiyOtxOvxO{cO|cO}xOR!YPs!YP!Z!YP![!YP~OQ{O~OtxOvxO{cO|cO}xO~OR}OsyX!ZyX![yX~O!Z!OO![!OO~OZ!RO~P!oOP!QOttOvtO{cO}tO~O|dO!X!SO~P'SO|cO!UnO~P'SOP!UO!O!TOtlXvlX{lX|lX}lX~Ot!WOv!WO{cO|cO}!WO~O!O!YO!P![ORbXZbXsbX|bX!QbX!RbX!ZbX![bX!UbX~OZ!aO!Q!_O!R!^ORzXszX!ZzX![zX~O|!]O~P)hOt!WOv!cO{cO|cO}!cO~O!O!YO!P!eOReXZeXseX!QeX!ReX!UbX!ZeX![eX~OP!gOt!gOv!gO{cO|cO}!gO~O!U!iO~OZ!lO!Q!jO!R!^OR!TXs!TX!Z!TX![!TX~OtgOvmO{cO|cO}mO!UnO~OP!nOY!oO~P,]Ot!pOv!pO{cO|cO}!pO~O!O!YORaXsaX!ZaX![aX~O!P!rO|bX!UbX~P-^O|!]O~OtgOvgO{cO|dO}gO~OP!QO~P.ROt!tOv!tO{cO|cO}!tO~O!P!vO!QaXZaX!RaX~P-^O!Q!wOR!YXs!YX!Z!YX![!YX~OP!|O~P.RO!O#QO!Q#OO~O!O!YO!P#SORbaZbasba|ba!Qba!Rba!Zba![ba!Uba~OtgOvgO{cO|cO}gO~OP#VO!O#QO~OP#WO~OP#YOwfORoXsoX!QoX!ZoX![oX~P.RO!Q!_ORzasza!Zza![za~OZ#]O!R!^O~P1|OZ#]O~P1|O!O!YO!P#`OReaZeasea!Qea!Rea!Uba!Zea![ea~OtgOvmO{cO|cO}mO~OP#bOt#bOv#bO{cO|cO}#bO~O!O!YO!P#dO!W!VX~O!W#eO~OP#gOX#iOY#hORpXspX!QpX!ZpX![pX~P,]O!Q!jOR!Tas!Ta!Z!Ta![!Ta~OZ#lO!R!^O~P5VOZ#lO~P5VOZ#nO!R!^O~P5VO!O!YO!P#qORaasaa|ba!Zaa![aa!Uba~OttOvtO{cO|cO}tO~O|!]OR_is_i!Z_i![_i~O!O!YO!P#tORaasaa!Qaa!Zaa![aaZaa!Raa~Oi#uORqXsqX!QqX!ZqX![qX~P&SO!Q!wOR!Yas!Ya!Z!Ya![!Ya~O|!]OR_qs_q!Z_q![_q~OP#wOv#wO!OnX!QnX~O!O#yO!Q#OO~O!O!YO!P#zORbiZbisbi|bi!Qbi!Rbi!Zbi![bi!Ubi~O!S#}O~OZ$OO!R!^ORoasoa!Qoa!Zoa![oa~O|!]O~P:lO!Q!_ORziszi!Zzi![zi~OZ$RO~P;[O!O!YO!P$SOReiZeisei!Qei!Rei!Ubi!Zei![ei~O!O!YO!P$VO!W!Va~O!W$XO~OZ$YO!R!^ORpaspa!Qpa!Zpa![pa~OP$[OY$]O~P,]O!Q!jOR!Tis!Ti!Z!Ti![!Ti~OZ$_O~P=iOZ$_O!R!^O~P=iOZ$aO!R!^O~P=iO!O!YORaisai!Zai![ai~O!P$bO|bi!Ubi~P>gO!P$dO!QaiZai!Rai~P>gO!O$fO!Q#OO~OZ$gORoisoi!Qoi!Zoi![oi~O!R!^O~P?oO!Q!_ORzqszq!Zzq![zq~O!O!YO!P$kO!W!Vi~OZ$mORpispi!Qpi!Zpi![pi~O!R!^O~P@xOZ$oO!R!^ORpispi!Qpi!Zpi![pi~O!Q!jOR!Tqs!Tq!Z!Tq![!Tq~OZ$rO~PA|OZ$rO!R!^O~PA|OZ$uORoqsoq!Qoq!Zoq![oq~O!Q!_ORzyszy!Zzy![zy~OZ$wORpqspq!Qpq!Zpq![pq~O!R!^O~PCgOZ$yO!R!^ORpqspq!Qpq!Zpq![pq~O!Q!jOR!Tys!Ty!Z!Ty![!Ty~OZ${O~PDkOZ$|ORpyspy!Qpy!Zpy![py~O!R!^O~PETO!Q!jOR!T!Rs!T!R!Z!T!R![!T!R~OZ%PORp!Rsp!R!Qp!R!Zp!R![p!R~O!Q!jOR!T!Zs!T!Z!Z!T!Z![!T!Z~O",
+    goto: "+q!ZPPPPPPPPPPPPPPP![!`!i#h$e$x%t&[![&oP![&s&z(X)T)_)t*h*nPPPPPP*t*zPPPPPPPP+UP+[PP+kT[O!OWiR_k!RR#Y!_SjTUSyW{Q|YS!QabQ!XfQ!nqQ#o!oS#r!r!vQ#u!wQ$[#hS$c#q#tQ$p$]T$t$b$dWhR_k!R^oSU`br!j#iSuTaQ!svQ!}!SU#U![!e!rQ#X!_U#{#S#`#qV$e#z$S$bWiR_k!RQjTS!QavQ!|!SR#Y!_S!bhiQ!mpQ#^!aS#m!l!nS$P#X#YQ$Z#gS$`#n#oQ$h$OS$n$Y$[Q$s$aS$x$o$pR$}$ySpS`Q!nrQ#a!eQ#g!jQ$T#`Q$[#iR$j$SQjUSpS`Q!QbQ!nrQ#g!jR$[#iTXO!OSQO!OR^QdeR_kv!R!S![!_#S#z`lS`r!e!j#`#i$S^sTUab!r#q$bhwWYfq{!o!v!w#h#t$]$dY!Velsw!fZ!fn!i#d$V$kQ!ZgQ!dmQ!qtQ!uxQ#R!Wd#T!Z!d!q!u#R#_#c#p#s$UQ#_!cQ#c!gQ#p!pQ#s!tR$U#bQ#P!US#x#P#|R#|#VS!`hiW#Z!`#[$Q$iS#[!a!bS$Q#]#^R$i$RQ!kp[#j!k#k$^$q$z%OU#k!l!m!nW$^#l#m#n#oU$q$_$`$aS$z$r$sR%O${Q!xyR#v!xQ!P]R!{!PQ]OR!z!OQjRS!Q_kR!|!RQjSR!Q`Q!hnQ#f!iQ$W#dQ$l$VR$v$kQzWR!y{",
     nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound LabelDefinition Space Program InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement LabelName FullString SymbolDefinition",
     maxTerm: 58,
     skippedNodes: [0, 13],
