@@ -12378,8 +12378,10 @@
     };
   }
   var symbols = new Map();
-  function loadSymbols(table) {
+  var fileSymbols = [];
+  function loadSymbols(table, fileArr) {
     symbols = table;
+    fileSymbols = fileArr;
   }
   function queueRecomp(instr2) {
     if (!instr2.wantsRecomp)
@@ -12586,7 +12588,8 @@
     weak: 16,
     size: 17,
     type: 18,
-    section: 19
+    section: 19,
+    file: 20
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12648,6 +12651,8 @@
         return new SymSizeDirective(config2);
       case directives.type:
         return new SymTypeDirective(config2);
+      case directives.file:
+        return new FileDirective(config2);
     }
   }
   var SectionDirective = class extends Statement {
@@ -12999,6 +13004,22 @@
         symbol.type = void 0;
         symbol.visibility = void 0;
       }
+    }
+  };
+  var decoder = new TextDecoder();
+  var FileDirective = class extends Statement {
+    constructor(config2) {
+      super({ ...config2, maxSize: 0 });
+      try {
+        this.filename = decoder.decode(readString(token));
+      } catch (e) {
+        throw new ASMError("Bad string");
+      }
+      next();
+      fileSymbols.push(this.filename);
+    }
+    remove() {
+      fileSymbols.splice(fileSymbols.indexOf(this.filename), 1);
     }
   };
 
@@ -15630,8 +15651,9 @@ g nle`.split("\n");
     } = {}) {
       this.defaultSyntax = syntax;
       this.symbols = new Map();
+      this.fileSymbols = [];
       setSyntax(syntax);
-      loadSymbols(this.symbols);
+      loadSymbols(this.symbols, this.fileSymbols);
       this.sections = {
         ".text": new Section(".text"),
         ".data": new Section(".data"),
@@ -15648,7 +15670,7 @@ g nle`.split("\n");
       doSecondPass = true
     } = {}) {
       this.source = this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
-      loadSymbols(this.symbols);
+      loadSymbols(this.symbols, this.fileSymbols);
       loadSections(this.sections, replacementRange);
       let { head, tail } = this.data.getAffectedArea(replacementRange, true, source.length);
       setSyntax(head.statement ? head.statement.syntax : this.defaultSyntax);
