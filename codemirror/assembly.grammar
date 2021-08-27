@@ -13,7 +13,8 @@
   symEquals,
   VEXRound,
   number,
-  immPrefix
+  immPrefix,
+  LabelDefinition
 }
 
 @skip {Space}
@@ -72,7 +73,6 @@ Relative { (unary | '(')* (number | charString | word) ')'* (operator Relative)?
 Expression { (unary | '(')* (number | charString | word) ')'* (operator Expression)? }
 iMemExpr { (unary | '(')* (Register | number | charString | word) ')'* (operator iMemExpr)? }
 
-LabelDefinition { word ':' }
 SymbolDefinition { word symEquals Expression }
 
 commaSep<content> {

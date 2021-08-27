@@ -14,21 +14,30 @@ function next(input)
     tok = '';
     let char;
     
-    while(input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
+    while(input.next >= 0 && input.next != 10 && String.fromCharCode(input.next).match(/\s/))
         input.advance();
-    if(input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.$\w]/))
+    if(input.next >= 0 && !(char = String.fromCharCode(input.next)).match(/[.$\w]/))
     {
         tok = char;
         input.advance();
     }
     else
-        while(input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.$\w]/))
+        while(input.next >= 0 && (char = String.fromCharCode(input.next)).match(/[.$\w]/))
         {
             tok += char;
             input.advance();
         }
 
     return tok = tok.toLowerCase() || '\n';
+}
+
+/** @param {InputStream} input */
+function peekChar(input)
+{
+    let i = 0, char;
+    while((char = input.peek(i)) >= 0 && char != 10 && String.fromCharCode(char).match(/\s/))
+        i++;
+    return char ? String.fromCharCode(char) : '\n';
 }
 
 const
@@ -87,22 +96,41 @@ export const ctxTracker = initialSyntax => new ContextTracker({
 /** @param {InputStream} input */
 function tokenize(ctx, input)
 {
+    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    if(!(ctx & STATE_IN_INSTRUCTION))
+    {
+        if(peekChar(input) == ':')
+            return Terms.LabelDefinition;
+
+        if(tok == '%' && intel)
+            return isDirective('%' + next(input), true) ? Terms.Directive : null;
+        
+        if(isDirective(tok, intel))
+            return Terms.Directive;
+
+        if(intel && tok == 'offset')
+            return Terms.Offset;
+
+        if(prefixes.hasOwnProperty(tok))
+            return Terms.Prefix;
+
+        let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
+        if(mnemonics.length > 0)
+            return mnemonics[0].relative
+            ?
+                intel ? Terms.IRelOpcode : Terms.RelOpcode
+            :
+                intel ? Terms.IOpcode : Terms.Opcode;
+    }
+
     if((ctx & STATE_ALLOW_IMM) && tok[0] == '$')
     {
         input.pos -= tok.length - 1;
         return Terms.immPrefix;
     }
 
-    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
-    if(tok == '%' && (intel || prefix))
-    {
-        next(input);
-        if(prefix && isRegister(tok))
-            return Terms.Register;
-        if(intel && isDirective('%' + tok, true))
-            return Terms.Directive;
-        return null;
-    }
+    if(tok == '%' && prefix)
+        return isRegister(next(input)) ? Terms.Register : null;
 
     if(tok == (intel ? ';' : '#'))
     {
@@ -123,25 +151,6 @@ function tokenize(ctx, input)
         return Terms.VEXRound;
     }
 
-    if(!(ctx & STATE_IN_INSTRUCTION))
-    {
-        if(isDirective(tok, intel))
-            return Terms.Directive;
-
-        if(intel && tok == 'offset')
-            return Terms.Offset;
-
-        if(prefixes.hasOwnProperty(tok))
-            return Terms.Prefix;
-
-        let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
-        if(mnemonics.length > 0)
-            return mnemonics[0].relative
-            ?
-                intel ? Terms.IRelOpcode : Terms.RelOpcode
-            :
-                intel ? Terms.IOpcode : Terms.Opcode;
-    }
     if(intel && sizeHints.hasOwnProperty(tok))
     {
         let prevEnd = input.pos;

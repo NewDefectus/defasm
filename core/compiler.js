@@ -1,4 +1,4 @@
-import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange } from "./parser.js";
+import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange, ungetToken } from "./parser.js";
 import { isDirective, makeDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
@@ -113,55 +113,59 @@ export class AssemblyState
             {
                 if(token != '\n' && token != ';')
                 {
-                    let lowerTok = token.toLowerCase();
-                    let isDir = false;
-                    if(currSyntax.intel)
-                    {
-                        if(token[0] == '%')
-                        {
-                            isDir = true;
-                            lowerTok += next().toLowerCase();
-                        }
-                        else
-                            isDir = isDirective(lowerTok, true);
-                    }
+                    let name = token;
+                    next();
+                    if(token == ':') // Label definition
+                        addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
                     else
-                        isDir = token[0] == '.';
-                    
-                    if(isDir) // Assembler directive
                     {
-                        if(currSyntax.intel ?
-                            lowerTok == '%assign'
-                            :
-                            lowerTok == '.equ' || lowerTok == '.set')
+                        let isDir = false;
+                        if(currSyntax.intel)
                         {
-                            let name = next();
-                            let opcodeRange = currRange;
-                            if(!currSyntax.intel && next() !== ',')
-                                throw new ASMError("Expected ','");
-                            addInstruction(new Symbol({ addr, name, range, opcodeRange }));
+                            if(name[0] == '%')
+                            {
+                                isDir = true;
+                                name += token.toLowerCase();
+                            }
+                            else
+                                isDir = isDirective(name, true);
                         }
                         else
-                            addInstruction(makeDirective({ addr, range }, currSyntax.intel ? token : token.slice(1)));
-                    }
-                    else if(prefixes.hasOwnProperty(lowerTok)) // Prefix
-                        addInstruction(new Prefix({ addr, range, name: lowerTok }), false);
-                    else // Instruction, label or symbol
-                    {
-                        let name = token;
-                        next();
-
-                        if(token == ':') // Label definition
-                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
-                        else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                            addInstruction(new Symbol({ addr, name, range }));
-                        else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
+                            isDir = name[0] == '.';
+                        
+                        if(isDir) // Assembler directive
                         {
-                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
-                            addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+                            if(currSyntax.intel ?
+                                name == '%assign'
+                                :
+                                name.toLowerCase() == '.equ' || name.toLowerCase() == '.set')
+                            {
+                                name = next();
+                                let opcodeRange = currRange;
+                                if(!currSyntax.intel && next() !== ',')
+                                    throw new ASMError("Expected ','");
+                                addInstruction(new Symbol({ addr, name, range, opcodeRange }));
+                            }
+                            else
+                                addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name : name.slice(1)));
                         }
-                        else // Instruction
-                            addInstruction(new Instruction({ addr, opcode: name.toLowerCase(), range }));
+                        else if(prefixes.hasOwnProperty(name.toLowerCase())) // Prefix
+                        {
+                            ungetToken();
+                            addInstruction(new Prefix({ addr, range, name }), false);
+                        }
+                        else // Instruction, label or symbol
+                        {
+                            if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
+                                addInstruction(new Symbol({ addr, name, range }));
+                            else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
+                            {
+                                addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+                            }
+                            else // Instruction
+                                addInstruction(new Instruction({ addr, name, range }));
+                        }
                     }
                 }
             }

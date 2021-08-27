@@ -15,7 +15,9 @@ export const prefixes = Object.freeze({
     repnz: 0xF2,
     rep: 0xF3,
     repe: 0xF3,
-    repz: 0xF3
+    repz: 0xF3,
+    data16: 0x66,
+    addr32: 0x67
 });
 
 const SHORT_DISP = 128;
@@ -87,10 +89,10 @@ function explainNoMatch(mnemonics, operands, vexInfo)
 
 export class Instruction extends Statement
 {
-    constructor({ opcode, ...config })
+    constructor({ name, ...config })
     {
         super({ ...config, maxSize: MAX_INSTR_SIZE });
-        this.opcode = opcode;
+        this.opcode = name.toLowerCase();
         this.opcodeRange = new RelativeRange(config.range, config.range.start, config.range.length);
 
         this.interpret();
@@ -409,9 +411,9 @@ export class Instruction extends Statement
         if(prefsToGen >= PREFIX_SEG)
             this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
         if(prefsToGen & PREFIX_ADDRSIZE)
-            this.genByte(0x67);
+            this.genByte(prefixes.addr32);
         if(op.size == 16)
-            this.genByte(0x66);
+            this.genByte(prefixes.data16);
         if(op.prefix !== null)
         {
             if(op.prefix > 0xff)
@@ -589,7 +591,7 @@ export class Prefix extends Statement
     constructor({ name, ...config })
     {
         super({ ...config, maxSize: 1 });
-        this.bytes[0] = prefixes[name];
+        this.bytes[0] = prefixes[name.toLowerCase()];
         this.length = 1;
     }
 }

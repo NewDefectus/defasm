@@ -69,7 +69,7 @@ export function makeDirective(config, dir)
     dir = dir.toLowerCase();
     let dirs = currSyntax.intel ? intelDirectives : directives;
     if(!dirs.hasOwnProperty(dir))
-        throw new ASMError("Unknown directive");
+        throw new ASMError("Unknown directive", config.range);
     let dirID = dirs[dir];
     switch(dirID)
     {
@@ -91,7 +91,7 @@ export function makeDirective(config, dir)
             // Set the syntax now so we can correctly skip comments
             setSyntax({ prefix: currSyntax.prefix, intel });
             let prefix = !intel;
-            let prefSpecifier = next().toLowerCase();
+            let prefSpecifier = token.toLowerCase();
 
             if(prefSpecifier == 'prefix')
                 prefix = true;
@@ -106,7 +106,6 @@ export function makeDirective(config, dir)
         case directives.text:
         case directives.data:
         case directives.bss:
-            next();
             return new SectionDirective(config, sections['.' + dir]);
         
         case directives.globl: return new SymBindDirective(config, STB_GLOBAL);
@@ -164,7 +163,7 @@ class DataDirective extends Statement
                     this.bytes = new Uint8Array();
                     do
                     {
-                        if(next()[0] == '"')
+                        if(token[0] == '"')
                         {
                             const strBytes = readString(token, this.lineEnds);
                             const temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
@@ -175,7 +174,7 @@ class DataDirective extends Statement
                         }
                         else
                             throw new ASMError("Expected string");
-                    } while(next() == ',');
+                    } while(next() == ',' && next());
                     break;
             }
         }
@@ -197,39 +196,38 @@ class DataDirective extends Statement
         this.outline = [];
         const startAddr = this.address;
         try {
-            do
+            if(this.floatPrec)
             {
-                if(next()[0] === '"')
+                let values = [];
+                do
                 {
-                    if(acceptStrings)
-                    {
-                        const strBytes = readString(token, this.lineEnds);
-                        const temp = new Uint8Array(this.length + strBytes.length);
-                        temp.set(this.bytes);
-                        temp.set(strBytes, this.length);
-                        this.bytes = temp;
-                        this.lineEnds.offset = this.length = temp.length;
-                    }
-                    else
-                        throw new ASMError("Unexpected string");
-                    next();
-                }
-                else
-                {
-                    if(this.floatPrec)
-                    {
-                        let values = [];
-                        do
-                        {
-                            if(isNaN(next()))
-                                throw new ASMError("Expected number");
-                            values.push(token);
-                        } while(next() == ',');
+                    if(isNaN(next()))
+                        throw new ASMError("Expected number");
+                    values.push(token);
+                } while(next() == ',');
 
-                        this.bytes = new Uint8Array((
-                            this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)
-                        ).buffer);
-                        this.length = this.bytes.length;
+                this.bytes = new Uint8Array((
+                    this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)
+                ).buffer);
+                this.length = this.bytes.length;
+            }
+            else
+                do
+                {
+                    if(token[0] === '"')
+                    {
+                        if(acceptStrings)
+                        {
+                            const strBytes = readString(token, this.lineEnds);
+                            const temp = new Uint8Array(this.length + strBytes.length);
+                            temp.set(this.bytes);
+                            temp.set(strBytes, this.length);
+                            this.bytes = temp;
+                            this.lineEnds.offset = this.length = temp.length;
+                        }
+                        else
+                            throw new ASMError("Unexpected string");
+                        next();
                     }
                     else
                     {
@@ -242,8 +240,7 @@ class DataDirective extends Statement
                         this.genValue(value, this.valSize * 8);
                         this.address = startAddr + this.length;
                     }
-                }
-            } while(token === ',');
+            } while(token === ',' && next());
         }
         finally
         {
@@ -305,12 +302,12 @@ class SymBindDirective extends Statement
         this.symbols = [];
         do
         {
-            if(scanIdentifier(next()) != 'symbol')
+            if(scanIdentifier(token) != 'symbol')
                 throw new ASMError("Expected symbol name");
             let record = referenceSymbol(this, token);
             this.symbols.push(record);
             record.bind |= bind;
-        } while(next() == ',');
+        } while(next() == ',' && next());
     }
     
     recompile()
