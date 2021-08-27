@@ -2,10 +2,11 @@
 
 import fs from "fs";
 import child_process from "child_process";
-import { AssemblyState } from "@defasm/core";
+import { fileURLToPath } from "url";
 
+import { AssemblyState } from "@defasm/core";
 import { ELFHeader, ELFSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
-import { pseudoSections, Section, STT_SECTION } from "@defasm/core/sections.js";
+import { STT_SECTION } from "@defasm/core/sections.js";
 
 
 let args = process.argv.slice(2);
@@ -145,7 +146,7 @@ function assemble()
 
     let recordedSymbols = [];
     state.symbols.forEach(record => {
-        if(record.bind || record.value.section == pseudoSections.UND || record.type == STT_SECTION && record.references.length > 0)
+        if(record.type != STT_SECTION || record.references.length > 0)
             recordedSymbols.push(record);
     });
 
@@ -219,7 +220,7 @@ function assemble()
             process.exit();
         child_process.execSync(`ld ${outputFile} -o /tmp/asm`);
         const entryAddr = Number(fs.readFileSync('/tmp/asm').readBigUInt64LE(0x18));
-        let proc = child_process.execFile('./debug', ['/tmp/asm', ...runtimeArgs]);
+        let proc = child_process.execFile(fileURLToPath(new URL('./debug', import.meta.url)), ['/tmp/asm', ...runtimeArgs]);
         process.stdin.pipe(proc.stdin);
         proc.stderr.pipe(process.stderr);
         proc.stdout.pipe(process.stdout);
