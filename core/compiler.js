@@ -61,8 +61,11 @@ export class AssemblyState
 
         /** @type {Map<string, import("./symbols.js").SymbolRecord>} */
         this.symbols = new Map();
+        /** @type {string[]} */
+        this.fileSymbols = [];
+
         setSyntax(syntax);
-        loadSymbols(this.symbols);
+        loadSymbols(this.symbols, this.fileSymbols);
 
         this.sections = {
             '.text': new Section('.text'),
@@ -95,7 +98,7 @@ export class AssemblyState
             source +
             this.source.slice(replacementRange.end);
         
-        loadSymbols(this.symbols);
+        loadSymbols(this.symbols, this.fileSymbols);
         loadSections(this.sections, replacementRange);
 
         let { head, tail } = this.data.getAffectedArea(replacementRange, true, source.length);

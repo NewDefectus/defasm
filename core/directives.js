@@ -2,7 +2,7 @@ import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, se
 import { pseudoSections, Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
-import { queueRecomp, referenceSymbol } from "./symbols.js";
+import { fileSymbols, queueRecomp, referenceSymbol, symbols } from "./symbols.js";
 
 const STB_GLOBAL = 1, STB_WEAK = 2;
 
@@ -57,7 +57,8 @@ const directives = {
     weak: 16,
     size: 17,
     type: 18,
-    section: 19
+    section: 19,
+    file: 20
 };
 
 const intelDirectives = {
@@ -133,6 +134,8 @@ export function makeDirective(config, dir)
         case directives.weak:  return new SymBindDirective(config, STB_WEAK);
         case directives.size:  return new SymSizeDirective(config);
         case directives.type:  return new SymTypeDirective(config);
+
+        case directives.file:  return new FileDirective(config);
     }
 }
 
@@ -562,5 +565,29 @@ class SymTypeDirective extends SymInfo
             symbol.type = undefined;
             symbol.visibility = undefined;
         }
+    }
+}
+
+const decoder = new TextDecoder();
+class FileDirective extends Statement
+{
+    constructor(config)
+    {
+        super({ ...config, maxSize: 0 });
+        try
+        {
+            this.filename = decoder.decode(readString(token));
+        }
+        catch(e)
+        {
+            throw new ASMError("Bad string");
+        }
+        next();
+        fileSymbols.push(this.filename);
+    }
+
+    remove()
+    {
+        fileSymbols.splice(fileSymbols.indexOf(this.filename), 1);
     }
 }

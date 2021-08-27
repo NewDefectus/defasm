@@ -33,10 +33,13 @@ export var recompQueue = [];
 
 /** @type {Map<string, SymbolRecord>} */
 export var symbols = new Map();
+/** @type {string[]} */
+export var fileSymbols = [];
 
-export function loadSymbols(table)
+export function loadSymbols(table, fileArr)
 {
     symbols = table;
+    fileSymbols = fileArr;
 }
 
 export function queueRecomp(instr)

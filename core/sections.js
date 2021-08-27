@@ -42,7 +42,7 @@ export const sectionTypes = {
     'preinit_array': 0x10
 }
 
-export const STT_SECTION = 3;
+export const STT_SECTION = 3, STT_FILE = 4;
 
 export class Section
 {

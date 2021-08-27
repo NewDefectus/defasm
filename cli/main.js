@@ -6,7 +6,7 @@ import { fileURLToPath } from "url";
 
 import { AssemblyState } from "@defasm/core";
 import { ELFHeader, ELFSection, RelocationSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
-import { STT_SECTION } from "@defasm/core/sections.js";
+import { pseudoSections, STT_FILE, STT_SECTION } from "@defasm/core/sections.js";
 
 
 let args = process.argv.slice(2);
@@ -144,7 +144,19 @@ function assemble()
         }));
     }
 
+    /** @type {import("@defasm/core/symbols").SymbolRecord[]} */
     let recordedSymbols = [], symtab = null;
+    for(const fileSymbol of state.fileSymbols)
+    {
+        recordedSymbols.push({
+            type: STT_FILE,
+            bind: 0,
+            name: fileSymbol,
+            size: 0,
+            visibility: 0,
+            value: { section: pseudoSections.ABS, addend: 0n }
+        });
+    }
     state.symbols.forEach(record => {
         if(record.type != STT_SECTION)
             recordedSymbols.push(record);
