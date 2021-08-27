@@ -1,12 +1,16 @@
 import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, setToken } from "./parser.js";
-import { pseudoSections, Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
+import { Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
-import { fileSymbols, queueRecomp, referenceSymbol, symbols } from "./symbols.js";
+import { CommSymbol, fileSymbols, queueRecomp, referenceSymbol, SymbolDefinition, symbols } from "./symbols.js";
 
-const STB_LOCAL = 0, STB_GLOBAL = 1, STB_WEAK = 2;
+export const SYM_BINDS = {
+    'local': 0,
+    'global': 1,
+    'weak': 2
+};
 
-const SYM_TYPES = {
+export const SYM_TYPES = {
     'no_type': 0,
     'object': 1,
     'function': 2,
@@ -60,7 +64,8 @@ const directives = {
     hidden: 19,
     local: 20,
     section: 21,
-    file: 22
+    file: 22,
+    comm: 23
 };
 
 const intelDirectives = {
@@ -132,9 +137,9 @@ export function makeDirective(config, dir)
         case directives.bss:
             return new SectionDirective(config, sections['.' + dir]);
         
-        case directives.local: return new SymBindDirective(config, STB_LOCAL);
-        case directives.globl: return new SymBindDirective(config, STB_GLOBAL);
-        case directives.weak:  return new SymBindDirective(config, STB_WEAK);
+        case directives.local: return new SymBindDirective(config, SYM_BINDS.local);
+        case directives.globl: return new SymBindDirective(config, SYM_BINDS.global);
+        case directives.weak:  return new SymBindDirective(config, SYM_BINDS.weak);
         
         case directives.size:  return new SymSizeDirective(config);
         case directives.type:  return new SymTypeDirective(config);
@@ -142,6 +147,14 @@ export function makeDirective(config, dir)
         case directives.hidden: return new SymHiddenDirective(config)
 
         case directives.file:  return new FileDirective(config);
+
+        case directives.equ:
+            let name = token, opcodeRange = currRange;
+            if(!currSyntax.intel && next() !== ',')
+                throw new ASMError("Expected ','");
+            return new SymbolDefinition({ ...config, name, opcodeRange });
+        
+        case directives.comm: return new CommSymbol(config);
     }
 }
 
@@ -512,9 +525,7 @@ class SymSizeDirective extends SymInfo
 
     compile()
     {
-        this.value = this.expression.evaluate(this, false);
-        if(this.value.section != pseudoSections.ABS)
-            throw new ASMError("Size expression must be absolute", this.value.range);
+        this.value = this.expression.evaluate(this, false, true);
         super.compile();
     }
 

@@ -42,7 +42,7 @@ export class RelocEntry
     {
         this.offset = offset;
         this.addend = addend;
-        if(symbol.bind || symbol.value.section == pseudoSections.UND)
+        if(symbol.bind || !symbol.value.section.head)
             this.symbol = symbol;
         else
         {

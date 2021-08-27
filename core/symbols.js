@@ -1,7 +1,8 @@
 import { Expression, CurrentIP } from "./shuntingYard.js";
-import { ASMError, next } from "./parser.js";
+import { ASMError, next, token } from "./parser.js";
 import { Statement } from "./statement.js";
 import { pseudoSections } from "./sections.js";
+import { SYM_BINDS, SYM_TYPES } from "./directives.js";
 
 export var recompQueue = [];
 
@@ -18,7 +19,7 @@ export var recompQueue = [];
  * @property {number?} visibility The visibility field of the symbol in the ELF file
  * @property {import('./shuntingYard.js').IdentifierValue} value The symbol's value
  */
- function makeSymbol({ name, type = undefined, uses = [], references = [], definitions = [] } = {})
+ function makeSymbol({ name, type = undefined, bind = undefined, uses = [], references = [], definitions = [] } = {})
  {
      return {
         statement: null,
@@ -27,7 +28,8 @@ export var recompQueue = [];
         definitions,
         uses,
         value: { addend: 0n, section: pseudoSections.UND },
-        type
+        type,
+        bind
      };
  }
 
@@ -53,7 +55,7 @@ export class SymbolDefinition extends Statement
 {
     /** @type {Symbol} */
     symbol;
-    constructor({ name, opcodeRange = null, isLabel = false, type = 0, ...config })
+    constructor({ name, opcodeRange = null, isLabel = false, compile = true, type = 0, bind = 0, ...config })
     {
         if(opcodeRange === null)
             opcodeRange = config.range;
@@ -64,7 +66,7 @@ export class SymbolDefinition extends Statement
         {
             if(isLabel)
                 this.expression = new CurrentIP(this);
-            else
+            else if(compile)
             {
                 next();
                 this.expression = new Expression(this, false, uses);
@@ -90,29 +92,21 @@ export class SymbolDefinition extends Statement
             this.duplicate = false;
         }
         else
-            symbols.set(name, this.symbol = makeSymbol({ name, type, uses, definitions: [this] }));
+            symbols.set(name, this.symbol = makeSymbol({ name, type, bind, uses, definitions: [this] }));
 
-        try
+        if(compile)
         {
-            this.symbol.value = this.expression.evaluate(this, false);
-            this.symbol.statement = this;
+            this.removed = true;
+            this.compile();
             for(const ref of this.symbol.references)
                 if(!ref.removed)
                     queueRecomp(ref);
         }
-        catch(e)
-        {
-            this.removed = true;
-            this.error = e;
-        }
     }
 
-    recompile()
+    // Re-evaluate the symbol. Return true if references to the symbol should be recompiled
+    compile()
     {
-        if(this.duplicate && this.symbol.statement)
-            return;
-        this.duplicate = false;
-
         let originError = this.error;
         let originValue = this.symbol.value;
         this.error = null;
@@ -120,14 +114,25 @@ export class SymbolDefinition extends Statement
         let value;
         try
         {
-            this.symbol.value = value = this.expression.evaluate(this, false);
+            value = this.symbol.value = this.expression.evaluate(this, false);
+            this.removed = false;
+            this.symbol.statement = this;
         }
         catch(e)
         {
             this.error = e;
         }
 
-        if(!(originError && this.error) && (originValue.addend !== value.addend || originValue.section !== value.section))
+        return !(originError && this.error) && value && (originValue.addend !== value.addend
+            || originValue.section !== value.section);
+    }
+
+    recompile()
+    {
+        if(this.duplicate && this.symbol.statement)
+            return;
+        this.duplicate = false;
+        if(this.compile())
         {
             this.symbol.statement = this;
             for(const ref of this.symbol.references)
@@ -150,6 +155,63 @@ export class SymbolDefinition extends Statement
                 symbols.delete(this.name);
         }
         super.remove();
+    }
+}
+
+function getAlignment(x)
+{
+    return x <= 1n  ? 1n :
+        x <= 2n ? 2n :
+        x <= 4n ? 4n :
+        x <= 8n ? 8n : 16n;
+}
+
+export class CommSymbol extends SymbolDefinition
+{
+    constructor({ name, opcodeRange = null, ...config })
+    {
+        super({ ...config, compile: false, bind: SYM_BINDS.global, type: SYM_TYPES.object, name: token });
+        next();
+        if(token != ',')
+            throw new ASMError("Expected ','");
+        next();
+        this.sizeExpr = new Expression(this);
+        this.alignExpr = null;
+
+        if(token == ',')
+        {
+            next();
+            this.alignExpr = new Expression(this);
+        }
+        this.compile();
+    }
+
+    compile()
+    {
+        let prevErr = this.error;
+        this.error = null;
+        try
+        {
+            const sizeVal = this.sizeExpr.evaluate(this, false, true);
+            if(sizeVal.addend < 0n)
+                throw new ASMError("Size cannot be negative", sizeVal.range);
+            this.symbol.size = sizeVal.addend;
+            
+            if(this.alignExpr)
+                this.symbol.value = this.alignExpr.evaluate(this, false, true);
+            else
+            {
+                this.symbol.value = { addend: getAlignment(this.symbol.size) };
+            }
+            this.symbol.value.section = pseudoSections.COM;
+
+            return prevErr !== null;
+        }
+        catch(e)
+        {
+            this.error = e;
+            return prevErr === null;
+        }
     }
 }
 

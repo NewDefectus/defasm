@@ -18,11 +18,12 @@ export function loadSections(table, range)
 
 export const pseudoSections = {
     ABS: { name: '*ABS*', index: 0xfff1 },
-    UND: { name: '*UND*', index: 0 }
+    UND: { name: '*UND*', index: 0 },
+    COM: { name: '*COM*', index: 0xfff2 }
 };
 
 export const sectionFlags = {
-    a: 2,          // SHF_ALLOC
+    a: 2,         // SHF_ALLOC
     e: 0x8000000, // SHF_EXCLUDE
     o: 0x40,      // SHF_INFO_LINK
     w: 1,         // SHF_WRITE

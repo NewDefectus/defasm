@@ -131,6 +131,7 @@ export class AssemblyState
                             {
                                 isDir = true;
                                 name += token.toLowerCase();
+                                next();
                             }
                             else
                                 isDir = isDirective(name, true);
@@ -139,21 +140,7 @@ export class AssemblyState
                             isDir = name[0] == '.';
                         
                         if(isDir) // Assembler directive
-                        {
-                            if(currSyntax.intel ?
-                                name == '%assign'
-                                :
-                                name.toLowerCase() == '.equ' || name.toLowerCase() == '.set')
-                            {
-                                name = next();
-                                let opcodeRange = currRange;
-                                if(!currSyntax.intel && next() !== ',')
-                                    throw new ASMError("Expected ','");
-                                addInstruction(new SymbolDefinition({ addr, name, range, opcodeRange }));
-                            }
-                            else
-                                addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name : name.slice(1)));
-                        }
+                            addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name : name.slice(1)));
                         else if(prefixes.hasOwnProperty(name.toLowerCase())) // Prefix
                         {
                             ungetToken();

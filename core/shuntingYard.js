@@ -460,8 +460,9 @@ export class Expression
     /**
      * @param {Statement} instr
      * @param {boolean} allowPCRelative
+     * @param {boolean} expectAbsolute
      * @returns {IdentifierValue} */
-    evaluate(instr, allowPCRelative = true)
+    evaluate(instr, allowPCRelative = true, expectAbsolute = false)
     {
         if(this.stack.length == 0)
             return {
@@ -497,9 +498,11 @@ export class Expression
                 stack[len++] = op.getValue(instr);
         }
         if(stack.length > 1)
-            throw new ASMError("Invalid expression");
+            throw new ASMError("Invalid expression", stack[0].range);
         
         stack[0].relocatable = isRelocatable(stack[0]);
+        if(expectAbsolute && stack[0].section != pseudoSections.ABS)
+            throw new ASMError("Expected absolute expression", stack[0].range);
         return stack[0];
     }
 
@@ -550,7 +553,7 @@ export function applyValue(instr, op1, func, op2, allowPCRelative = true)
         ;
     else if(op1.pcRelative || op2.pcRelative)
         throw new ASMError("Bad operands", op1.range);
-    else if(op1.section == op2.section && op1.section != pseudoSections.UND && func == '-')
+    else if(op1.section == op2.section && op1.section != pseudoSections.UND && op1.section != pseudoSections.COM && func == '-')
     {
         op1.section = op2.section = pseudoSections.ABS;
         if(op1.symbol)
