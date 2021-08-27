@@ -137,7 +137,7 @@ function assemble()
     {
         section.index = sections.length + 1;
         sections.push(new ELFSection({
-            type: section.progbits ? 0x1 : 0x8,
+            type: section.type,
             buffer: section.head.dump(),
             flags: section.flags,
             section

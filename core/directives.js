@@ -1,5 +1,5 @@
 import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, setToken } from "./parser.js";
-import { pseudoSections, sections, STT_SECTION } from "./sections.js";
+import { pseudoSections, Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
 import { queueRecomp, referenceSymbol } from "./symbols.js";
@@ -56,7 +56,8 @@ const directives = {
     globl: 15,
     weak: 16,
     size: 17,
-    type: 18
+    type: 18,
+    section: 19
 };
 
 const intelDirectives = {
@@ -121,6 +122,8 @@ export function makeDirective(config, dir)
                 next();
             return new SyntaxDirective(config, intel, prefix);
         
+        case directives.section: return new SectionDirective(config);
+        
         case directives.text:
         case directives.data:
         case directives.bss:
@@ -135,10 +138,85 @@ export function makeDirective(config, dir)
 
 class SectionDirective extends Statement
 {
-    constructor(config, section)
+    /** @param {Section} section */
+    constructor(config, section = null)
     {
+        let flags = 0, type = 0, attribRange = null;
+        if(section === null)
+        {
+            const sectionName = token;
+            if(sectionName == ',' || sectionName == ';' || sectionName == '\n')
+                throw new ASMError("Expected section name");
+            if(sections.hasOwnProperty(sectionName))
+                section = sections[sectionName];
+            
+            if(next() == ',')
+            {
+                const flagString = readString(next());
+                attribRange = currRange;
+                flags = 0;
+                for(const byte of flagString)
+                {
+                    const char = String.fromCharCode(byte);
+                    if(!sectionFlags.hasOwnProperty(char))
+                        throw new ASMError(`Unknown flag ${char}`);
+                    flags |= sectionFlags[char];
+                }
+
+                if(next() == ',')
+                {
+                    if(next() != '@')
+                        throw new ASMError("Expected '@'");
+                    const sectionType = next();
+                    if(!sectionTypes.hasOwnProperty(sectionType))
+                        throw new ASMError("Unknown section type");
+                    type = sectionTypes[sectionType];
+                    next();
+                }
+                attribRange = attribRange.until(currRange);
+            }
+
+            if(section === null)
+                sections[sectionName] = section = new Section(sectionName);
+        }
         super({ ...config, maxSize: 0, section });
+        section.entryPoints.push(this);
         this.switchSection = true;
+        this.sectionAttributes = attribRange ? { flags, type } : null;
+        this.attribRange = attribRange;
+
+        if(this.sectionAttributes)
+            try { this.recompile(); } catch(e) { this.error = e; }
+    }
+
+    recompile()
+    {
+        this.error = null;
+        if(this.section.entryPoints.some(x => x !== this && !x.removed && !x.error && x.sectionAttributes !== null))
+            throw new ASMError("Attributes already set for this section", this.attribRange);
+        this.section.flags = this.sectionAttributes.flags;
+        this.section.type = this.sectionAttributes.type;
+    }
+
+    remove()
+    {
+        this.section.entryPoints.splice(this.section.entryPoints.indexOf(this), 1);
+        if(this.section.entryPoints.length == 0)
+        {
+            if(!this.section.persistent)
+            {
+                this.section.head.statement.remove();
+                delete sections[this.section.name];
+            }
+        }
+        else if(this.sectionAttributes !== null)
+        {
+            const otherDefinition = this.section.entryPoints.find(entry => entry.sectionAttributes !== null);
+            if(otherDefinition)
+                queueRecomp(otherDefinition);
+            else
+                this.section.flags = 0;
+        }
     }
 }
 

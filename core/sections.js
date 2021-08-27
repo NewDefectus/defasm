@@ -22,39 +22,54 @@ export const pseudoSections = {
 };
 
 export const sectionFlags = {
-    a: 2, // SHF_ALLOC
-    w: 1, // SHF_WRITE
-    x: 4, // SHF_EXECINSTR
+    a: 2,          // SHF_ALLOC
+    e: 0x8000000, // SHF_EXCLUDE
+    o: 0x40,      // SHF_INFO_LINK
+    w: 1,         // SHF_WRITE
+    x: 4,         // SHF_EXECINSTR
+    M: 0x10,      // SHF_MERGE
+    S: 0x20,      // SHF_STRINGS
+    G: 0x200,     // SHF_GROUP
+    T: 0x400,     // SHF_TLS
 };
+
+export const sectionTypes = {
+    'progbits': 0x1,
+    'nobits': 0x8,
+    'note': 0x7,
+    'init_array': 0xE,
+    'fini_array': 0xF,
+    'preinit_array': 0x10
+}
 
 export const STT_SECTION = 3;
 
 export class Section
 {
-    /**
-     * @param {string} name
-     * @param {string[]?} flags
-     * @param {boolean?} progbits */
-    constructor(name, flags = null, progbits = null)
+    /** @param {string} name */
+    constructor(name)
     {
         this.name = name;
-        this.progbits = progbits ?? (name == '.text' || name == '.data');
+        this.type = name == '.text' || name == '.data' ? sectionTypes.progbits : sectionTypes.nobits;
 
         /** @type {import('./statement.js').InstructionRange} */
         this.cursor = null;
 
+        this.persistent = name == '.text' || name == '.data' || name == '.bss';
+
         this.head = new StatementNode(new Symbol({ addr: 0, name, isLabel: true, type: STT_SECTION, section: this }));
-        this.flags = 0;
-        if(flags === null)
-            switch(name)
-            {
-                case '.text': this.flags = sectionFlags.a | sectionFlags.x; break;
-                case '.data':
-                case '.bss' : this.flags = sectionFlags.a | sectionFlags.w; break;
-            }
-        else
-            for(const flag of flags)
-                this.flags |= sectionFlags[flag];
+        this.entryPoints = [];
+
+        this.cursor = { head: this.head, prev: this.head };
+
+        switch(name)
+        {
+            case '.text': this.flags = sectionFlags.a | sectionFlags.x; break;
+            case '.data':
+            case '.bss' : this.flags = sectionFlags.a | sectionFlags.w; break;
+            case '.rodata': this.flags = sectionFlags.a; break;
+            default: this.flags = 0;
+        }
     }
 
     getRelocations()

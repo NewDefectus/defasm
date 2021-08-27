@@ -82,10 +82,11 @@ export const byteDumper = [
         '.cm-asm-dump': {
             fontStyle: "italic"
         },
-        '.cm-asm-dump [section]'        : { color: "#A66" },
-        '.cm-asm-dump [section=".text"]': { color: "#666" },
-        '.cm-asm-dump [section=".data"]': { color: "#66A" },
-        '.cm-asm-dump [section=".bss"]' : { color: "#6A6" },
+        '.cm-asm-dump [section]'          : { color: "#A66" },
+        '.cm-asm-dump [section=".text"]'  : { color: "#666" },
+        '.cm-asm-dump [section=".data"]'  : { color: "#66A" },
+        '.cm-asm-dump [section=".bss"]'   : { color: "#6A6" },
+        '.cm-asm-dump [section=".rodata"]': { color: "#AA6" },
         '&dark .cm-asm-dump': {
             color: "#aaa"
         }
