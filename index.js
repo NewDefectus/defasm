@@ -11409,7 +11409,7 @@
       if (symbol.bind || symbol.value.section == pseudoSections.UND)
         this.symbol = symbol;
       else {
-        this.symbol = symbol.value.section.head.statement.record;
+        this.symbol = symbol.value.section.head.statement.symbol;
         this.addend += symbol.value.addend;
       }
       this.type = relocTypes[(pcRelative ? functionAddr ? "PLT" : "PC" : "") + size];
@@ -12083,26 +12083,26 @@
       if (this.isIP)
         return {
           addend: BigInt(instr2.address),
-          symbol: (instr2.section.head?.statement ?? instr2).record,
+          symbol: (instr2.section.head?.statement ?? instr2).symbol,
           section: instr2.section,
           range: this.range,
           pcRelative: false
         };
-      const record = symbols.get(this.name);
-      if (record.symbol && !record.symbol.error) {
-        if (instr2.record && checkSymbolRecursion(instr2.record, record))
+      const symbol = symbols.get(this.name);
+      if (symbol.statement && !symbol.statement.error) {
+        if (instr2.symbol && checkSymbolRecursion(instr2.symbol, symbol))
           throw new ASMError(`Recursive definition`, this.range);
         return {
           addend: 0n,
-          symbol: record,
-          section: record.value.section,
+          symbol,
+          section: symbol.value.section,
           range: this.range,
           pcRelative: false
         };
       }
       return {
         addend: 0n,
-        symbol: record,
+        symbol,
         section: pseudoSections.UND,
         range: this.range,
         pcRelative: false
@@ -12221,9 +12221,9 @@
           this.ripRelative = true;
         else if (id2.name) {
           if (!id2.isIP) {
-            let record = referenceSymbol(instr2, id2.name);
+            const symbol = referenceSymbol(instr2, id2.name);
             if (uses !== null)
-              uses.push(record);
+              uses.push(symbol);
           }
           this.hasSymbols = true;
         }
@@ -12355,10 +12355,10 @@
   function isRelocatable(val) {
     return val.symbol && val.section != pseudoSections.ABS || val.pcRelative;
   }
-  function checkSymbolRecursion(origin, record) {
-    if (record === origin)
+  function checkSymbolRecursion(origin, symbol) {
+    if (symbol === origin)
       return true;
-    for (const use of record.uses)
+    for (const use of symbol.uses)
       if (use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
         return true;
     return false;
@@ -12366,9 +12366,9 @@
 
   // core/symbols.js
   var recompQueue = [];
-  function makeRecord({ name: name2, type = void 0, uses = [], references = [], definitions = [] } = {}) {
+  function makeSymbol({ name: name2, type = void 0, uses = [], references = [], definitions = [] } = {}) {
     return {
-      symbol: null,
+      statement: null,
       name: name2,
       references,
       definitions,
@@ -12388,8 +12388,8 @@
       recompQueue.push(instr2.sectionNode);
     instr2.wantsRecomp = true;
   }
-  var Symbol2 = class extends Statement {
-    record;
+  var SymbolDefinition = class extends Statement {
+    symbol;
     constructor({ name: name2, opcodeRange = null, isLabel = false, type = 0, ...config2 }) {
       if (opcodeRange === null)
         opcodeRange = config2.range;
@@ -12408,21 +12408,21 @@
         throw e;
       }
       if (symbols.has(name2)) {
-        this.record = symbols.get(name2);
-        if (this.record.symbol) {
+        this.symbol = symbols.get(name2);
+        if (this.symbol.statement) {
           this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
           this.duplicate = true;
-          this.record.references.push(this);
+          this.symbol.references.push(this);
           return;
         }
-        this.record.uses = uses;
+        this.symbol.uses = uses;
         this.duplicate = false;
       } else
-        symbols.set(name2, this.record = makeRecord({ name: name2, type, uses, definitions: [this] }));
+        symbols.set(name2, this.symbol = makeSymbol({ name: name2, type, uses, definitions: [this] }));
       try {
-        this.record.value = this.expression.evaluate(this, false);
-        this.record.symbol = this;
-        for (let ref of this.record.references)
+        this.symbol.value = this.expression.evaluate(this, false);
+        this.symbol.statement = this;
+        for (const ref of this.symbol.references)
           if (!ref.removed)
             queueRecomp(ref);
       } catch (e) {
@@ -12431,30 +12431,30 @@
       }
     }
     recompile() {
-      if (this.duplicate && this.record.symbol)
+      if (this.duplicate && this.symbol.statement)
         return;
       this.duplicate = false;
       let originError = this.error;
-      let originValue = this.record.value;
+      let originValue = this.symbol.value;
       this.error = null;
       let value;
       try {
-        this.record.value = value = this.expression.evaluate(this, false);
+        this.symbol.value = value = this.expression.evaluate(this, false);
       } catch (e) {
         this.error = e;
       }
       if (!(originError && this.error) && (originValue.addend !== value.addend || originValue.section !== value.section)) {
-        this.record.symbol = this;
-        for (const ref of this.record.references)
+        this.symbol.statement = this;
+        for (const ref of this.symbol.references)
           queueRecomp(ref);
       }
     }
     remove() {
       if (!this.duplicate) {
-        if (this.record.references.length > 0) {
-          this.record.symbol = null;
-          this.record.uses = [];
-          for (const instr2 of this.record.references)
+        if (this.symbol.references.length > 0) {
+          this.symbol.statement = null;
+          this.symbol.uses = [];
+          for (const instr2 of this.symbol.references)
             queueRecomp(instr2);
         } else
           symbols.delete(this.name);
@@ -12463,15 +12463,15 @@
     }
   };
   function referenceSymbol(instr2, name2, defining = false) {
-    let record;
+    let symbol;
     if (symbols.has(name2)) {
-      record = symbols.get(name2);
-      record.references.push(instr2);
+      symbol = symbols.get(name2);
+      symbol.references.push(instr2);
       if (defining)
-        record.definitions.push(instr2);
+        symbol.definitions.push(instr2);
     } else
-      symbols.set(name2, record = makeRecord({ name: name2, references: [instr2], definitions: defining ? [instr2] : [] }));
-    return record;
+      symbols.set(name2, symbol = makeSymbol({ name: name2, references: [instr2], definitions: defining ? [instr2] : [] }));
+    return symbol;
   }
 
   // core/sections.js
@@ -12510,7 +12510,7 @@
       this.name = name2;
       this.cursor = null;
       this.persistent = name2 == ".text" || name2 == ".data" || name2 == ".bss";
-      this.head = new StatementNode(new Symbol2({ addr: 0, name: name2, isLabel: true, type: STT_SECTION, section: this }));
+      this.head = new StatementNode(new SymbolDefinition({ addr: 0, name: name2, isLabel: true, type: STT_SECTION, section: this }));
       this.entryPoints = [];
       this.cursor = { head: this.head, prev: this.head };
       switch (name2) {
@@ -15544,7 +15544,7 @@ g nle`.split("\n");
           sizeRelative = true;
           value = applyValue(this, value, "-", {
             addend: BigInt(this.address),
-            symbol: (this.section.head.statement ?? instr).record,
+            symbol: (this.section.head.statement ?? instr).symbol,
             section: this.section,
             range: value.range,
             pcRelative: false
@@ -15720,9 +15720,9 @@ g nle`.split("\n");
             let name2 = token;
             next();
             if (token == ":")
-              addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
+              addInstruction(new SymbolDefinition({ addr, name: name2, range, isLabel: true }), false);
             else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
-              addInstruction(new Symbol2({ addr, name: name2, range }));
+              addInstruction(new SymbolDefinition({ addr, name: name2, range }));
             else {
               let isDir = false;
               if (currSyntax.intel) {
@@ -15739,14 +15739,14 @@ g nle`.split("\n");
                   let opcodeRange = currRange;
                   if (!currSyntax.intel && next() !== ",")
                     throw new ASMError("Expected ','");
-                  addInstruction(new Symbol2({ addr, name: name2, range, opcodeRange }));
+                  addInstruction(new SymbolDefinition({ addr, name: name2, range, opcodeRange }));
                 } else
                   addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name2 : name2.slice(1)));
               } else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
                 ungetToken();
                 addInstruction(new Prefix({ addr, range, name: name2 }), false);
               } else if (currSyntax.intel && isDirective(token, true)) {
-                addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
+                addInstruction(new SymbolDefinition({ addr, name: name2, range, isLabel: true }), false);
                 addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
               } else
                 addInstruction(new Instruction({ addr, name: name2, range }));
@@ -15822,10 +15822,10 @@ g nle`.split("\n");
       addr = 0;
       let node;
       loadSymbols(this.symbols);
-      symbols.forEach((record, name2) => {
-        record.references = record.references.filter((instr2) => !instr2.removed);
-        record.definitions = record.definitions.filter((instr2) => !instr2.removed);
-        if ((record.symbol === null || record.symbol.error) && record.references.length == 0 && record.definitions.length == 0)
+      symbols.forEach((symbol, name2) => {
+        symbol.references = symbol.references.filter((instr2) => !instr2.removed);
+        symbol.definitions = symbol.definitions.filter((instr2) => !instr2.removed);
+        if ((symbol.statement === null || symbol.statement.error) && symbol.references.length == 0 && symbol.definitions.length == 0)
           symbols.delete(name2);
       });
       while (node = linkedInstrQueue.shift() || recompQueue.shift()) {
