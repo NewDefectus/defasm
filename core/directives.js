@@ -1,4 +1,4 @@
-import { ASMError, token, next, setSyntax, currSyntax, currRange } from "./parser.js";
+import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, setToken } from "./parser.js";
 import { pseudoSections, sections, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
@@ -317,14 +317,24 @@ class SymInfo extends Statement
 {
     addSymbol()
     {
-        if(scanIdentifier(token, this.syntax.intel) != 'symbol')
+        let name = token;
+        next();
+        if(token != ',' && token != ';' && token != '\n')
+        {
+            ungetToken();
+            setToken(name);
             return false;
-        const symbol = referenceSymbol(this, token, true);
+        }
+        
+        if(scanIdentifier(name, this.syntax.intel) != 'symbol')
+            return false;
+        const symbol = referenceSymbol(this, name, true);
         if(symbol.type == STT_SECTION)
             throw new ASMError("Can't modify section labels");
         this.symbols.push({ range: currRange, symbol });
         return true;
     }
+
     constructor(config, name, proceedings = true)
     {
         super({ ...config, maxSize: 0 });
@@ -338,13 +348,13 @@ class SymInfo extends Statement
         
         while(true)
         {
-            if(next() != ',')
+            if(token != ',')
             {
                 if(proceedings)
                     throw new ASMError("Expected ','");
                 break;
             }
-            next();
+            next()
             if(!this.addSymbol())
                 break;
         }
