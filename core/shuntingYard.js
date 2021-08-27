@@ -459,8 +459,9 @@ export class Expression
 
     /**
      * @param {Statement} instr
+     * @param {boolean} allowPCRelative
      * @returns {IdentifierValue} */
-    evaluate(instr)
+    evaluate(instr, allowPCRelative = true)
     {
         if(this.stack.length == 0)
             return {
@@ -480,7 +481,7 @@ export class Expression
                     if(func == '+')
                         continue;
                     const val = stack[len - 1], minusRelative = val.section == instr.section && func == '-';
-                    if(val.regData || val.section != pseudoSections.ABS && !minusRelative)
+                    if(val.regData || val.section != pseudoSections.ABS && !minusRelative || minusRelative && !allowPCRelative)
                         throw new ASMError("Bad operand", val.range);
                     if(minusRelative)
                         val.pcRelative = true;
@@ -488,7 +489,7 @@ export class Expression
                 }
                 else
                 {
-                    stack[len - 2] = applyValue(instr, stack[len - 2], func, stack.pop());
+                    stack[len - 2] = applyValue(instr, stack[len - 2], func, stack.pop(), allowPCRelative);
                     len--;
                 }
             }
@@ -533,7 +534,7 @@ CurrentIP.prototype = Object.create(Expression.prototype);
  * @param {string} func
  * @param {IdentifierValue} op2
  */
-export function applyValue(instr, op1, func, op2)
+export function applyValue(instr, op1, func, op2, allowPCRelative = true)
 {
     let returnValue = op1;
     op1.range = op1.range.until(op2.range);
@@ -558,7 +559,7 @@ export function applyValue(instr, op1, func, op2)
             op2.addend += op2.symbol.value.addend;
         op1.symbol = op2.symbol = null;
     }
-    else if(!instr.record && op2.section == instr.section && func == '-')
+    else if(allowPCRelative && op2.section == instr.section && func == '-')
     {
         op1.pcRelative = true;
         if(op2.addend)

@@ -1,10 +1,26 @@
-import { ASMError, token, next, setSyntax, currSyntax } from "./parser.js";
-import { sections } from "./sections.js";
+import { ASMError, token, next, setSyntax, currSyntax, currRange } from "./parser.js";
+import { pseudoSections, sections, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
-import { referenceSymbol } from "./symbols.js";
+import { queueRecomp, referenceSymbol } from "./symbols.js";
 
 const STB_GLOBAL = 1, STB_WEAK = 2;
+
+const SYM_TYPES = {
+    'no_type': 0,
+    'object': 1,
+    'function': 2,
+    'tls_object': 6
+};
+
+const SYM_VISIBS = {
+    'internal': 1,
+    'hidden': 2,
+    'protected': 3,
+    'exported': 4,
+    'singleton': 5,
+    'eliminate': 6
+}
 
 // A directive is like a simpler instruction, except while an instruction is limited to
 // 15 bytes, a directive is infinitely flexible in size.
@@ -39,6 +55,8 @@ const directives = {
     bss: 14,
     globl: 15,
     weak: 16,
+    size: 17,
+    type: 18
 };
 
 const intelDirectives = {
@@ -110,6 +128,8 @@ export function makeDirective(config, dir)
         
         case directives.globl: return new SymBindDirective(config, STB_GLOBAL);
         case directives.weak:  return new SymBindDirective(config, STB_WEAK);
+        case directives.size:  return new SymSizeDirective(config);
+        case directives.type:  return new SymTypeDirective(config);
     }
 }
 
@@ -293,33 +313,160 @@ class DataDirective extends Statement
     }
 }
 
-class SymBindDirective extends Statement
+class SymInfo extends Statement
 {
-    constructor(config, bind)
+    addSymbol()
+    {
+        if(scanIdentifier(token, this.syntax.intel) != 'symbol')
+            return false;
+        const symbol = referenceSymbol(this, token, true);
+        if(symbol.type == STT_SECTION)
+            throw new ASMError("Can't modify section labels");
+        this.symbols.push({ range: currRange, symbol });
+        return true;
+    }
+    constructor(config, name, proceedings = true)
     {
         super({ ...config, maxSize: 0 });
-        this.symBind = bind;
         this.symbols = [];
-        do
+        if(!this.addSymbol())
+            throw new ASMError("Expected symbol name");
+        this.infoName = 'setSymbol-' + name;
+        this.errName = name;
+        this[this.infoName] = true;
+        this.removed = true;
+        
+        while(true)
         {
-            if(scanIdentifier(token) != 'symbol')
-                throw new ASMError("Expected symbol name");
-            let record = referenceSymbol(this, token);
-            this.symbols.push(record);
-            record.bind |= bind;
-        } while(next() == ',' && next());
+            if(next() != ',')
+            {
+                if(proceedings)
+                    throw new ASMError("Expected ','");
+                break;
+            }
+            next();
+            if(!this.addSymbol())
+                break;
+        }
     }
-    
+
+    compile()
+    {
+        this.removed = false;
+        for(const { symbol, range } of this.symbols)
+        {
+            if(symbol.definitions.some(x => x !== this && !x.removed && !x.error && x[this.infoName]))
+                throw new ASMError(`${this.errName} already set for this symbol`, range);
+            this.setInfo(symbol);
+        }
+    }
+
     recompile()
     {
-
+        this.error = null;
+        this.compile();
     }
 
     remove()
     {
         super.remove();
-        for(const symbol of this.symbols)
-            if(!symbol.references.some(x => !x.removed && (x.symBind & this.symBind)))
-                symbol.bind &= ~this.symBind;
+        for(const { symbol } of this.symbols) for(const def of symbol.definitions)
+            if(!def.removed && def[this.infoName])
+                queueRecomp(def);
+    }
+}
+
+class SymBindDirective extends SymInfo
+{
+    constructor(config, bind)
+    {
+        super(config, 'Binding', false);
+        this.binding = bind;
+        try { this.compile(); } catch(e) { this.error = e; }
+    }
+
+    setInfo(symbol)
+    {
+        symbol.bind = this.binding;
+    }
+    remove()
+    {
+        super.remove();
+        for(const { symbol } of this.symbols)
+            symbol.bind = undefined;
+    }
+}
+
+class SymSizeDirective extends SymInfo
+{
+    constructor(config)
+    {
+        super(config, 'Size');
+        this.expression = new Expression(this);
+        try { this.compile(); } catch(e) { this.error = e; }
+    }
+
+    compile()
+    {
+        this.value = this.expression.evaluate(this, false);
+        if(this.value.section != pseudoSections.ABS)
+            throw new ASMError("Size expression must be absolute", this.value.range);
+        super.compile();
+    }
+
+    setInfo(symbol)
+    {
+        symbol.size = this.value.addend;
+    }
+
+    remove()
+    {
+        super.remove();
+        for(const { symbol } of this.symbols)
+            symbol.size = undefined;
+    }
+}
+
+class SymTypeDirective extends SymInfo
+{
+    constructor(config)
+    {
+        super(config, 'Type');
+        this.visib = undefined;
+        if(token != '@')
+            throw new ASMError("Expected '@'");
+        let type = next().toLowerCase();
+        if(!SYM_TYPES.hasOwnProperty(type))
+            throw new ASMError("Unknown symbol type");
+        this.type = SYM_TYPES[type];
+        
+        if(next() == ',')
+        {
+            if(next() != '@')
+                throw new ASMError("Expected '@'");
+            let visib = next().toLowerCase();
+            if(!SYM_VISIBS.hasOwnProperty(visib))
+                throw new ASMError("Unknown symbol visibility");
+            this.visib = SYM_VISIBS[visib];
+            next();
+        }
+
+        try { this.compile(); } catch(e) { this.error = e; }
+    }
+
+    setInfo(symbol)
+    {
+        symbol.type = this.type;
+        symbol.visibility = this.visib;
+    }
+
+    remove()
+    {
+        super.remove();
+        for(const { symbol } of this.symbols)
+        {
+            symbol.type = undefined;
+            symbol.visibility = undefined;
+        }
     }
 }

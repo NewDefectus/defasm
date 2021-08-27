@@ -188,11 +188,12 @@ export class SymbolTable extends ELFSection
     {
         symbol.index = this.symbolCount;
 
-        buffer.writeUInt32LE(this.strtab.getIndex(symbol.name));
-        buffer.writeUInt8(symbol.type | symbol.bind << 4, 4);
-        buffer.writeUInt8(0, 5);
-        buffer.writeUInt16LE(symbol.value.section.index, 6);
-        buffer.writeBigUInt64LE(symbol.value.addend, 8);
+        buffer.writeUInt32LE(this.strtab.getIndex(symbol.name), 0x0);
+        buffer.writeUInt8((symbol.type ?? 0) | (symbol.bind ?? 0) << 4, 0x4);
+        buffer.writeUInt8(symbol.visibility ?? 0, 0x5);
+        buffer.writeUInt16LE(symbol.value.section.index, 0x6);
+        buffer.writeBigUInt64LE(symbol.value.addend, 0x8);
+        buffer.writeBigUInt64LE(BigInt(symbol.size ?? 0), 0x10);
 
         if(symbol.bind == 0)
             this.header.sh_info = this.symbolCount + 1;

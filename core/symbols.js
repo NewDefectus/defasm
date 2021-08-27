@@ -10,11 +10,26 @@ export var recompQueue = [];
  * @property {Symbol?} symbol The symbol instruction this record belongs to, if it exists
  * @property {string} name The symbol's name
  * @property {Statement[]} references List of instructions that reference this symbol
+ * @property {Statement[]} definitions List of instructions define or give attributes to this symbol
  * @property {SymbolRecord[]} uses List of records of symbols used in this symbol's definition
- * @property {number} type The type field of the symbol in the ELF file
- * @property {number} bind The bind field of the symbol in the ELF file
+ * @property {number?} type The type field of the symbol in the ELF file
+ * @property {number?} bind The bind field of the symbol in the ELF file
+ * @property {number?} size The size field of the symbol in the ELF file
+ * @property {number?} visibility The visibility field of the symbol in the ELF file
  * @property {import('./shuntingYard.js').IdentifierValue} value The symbol's value
  */
+ function makeRecord({ name, type = undefined, uses = [], references = [], definitions = [] } = {})
+ {
+     return {
+        symbol: null,
+        name,
+        references,
+        definitions,
+        uses,
+        value: { addend: 0n, section: pseudoSections.UND },
+        type
+     };
+ }
 
 /** @type {Map<string, SymbolRecord>} */
 export var symbols = new Map();
@@ -72,18 +87,11 @@ export class Symbol extends Statement
             this.duplicate = false;
         }
         else
-            symbols.set(name, this.record = {
-                symbol: null,
-                name,
-                references: [],
-                uses,
-                type,
-                bind: 0
-            });
+            symbols.set(name, this.record = makeRecord({ name, type, uses, definitions: [this] }));
 
         try
         {
-            this.record.value = this.expression.evaluate(this);
+            this.record.value = this.expression.evaluate(this, false);
             this.record.symbol = this;
             for(let ref of this.record.references)
                 if(!ref.removed)
@@ -109,7 +117,7 @@ export class Symbol extends Statement
         let value;
         try
         {
-            this.record.value = value = this.expression.evaluate(this);
+            this.record.value = value = this.expression.evaluate(this, false);
         }
         catch(e)
         {
@@ -142,23 +150,17 @@ export class Symbol extends Statement
     }
 }
 
-export function referenceSymbol(instr, name)
+export function referenceSymbol(instr, name, defining = false)
 {
     let record;
     if(symbols.has(name))
     {
         record = symbols.get(name);
         record.references.push(instr);
+        if(defining)
+            record.definitions.push(instr);
     }
     else
-        symbols.set(name, record = {
-            symbol: null,
-            name: name,
-            references: [instr],
-            uses: [],
-            type: 0,
-            value: { addend: 0n, section: pseudoSections.UND },
-            bind: 0
-        });
+        symbols.set(name, record = makeRecord({ name, references: [instr], definitions: defining ? [instr] : [] }));
     return record;
 }

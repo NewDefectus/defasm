@@ -32,12 +32,21 @@ function next(input)
 }
 
 /** @param {InputStream} input */
-function peekChar(input)
+function peekNext(input)
 {
     let i = 0, char;
     while((char = input.peek(i)) >= 0 && char != 10 && String.fromCharCode(char).match(/\s/))
         i++;
-    return char ? String.fromCharCode(char) : '\n';
+    if((char = input.peek(i)) >= 0 && !(char = String.fromCharCode(char)).match(/[.$\w]/))
+        return char;
+    
+    let result = '';
+    while((char = input.peek(i)) >= 0 && (char = String.fromCharCode(char)).match(/[.$\w]/))
+    {
+        result += char;
+        i++;
+    }
+    return result.toLowerCase() || '\n';
 }
 
 const
@@ -52,7 +61,9 @@ export const ctxTracker = initialSyntax => new ContextTracker({
     shift: (ctx, term, stack, input) => {
         if(term == Terms.Opcode)
             ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
-        else if(term == Terms.RelOpcode || term == Terms.IOpcode || term == Terms.IRelOpcode)
+        else if(term == Terms.RelOpcode || term == Terms.IOpcode
+            || term == Terms.IRelOpcode || term == Terms.symEquals
+            || term == Terms.Directive)
             ctx |= STATE_IN_INSTRUCTION;
         else if((ctx & STATE_IN_INSTRUCTION) && term != Terms.Space)
         {
@@ -97,10 +108,24 @@ export const ctxTracker = initialSyntax => new ContextTracker({
 function tokenize(ctx, input)
 {
     const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    if(tok == (intel ? ';' : '#'))
+    {
+        while(input.next >= 0 && input.next != '\n'.charCodeAt(0))
+            input.advance();
+        return Terms.Comment;
+    }
+
     if(!(ctx & STATE_IN_INSTRUCTION))
     {
-        if(peekChar(input) == ':')
+        const nextTok = peekNext(input);
+        if(nextTok == ':')
             return Terms.LabelDefinition;
+        
+        if(nextTok == '=' || intel && nextTok == 'equ')
+        {
+            next(input);
+            return Terms.symEquals;
+        }
 
         if(tok == '%' && intel)
             return isDirective('%' + next(input), true) ? Terms.Directive : null;
@@ -121,8 +146,8 @@ function tokenize(ctx, input)
                 intel ? Terms.IRelOpcode : Terms.RelOpcode
             :
                 intel ? Terms.IOpcode : Terms.Opcode;
+        return null;
     }
-
     if((ctx & STATE_ALLOW_IMM) && tok[0] == '$')
     {
         input.pos -= tok.length - 1;
@@ -131,16 +156,6 @@ function tokenize(ctx, input)
 
     if(tok == '%' && prefix)
         return isRegister(next(input)) ? Terms.Register : null;
-
-    if(tok == (intel ? ';' : '#'))
-    {
-        while(input.next >= 0 && input.next != '\n'.charCodeAt(0))
-            input.advance();
-        return Terms.Comment;
-    }
-
-    if(tok == '=' || intel && tok == 'equ')
-        return Terms.symEquals;
     
     if(tok == '{')
     {
@@ -150,7 +165,7 @@ function tokenize(ctx, input)
             next(input);
         return Terms.VEXRound;
     }
-
+    
     if(intel && sizeHints.hasOwnProperty(tok))
     {
         let prevEnd = input.pos;

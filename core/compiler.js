@@ -117,6 +117,8 @@ export class AssemblyState
                     next();
                     if(token == ':') // Label definition
                         addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                    else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
+                        addInstruction(new Symbol({ addr, name, range }));
                     else
                     {
                         let isDir = false;
@@ -154,18 +156,13 @@ export class AssemblyState
                             ungetToken();
                             addInstruction(new Prefix({ addr, range, name }), false);
                         }
-                        else // Instruction, label or symbol
+                        else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                                addInstruction(new Symbol({ addr, name, range }));
-                            else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
-                            {
-                                addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
-                                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
-                            }
-                            else // Instruction
-                                addInstruction(new Instruction({ addr, name, range }));
+                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                            addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
                         }
+                        else // Instruction
+                            addInstruction(new Instruction({ addr, name, range }));
                     }
                 }
             }
@@ -269,7 +266,8 @@ export class AssemblyState
 
         symbols.forEach((record, name) => {
             record.references = record.references.filter(instr => !instr.removed);
-            if((record.symbol === null || record.symbol.error) && record.references.length == 0)
+            record.definitions = record.definitions.filter(instr => !instr.removed);
+            if((record.symbol === null || record.symbol.error) && record.references.length == 0 && record.definitions.length == 0)
                 symbols.delete(name);
         });
 
@@ -308,10 +306,8 @@ export class AssemblyState
         }
 
         // Error collection
-        let lastInstr = null;
         this.errors = [];
         this.iterate((instr, line) => {
-            lastInstr = instr;
             if(instr.outline && instr.outline.operands)
                 for(let op of instr.outline.operands)
                     op.attemptedSizes = op.attemptedUnsignedSizes = 0;

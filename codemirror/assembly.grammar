@@ -73,7 +73,7 @@ Relative { (unary | '(')* (number | charString | word) ')'* (operator Relative)?
 Expression { (unary | '(')* (number | charString | word) ')'* (operator Expression)? }
 iMemExpr { (unary | '(')* (Register | number | charString | word) ')'* (operator iMemExpr)? }
 
-SymbolDefinition { word symEquals Expression }
+SymbolDefinition { symEquals Expression }
 
 commaSep<content> {
   "" | content (',' content?)*
