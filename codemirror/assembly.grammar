@@ -14,7 +14,8 @@
   VEXRound,
   number,
   immPrefix,
-  LabelDefinition
+  LabelDefinition,
+  SpecialWord
 }
 
 @skip {Space}
@@ -51,7 +52,7 @@ InstructionStatement {
 }
 
 DirectiveStatement {
-  LabelName { word }? Directive commaSep<Expression | FullString>
+  LabelName { word }? Directive commaSep<Expression | FullString | SpecialWord>
 }
 
 Immediate {

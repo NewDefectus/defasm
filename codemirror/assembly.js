@@ -32,7 +32,8 @@ const assemblyLang = LRLanguage.define({
                 VEXRound: tags.modifier,
                 VEXMask: tags.modifier,
                 Offset: tags.emphasis,
-                Ptr: tags.emphasis
+                Ptr: tags.emphasis,
+                SpecialWord: tags.annotation
             })
         ]
     })

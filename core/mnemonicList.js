@@ -609,6 +609,9 @@ F3)0F10 ^Vx >V V {kz
 F3)0F10 m Vx > {kz
 F3)0F11 Vx m > {k
 
+movsbw/:0FBE rB Rw
+movsbl/:0FBE rB Rl
+movswl/:0FBF rW Rl
 movsx:0FBE rb$w Rwlq
 movsxd:63 rL Rwlq
 
@@ -620,6 +623,9 @@ movups
 0F10 v Vxyz > {kz
 0F11 Vxyz v > {kz
 
+movzbw/:0FB6 rB Rw
+movzbl/:0FB6 rB Rl
+movzwl/:0FB7 rW Rl
 movzx:0FB6 rb$w Rwlq
 mpsadbw:66)0F3A42 ib v >V Vxy
 mul:F6.4 rbwlq

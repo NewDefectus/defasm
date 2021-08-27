@@ -154,6 +154,12 @@ function tokenize(ctx, input)
         return Terms.immPrefix;
     }
 
+    if(tok == '@')
+    {
+        next(input);
+        return Terms.SpecialWord;
+    }
+
     if(tok == '%' && prefix)
         return isRegister(next(input)) ? Terms.Register : null;
     
