@@ -12508,7 +12508,6 @@
   var Section = class {
     constructor(name2) {
       this.name = name2;
-      this.type = name2 == ".text" || name2 == ".data" ? sectionTypes.progbits : sectionTypes.nobits;
       this.cursor = null;
       this.persistent = name2 == ".text" || name2 == ".data" || name2 == ".bss";
       this.head = new StatementNode(new Symbol2({ addr: 0, name: name2, isLabel: true, type: STT_SECTION, section: this }));
@@ -12518,15 +12517,25 @@
         case ".text":
           this.flags = sectionFlags.a | sectionFlags.x;
           break;
+        case ".rodata":
+          this.flags = sectionFlags.a;
+          break;
         case ".data":
         case ".bss":
           this.flags = sectionFlags.a | sectionFlags.w;
           break;
-        case ".rodata":
-          this.flags = sectionFlags.a;
-          break;
         default:
           this.flags = 0;
+      }
+      switch (name2) {
+        case ".notes":
+          this.type = sectionTypes.note;
+          break;
+        case ".bss":
+          this.type = sectionTypes.nobits;
+          break;
+        default:
+          this.type = sectionTypes.progbits;
       }
     }
     getRelocations() {
@@ -12541,6 +12550,7 @@
   };
 
   // core/directives.js
+  var STB_LOCAL = 0;
   var STB_GLOBAL = 1;
   var STB_WEAK = 2;
   var SYM_TYPES = {
@@ -12588,8 +12598,10 @@
     weak: 16,
     size: 17,
     type: 18,
-    section: 19,
-    file: 20
+    hidden: 19,
+    local: 20,
+    section: 21,
+    file: 22
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12643,6 +12655,8 @@
       case directives.data:
       case directives.bss:
         return new SectionDirective(config2, sections["." + dir]);
+      case directives.local:
+        return new SymBindDirective(config2, STB_LOCAL);
       case directives.globl:
         return new SymBindDirective(config2, STB_GLOBAL);
       case directives.weak:
@@ -12651,13 +12665,15 @@
         return new SymSizeDirective(config2);
       case directives.type:
         return new SymTypeDirective(config2);
+      case directives.hidden:
+        return new SymHiddenDirective(config2);
       case directives.file:
         return new FileDirective(config2);
     }
   }
   var SectionDirective = class extends Statement {
     constructor(config2, section = null) {
-      let flags = 0, type = 0, attribRange = null;
+      let flags = 0, type = sectionTypes.progbits, attribRange = null;
       if (section === null) {
         let sectionName = "";
         while (token != "," && token != ";" && token != "\n") {
@@ -12870,7 +12886,7 @@
   };
   var SymInfo = class extends Statement {
     addSymbol() {
-      let name2 = token;
+      let name2 = token, range = currRange;
       next();
       if (token != "," && token != ";" && token != "\n") {
         ungetToken();
@@ -12882,7 +12898,7 @@
       const symbol = referenceSymbol(this, name2, true);
       if (symbol.type == STT_SECTION)
         throw new ASMError("Can't modify section labels");
-      this.symbols.push({ range: currRange, symbol });
+      this.symbols.push({ range, symbol });
       return true;
     }
     constructor(config2, name2, proceedings = true) {
@@ -12890,9 +12906,8 @@
       this.symbols = [];
       if (!this.addSymbol())
         throw new ASMError("Expected symbol name");
-      this.infoName = "setSymbol-" + name2;
-      this.errName = name2;
-      this[this.infoName] = true;
+      this.infoName = name2;
+      this.setting = [name2];
       this.removed = true;
       while (true) {
         if (token != ",") {
@@ -12908,8 +12923,9 @@
     compile() {
       this.removed = false;
       for (const { symbol, range } of this.symbols) {
-        if (symbol.definitions.some((x) => x !== this && !x.removed && !x.error && x[this.infoName]))
-          throw new ASMError(`${this.errName} already set for this symbol`, range);
+        for (const info of this.setting)
+          if (symbol.definitions.some((x) => x !== this && !x.removed && !x.error && x.setting?.includes(info)))
+            throw new ASMError(`${this.infoName} already set for this symbol`, range);
         this.setInfo(symbol);
       }
     }
@@ -12919,10 +12935,11 @@
     }
     remove() {
       super.remove();
-      for (const { symbol } of this.symbols)
-        for (const def of symbol.definitions)
-          if (!def.removed && def[this.infoName])
-            queueRecomp(def);
+      for (const info of this.setting)
+        for (const { symbol } of this.symbols)
+          for (const def of symbol.definitions)
+            if (!def.removed && def.setting?.includes(info))
+              queueRecomp(def);
     }
   };
   var SymBindDirective = class extends SymInfo {
@@ -12980,6 +12997,7 @@
         throw new ASMError("Unknown symbol type");
       this.type = SYM_TYPES[type];
       if (next() == ",") {
+        this.setting.push("Visibility");
         if (next() != "@")
           throw new ASMError("Expected '@'");
         let visib = next().toLowerCase();
@@ -13004,6 +13022,24 @@
         symbol.type = void 0;
         symbol.visibility = void 0;
       }
+    }
+  };
+  var SymHiddenDirective = class extends SymInfo {
+    constructor(config2) {
+      super(config2, "Visibility", false);
+      try {
+        this.compile();
+      } catch (e) {
+        this.error = e;
+      }
+    }
+    setInfo(symbol) {
+      symbol.visibility = SYM_VISIBS.hidden;
+    }
+    remove() {
+      super.remove();
+      for (const { symbol } of this.symbols)
+        symbol.visibility = void 0;
     }
   };
   var decoder = new TextDecoder();
