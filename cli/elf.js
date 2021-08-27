@@ -195,7 +195,7 @@ export class SymbolTable extends ELFSection
         buffer.writeBigUInt64LE(symbol.value.addend, 0x8);
         buffer.writeBigUInt64LE(BigInt(symbol.size ?? 0), 0x10);
 
-        if(symbol.bind == 0)
+        if(!symbol.bind)
             this.header.sh_info = this.symbolCount + 1;
         
         this.symbolCount++;

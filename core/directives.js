@@ -4,7 +4,7 @@ import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingY
 import { Statement } from "./statement.js";
 import { fileSymbols, queueRecomp, referenceSymbol, symbols } from "./symbols.js";
 
-const STB_GLOBAL = 1, STB_WEAK = 2;
+const STB_LOCAL = 0, STB_GLOBAL = 1, STB_WEAK = 2;
 
 const SYM_TYPES = {
     'no_type': 0,
@@ -57,8 +57,10 @@ const directives = {
     weak: 16,
     size: 17,
     type: 18,
-    section: 19,
-    file: 20
+    hidden: 19,
+    local: 20,
+    section: 21,
+    file: 22
 };
 
 const intelDirectives = {
@@ -130,10 +132,14 @@ export function makeDirective(config, dir)
         case directives.bss:
             return new SectionDirective(config, sections['.' + dir]);
         
+        case directives.local: return new SymBindDirective(config, STB_LOCAL);
         case directives.globl: return new SymBindDirective(config, STB_GLOBAL);
         case directives.weak:  return new SymBindDirective(config, STB_WEAK);
+        
         case directives.size:  return new SymSizeDirective(config);
         case directives.type:  return new SymTypeDirective(config);
+
+        case directives.hidden: return new SymHiddenDirective(config)
 
         case directives.file:  return new FileDirective(config);
     }
@@ -144,7 +150,7 @@ class SectionDirective extends Statement
     /** @param {Section} section */
     constructor(config, section = null)
     {
-        let flags = 0, type = 0, attribRange = null;
+        let flags = 0, type = sectionTypes.progbits, attribRange = null;
         if(section === null)
         {
             let sectionName = '';
@@ -404,7 +410,7 @@ class SymInfo extends Statement
 {
     addSymbol()
     {
-        let name = token;
+        let name = token, range = currRange;
         next();
         if(token != ',' && token != ';' && token != '\n')
         {
@@ -418,7 +424,7 @@ class SymInfo extends Statement
         const symbol = referenceSymbol(this, name, true);
         if(symbol.type == STT_SECTION)
             throw new ASMError("Can't modify section labels");
-        this.symbols.push({ range: currRange, symbol });
+        this.symbols.push({ range, symbol });
         return true;
     }
 
@@ -428,9 +434,8 @@ class SymInfo extends Statement
         this.symbols = [];
         if(!this.addSymbol())
             throw new ASMError("Expected symbol name");
-        this.infoName = 'setSymbol-' + name;
-        this.errName = name;
-        this[this.infoName] = true;
+        this.infoName = name;
+        this.setting = [name];
         this.removed = true;
         
         while(true)
@@ -452,8 +457,9 @@ class SymInfo extends Statement
         this.removed = false;
         for(const { symbol, range } of this.symbols)
         {
-            if(symbol.definitions.some(x => x !== this && !x.removed && !x.error && x[this.infoName]))
-                throw new ASMError(`${this.errName} already set for this symbol`, range);
+            for(const info of this.setting)
+                if(symbol.definitions.some(x => x !== this && !x.removed && !x.error && x.setting?.includes(info)))
+                    throw new ASMError(`${this.infoName} already set for this symbol`, range);
             this.setInfo(symbol);
         }
     }
@@ -467,9 +473,10 @@ class SymInfo extends Statement
     remove()
     {
         super.remove();
-        for(const { symbol } of this.symbols) for(const def of symbol.definitions)
-            if(!def.removed && def[this.infoName])
-                queueRecomp(def);
+        for(const info of this.setting)
+            for(const { symbol } of this.symbols) for(const def of symbol.definitions)
+                if(!def.removed && def.setting?.includes(info))
+                    queueRecomp(def);
     }
 }
 
@@ -539,6 +546,7 @@ class SymTypeDirective extends SymInfo
         
         if(next() == ',')
         {
+            this.setting.push('Visibility');
             if(next() != '@')
                 throw new ASMError("Expected '@'");
             let visib = next().toLowerCase();
@@ -565,6 +573,26 @@ class SymTypeDirective extends SymInfo
             symbol.type = undefined;
             symbol.visibility = undefined;
         }
+    }
+}
+
+class SymHiddenDirective extends SymInfo
+{
+    constructor(config)
+    {
+        super(config, 'Visibility', false);
+        try { this.compile(); } catch(e) { this.error = e; }
+    }
+
+    setInfo(symbol)
+    {
+        symbol.visibility = SYM_VISIBS.hidden;
+    }
+    remove()
+    {
+        super.remove();
+        for(const { symbol } of this.symbols)
+            symbol.visibility = undefined;
     }
 }
 

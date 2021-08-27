@@ -50,7 +50,6 @@ export class Section
     constructor(name)
     {
         this.name = name;
-        this.type = name == '.text' || name == '.data' ? sectionTypes.progbits : sectionTypes.nobits;
 
         /** @type {import('./statement.js').InstructionRange} */
         this.cursor = null;
@@ -65,10 +64,18 @@ export class Section
         switch(name)
         {
             case '.text': this.flags = sectionFlags.a | sectionFlags.x; break;
-            case '.data':
-            case '.bss' : this.flags = sectionFlags.a | sectionFlags.w; break;
             case '.rodata': this.flags = sectionFlags.a; break;
+            case '.data':
+            case '.bss' :
+                this.flags = sectionFlags.a | sectionFlags.w; break;
             default: this.flags = 0;
+        }
+
+        switch(name)
+        {
+            case '.notes': this.type = sectionTypes.note; break;
+            case '.bss'  : this.type = sectionTypes.nobits; break;
+            default: this.type = sectionTypes.progbits;
         }
     }
 
