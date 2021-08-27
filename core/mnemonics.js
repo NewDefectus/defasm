@@ -638,7 +638,7 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
         if(
             // Check that the types match
             operand.type != catcher.type &&
-            !((operand.type == OPT.MEM || operand.type == OPT.REL) && catcher.acceptsMemory)
+            !(operand.type == OPT.MEM && catcher.acceptsMemory)
             ||
             // In case of implicit operands, check that the values match
             catcher.implicitValue !== null &&

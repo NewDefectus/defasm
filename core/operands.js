@@ -367,8 +367,6 @@ export function Operand(instr, expectRelative = false)
                     else if(this.reg == 4)
                         this.reg2 = 4;
                     
-                    if((this.reg & 7) == 5)
-                        this.value.addend = this.value.addend || 0n; 
                     if(token != ')')
                         throw new ASMError("Expected ')'");
                     next();
@@ -405,23 +403,23 @@ Operand.prototype.recordSizeUse = function(size, unsigned = false)
 Operand.prototype.evaluate = function(instr, intelMemory = false)
 {
     this.value = this.expression.evaluate(instr);
-    if(!intelMemory)
-        return;
-    
-    this.prefs = 0;
-    let { regBase = null, regIndex = null, shift = 1 } = this.value.regData ?? {};
-    if(regBase)
-        this.reg = regBase.reg;
-    if(regIndex)
-        this.reg2 = regIndex.reg;
-    if(regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
-        this.prefs |= PREFIX_ADDRSIZE;
-    this.shift = [1, 2, 4, 8].indexOf(shift);
-    if(this.shift < 0)
-        throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
+    if(intelMemory)
+    {
+        this.prefs = 0;
+        let { regBase = null, regIndex = null, shift = 1 } = this.value.regData ?? {};
+        if(regBase)
+            this.reg = regBase.reg;
+        if(regIndex)
+            this.reg2 = regIndex.reg;
+        if(regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
+            this.prefs |= PREFIX_ADDRSIZE;
+        this.shift = [1, 2, 4, 8].indexOf(shift);
+        if(this.shift < 0)
+            throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
 
-    if(this.ripRelative && regIndex)
-        throw new ASMError(`Can't use another register with ${nameRegister('ip', regBase.size, instr.syntax)}`, this.value.range);
+        if(this.ripRelative && regIndex)
+            throw new ASMError(`Can't use another register with ${nameRegister('ip', regBase.size, instr.syntax)}`, this.value.range);
+    }
 
     if((this.reg & 7) == 5)
         this.value.addend = this.value.addend || 0n;

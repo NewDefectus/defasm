@@ -492,7 +492,7 @@ export class Instruction extends Statement
         }
 
         // Encoding the "mod" (modifier) field
-        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM && rm.type !== OPT.REL)
+        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM)
             modrm |= 0xC0; // mod=11
         else if(rmReg >= 0)
         {
