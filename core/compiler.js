@@ -1,7 +1,7 @@
 import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange, ungetToken } from "./parser.js";
 import { isDirective, makeDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
-import { Symbol, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
+import { SymbolDefinition, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
 import { Statement, StatementNode } from "./statement.js";
 import { loadSections, Section, sections } from "./sections.js";
 
@@ -59,7 +59,7 @@ export class AssemblyState
     {
         this.defaultSyntax = syntax;
 
-        /** @type {Map<string, import("./symbols.js").SymbolRecord>} */
+        /** @type {Map<string, import("./symbols.js").Symbol>} */
         this.symbols = new Map();
         /** @type {string[]} */
         this.fileSymbols = [];
@@ -119,9 +119,9 @@ export class AssemblyState
                     let name = token;
                     next();
                     if(token == ':') // Label definition
-                        addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                        addInstruction(new SymbolDefinition({ addr, name, range, isLabel: true }), false);
                     else if(token == '=' || currSyntax.intel && token.toLowerCase() == 'equ') // Symbol definition
-                        addInstruction(new Symbol({ addr, name, range }));
+                        addInstruction(new SymbolDefinition({ addr, name, range }));
                     else
                     {
                         let isDir = false;
@@ -149,7 +149,7 @@ export class AssemblyState
                                 let opcodeRange = currRange;
                                 if(!currSyntax.intel && next() !== ',')
                                     throw new ASMError("Expected ','");
-                                addInstruction(new Symbol({ addr, name, range, opcodeRange }));
+                                addInstruction(new SymbolDefinition({ addr, name, range, opcodeRange }));
                             }
                             else
                                 addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name : name.slice(1)));
@@ -161,7 +161,7 @@ export class AssemblyState
                         }
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
-                            addInstruction(new Symbol({ addr, name, range, isLabel: true }), false);
+                            addInstruction(new SymbolDefinition({ addr, name, range, isLabel: true }), false);
                             addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
                         }
                         else // Instruction
@@ -267,10 +267,10 @@ export class AssemblyState
         let node;
         loadSymbols(this.symbols);
 
-        symbols.forEach((record, name) => {
-            record.references = record.references.filter(instr => !instr.removed);
-            record.definitions = record.definitions.filter(instr => !instr.removed);
-            if((record.symbol === null || record.symbol.error) && record.references.length == 0 && record.definitions.length == 0)
+        symbols.forEach((symbol, name) => {
+            symbol.references = symbol.references.filter(instr => !instr.removed);
+            symbol.definitions = symbol.definitions.filter(instr => !instr.removed);
+            if((symbol.statement === null || symbol.statement.error) && symbol.references.length == 0 && symbol.definitions.length == 0)
                 symbols.delete(name);
         });
 

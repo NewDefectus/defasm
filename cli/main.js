@@ -144,7 +144,7 @@ function assemble()
         }));
     }
 
-    /** @type {import("@defasm/core/symbols").SymbolRecord[]} */
+    /** @type {import("@defasm/core/symbols").Symbol[]} */
     let recordedSymbols = [], symtab = null;
     for(const fileSymbol of state.fileSymbols)
     {
@@ -157,9 +157,9 @@ function assemble()
             value: { section: pseudoSections.ABS, addend: 0n }
         });
     }
-    state.symbols.forEach(record => {
-        if(record.type != STT_SECTION)
-            recordedSymbols.push(record);
+    state.symbols.forEach(symbol => {
+        if(symbol.type != STT_SECTION)
+            recordedSymbols.push(symbol);
     });
 
     if(recordedSymbols.length > 0)

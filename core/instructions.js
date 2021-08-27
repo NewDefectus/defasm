@@ -447,7 +447,7 @@ export class Instruction extends Statement
                 sizeRelative = true;
                 value = applyValue(this, value, '-', {
                     addend: BigInt(this.address),
-                    symbol: (this.section.head.statement ?? instr).record,
+                    symbol: (this.section.head.statement ?? instr).symbol,
                     section: this.section,
                     range: value.range,
                     pcRelative: false

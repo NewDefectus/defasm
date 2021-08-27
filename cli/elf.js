@@ -173,7 +173,7 @@ export class StringTable extends ELFSection
 export class SymbolTable extends ELFSection
 {
     /**
-     * @param {import("@defasm/core/symbols").SymbolRecord[]} symbols
+     * @param {import("@defasm/core/symbols").Symbol[]} symbols
      * @param {StringTable} strtab */
     constructor(config, symbols, strtab)
     {

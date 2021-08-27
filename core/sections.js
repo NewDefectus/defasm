@@ -1,7 +1,7 @@
 import { Range } from "./parser.js";
 import { RelocEntry } from "./relocations.js";
 import { StatementNode } from "./statement.js";
-import { Symbol } from "./symbols.js";
+import { SymbolDefinition } from "./symbols.js";
 
 /** @type {Object.<string, Section>} */
 export var sections = null;
@@ -56,7 +56,7 @@ export class Section
 
         this.persistent = name == '.text' || name == '.data' || name == '.bss';
 
-        this.head = new StatementNode(new Symbol({ addr: 0, name, isLabel: true, type: STT_SECTION, section: this }));
+        this.head = new StatementNode(new SymbolDefinition({ addr: 0, name, isLabel: true, type: STT_SECTION, section: this }));
         this.entryPoints = [];
 
         this.cursor = { head: this.head, prev: this.head };

@@ -197,7 +197,7 @@ function parseIdentifier(instr)
 /**
  * @typedef {Object} IdentifierValue
  * @property {BigInt?} addend
- * @property {import('./symbols.js').SymbolRecord} symbol
+ * @property {import('./symbols.js').Symbol} symbol
  * @property {Section} section
  * @property {Range} range
  * @property {RegisterData?} regData
@@ -254,27 +254,27 @@ class SymbolIdentifier extends Identifier
         if(this.isIP)
             return {
                 addend: BigInt(instr.address),
-                symbol: (instr.section.head?.statement ?? instr).record,
+                symbol: (instr.section.head?.statement ?? instr).symbol,
                 section: instr.section,
                 range: this.range,
                 pcRelative: false
             };
-        const record = symbols.get(this.name);
-        if(record.symbol && !record.symbol.error)
+        const symbol = symbols.get(this.name);
+        if(symbol.statement && !symbol.statement.error)
         {
-            if(instr.record && checkSymbolRecursion(instr.record, record))
+            if(instr.symbol && checkSymbolRecursion(instr.symbol, symbol))
                 throw new ASMError(`Recursive definition`, this.range);
             return {
                 addend: 0n,
-                symbol: record,
-                section: record.value.section,
+                symbol,
+                section: symbol.value.section,
                 range: this.range,
                 pcRelative: false,
             };
         }
         return {
             addend: 0n,
-            symbol: record,
+            symbol,
             section: pseudoSections.UND,
             range: this.range,
             pcRelative: false,
@@ -448,9 +448,9 @@ export class Expression
             {
                 if(!id.isIP)
                 {
-                    let record = referenceSymbol(instr, id.name);
+                    const symbol = referenceSymbol(instr, id.name);
                     if(uses !== null)
-                        uses.push(record);
+                        uses.push(symbol);
                 }
                 this.hasSymbols = true;
             }
@@ -641,11 +641,11 @@ export function isRelocatable(val)
     return val.symbol && val.section != pseudoSections.ABS || val.pcRelative;
 }
 
-function checkSymbolRecursion(origin, record)
+function checkSymbolRecursion(origin, symbol)
 {
-    if(record === origin)
+    if(symbol === origin)
         return true;
-    for(const use of record.uses)
+    for(const use of symbol.uses)
         if(use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
             return true;
     return false;

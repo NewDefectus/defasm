@@ -33,7 +33,7 @@ export class RelocEntry
      * @param {Object} config
      * @param {number} config.offset
      * @param {number} config.addend
-     * @param {import("./symbols").SymbolRecord} config.symbol
+     * @param {import("./symbols").Symbol} config.symbol
      * @param {number} config.size
      * @param {boolean} config.pcRelative
      * @param {boolean} config.functionAddr
@@ -46,7 +46,7 @@ export class RelocEntry
             this.symbol = symbol;
         else
         {
-           this.symbol = symbol.value.section.head.statement.record;
+           this.symbol = symbol.value.section.head.statement.symbol;
            this.addend += symbol.value.addend;
         }
 
