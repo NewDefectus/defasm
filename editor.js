@@ -16,7 +16,6 @@ const editor = new EditorView({
         const bytes = editor.state.field(ASMStateField).data.length;
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
         byteCount.innerText = `${bytes} byte${bytes != 1 ? 's' : ''}`;
-        console.log(editor.state.field(ASMStateField).sections['.text'].getRelocations());
         return result;
     },
     parent: document.getElementById("inputAreaContainer"),
