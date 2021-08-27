@@ -12485,30 +12485,47 @@
   };
   var sectionFlags = {
     a: 2,
+    e: 134217728,
+    o: 64,
     w: 1,
-    x: 4
+    x: 4,
+    M: 16,
+    S: 32,
+    G: 512,
+    T: 1024
+  };
+  var sectionTypes = {
+    "progbits": 1,
+    "nobits": 8,
+    "note": 7,
+    "init_array": 14,
+    "fini_array": 15,
+    "preinit_array": 16
   };
   var STT_SECTION = 3;
   var Section = class {
-    constructor(name2, flags = null, progbits = null) {
+    constructor(name2) {
       this.name = name2;
-      this.progbits = progbits ?? (name2 == ".text" || name2 == ".data");
+      this.type = name2 == ".text" || name2 == ".data" ? sectionTypes.progbits : sectionTypes.nobits;
       this.cursor = null;
+      this.persistent = name2 == ".text" || name2 == ".data" || name2 == ".bss";
       this.head = new StatementNode(new Symbol2({ addr: 0, name: name2, isLabel: true, type: STT_SECTION, section: this }));
-      this.flags = 0;
-      if (flags === null)
-        switch (name2) {
-          case ".text":
-            this.flags = sectionFlags.a | sectionFlags.x;
-            break;
-          case ".data":
-          case ".bss":
-            this.flags = sectionFlags.a | sectionFlags.w;
-            break;
-        }
-      else
-        for (const flag of flags)
-          this.flags |= sectionFlags[flag];
+      this.entryPoints = [];
+      this.cursor = { head: this.head, prev: this.head };
+      switch (name2) {
+        case ".text":
+          this.flags = sectionFlags.a | sectionFlags.x;
+          break;
+        case ".data":
+        case ".bss":
+          this.flags = sectionFlags.a | sectionFlags.w;
+          break;
+        case ".rodata":
+          this.flags = sectionFlags.a;
+          break;
+        default:
+          this.flags = 0;
+      }
     }
     getRelocations() {
       let node = this.head, relocations = [];
@@ -12568,7 +12585,8 @@
     globl: 15,
     weak: 16,
     size: 17,
-    type: 18
+    type: 18,
+    section: 19
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12616,6 +12634,8 @@
         if (token != "\n" && token != ";")
           next();
         return new SyntaxDirective(config2, intel, prefix);
+      case directives.section:
+        return new SectionDirective(config2);
       case directives.text:
       case directives.data:
       case directives.bss:
@@ -12631,9 +12651,71 @@
     }
   }
   var SectionDirective = class extends Statement {
-    constructor(config2, section) {
+    constructor(config2, section = null) {
+      let flags = 0, type = 0, attribRange = null;
+      if (section === null) {
+        const sectionName = token;
+        if (sectionName == "," || sectionName == ";" || sectionName == "\n")
+          throw new ASMError("Expected section name");
+        if (sections.hasOwnProperty(sectionName))
+          section = sections[sectionName];
+        if (next() == ",") {
+          const flagString = readString(next());
+          attribRange = currRange;
+          flags = 0;
+          for (const byte of flagString) {
+            const char = String.fromCharCode(byte);
+            if (!sectionFlags.hasOwnProperty(char))
+              throw new ASMError(`Unknown flag ${char}`);
+            flags |= sectionFlags[char];
+          }
+          if (next() == ",") {
+            if (next() != "@")
+              throw new ASMError("Expected '@'");
+            const sectionType = next();
+            if (!sectionTypes.hasOwnProperty(sectionType))
+              throw new ASMError("Unknown section type");
+            type = sectionTypes[sectionType];
+            next();
+          }
+          attribRange = attribRange.until(currRange);
+        }
+        if (section === null)
+          sections[sectionName] = section = new Section(sectionName);
+      }
       super({ ...config2, maxSize: 0, section });
+      section.entryPoints.push(this);
       this.switchSection = true;
+      this.sectionAttributes = attribRange ? { flags, type } : null;
+      this.attribRange = attribRange;
+      if (this.sectionAttributes)
+        try {
+          this.recompile();
+        } catch (e) {
+          this.error = e;
+        }
+    }
+    recompile() {
+      this.error = null;
+      if (this.section.entryPoints.some((x) => x !== this && !x.removed && !x.error && x.sectionAttributes !== null))
+        throw new ASMError("Attributes already set for this section", this.attribRange);
+      this.section.flags = this.sectionAttributes.flags;
+      this.section.type = this.sectionAttributes.type;
+    }
+    remove() {
+      this.section.entryPoints.splice(this.section.entryPoints.indexOf(this), 1);
+      if (this.section.entryPoints.length == 0) {
+        if (!this.section.persistent) {
+          this.section.head.statement.remove();
+          delete sections[this.section.name];
+        }
+      } else if (this.sectionAttributes !== null) {
+        const otherDefinition = this.section.entryPoints.find((entry) => entry.sectionAttributes !== null);
+        if (otherDefinition)
+          queueRecomp(otherDefinition);
+        else
+          this.section.flags = 0;
+      }
     }
   };
   var SyntaxDirective = class extends Statement {
@@ -15852,6 +15934,7 @@ g nle`.split("\n");
       '.cm-asm-dump [section=".text"]': { color: "#666" },
       '.cm-asm-dump [section=".data"]': { color: "#66A" },
       '.cm-asm-dump [section=".bss"]': { color: "#6A6" },
+      '.cm-asm-dump [section=".rodata"]': { color: "#AA6" },
       "&dark .cm-asm-dump": {
         color: "#aaa"
       }
