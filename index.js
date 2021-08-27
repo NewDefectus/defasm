@@ -12779,9 +12779,16 @@
   };
   var SymInfo = class extends Statement {
     addSymbol() {
-      if (scanIdentifier(token, this.syntax.intel) != "symbol")
+      let name2 = token;
+      next();
+      if (token != "," && token != ";" && token != "\n") {
+        ungetToken();
+        setToken(name2);
         return false;
-      const symbol = referenceSymbol(this, token, true);
+      }
+      if (scanIdentifier(name2, this.syntax.intel) != "symbol")
+        return false;
+      const symbol = referenceSymbol(this, name2, true);
       if (symbol.type == STT_SECTION)
         throw new ASMError("Can't modify section labels");
       this.symbols.push({ range: currRange, symbol });
@@ -12797,7 +12804,7 @@
       this[this.infoName] = true;
       this.removed = true;
       while (true) {
-        if (next() != ",") {
+        if (token != ",") {
           if (proceedings)
             throw new ASMError("Expected ','");
           break;
