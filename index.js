@@ -11873,8 +11873,6 @@
               }
             } else if (this.reg == 4)
               this.reg2 = 4;
-            if ((this.reg & 7) == 5)
-              this.value.addend = this.value.addend || 0n;
             if (token != ")")
               throw new ASMError("Expected ')'");
             next();
@@ -11904,21 +11902,21 @@
   };
   Operand.prototype.evaluate = function(instr2, intelMemory = false) {
     this.value = this.expression.evaluate(instr2);
-    if (!intelMemory)
-      return;
-    this.prefs = 0;
-    let { regBase = null, regIndex = null, shift: shift2 = 1 } = this.value.regData ?? {};
-    if (regBase)
-      this.reg = regBase.reg;
-    if (regIndex)
-      this.reg2 = regIndex.reg;
-    if (regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
-      this.prefs |= PREFIX_ADDRSIZE;
-    this.shift = [1, 2, 4, 8].indexOf(shift2);
-    if (this.shift < 0)
-      throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
-    if (this.ripRelative && regIndex)
-      throw new ASMError(`Can't use another register with ${nameRegister("ip", regBase.size, instr2.syntax)}`, this.value.range);
+    if (intelMemory) {
+      this.prefs = 0;
+      let { regBase = null, regIndex = null, shift: shift2 = 1 } = this.value.regData ?? {};
+      if (regBase)
+        this.reg = regBase.reg;
+      if (regIndex)
+        this.reg2 = regIndex.reg;
+      if (regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
+        this.prefs |= PREFIX_ADDRSIZE;
+      this.shift = [1, 2, 4, 8].indexOf(shift2);
+      if (this.shift < 0)
+        throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
+      if (this.ripRelative && regIndex)
+        throw new ASMError(`Can't use another register with ${nameRegister("ip", regBase.size, instr2.syntax)}`, this.value.range);
+    }
     if ((this.reg & 7) == 5)
       this.value.addend = this.value.addend || 0n;
     if (this.reg == 4 && this.reg2 < 0)
@@ -12575,7 +12573,7 @@
     dir = dir.toLowerCase();
     let dirs = currSyntax.intel ? intelDirectives : directives;
     if (!dirs.hasOwnProperty(dir))
-      throw new ASMError("Unknown directive");
+      throw new ASMError("Unknown directive", config2.range);
     let dirID = dirs[dir];
     switch (dirID) {
       case intelDirectives.db:
@@ -12594,7 +12592,7 @@
         let intel = dirID == directives.intel_syntax;
         setSyntax({ prefix: currSyntax.prefix, intel });
         let prefix = !intel;
-        let prefSpecifier = next().toLowerCase();
+        let prefSpecifier = token.toLowerCase();
         if (prefSpecifier == "prefix")
           prefix = true;
         else if (prefSpecifier == "noprefix")
@@ -12607,7 +12605,6 @@
       case directives.text:
       case directives.data:
       case directives.bss:
-        next();
         return new SectionDirective(config2, sections["." + dir]);
       case directives.globl:
         return new SymBindDirective(config2, STB_GLOBAL);
@@ -12667,7 +12664,7 @@
           case directives.ascii:
             this.bytes = new Uint8Array();
             do {
-              if (next()[0] == '"') {
+              if (token[0] == '"') {
                 const strBytes = readString(token, this.lineEnds);
                 const temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
                 temp.set(this.bytes);
@@ -12676,7 +12673,7 @@
                 this.lineEnds.offset = this.length = temp.length;
               } else
                 throw new ASMError("Expected string");
-            } while (next() == ",");
+            } while (next() == "," && next());
             break;
         }
       } catch (e) {
@@ -12693,28 +12690,28 @@
       this.outline = [];
       const startAddr = this.address;
       try {
-        do {
-          if (next()[0] === '"') {
-            if (acceptStrings) {
-              const strBytes = readString(token, this.lineEnds);
-              const temp = new Uint8Array(this.length + strBytes.length);
-              temp.set(this.bytes);
-              temp.set(strBytes, this.length);
-              this.bytes = temp;
-              this.lineEnds.offset = this.length = temp.length;
-            } else
-              throw new ASMError("Unexpected string");
-            next();
-          } else {
-            if (this.floatPrec) {
-              let values = [];
-              do {
-                if (isNaN(next()))
-                  throw new ASMError("Expected number");
-                values.push(token);
-              } while (next() == ",");
-              this.bytes = new Uint8Array((this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)).buffer);
-              this.length = this.bytes.length;
+        if (this.floatPrec) {
+          let values = [];
+          do {
+            if (isNaN(next()))
+              throw new ASMError("Expected number");
+            values.push(token);
+          } while (next() == ",");
+          this.bytes = new Uint8Array((this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)).buffer);
+          this.length = this.bytes.length;
+        } else
+          do {
+            if (token[0] === '"') {
+              if (acceptStrings) {
+                const strBytes = readString(token, this.lineEnds);
+                const temp = new Uint8Array(this.length + strBytes.length);
+                temp.set(this.bytes);
+                temp.set(strBytes, this.length);
+                this.bytes = temp;
+                this.lineEnds.offset = this.length = temp.length;
+              } else
+                throw new ASMError("Unexpected string");
+              next();
             } else {
               expression = new Expression(this);
               value = expression.evaluate(this);
@@ -12724,8 +12721,7 @@
               this.genValue(value, this.valSize * 8);
               this.address = startAddr + this.length;
             }
-          }
-        } while (token === ",");
+          } while (token === "," && next());
       } finally {
         if (!needsRecompilation)
           this.outline = null;
@@ -12769,12 +12765,12 @@
       this.symBind = bind;
       this.symbols = [];
       do {
-        if (scanIdentifier(next()) != "symbol")
+        if (scanIdentifier(token) != "symbol")
           throw new ASMError("Expected symbol name");
         let record = referenceSymbol(this, token);
         this.symbols.push(record);
         record.bind |= bind;
-      } while (next() == ",");
+      } while (next() == "," && next());
     }
     recompile() {
     }
@@ -13238,7 +13234,7 @@
       return false;
     for (let i = 0; i < operands.length; i++) {
       const catcher = opCatchers[i], operand = operands[i];
-      if (operand.type != catcher.type && !((operand.type == OPT.MEM || operand.type == OPT.REL) && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
+      if (operand.type != catcher.type && !(operand.type == OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
         return false;
     }
     return true;
@@ -14964,7 +14960,9 @@ g nle`.split("\n");
     repnz: 242,
     rep: 243,
     repe: 243,
-    repz: 243
+    repz: 243,
+    data16: 102,
+    addr32: 103
   });
   var SHORT_DISP = 128;
   function parseRoundingMode(vexInfo) {
@@ -15010,9 +15008,9 @@ g nle`.split("\n");
     return "Wrong operand type" + (operands.length == 1 ? "" : "s");
   }
   var Instruction = class extends Statement {
-    constructor({ opcode, ...config2 }) {
+    constructor({ name: name2, ...config2 }) {
       super({ ...config2, maxSize: MAX_INSTR_SIZE });
-      this.opcode = opcode;
+      this.opcode = name2.toLowerCase();
       this.opcodeRange = new RelativeRange(config2.range, config2.range.start, config2.range.length);
       this.interpret();
     }
@@ -15234,9 +15232,9 @@ g nle`.split("\n");
       if (prefsToGen >= PREFIX_SEG)
         this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen >> 3) - 1]);
       if (prefsToGen & PREFIX_ADDRSIZE)
-        this.genByte(103);
+        this.genByte(prefixes.addr32);
       if (op.size == 16)
-        this.genByte(102);
+        this.genByte(prefixes.data16);
       if (op.prefix !== null) {
         if (op.prefix > 255)
           this.genByte(op.prefix >> 8);
@@ -15293,7 +15291,7 @@ g nle`.split("\n");
         rm2.value.addend = rm2.value.addend || 0n;
         return [rex, modrm | 5, null];
       }
-      if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM && rm2.type !== OPT.REL)
+      if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM)
         modrm |= 192;
       else if (rmReg >= 0) {
         if (rm2.value.addend != null) {
@@ -15356,7 +15354,7 @@ g nle`.split("\n");
   var Prefix = class extends Statement {
     constructor({ name: name2, ...config2 }) {
       super({ ...config2, maxSize: 1 });
-      this.bytes[0] = prefixes[name2];
+      this.bytes[0] = prefixes[name2.toLowerCase()];
       this.length = 1;
     }
   };
@@ -15435,39 +15433,41 @@ g nle`.split("\n");
         let range = startAbsRange();
         try {
           if (token != "\n" && token != ";") {
-            let lowerTok = token.toLowerCase();
-            let isDir = false;
-            if (currSyntax.intel) {
-              if (token[0] == "%") {
-                isDir = true;
-                lowerTok += next().toLowerCase();
-              } else
-                isDir = isDirective(lowerTok, true);
-            } else
-              isDir = token[0] == ".";
-            if (isDir) {
-              if (currSyntax.intel ? lowerTok == "%assign" : lowerTok == ".equ" || lowerTok == ".set") {
-                let name2 = next();
-                let opcodeRange = currRange;
-                if (!currSyntax.intel && next() !== ",")
-                  throw new ASMError("Expected ','");
-                addInstruction(new Symbol2({ addr, name: name2, range, opcodeRange }));
-              } else
-                addInstruction(makeDirective({ addr, range }, currSyntax.intel ? token : token.slice(1)));
-            } else if (prefixes.hasOwnProperty(lowerTok))
-              addInstruction(new Prefix({ addr, range, name: lowerTok }), false);
+            let name2 = token;
+            next();
+            if (token == ":")
+              addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
             else {
-              let name2 = token;
-              next();
-              if (token == ":")
-                addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
-              else if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
-                addInstruction(new Symbol2({ addr, name: name2, range }));
-              else if (currSyntax.intel && isDirective(token, true)) {
-                addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
-                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+              let isDir = false;
+              if (currSyntax.intel) {
+                if (name2[0] == "%") {
+                  isDir = true;
+                  name2 += token.toLowerCase();
+                } else
+                  isDir = isDirective(name2, true);
               } else
-                addInstruction(new Instruction({ addr, opcode: name2.toLowerCase(), range }));
+                isDir = name2[0] == ".";
+              if (isDir) {
+                if (currSyntax.intel ? name2 == "%assign" : name2.toLowerCase() == ".equ" || name2.toLowerCase() == ".set") {
+                  name2 = next();
+                  let opcodeRange = currRange;
+                  if (!currSyntax.intel && next() !== ",")
+                    throw new ASMError("Expected ','");
+                  addInstruction(new Symbol2({ addr, name: name2, range, opcodeRange }));
+                } else
+                  addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name2 : name2.slice(1)));
+              } else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
+                ungetToken();
+                addInstruction(new Prefix({ addr, range, name: name2 }), false);
+              } else {
+                if (token == "=" || currSyntax.intel && token.toLowerCase() == "equ")
+                  addInstruction(new Symbol2({ addr, name: name2, range }));
+                else if (currSyntax.intel && isDirective(token, true)) {
+                  addInstruction(new Symbol2({ addr, name: name2, range, isLabel: true }), false);
+                  addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+                } else
+                  addInstruction(new Instruction({ addr, name: name2, range }));
+              }
             }
           }
         } catch (error) {
@@ -17520,24 +17520,31 @@ g nle`.split("\n");
   var VEXRound = 11;
   var number2 = 38;
   var immPrefix = 39;
-  var Space = 12;
+  var LabelDefinition = 12;
+  var Space = 13;
 
   // codemirror/tokenizer.js
   var tok;
   function next2(input) {
     tok = "";
     let char;
-    while (input.next >= 0 && input.next != 10 && String.fromCodePoint(input.next).match(/\s/))
+    while (input.next >= 0 && input.next != 10 && String.fromCharCode(input.next).match(/\s/))
       input.advance();
-    if (input.next >= 0 && !(char = String.fromCodePoint(input.next)).match(/[.$\w]/)) {
+    if (input.next >= 0 && !(char = String.fromCharCode(input.next)).match(/[.$\w]/)) {
       tok = char;
       input.advance();
     } else
-      while (input.next >= 0 && (char = String.fromCodePoint(input.next)).match(/[.$\w]/)) {
+      while (input.next >= 0 && (char = String.fromCharCode(input.next)).match(/[.$\w]/)) {
         tok += char;
         input.advance();
       }
     return tok = tok.toLowerCase() || "\n";
+  }
+  function peekChar(input) {
+    let i = 0, char;
+    while ((char = input.peek(i)) >= 0 && char != 10 && String.fromCharCode(char).match(/\s/))
+      i++;
+    return char ? String.fromCharCode(char) : "\n";
   }
   var STATE_SYNTAX_INTEL = 1;
   var STATE_SYNTAX_PREFIX = 2;
@@ -17582,19 +17589,28 @@ g nle`.split("\n");
     strict: false
   });
   function tokenize(ctx, input) {
+    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    if (!(ctx & STATE_IN_INSTRUCTION)) {
+      if (peekChar(input) == ":")
+        return LabelDefinition;
+      if (tok == "%" && intel)
+        return isDirective("%" + next2(input), true) ? Directive : null;
+      if (isDirective(tok, intel))
+        return Directive;
+      if (intel && tok == "offset")
+        return Offset;
+      if (prefixes.hasOwnProperty(tok))
+        return Prefix2;
+      let opcode = tok, mnemonics2 = fetchMnemonic(opcode, intel);
+      if (mnemonics2.length > 0)
+        return mnemonics2[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
+    }
     if (ctx & STATE_ALLOW_IMM && tok[0] == "$") {
       input.pos -= tok.length - 1;
       return immPrefix;
     }
-    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
-    if (tok == "%" && (intel || prefix)) {
-      next2(input);
-      if (prefix && isRegister(tok))
-        return Register;
-      if (intel && isDirective("%" + tok, true))
-        return Directive;
-      return null;
-    }
+    if (tok == "%" && prefix)
+      return isRegister(next2(input)) ? Register : null;
     if (tok == (intel ? ";" : "#")) {
       while (input.next >= 0 && input.next != "\n".charCodeAt(0))
         input.advance();
@@ -17608,17 +17624,6 @@ g nle`.split("\n");
       while (tok != "\n" && tok != "}")
         next2(input);
       return VEXRound;
-    }
-    if (!(ctx & STATE_IN_INSTRUCTION)) {
-      if (isDirective(tok, intel))
-        return Directive;
-      if (intel && tok == "offset")
-        return Offset;
-      if (prefixes.hasOwnProperty(tok))
-        return Prefix2;
-      let opcode = tok, mnemonics2 = fetchMnemonic(opcode, intel);
-      if (mnemonics2.length > 0)
-        return mnemonics2[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
     }
     if (intel && sizeHints.hasOwnProperty(tok)) {
       let prevEnd = input.pos;
@@ -17657,16 +17662,16 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = LRParser.deserialize({
     version: 13,
-    states: "9bOVQROOOzQRO'#CtOOQP'#Cw'#CwO!VQRO'#CkO#iQRO'#CkO#pQRO'#CkO$|QRO'#CkO%WQRO'#CkO%bQRO'#CsO&SQRO'#CsOOQO'#DV'#DVO&XQRO'#DVQ&gQQOOOOQO,59U,59UO&oQRO,59bOOQP-E6u-E6uO'QQRO,59VO#pQRO,59VO'jQRO,59VO'tQRO,59VOOQP'#Cx'#CxO(OQRO'#CxO(gQRO'#CnO&oQRO'#ClO(xQTO'#CnO*UQRO'#DXO)mQRO'#DXOOQP,59V,59VO!tQRO,59VO*]QRO'#CnO*nQTO'#CnO+`QRO'#CrO+tQQO'#CrO+yQRO'#DbO&oQRO'#DbO,vQRO'#DbO-QQRO'#CmO-tQTO'#CmO.RQQO'#CoO.iQRO,59VO.pQRO'#CmO/RQTO'#CmO/cQRO'#DgOOQP,59_,59_O%bQRO,59_OOQO,59q,59qOVQRO'#DOQ&gQQOOOOQP1G.|1G.|OOQP1G.q1G.qO!tQRO1G.qO/tQRO1G.qOOQP,59Z,59ZO/{QQO,59ZOOQP-E6v-E6vO0TQTO,59YOOQP,59W,59WOOQP'#Cy'#CyO0TQTO,59YO0xQRO,59YO1ZQRO,59ZO1cQRO'#CpO1hQRO'#C{O2RQRO,59sO2dQRO,59sO2nQRO,59sO2uQTO,59YO2uQTO,59YO3gQRO,59YO3xQRO'#DdO4^QSO'#DdO4iQQO,59^O+`QRO,59^O4nQRO'#C|O5[QRO,59|O5mQRO,59|O5wQRO,59|O6OQRO,59|O&oQRO,59|O6YQTO,59XO6YQTO,59XO6tQRO,59XO7VQRO1G.qO7hQTO,59XO7hQTO,59XO&oQRO,59XO8VQRO'#C}O8mQRO,5:ROOQP1G.y1G.yOOQO,59j,59jOOQO-E6|-E6|OOQP7+$]7+$]O9OQRO7+$]O9aQRO'#CzO9oQQO1G.uOOQP1G.u1G.uO9wQTO1G.tO0xQRO1G.tOOQP-E6w-E6wOOQP1G.t1G.tO9oQQO1G.uO:lQQO,59[O;YQRO,59gO:qQRO,59gOOQP-E6y-E6yO;aQRO1G/_O;aQRO1G/_O;rQRO1G/_O;yQTO1G.tO3gQRO1G.tOOQP1G.w1G.wO<kQSO,5:OO<kQSO,5:OO+`QRO,5:OOOQP1G.x1G.xO<vQQO1G.xO<{QRO,59hO&oQRO,59hO=dQRO,59hOOQP-E6z-E6zO=nQRO1G/hO=nQRO1G/hO>PQRO1G/hO>WQRO1G/hO>bQRO1G/hO>}QTO1G.sO6tQRO1G.sOOQP1G.s1G.sO?[QTO1G.sO&oQRO1G.sOOQP,59i,59iOOQP-E6{-E6{OOQO,59f,59fOOQO-E6x-E6xOOQP7+$a7+$aO0xQRO7+$`OOQP7+$`7+$`O?lQQO7+$aOOQP1G.v1G.vO@YQRO1G/RO?tQRO1G/RO@aQRO7+$yO@aQRO7+$yO3gQRO7+$`OOQP7+$c7+$cO@rQSO1G/jO+`QRO1G/jOOQO1G/j1G/jOOQP7+$d7+$dOAcQRO1G/SO@}QRO1G/SOAjQRO1G/SO&oQRO1G/SOBRQRO7+%SOBRQRO7+%SOBdQRO7+%SOBkQRO7+%SO6tQRO7+$_OOQP7+$_7+$_O&oQRO7+$_OOQP<<Gz<<GzOOQP<<G{<<G{OOQP7+$m7+$mOBuQRO7+$mOCZQRO<<HeOOQP<<G}<<G}O+`QRO7+%UOOQO7+%U7+%UOOQP7+$n7+$nOClQRO7+$nODQQRO7+$nODXQRO7+$nODpQRO<<HnODpQRO<<HnOERQRO<<HnOOQP<<Gy<<GyOOQP<<HX<<HXOOQO<<Hp<<HpOOQP<<HY<<HYOEYQRO<<HYOEnQRO<<HYOEuQROAN>YOEuQROAN>YOOQPAN=tAN=tOFWQROAN=tOFlQROG23tOOQPG23`G23`",
-    stateData: "F}~O[OS~OQWOSSOTTOUUOVVOWQOtPOR_Ps_P![_P!]_P~Ou^Oz]OQhX~OS`OTaOUbOVcOWQOR_Xs_X![_X!]_X~OPjOthOvhOwgO|dO}eO!OhOR{Ps{P![{P!]{P~OZlO~P!tOPqOXsOYrOthOvnO|dO}dO!OnO!VoOR!UPs!UP![!UP!]!UP~OPkOtuOvuO|dO!OuO~O}eO!YwO~P$kO}dO!VoO~P$kOizOtyOvyO|dO}dO!OyOR!ZPs!ZP![!ZP!]!ZP~OQ|O~OR}OsyX![yX!]yX~O![!OO!]!OO~OtyOvyO|dO}dO!OyO~OZ!SO~P!tOP!ROtuOvuO|dO!OuO~O}eO!Y!TO~P'XO}dO!VoO~P'XOP!VO!P!UOtlXvlX|lX}lX!OlX~Ot!XOv!XO|dO}dO!O!XO~O!P!ZO!Q!]ORbXZbXsbX}bX!RbX!SbX![bX!]bX!VbX~OZ!bO!R!`O!S!_OR{Xs{X![{X!]{X~O}!^O~P)mOt!XOv!dO|dO}dO!O!dO~O!P!ZO!Q!fOReXZeXseX!ReX!SeX!VbX![eX!]eX~OP!hOt!hOv!hO|dO}dO!O!hO~O!V!jO~OZ!mO!R!kO!S!_OR!UXs!UX![!UX!]!UX~OthOvnO|dO}dO!OnO!VoO~OP!oOY!pO~P,bOt!qOv!qO|dO}dO!O!qO~O!P!ZORaXsaX![aX!]aX~O!Q!sO}bX!VbX~P-cO}!^O~OthOvhO|dO}eO!OhO~OP!RO~P.WOt!uOv!uO|dO}dO!O!uO~O!Q!wO!RaXZaX!SaX~P-cO!R!xOR!ZXs!ZX![!ZX!]!ZX~OP!}O~P.WO!P#RO!R#PO~O!P!ZO!Q#TORbaZbasba}ba!Rba!Sba![ba!]ba!Vba~OthOvhO|dO}dO!OhO~OP#WO!P#RO~OP#XO~OP#ZOwgORoXsoX!RoX![oX!]oX~P.WO!R!`OR{as{a![{a!]{a~OZ#^O!S!_O~P2ROZ#^O~P2RO!P!ZO!Q#aOReaZeasea!Rea!Sea!Vba![ea!]ea~OthOvnO|dO}dO!OnO~OP#cOt#cOv#cO|dO}dO!O#cO~O!P!ZO!Q#eO!X!WX~O!X#fO~OP#hOX#jOY#iORpXspX!RpX![pX!]pX~P,bO!R!kOR!Uas!Ua![!Ua!]!Ua~OZ#mO!S!_O~P5[OZ#mO~P5[OZ#oO!S!_O~P5[O!P!ZO!Q#rORaasaa}ba![aa!]aa!Vba~OtuOvuO|dO}dO!OuO~O}!^OR_is_i![_i!]_i~O!P!ZO!Q#uORaasaa!Raa![aa!]aaZaa!Saa~Oi#vORqXsqX!RqX![qX!]qX~P&oO!R!xOR!Zas!Za![!Za!]!Za~O}!^OR_qs_q![_q!]_q~OP#xOv#xO!PnX!RnX~O!P#zO!R#PO~O!P!ZO!Q#{ORbiZbisbi}bi!Rbi!Sbi![bi!]bi!Vbi~O!T$OO~OZ$PO!S!_ORoasoa!Roa![oa!]oa~O}!^O~P:qO!R!`OR{is{i![{i!]{i~OZ$SO~P;aO!P!ZO!Q$TOReiZeisei!Rei!Sei!Vbi![ei!]ei~O!P!ZO!Q$WO!X!Wa~O!X$YO~OZ$ZO!S!_ORpaspa!Rpa![pa!]pa~OP$]OY$^O~P,bO!R!kOR!Uis!Ui![!Ui!]!Ui~OZ$`O~P=nOZ$`O!S!_O~P=nOZ$bO!S!_O~P=nO!P!ZORaisai![ai!]ai~O!Q$cO}bi!Vbi~P>lO!Q$eO!RaiZai!Sai~P>lO!P$gO!R#PO~OZ$hORoisoi!Roi![oi!]oi~O!S!_O~P?tO!R!`OR{qs{q![{q!]{q~O!P!ZO!Q$lO!X!Wi~OZ$nORpispi!Rpi![pi!]pi~O!S!_O~P@}OZ$pO!S!_ORpispi!Rpi![pi!]pi~O!R!kOR!Uqs!Uq![!Uq!]!Uq~OZ$sO~PBROZ$sO!S!_O~PBROZ$vORoqsoq!Roq![oq!]oq~O!R!`OR{ys{y![{y!]{y~OZ$xORpqspq!Rpq![pq!]pq~O!S!_O~PClOZ$zO!S!_ORpqspq!Rpq![pq!]pq~O!R!kOR!Uys!Uy![!Uy!]!Uy~OZ$|O~PDpOZ$}ORpyspy!Rpy![py!]py~O!S!_O~PEYO!R!kOR!U!Rs!U!R![!U!R!]!U!R~OZ%QORp!Rsp!R!Rp!R![p!R!]p!R~O!R!kOR!U!Zs!U!Z![!U!Z!]!U!Z~O",
-    goto: "+v![PPPPPPPPPPPPPP!]!a!e!n#m$j$}%y&a!a&tP!a&x'P(^)Y)d)y*m*sPPPPPP*yP+PPPPPPPPP+ZP+aPP+pTYO!OTZO!OWjS`l!SR#Z!`SkUVSzW|Q!Q^S!RbcQ!YgQ!orQ#p!pS#s!s!wQ#v!xQ$]#iS$d#r#uQ$q$^T$u$c$eWiS`l!S^pTVacs!k#jSvUbQ!twQ#O!TU#V!]!f!sQ#Y!`U#|#T#a#rV$f#{$T$cWjS`l!SQkUS!RbwQ!}!TR#Z!`S!cijQ!nqQ#_!bS#n!m!oS$Q#Y#ZQ$[#hS$a#o#pQ$i$PS$o$Z$]Q$t$bS$y$p$qR%O$zSqTaQ!osQ#b!fQ#h!kQ$U#aQ$]#jR$k$TQkVSqTaQ!RcQ!osQ#h!kR$]#jTXO!OSRO!OR_RdfS`lw!S!T!]!`#T#{`mTas!f!k#a#j$T^tUVbc!s#r$chxW^gr|!p!w!x#i#u$^$eY!Wfmtx!gZ!go!j#e$W$lQ![hQ!enQ!ruQ!vyQ#S!Xd#U![!e!r!v#S#`#d#q#t$VQ#`!dQ#d!hQ#q!qQ#t!uR$V#cQ#Q!VS#y#Q#}R#}#WS!aijW#[!a#]$R$jS#]!b!cS$R#^#_R$j$SQ!lq[#k!l#l$_$r${%PU#l!m!n!oW$_#m#n#o#pU$r$`$a$bS${$s$tR%P$|Q!yzR#w!yQ!P[R!|!PQ[OR!{!OQkSS!R`lR!}!SQkTR!RaQ!ioQ#g!jQ$X#eQ$m$WR$w$lQ{WR!z|",
-    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound Space Program LabelDefinition InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement LabelName FullString SymbolDefinition",
-    maxTerm: 59,
-    skippedNodes: [0, 12],
+    states: "9[OVQROOOOQP'#Cw'#CwO}QRO'#CkO#aQRO'#CkO#hQRO'#CkO$tQRO'#CkO%OQRO'#CkO%YQRO'#CtO%bQRO'#CsO&SQRO'#CsOOQO'#DV'#DVO&XQRO'#DVQ&gQQOOOOQP-E6u-E6uO&oQRO,59VO#hQRO,59VO'XQRO,59VO'cQRO,59VOOQP'#Cx'#CxO'mQRO'#CxO(UQRO'#CnO(gQRO'#ClO(xQTO'#CnO*UQRO'#DWO)mQRO'#DWOOQP,59V,59VO!lQRO,59VO*]QRO'#CnO*nQTO'#CnO+`QRO'#CrO+tQQO'#CrO+yQRO'#DaO(gQRO'#DaO,vQRO'#DaO-QQRO'#CmO-tQTO'#CmO.RQQO'#CoO.iQRO,59VO(gQRO,59bO.pQRO'#CmO/RQTO'#CmO/cQRO'#DfOOQP,59_,59_O%bQRO,59_OOQO,59q,59qOVQRO'#DOQ&gQQOOOOQP1G.q1G.qO!lQRO1G.qO/tQRO1G.qOOQP,59Z,59ZO/{QQO,59ZOOQP-E6v-E6vO0TQTO,59YOOQP,59W,59WOOQP'#Cy'#CyO0TQTO,59YO0xQRO,59YO1ZQRO,59ZO1cQRO'#CpO1hQRO'#C{O2RQRO,59rO2dQRO,59rO2nQRO,59rO2uQTO,59YO2uQTO,59YO3gQRO,59YO3xQRO'#DcO4^QSO'#DcO4iQQO,59^O+`QRO,59^O4nQRO'#C|O5[QRO,59{O5mQRO,59{O5wQRO,59{O6OQRO,59{O(gQRO,59{O6YQTO,59XO6YQTO,59XO6tQRO,59XO7VQRO1G.qOOQP1G.|1G.|O7hQTO,59XO7hQTO,59XO(gQRO,59XO8VQRO'#C}O8mQRO,5:QOOQP1G.y1G.yOOQO,59j,59jOOQO-E6|-E6|OOQP7+$]7+$]O9OQRO7+$]O9aQRO'#CzO9oQQO1G.uOOQP1G.u1G.uO9wQTO1G.tO0xQRO1G.tOOQP-E6w-E6wOOQP1G.t1G.tO9oQQO1G.uO:lQQO,59[O;YQRO,59gO:qQRO,59gOOQP-E6y-E6yO;aQRO1G/^O;aQRO1G/^O;rQRO1G/^O;yQTO1G.tO3gQRO1G.tOOQP1G.w1G.wO<kQSO,59}O<kQSO,59}O+`QRO,59}OOQP1G.x1G.xO<vQQO1G.xO<{QRO,59hO(gQRO,59hO=dQRO,59hOOQP-E6z-E6zO=nQRO1G/gO=nQRO1G/gO>PQRO1G/gO>WQRO1G/gO>bQRO1G/gO>}QTO1G.sO6tQRO1G.sOOQP1G.s1G.sO?[QTO1G.sO(gQRO1G.sOOQP,59i,59iOOQP-E6{-E6{OOQO,59f,59fOOQO-E6x-E6xOOQP7+$a7+$aO0xQRO7+$`OOQP7+$`7+$`O?lQQO7+$aOOQP1G.v1G.vO@YQRO1G/RO?tQRO1G/RO@aQRO7+$xO@aQRO7+$xO3gQRO7+$`OOQP7+$c7+$cO@rQSO1G/iO+`QRO1G/iOOQO1G/i1G/iOOQP7+$d7+$dOAcQRO1G/SO@}QRO1G/SOAjQRO1G/SO(gQRO1G/SOBRQRO7+%ROBRQRO7+%ROBdQRO7+%ROBkQRO7+%RO6tQRO7+$_OOQP7+$_7+$_O(gQRO7+$_OOQP<<Gz<<GzOOQP<<G{<<G{OOQP7+$m7+$mOBuQRO7+$mOCZQRO<<HdOOQP<<G}<<G}O+`QRO7+%TOOQO7+%T7+%TOOQP7+$n7+$nOClQRO7+$nODQQRO7+$nODXQRO7+$nODpQRO<<HmODpQRO<<HmOERQRO<<HmOOQP<<Gy<<GyOOQP<<HX<<HXOOQO<<Ho<<HoOOQP<<HY<<HYOEYQRO<<HYOEnQRO<<HYOEuQROAN>XOEuQROAN>XOOQPAN=tAN=tOFWQROAN=tOFlQROG23sOOQPG23`G23`",
+    stateData: "F}~O]OS~OQWOSROTSOUTOVUOWPO[YOtVOR_Ps_P!Z_P![_P~OS^OT_OU`OVaOWPOR_Xs_X!Z_X![_X~OPhOtfOvfOweO{bO|cO}fORzPszP!ZzP![zP~OZjO~P!lOPoOXqOYpOtfOvlO{bO|bO}lO!UmOR!TPs!TP!Z!TP![!TP~OPiOtsOvsO{bO}sO~O|cO!XuO~P$cO|bO!UmO~P$cOuvOQhX~OiyOtxOvxO{bO|bO}xOR!YPs!YP!Z!YP![!YP~OQ{O~OR|OsyX!ZyX![yX~O!Z}O![}O~OZ!QO~P!lOP!POtsOvsO{bO}sO~O|cO!X!RO~P&vO|bO!UmO~P&vOP!TO!O!SOtlXvlX{lX|lX}lX~Ot!VOv!VO{bO|bO}!VO~OtxOvxO{bO|bO}xO~O!O!XO!P!ZORbXZbXsbX|bX!QbX!RbX!ZbX![bX!UbX~OZ!`O!Q!^O!R!]ORzXszX!ZzX![zX~O|![O~P)mOt!VOv!bO{bO|bO}!bO~O!O!XO!P!dOReXZeXseX!QeX!ReX!UbX!ZeX![eX~OP!fOt!fOv!fO{bO|bO}!fO~O!U!hO~OZ!kO!Q!iO!R!]OR!TXs!TX!Z!TX![!TX~OtfOvlO{bO|bO}lO!UmO~OP!mOY!nO~P,bOt!oOv!oO{bO|bO}!oO~O!O!XORaXsaX!ZaX![aX~O!P!qO|bX!UbX~P-cO|![O~OtfOvfO{bO|cO}fO~OP!PO~P.WOt!tOv!tO{bO|bO}!tO~O!P!vO!QaXZaX!RaX~P-cO!Q!wOR!YXs!YX!Z!YX![!YX~OP!|O~P.WO!O#QO!Q#OO~O!O!XO!P#SORbaZbasba|ba!Qba!Rba!Zba![ba!Uba~OtfOvfO{bO|bO}fO~OP#VO!O#QO~OP#WO~OP#YOweORoXsoX!QoX!ZoX![oX~P.WO!Q!^ORzasza!Zza![za~OZ#]O!R!]O~P2ROZ#]O~P2RO!O!XO!P#`OReaZeasea!Qea!Rea!Uba!Zea![ea~OtfOvlO{bO|bO}lO~OP#bOt#bOv#bO{bO|bO}#bO~O!O!XO!P#dO!W!VX~O!W#eO~OP#gOX#iOY#hORpXspX!QpX!ZpX![pX~P,bO!Q!iOR!Tas!Ta!Z!Ta![!Ta~OZ#lO!R!]O~P5[OZ#lO~P5[OZ#nO!R!]O~P5[O!O!XO!P#qORaasaa|ba!Zaa![aa!Uba~OtsOvsO{bO|bO}sO~O|![OR_is_i!Z_i![_i~O!O!XO!P#tORaasaa!Qaa!Zaa![aaZaa!Raa~Oi#uORqXsqX!QqX!ZqX![qX~P(gO!Q!wOR!Yas!Ya!Z!Ya![!Ya~O|![OR_qs_q!Z_q![_q~OP#wOv#wO!OnX!QnX~O!O#yO!Q#OO~O!O!XO!P#zORbiZbisbi|bi!Qbi!Rbi!Zbi![bi!Ubi~O!S#}O~OZ$OO!R!]ORoasoa!Qoa!Zoa![oa~O|![O~P:qO!Q!^ORziszi!Zzi![zi~OZ$RO~P;aO!O!XO!P$SOReiZeisei!Qei!Rei!Ubi!Zei![ei~O!O!XO!P$VO!W!Va~O!W$XO~OZ$YO!R!]ORpaspa!Qpa!Zpa![pa~OP$[OY$]O~P,bO!Q!iOR!Tis!Ti!Z!Ti![!Ti~OZ$_O~P=nOZ$_O!R!]O~P=nOZ$aO!R!]O~P=nO!O!XORaisai!Zai![ai~O!P$bO|bi!Ubi~P>lO!P$dO!QaiZai!Rai~P>lO!O$fO!Q#OO~OZ$gORoisoi!Qoi!Zoi![oi~O!R!]O~P?tO!Q!^ORzqszq!Zzq![zq~O!O!XO!P$kO!W!Vi~OZ$mORpispi!Qpi!Zpi![pi~O!R!]O~P@}OZ$oO!R!]ORpispi!Qpi!Zpi![pi~O!Q!iOR!Tqs!Tq!Z!Tq![!Tq~OZ$rO~PBROZ$rO!R!]O~PBROZ$uORoqsoq!Qoq!Zoq![oq~O!Q!^ORzyszy!Zzy![zy~OZ$wORpqspq!Qpq!Zpq![pq~O!R!]O~PClOZ$yO!R!]ORpqspq!Qpq!Zpq![pq~O!Q!iOR!Tys!Ty!Z!Ty![!Ty~OZ${O~PDpOZ$|ORpyspy!Qpy!Zpy![py~O!R!]O~PEYO!Q!iOR!T!Rs!T!R!Z!T!R![!T!R~OZ%PORp!Rsp!R!Qp!R!Zp!R![p!R~O!Q!iOR!T!Zs!T!Z!Z!T!Z![!T!Z~O",
+    goto: "+q!ZPPPPPPPPPPPPPPP![!`!i#h$e$x%t&[![&oP![&s&z(X)T)_)t*h*nPPPPPP*t*zPPPPPPPP+UP+[PP+kTZO}WhR^j!QR#Y!^SiTUSyW{S!P`aQ!WeQ!mpQ!svQ#o!nS#r!q!vQ#u!wQ$[#hS$c#q#tQ$p$]T$t$b$dWgR^j!Q^nSU_aq!i#iStT`Q!ruQ!}!RU#U!Z!d!qQ#X!^U#{#S#`#qV$e#z$S$bWhR^j!QQiTS!P`uQ!|!RR#Y!^S!aghQ!loQ#^!`S#m!k!mS$P#X#YQ$Z#gS$`#n#oQ$h$OS$n$Y$[Q$s$aS$x$o$pR$}$ySoS_Q!mqQ#a!dQ#g!iQ$T#`Q$[#iR$j$SQiUSoS_Q!PaQ!mqQ#g!iR$[#iTXO}SQO}R]QddR^ju!Q!R!Z!^#S#z`kS_q!d!i#`#i$S^rTU`a!q#q$bhwWepv{!n!v!w#h#t$]$dY!Udkrw!eZ!em!h#d$V$kQ!YfQ!clQ!psQ!uxQ#R!Vd#T!Y!c!p!u#R#_#c#p#s$UQ#_!bQ#c!fQ#p!oQ#s!tR$U#bQ#P!TS#x#P#|R#|#VS!_ghW#Z!_#[$Q$iS#[!`!aS$Q#]#^R$i$RQ!jo[#j!j#k$^$q$z%OU#k!k!l!mW$^#l#m#n#oU$q$_$`$aS$z$r$sR%O${Q!xyR#v!xQ!O[R!{!OQ[OR!z}QiRS!P^jR!|!QQiSR!P_Q!gmQ#f!hQ$W#dQ$l$VR$v$kQzWR!y{",
+    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound LabelDefinition Space Program InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement LabelName FullString SymbolDefinition",
+    maxTerm: 58,
+    skippedNodes: [0, 13],
     repeatNodeCount: 8,
-    tokenData: "'s~RtXY#cYZ#hZ^#cpq#cqr#ors$Ouv#yvw$owx$wxy%hyz%mz{%r{|%y|}&Q}!O%y!P!Q#y![!]&V!]!^&[!^!_&a!_!`&o!`!a&u!}#O'Q#P#Q'V#Q#R#y#o#p'[#p#q'a#q#r'i#r#s'n#y#z#c$f$g#c#BY#BZ#c$IS$I_#c$I|$JO#c$JT$JU#c$KV$KW#c&FU&FV#c~#hO[~~#oO!]~[~R#vP!QQ|P!_!`#yQ$OO!QQ~$TTi~Or$Ors$ds#O$O#O#P$i#P~$O~$iOi~~$lPO~$OQ$tP!QQvw#y~$|T!O~Ow$wwx%]x#O$w#O#P%b#P~$w~%bO!O~~%ePO~$w~%mO}~~%rO!P~R%yO!YP!QQR&QO!QQ|P~&VO!R~~&[Oz~~&aO![~Q&fR!QQ!^!_#y!_!`#y!`!a#yQ&rP!_!`#yQ&zQ!QQ!_!`#y!`!a#y~'VO!V~~'[O!X~~'aO!S~Q'fP!QQ#p#q#y~'nO!T~P'sO|P",
+    tokenData: "'k~RsXY#`YZ#eZ^#`pq#`qr#lrs#{uv#vvw$lwx$txy%eyz%jz{%o{|%v|}%}}!O%v!P!Q#v!]!^&S!^!_&X!_!`&g!`!a&m!}#O&x#P#Q&}#Q#R#v#o#p'S#p#q'X#q#r'a#r#s'f#y#z#`$f$g#`#BY#BZ#`$IS$I_#`$I|$JO#`$JT$JU#`$KV$KW#`&FU&FV#`~#eO]~~#lO![~]~R#sP!PQ{P!_!`#vQ#{O!PQ~$QTi~Or#{rs$as#O#{#O#P$f#P~#{~$fOi~~$iPO~#{Q$qP!PQvw#v~$yT}~Ow$twx%Yx#O$t#O#P%_#P~$t~%_O}~~%bPO~$t~%jO|~~%oO!O~R%vO!XP!PQR%}O!PQ{P~&SO!Q~~&XO!Z~Q&^R!PQ!^!_#v!_!`#v!`!a#vQ&jP!_!`#vQ&rQ!PQ!_!`#v!`!a#v~&}O!U~~'SO!W~~'XO!R~Q'^P!PQ#p#q#v~'fO!S~P'kO{P",
     tokenizers: [tokenizer2, 0, 1],
-    topRules: { "Program": [0, 13] },
+    topRules: { "Program": [0, 14] },
     dynamicPrecedences: { "21": 1 },
     tokenPrec: 0
   });
@@ -17831,7 +17836,14 @@ g nle`.split("\n");
     let prevCode = document.cookie.split("; ").find((row) => row.startsWith("code="));
     if (prevCode)
       prevCode = decodeURIComponent(prevCode.slice(5));
-    return prevCode || `# Printing
+    return prevCode || `.data
+text:  .string "Hello, World!\\n"; textSize = . - text
+digit: .byte   '0', '\\n'
+
+.text
+.globl _start
+_start:
+# Printing
 mov $1, %eax        # Syscall code 1 (write)
 mov $1, %edi        # File descriptor 1 (stdout)
 mov $text, %rsi     # Address of buffer
@@ -17879,10 +17891,7 @@ endArgLoop:
 
 mov $60, %eax   # Syscall code 60 (exit)
 mov $0, %edi    # Exit code
-syscall
-
-text:  .string "Hello, World!\\n"; textSize = . - text
-digit: .byte   '0', '\\n'`;
+syscall`;
   }
 })();
 //# sourceMappingURL=index.js.map

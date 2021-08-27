@@ -39,7 +39,14 @@ function getLastCode()
     let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
     if(prevCode)
         prevCode = decodeURIComponent(prevCode.slice(5));
-    return prevCode || `# Printing
+    return prevCode || `.data
+text:  .string "Hello, World!\\n"; textSize = . - text
+digit: .byte   '0', '\\n'
+
+.text
+.globl _start
+_start:
+# Printing
 mov $1, %eax        # Syscall code 1 (write)
 mov $1, %edi        # File descriptor 1 (stdout)
 mov $text, %rsi     # Address of buffer
@@ -87,8 +94,5 @@ endArgLoop:
 
 mov $60, %eax   # Syscall code 60 (exit)
 mov $0, %edi    # Exit code
-syscall
-
-text:  .string "Hello, World!\\n"; textSize = . - text
-digit: .byte   '0', '\\n'`;
+syscall`;
 }
