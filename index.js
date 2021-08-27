@@ -13976,6 +13976,9 @@ F3)0F10 ^Vx >V V {kz
 F3)0F10 m Vx > {kz
 F3)0F11 Vx m > {k
 
+movsbw/:0FBE rB Rw
+movsbl/:0FBE rB Rl
+movswl/:0FBF rW Rl
 movsx:0FBE rb$w Rwlq
 movsxd:63 rL Rwlq
 
@@ -13987,6 +13990,9 @@ movups
 0F10 v Vxyz > {kz
 0F11 Vxyz v > {kz
 
+movzbw/:0FB6 rB Rw
+movzbl/:0FB6 rB Rl
+movzwl/:0FB7 rW Rl
 movzx:0FB6 rb$w Rwlq
 mpsadbw:66)0F3A42 ib v >V Vxy
 mul:F6.4 rbwlq
@@ -17637,15 +17643,16 @@ g nle`.split("\n");
   var RelOpcode = 6;
   var IRelOpcode = 7;
   var Prefix2 = 8;
-  var word = 36;
+  var word = 37;
   var Ptr = 9;
   var Offset = 10;
-  var symEquals = 37;
+  var symEquals = 38;
   var VEXRound = 11;
-  var number2 = 38;
-  var immPrefix = 39;
+  var number2 = 39;
+  var immPrefix = 40;
   var LabelDefinition = 12;
-  var Space = 13;
+  var SpecialWord = 13;
+  var Space = 14;
 
   // codemirror/tokenizer.js
   var tok;
@@ -17751,6 +17758,10 @@ g nle`.split("\n");
       input.pos -= tok.length - 1;
       return immPrefix;
     }
+    if (tok == "@") {
+      next2(input);
+      return SpecialWord;
+    }
     if (tok == "%" && prefix)
       return isRegister(next2(input)) ? Register : null;
     if (tok == "{") {
@@ -17797,17 +17808,17 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = LRParser.deserialize({
     version: 13,
-    states: "9[OVQROOOOQP'#Cw'#CwO!QQRO'#CkO#dQRO'#CkO#kQRO'#CkO$wQRO'#CkO%RQRO'#CkOOQP'#Ct'#CtO%]QRO'#CsO%}QRO'#CsO&SQRO'#CvOOQO'#DV'#DVO&eQRO'#DVQ&sQQOOOOQP-E6u-E6uO&{QRO,59VO#kQRO,59VO'eQRO,59VO'oQRO,59VOOQP'#Cx'#CxO'yQRO'#CxO(bQRO'#CnO&SQRO'#ClO(sQTO'#CnO*PQRO'#DWO)hQRO'#DWOOQP,59V,59VO!oQRO,59VO*WQRO'#CnO*iQTO'#CnO+ZQRO'#CrO+oQQO'#CrO+tQRO'#DaO&SQRO'#DaO,qQRO'#DaO,{QRO'#CmO-oQTO'#CmO-|QQO'#CoO.dQRO,59VO.kQRO'#CmO.|QTO'#CmO/^QRO'#DfOOQP,59_,59_O%]QRO,59_OOQP,59b,59bOOQO,59q,59qOVQRO'#DOQ&sQQOOOOQP1G.q1G.qO!oQRO1G.qO/oQRO1G.qOOQP,59Z,59ZO/vQQO,59ZOOQP-E6v-E6vO0OQTO,59YOOQP,59W,59WOOQP'#Cy'#CyO0OQTO,59YO0sQRO,59YO1UQRO,59ZO1^QRO'#CpO1cQRO'#C{O1|QRO,59rO2_QRO,59rO2iQRO,59rO2pQTO,59YO2pQTO,59YO3bQRO,59YO3sQRO'#DcO4XQSO'#DcO4dQQO,59^O+ZQRO,59^O4iQRO'#C|O5VQRO,59{O5hQRO,59{O5rQRO,59{O5yQRO,59{O&SQRO,59{O6TQTO,59XO6TQTO,59XO6oQRO,59XO7QQRO1G.qO7cQTO,59XO7cQTO,59XO&SQRO,59XO8QQRO'#C}O8hQRO,5:QOOQP1G.y1G.yOOQO,59j,59jOOQO-E6|-E6|OOQP7+$]7+$]O8yQRO7+$]O9[QRO'#CzO9jQQO1G.uOOQP1G.u1G.uO9rQTO1G.tO0sQRO1G.tOOQP-E6w-E6wOOQP1G.t1G.tO9jQQO1G.uO:gQQO,59[O;TQRO,59gO:lQRO,59gOOQP-E6y-E6yO;[QRO1G/^O;[QRO1G/^O;mQRO1G/^O;tQTO1G.tO3bQRO1G.tOOQP1G.w1G.wO<fQSO,59}O<fQSO,59}O+ZQRO,59}OOQP1G.x1G.xO<qQQO1G.xO<vQRO,59hO&SQRO,59hO=_QRO,59hOOQP-E6z-E6zO=iQRO1G/gO=iQRO1G/gO=zQRO1G/gO>RQRO1G/gO>]QRO1G/gO>xQTO1G.sO6oQRO1G.sOOQP1G.s1G.sO?VQTO1G.sO&SQRO1G.sOOQP,59i,59iOOQP-E6{-E6{OOQO,59f,59fOOQO-E6x-E6xOOQP7+$a7+$aO0sQRO7+$`OOQP7+$`7+$`O?gQQO7+$aOOQP1G.v1G.vO@TQRO1G/RO?oQRO1G/RO@[QRO7+$xO@[QRO7+$xO3bQRO7+$`OOQP7+$c7+$cO@mQSO1G/iO+ZQRO1G/iOOQO1G/i1G/iOOQP7+$d7+$dOA^QRO1G/SO@xQRO1G/SOAeQRO1G/SO&SQRO1G/SOA|QRO7+%ROA|QRO7+%ROB_QRO7+%ROBfQRO7+%RO6oQRO7+$_OOQP7+$_7+$_O&SQRO7+$_OOQP<<Gz<<GzOOQP<<G{<<G{OOQP7+$m7+$mOBpQRO7+$mOCUQRO<<HdOOQP<<G}<<G}O+ZQRO7+%TOOQO7+%T7+%TOOQP7+$n7+$nOCgQRO7+$nOC{QRO7+$nODSQRO7+$nODkQRO<<HmODkQRO<<HmOD|QRO<<HmOOQP<<Gy<<GyOOQP<<HX<<HXOOQO<<Ho<<HoOOQP<<HY<<HYOETQRO<<HYOEiQRO<<HYOEpQROAN>XOEpQROAN>XOOQPAN=tAN=tOFRQROAN=tOFgQROG23sOOQPG23`G23`",
-    stateData: "Fx~O]OS~OQWOSROTSOUTOVUOWPO[ZOtVOuYOR_Ps_P!Z_P![_P~OS_OT`OUaOVbOWPOR_Xs_X!Z_X![_X~OPiOtgOvgOwfO{cO|dO}gORzPszP!ZzP![zP~OZkO~P!oOPpOXrOYqOtgOvmO{cO|cO}mO!UnOR!TPs!TP!Z!TP![!TP~OPjOttOvtO{cO}tO~O|dO!XvO~P$fO|cO!UnO~P$fOiyOtxOvxO{cO|cO}xOR!YPs!YP!Z!YP![!YP~OQ{O~OtxOvxO{cO|cO}xO~OR}OsyX!ZyX![yX~O!Z!OO![!OO~OZ!RO~P!oOP!QOttOvtO{cO}tO~O|dO!X!SO~P'SO|cO!UnO~P'SOP!UO!O!TOtlXvlX{lX|lX}lX~Ot!WOv!WO{cO|cO}!WO~O!O!YO!P![ORbXZbXsbX|bX!QbX!RbX!ZbX![bX!UbX~OZ!aO!Q!_O!R!^ORzXszX!ZzX![zX~O|!]O~P)hOt!WOv!cO{cO|cO}!cO~O!O!YO!P!eOReXZeXseX!QeX!ReX!UbX!ZeX![eX~OP!gOt!gOv!gO{cO|cO}!gO~O!U!iO~OZ!lO!Q!jO!R!^OR!TXs!TX!Z!TX![!TX~OtgOvmO{cO|cO}mO!UnO~OP!nOY!oO~P,]Ot!pOv!pO{cO|cO}!pO~O!O!YORaXsaX!ZaX![aX~O!P!rO|bX!UbX~P-^O|!]O~OtgOvgO{cO|dO}gO~OP!QO~P.ROt!tOv!tO{cO|cO}!tO~O!P!vO!QaXZaX!RaX~P-^O!Q!wOR!YXs!YX!Z!YX![!YX~OP!|O~P.RO!O#QO!Q#OO~O!O!YO!P#SORbaZbasba|ba!Qba!Rba!Zba![ba!Uba~OtgOvgO{cO|cO}gO~OP#VO!O#QO~OP#WO~OP#YOwfORoXsoX!QoX!ZoX![oX~P.RO!Q!_ORzasza!Zza![za~OZ#]O!R!^O~P1|OZ#]O~P1|O!O!YO!P#`OReaZeasea!Qea!Rea!Uba!Zea![ea~OtgOvmO{cO|cO}mO~OP#bOt#bOv#bO{cO|cO}#bO~O!O!YO!P#dO!W!VX~O!W#eO~OP#gOX#iOY#hORpXspX!QpX!ZpX![pX~P,]O!Q!jOR!Tas!Ta!Z!Ta![!Ta~OZ#lO!R!^O~P5VOZ#lO~P5VOZ#nO!R!^O~P5VO!O!YO!P#qORaasaa|ba!Zaa![aa!Uba~OttOvtO{cO|cO}tO~O|!]OR_is_i!Z_i![_i~O!O!YO!P#tORaasaa!Qaa!Zaa![aaZaa!Raa~Oi#uORqXsqX!QqX!ZqX![qX~P&SO!Q!wOR!Yas!Ya!Z!Ya![!Ya~O|!]OR_qs_q!Z_q![_q~OP#wOv#wO!OnX!QnX~O!O#yO!Q#OO~O!O!YO!P#zORbiZbisbi|bi!Qbi!Rbi!Zbi![bi!Ubi~O!S#}O~OZ$OO!R!^ORoasoa!Qoa!Zoa![oa~O|!]O~P:lO!Q!_ORziszi!Zzi![zi~OZ$RO~P;[O!O!YO!P$SOReiZeisei!Qei!Rei!Ubi!Zei![ei~O!O!YO!P$VO!W!Va~O!W$XO~OZ$YO!R!^ORpaspa!Qpa!Zpa![pa~OP$[OY$]O~P,]O!Q!jOR!Tis!Ti!Z!Ti![!Ti~OZ$_O~P=iOZ$_O!R!^O~P=iOZ$aO!R!^O~P=iO!O!YORaisai!Zai![ai~O!P$bO|bi!Ubi~P>gO!P$dO!QaiZai!Rai~P>gO!O$fO!Q#OO~OZ$gORoisoi!Qoi!Zoi![oi~O!R!^O~P?oO!Q!_ORzqszq!Zzq![zq~O!O!YO!P$kO!W!Vi~OZ$mORpispi!Qpi!Zpi![pi~O!R!^O~P@xOZ$oO!R!^ORpispi!Qpi!Zpi![pi~O!Q!jOR!Tqs!Tq!Z!Tq![!Tq~OZ$rO~PA|OZ$rO!R!^O~PA|OZ$uORoqsoq!Qoq!Zoq![oq~O!Q!_ORzyszy!Zzy![zy~OZ$wORpqspq!Qpq!Zpq![pq~O!R!^O~PCgOZ$yO!R!^ORpqspq!Qpq!Zpq![pq~O!Q!jOR!Tys!Ty!Z!Ty![!Ty~OZ${O~PDkOZ$|ORpyspy!Qpy!Zpy![py~O!R!^O~PETO!Q!jOR!T!Rs!T!R!Z!T!R![!T!R~OZ%PORp!Rsp!R!Qp!R!Zp!R![p!R~O!Q!jOR!T!Zs!T!Z!Z!T!Z![!T!Z~O",
-    goto: "+q!ZPPPPPPPPPPPPPPP![!`!i#h$e$x%t&[![&oP![&s&z(X)T)_)t*h*nPPPPPP*t*zPPPPPPPP+UP+[PP+kT[O!OWiR_k!RR#Y!_SjTUSyW{Q|YS!QabQ!XfQ!nqQ#o!oS#r!r!vQ#u!wQ$[#hS$c#q#tQ$p$]T$t$b$dWhR_k!R^oSU`br!j#iSuTaQ!svQ!}!SU#U![!e!rQ#X!_U#{#S#`#qV$e#z$S$bWiR_k!RQjTS!QavQ!|!SR#Y!_S!bhiQ!mpQ#^!aS#m!l!nS$P#X#YQ$Z#gS$`#n#oQ$h$OS$n$Y$[Q$s$aS$x$o$pR$}$ySpS`Q!nrQ#a!eQ#g!jQ$T#`Q$[#iR$j$SQjUSpS`Q!QbQ!nrQ#g!jR$[#iTXO!OSQO!OR^QdeR_kv!R!S![!_#S#z`lS`r!e!j#`#i$S^sTUab!r#q$bhwWYfq{!o!v!w#h#t$]$dY!Velsw!fZ!fn!i#d$V$kQ!ZgQ!dmQ!qtQ!uxQ#R!Wd#T!Z!d!q!u#R#_#c#p#s$UQ#_!cQ#c!gQ#p!pQ#s!tR$U#bQ#P!US#x#P#|R#|#VS!`hiW#Z!`#[$Q$iS#[!a!bS$Q#]#^R$i$RQ!kp[#j!k#k$^$q$z%OU#k!l!m!nW$^#l#m#n#oU$q$_$`$aS$z$r$sR%O${Q!xyR#v!xQ!P]R!{!PQ]OR!z!OQjRS!Q_kR!|!RQjSR!Q`Q!hnQ#f!iQ$W#dQ$l$VR$v$kQzWR!y{",
-    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound LabelDefinition Space Program InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement LabelName FullString SymbolDefinition",
-    maxTerm: 58,
-    skippedNodes: [0, 13],
+    states: "9[OVQROOOOQP'#Cx'#CxO!QQRO'#ClO#dQRO'#ClO#kQRO'#ClO$wQRO'#ClO%RQRO'#ClOOQP'#Cu'#CuO%]QRO'#CtO&QQRO'#CtO&VQRO'#CwOOQO'#DW'#DWO&hQRO'#DWQ&vQQOOOOQP-E6v-E6vO'OQRO,59WO#kQRO,59WO'hQRO,59WO'rQRO,59WOOQP'#Cy'#CyO'|QRO'#CyO(eQRO'#CoO&VQRO'#CmO(vQTO'#CoO*SQRO'#DXO)kQRO'#DXOOQP,59W,59WO!oQRO,59WO*ZQRO'#CoO*lQTO'#CoO+^QRO'#CsO+rQQO'#CsO+wQRO'#DbO&VQRO'#DbO,tQRO'#DbO-OQRO'#CnO-rQTO'#CnO.PQQO'#CpO.gQRO,59WO.nQRO'#CnO/PQTO'#CnO/aQRO'#DgOOQP,59`,59`O%]QRO,59`OOQP,59c,59cOOQO,59r,59rOVQRO'#DPQ&vQQOOOOQP1G.r1G.rO!oQRO1G.rO/rQRO1G.rOOQP,59[,59[O/yQQO,59[OOQP-E6w-E6wO0RQTO,59ZOOQP,59X,59XOOQP'#Cz'#CzO0RQTO,59ZO0vQRO,59ZO1XQRO,59[O1aQRO'#CqO1fQRO'#C|O2PQRO,59sO2bQRO,59sO2lQRO,59sO2sQTO,59ZO2sQTO,59ZO3eQRO,59ZO3vQRO'#DdO4[QSO'#DdO4gQQO,59_O+^QRO,59_O4lQRO'#C}O5YQRO,59|O5kQRO,59|O5uQRO,59|O5|QRO,59|O&VQRO,59|O6WQTO,59YO6WQTO,59YO6rQRO,59YO7TQRO1G.rO7fQTO,59YO7fQTO,59YO&VQRO,59YO8TQRO'#DOO8nQRO,5:ROOQP1G.z1G.zOOQO,59k,59kOOQO-E6}-E6}OOQP7+$^7+$^O9PQRO7+$^O9bQRO'#C{O9pQQO1G.vOOQP1G.v1G.vO9xQTO1G.uO0vQRO1G.uOOQP-E6x-E6xOOQP1G.u1G.uO9pQQO1G.vO:mQQO,59]O;ZQRO,59hO:rQRO,59hOOQP-E6z-E6zO;bQRO1G/_O;bQRO1G/_O;sQRO1G/_O;zQTO1G.uO3eQRO1G.uOOQP1G.x1G.xO<lQSO,5:OO<lQSO,5:OO+^QRO,5:OOOQP1G.y1G.yO<wQQO1G.yO<|QRO,59iO&VQRO,59iO=eQRO,59iOOQP-E6{-E6{O=oQRO1G/hO=oQRO1G/hO>QQRO1G/hO>XQRO1G/hO>cQRO1G/hO?OQTO1G.tO6rQRO1G.tOOQP1G.t1G.tO?]QTO1G.tO&VQRO1G.tOOQP,59j,59jOOQP-E6|-E6|OOQO,59g,59gOOQO-E6y-E6yOOQP7+$b7+$bO0vQRO7+$aOOQP7+$a7+$aO?mQQO7+$bOOQP1G.w1G.wO@ZQRO1G/SO?uQRO1G/SO@bQRO7+$yO@bQRO7+$yO3eQRO7+$aOOQP7+$d7+$dO@sQSO1G/jO+^QRO1G/jOOQO1G/j1G/jOOQP7+$e7+$eOAdQRO1G/TOAOQRO1G/TOAkQRO1G/TO&VQRO1G/TOBSQRO7+%SOBSQRO7+%SOBeQRO7+%SOBlQRO7+%SO6rQRO7+$`OOQP7+$`7+$`O&VQRO7+$`OOQP<<G{<<G{OOQP<<G|<<G|OOQP7+$n7+$nOBvQRO7+$nOC[QRO<<HeOOQP<<HO<<HOO+^QRO7+%UOOQO7+%U7+%UOOQP7+$o7+$oOCmQRO7+$oODRQRO7+$oODYQRO7+$oODqQRO<<HnODqQRO<<HnOESQRO<<HnOOQP<<Gz<<GzOOQP<<HY<<HYOOQO<<Hp<<HpOOQP<<HZ<<HZOEZQRO<<HZOEoQRO<<HZOEvQROAN>YOEvQROAN>YOOQPAN=uAN=uOFXQROAN=uOFmQROG23tOOQPG23aG23a",
+    stateData: "GO~O^OS~OQWOSROTSOUTOVUOWPO[ZOuVOvYOR`Pt`P![`P!]`P~OS_OT`OUaOVbOWPOR`Xt`X![`X!]`X~OPiOugOwgOxfO|cO}dO!OgOR{Pt{P![{P!]{P~OZkO~P!oOPpOXrOYqOugOwmO|cO}cO!OmO!VnOR!UPt!UP![!UP!]!UP~OPjOutOwtO|cO!OtO~O}dO!YvO~P$fO}cO!VnO~P$fO]yOjyOuxOwxO|cO}cO!OxOR!ZPt!ZP![!ZP!]!ZP~OQ{O~OuxOwxO|cO}cO!OxO~OR}OtzX![zX!]zX~O![!OO!]!OO~OZ!RO~P!oOP!QOutOwtO|cO!OtO~O}dO!Y!SO~P'VO}cO!VnO~P'VOP!UO!P!TOumXwmX|mX}mX!OmX~Ou!WOw!WO|cO}cO!O!WO~O!P!YO!Q![ORcXZcXtcX}cX!RcX!ScX![cX!]cX!VcX~OZ!aO!R!_O!S!^OR{Xt{X![{X!]{X~O}!]O~P)kOu!WOw!cO|cO}cO!O!cO~O!P!YO!Q!eORfXZfXtfX!RfX!SfX!VcX![fX!]fX~OP!gOu!gOw!gO|cO}cO!O!gO~O!V!iO~OZ!lO!R!jO!S!^OR!UXt!UX![!UX!]!UX~OugOwmO|cO}cO!OmO!VnO~OP!nOY!oO~P,`Ou!pOw!pO|cO}cO!O!pO~O!P!YORbXtbX![bX!]bX~O!Q!rO}cX!VcX~P-aO}!]O~OugOwgO|cO}dO!OgO~OP!QO~P.UOu!tOw!tO|cO}cO!O!tO~O!Q!vO!RbXZbX!SbX~P-aO!R!wOR!ZXt!ZX![!ZX!]!ZX~OP!|O~P.UO!P#QO!R#OO~O!P!YO!Q#SORcaZcatca}ca!Rca!Sca![ca!]ca!Vca~OugOwgO|cO}cO!OgO~OP#VO!P#QO~OP#WO~OP#YOxfORpXtpX!RpX![pX!]pX~P.UO!R!_OR{at{a![{a!]{a~OZ#]O!S!^O~P2POZ#]O~P2PO!P!YO!Q#`ORfaZfatfa!Rfa!Sfa!Vca![fa!]fa~OugOwmO|cO}cO!OmO~OP#bOu#bOw#bO|cO}cO!O#bO~O!P!YO!Q#dO!X!WX~O!X#eO~OP#gOX#iOY#hORqXtqX!RqX![qX!]qX~P,`O!R!jOR!Uat!Ua![!Ua!]!Ua~OZ#lO!S!^O~P5YOZ#lO~P5YOZ#nO!S!^O~P5YO!P!YO!Q#qORbatba}ca![ba!]ba!Vca~OutOwtO|cO}cO!OtO~O}!]OR`it`i![`i!]`i~O!P!YO!Q#tORbatba!Rba![ba!]baZba!Sba~O]#uOj#uORrXtrX!RrX![rX!]rX~P&VO!R!wOR!Zat!Za![!Za!]!Za~O}!]OR`qt`q![`q!]`q~OP#wOw#wO!PoX!RoX~O!P#yO!R#OO~O!P!YO!Q#zORciZcitci}ci!Rci!Sci![ci!]ci!Vci~O!T#}O~OZ$OO!S!^ORpatpa!Rpa![pa!]pa~O}!]O~P:rO!R!_OR{it{i![{i!]{i~OZ$RO~P;bO!P!YO!Q$SORfiZfitfi!Rfi!Sfi!Vci![fi!]fi~O!P!YO!Q$VO!X!Wa~O!X$XO~OZ$YO!S!^ORqatqa!Rqa![qa!]qa~OP$[OY$]O~P,`O!R!jOR!Uit!Ui![!Ui!]!Ui~OZ$_O~P=oOZ$_O!S!^O~P=oOZ$aO!S!^O~P=oO!P!YORbitbi![bi!]bi~O!Q$bO}ci!Vci~P>mO!Q$dO!RbiZbi!Sbi~P>mO!P$fO!R#OO~OZ$gORpitpi!Rpi![pi!]pi~O!S!^O~P?uO!R!_OR{qt{q![{q!]{q~O!P!YO!Q$kO!X!Wi~OZ$mORqitqi!Rqi![qi!]qi~O!S!^O~PAOOZ$oO!S!^ORqitqi!Rqi![qi!]qi~O!R!jOR!Uqt!Uq![!Uq!]!Uq~OZ$rO~PBSOZ$rO!S!^O~PBSOZ$uORpqtpq!Rpq![pq!]pq~O!R!_OR{yt{y![{y!]{y~OZ$wORqqtqq!Rqq![qq!]qq~O!S!^O~PCmOZ$yO!S!^ORqqtqq!Rqq![qq!]qq~O!R!jOR!Uyt!Uy![!Uy!]!Uy~OZ${O~PDqOZ$|ORqytqy!Rqy![qy!]qy~O!S!^O~PEZO!R!jOR!U!Rt!U!R![!U!R!]!U!R~OZ%PORq!Rtq!R!Rq!R![q!R!]q!R~O!R!jOR!U!Zt!U!Z![!U!Z!]!U!Z~O",
+    goto: "+r![PPPPPPPPPPPPPPPP!]!a!j#i$f$y%u&]!]&pP!]&t&{(Y)U)`)u*i*oPPPPPP*u*{PPPPPPPP+VP+]PP+lT[O!OWiR_k!RR#Y!_SjTUSyW{Q|YS!QabQ!XfQ!nqQ#o!oS#r!r!vQ#u!wQ$[#hS$c#q#tQ$p$]T$t$b$dWhR_k!R^oSU`br!j#iSuTaQ!svQ!}!SU#U![!e!rQ#X!_U#{#S#`#qV$e#z$S$bWiR_k!RQjTS!QavQ!|!SR#Y!_S!bhiQ!mpQ#^!aS#m!l!nS$P#X#YQ$Z#gS$`#n#oQ$h$OS$n$Y$[Q$s$aS$x$o$pR$}$ySpS`Q!nrQ#a!eQ#g!jQ$T#`Q$[#iR$j$SQjUSpS`Q!QbQ!nrQ#g!jR$[#iTXO!OSQO!OR^QdeR_kv!R!S![!_#S#z`lS`r!e!j#`#i$S^sTUab!r#q$bhwWYfq{!o!v!w#h#t$]$dY!Velsw!fZ!fn!i#d$V$kQ!ZgQ!dmQ!qtQ!uxQ#R!Wd#T!Z!d!q!u#R#_#c#p#s$UQ#_!cQ#c!gQ#p!pQ#s!tR$U#bQ#P!US#x#P#|R#|#VS!`hiW#Z!`#[$Q$iS#[!a!bS$Q#]#^R$i$RQ!kp[#j!k#k$^$q$z%OU#k!l!m!nW$^#l#m#n#oU$q$_$`$aS$z$r$sR%O${Q!xyR#v!xQ!P]R!{!PQ]OR!z!OQjRS!Q_kR!|!RQjSR!Q`Q!hnQ#f!iQ$W#dQ$l$VR$v$kQzWR!y{",
+    nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset VEXRound LabelDefinition SpecialWord Space Program InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement LabelName FullString SymbolDefinition",
+    maxTerm: 59,
+    skippedNodes: [0, 14],
     repeatNodeCount: 8,
-    tokenData: "'k~RsXY#`YZ#eZ^#`pq#`qr#lrs#{uv#vvw$lwx$txy%eyz%jz{%o{|%v|}%}}!O%v!P!Q#v!]!^&S!^!_&X!_!`&g!`!a&m!}#O&x#P#Q&}#Q#R#v#o#p'S#p#q'X#q#r'a#r#s'f#y#z#`$f$g#`#BY#BZ#`$IS$I_#`$I|$JO#`$JT$JU#`$KV$KW#`&FU&FV#`~#eO]~~#lO![~]~R#sP!PQ{P!_!`#vQ#{O!PQ~$QTi~Or#{rs$as#O#{#O#P$f#P~#{~$fOi~~$iPO~#{Q$qP!PQvw#v~$yT}~Ow$twx%Yx#O$t#O#P%_#P~$t~%_O}~~%bPO~$t~%jO|~~%oO!O~R%vO!XP!PQR%}O!PQ{P~&SO!Q~~&XO!Z~Q&^R!PQ!^!_#v!_!`#v!`!a#vQ&jP!_!`#vQ&rQ!PQ!_!`#v!`!a#v~&}O!U~~'SO!W~~'XO!R~Q'^P!PQ#p#q#v~'fO!S~P'kO{P",
+    tokenData: "'k~RsXY#`YZ#eZ^#`pq#`qr#lrs#{uv#vvw$lwx$txy%eyz%jz{%o{|%v|}%}}!O%v!P!Q#v!]!^&S!^!_&X!_!`&g!`!a&m!}#O&x#P#Q&}#Q#R#v#o#p'S#p#q'X#q#r'a#r#s'f#y#z#`$f$g#`#BY#BZ#`$IS$I_#`$I|$JO#`$JT$JU#`$KV$KW#`&FU&FV#`~#eO^~~#lO!]~^~R#sP!QQ|P!_!`#vQ#{O!QQ~$QTj~Or#{rs$as#O#{#O#P$f#P~#{~$fOj~~$iPO~#{Q$qP!QQvw#v~$yT!O~Ow$twx%Yx#O$t#O#P%_#P~$t~%_O!O~~%bPO~$t~%jO}~~%oO!P~R%vO!YP!QQR%}O!QQ|P~&SO!R~~&XO![~Q&^R!QQ!^!_#v!_!`#v!`!a#vQ&jP!_!`#vQ&rQ!QQ!_!`#v!`!a#v~&}O!V~~'SO!X~~'XO!S~Q'^P!QQ#p#q#v~'fO!T~P'kO|P",
     tokenizers: [tokenizer2, 0, 1],
-    topRules: { "Program": [0, 14] },
-    dynamicPrecedences: { "21": 1 },
+    topRules: { "Program": [0, 15] },
+    dynamicPrecedences: { "22": 1 },
     tokenPrec: 0
   });
 
@@ -17910,7 +17921,8 @@ g nle`.split("\n");
           VEXRound: tags.modifier,
           VEXMask: tags.modifier,
           Offset: tags.emphasis,
-          Ptr: tags.emphasis
+          Ptr: tags.emphasis,
+          SpecialWord: tags.annotation
         })
       ]
     })
