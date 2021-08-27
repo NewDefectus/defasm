@@ -178,17 +178,54 @@ export class SymbolTable extends ELFSection
     constructor(config, symbols, strtab)
     {
         super({ ...config, type: 0x2, entrySize: 0x18, buffer: Buffer.alloc(0x18 * (symbols.length + 1)), info: 1, align: 8 });
-        for(let i = 0, index = 0x18; i < symbols.length; i++, index += 0x18)
-        {
-            const symbol = symbols[i];
-            this.buffer.writeUInt32LE(strtab.getIndex(symbol.name), index);
-            this.buffer.writeUInt8(symbol.type | symbol.bind << 4, index + 4);
-            this.buffer.writeUInt8(0, index + 5);
-            this.buffer.writeUInt16LE(symbol.value.section.index, index + 6);
-            this.buffer.writeBigUInt64LE(symbol.value.addend, index + 8);
+        this.symbolCount = 1;
+        this.strtab = strtab;
+        for(let index = 0x18; this.symbolCount <= symbols.length; index += 0x18)
+            this.writeSymbol(symbols[this.symbolCount - 1], this.buffer.subarray(index));
+    }
 
-            if(symbol.bind == 0)
-                this.header.sh_info = i + 2;
+    writeSymbol(symbol, buffer)
+    {
+        symbol.index = this.symbolCount;
+
+        buffer.writeUInt32LE(this.strtab.getIndex(symbol.name));
+        buffer.writeUInt8(symbol.type | symbol.bind << 4, 4);
+        buffer.writeUInt8(0, 5);
+        buffer.writeUInt16LE(symbol.value.section.index, 6);
+        buffer.writeBigUInt64LE(symbol.value.addend, 8);
+
+        if(symbol.bind == 0)
+            this.header.sh_info = this.symbolCount + 1;
+        
+        this.symbolCount++;
+    }
+
+    addSymbol(symbol)
+    {
+        const buffer = Buffer.alloc(0x18);
+        this.writeSymbol(symbol, buffer);
+        this.add(buffer);
+    }
+}
+
+export class RelocationSection extends ELFSection
+{
+    /**
+     * @param {import('@defasm/core/relocations').RelocEntry[]} relocations
+     * @param {SymbolTable} symtab */
+    constructor(config, relocations, symtab)
+    {
+        super({ ...config, type: 0x4, entrySize: 0x18, buffer: Buffer.alloc(0x18 * relocations.length) });
+        let index = 0;
+        for(const reloc of relocations)
+        {
+            if(reloc.symbol.index === undefined)
+                symtab.addSymbol(reloc.symbol);
+            this.buffer.writeBigUInt64LE(BigInt(reloc.offset), index);
+            this.buffer.writeBigUInt64LE(BigInt(reloc.type) | BigInt(reloc.symbol.index) << 32n, index + 0x8);
+            this.buffer.writeBigInt64LE(BigInt(reloc.addend), index + 0x10);
+
+            index += 0x18;
         }
     }
 }

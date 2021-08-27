@@ -50,6 +50,6 @@ export class RelocEntry
            this.addend += symbol.value.addend;
         }
 
-        this.type = (pcRelative ? functionAddr ? 'PLT' : 'PC' : '') + size;
+        this.type = relocTypes[(pcRelative ? functionAddr ? 'PLT' : 'PC' : '') + size];
     }
 }

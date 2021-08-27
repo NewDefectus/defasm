@@ -5,7 +5,7 @@ import child_process from "child_process";
 import { fileURLToPath } from "url";
 
 import { AssemblyState } from "@defasm/core";
-import { ELFHeader, ELFSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
+import { ELFHeader, ELFSection, RelocationSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
 import { STT_SECTION } from "@defasm/core/sections.js";
 
 
@@ -132,8 +132,8 @@ function assemble()
     let outputStream = fs.createWriteStream(outputFile, { mode: 0o0755 });
 
     let shstrtab = new StringTable();
-    let sections = [];
-    for(const section of Object.values(state.sections))
+    let sections = [], asmSections = Object.values(state.sections);
+    for(const section of asmSections)
     {
         section.index = sections.length + 1;
         sections.push(new ELFSection({
@@ -144,23 +144,38 @@ function assemble()
         }));
     }
 
-    let recordedSymbols = [];
+    let recordedSymbols = [], symtab = null;
     state.symbols.forEach(record => {
-        if(record.type != STT_SECTION || record.references.length > 0)
+        if(record.type != STT_SECTION)
             recordedSymbols.push(record);
     });
 
     if(recordedSymbols.length > 0)
     {
         const strtab = new StringTable();
-        const symtab = new SymbolTable({ link: sections.length + 2 }, recordedSymbols, strtab)
+        symtab = new SymbolTable({ link: sections.length + 2 }, recordedSymbols, strtab)
         symtab.name('.symtab', shstrtab);
         strtab.name('.strtab', shstrtab);
 
         sections.push(symtab, strtab);
     }
     sections.push(shstrtab);
+
+    if(symtab)
+        for(const section of asmSections)
+        {
+            const relocs = section.getRelocations();
+            if(relocs.length > 0)
+            {
+                const relocSection = new RelocationSection({ link: sections.indexOf(symtab) + 1, info: section.index }, relocs, symtab);
+                relocSection.name('.rela' + section.name, shstrtab);
+                sections.push(relocSection);
+            }
+        }
     shstrtab.name('.shstrtab', shstrtab);
+
+
+    // Finalizing
     let fileOffset = ELFHeader.size;
 
     for(const section of sections)
