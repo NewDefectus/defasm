@@ -11403,15 +11403,13 @@
   };
   var signed32 = 33;
   var RelocEntry = class {
-    constructor({ offset, addend, symbol, size, pcRelative, functionAddr }) {
+    constructor({ offset, value, size, pcRelative, functionAddr }) {
       this.offset = offset;
-      this.addend = addend;
-      if (symbol.bind || symbol.value.section == pseudoSections.UND)
-        this.symbol = symbol;
-      else {
-        this.symbol = symbol.value.section.head.statement.symbol;
-        this.addend += symbol.value.addend;
-      }
+      value = value.flatten();
+      this.addend = value.addend;
+      if (pcRelative)
+        this.addend += BigInt(offset);
+      this.symbol = value.symbol;
       this.type = relocTypes[(pcRelative ? functionAddr ? "PLT" : "PC" : "") + size];
     }
   };
@@ -11521,16 +11519,12 @@
         num += value.symbol.value.addend;
       if (sizeRelative)
         num -= BigInt(this.length + size / 8);
-      if (value.relocatable) {
-        let addend = num;
-        if (value.pcRelative) {
-          addend += BigInt(this.length);
+      if (value.isRelocatable()) {
+        if (value.pcRelative)
           signed = false;
-        }
         this.relocations.push({
           offset: this.length,
-          addend: value.addend,
-          symbol: value.symbol,
+          value,
           size: signed && size == 32 ? signed32 : size,
           pcRelative: value.pcRelative,
           functionAddr: functionAddr && value.section == pseudoSections.UND
@@ -11776,117 +11770,129 @@
     let indirect = token == "*";
     if (indirect && !instr2.syntax.intel)
       next();
+    let forceMemory = false;
     if (instr2.syntax.prefix && isRegister(token))
       throw new ASMError("Registers must be prefixed with '%'");
     if (instr2.syntax.prefix ? token == "%" : isRegister(token)) {
-      Object.assign(this, parseRegister());
+      const regData = parseRegister();
       this.endPos = regParsePos;
-    } else {
-      if (instr2.syntax.intel) {
-        this.type = expectRelative ? OPT.REL : OPT.IMM;
-        if (token != "[") {
-          let mayBeMem = !expectRelative;
-          if (token.toLowerCase() == "offset") {
-            next();
-            this.type = OPT.IMM;
-            mayBeMem = false;
-          }
-          this.expression = new Expression(instr2);
-          if (this.expression.hasSymbols && mayBeMem)
-            this.type = OPT.MEM;
-        }
-        if (token == "[") {
-          this.type = OPT.MEM;
+      if (regData.type == OPT.SEG && token == ":") {
+        this.prefs |= regData.reg + 1 << 3;
+        forceMemory = true;
+        next();
+      } else {
+        Object.assign(this, regData);
+        return;
+      }
+    }
+    if (instr2.syntax.intel) {
+      this.type = expectRelative ? OPT.REL : OPT.IMM;
+      if (token != "[" && !forceMemory) {
+        let mayBeMem = !expectRelative;
+        if (token.toLowerCase() == "offset") {
           next();
-          let secExpr = new Expression(instr2, true);
-          if (this.expression)
-            this.expression.apply("+", secExpr);
-          else
-            this.expression = secExpr;
-          this.ripRelative = this.expression.ripRelative;
-          if (this.expression.vecSize) {
-            this.size = this.expression.vecSize;
-            this.type = OPT.VMEM;
-          }
+          this.type = OPT.IMM;
+          mayBeMem = false;
+        }
+        this.expression = new Expression(instr2);
+        if (this.expression.hasSymbols && mayBeMem)
+          this.type = OPT.MEM;
+      }
+      const hasBracket = token == "[";
+      if (hasBracket || forceMemory) {
+        this.type = OPT.MEM;
+        if (hasBracket)
+          next();
+        let secExpr = new Expression(instr2, true);
+        if (this.expression)
+          this.expression.apply("+", secExpr);
+        else
+          this.expression = secExpr;
+        this.ripRelative = this.expression.ripRelative;
+        if (this.expression.vecSize) {
+          this.size = this.expression.vecSize;
+          this.type = OPT.VMEM;
+        }
+        if (hasBracket) {
           if (token != "]")
             throw new ASMError("Expected ']'");
           next();
         }
+      }
+    } else {
+      if (token[0] == "$") {
+        if (token.length > 1) {
+          setToken(token.slice(1));
+          currRange.start++;
+        } else
+          next();
+        this.expression = new Expression(instr2);
+        this.type = OPT.IMM;
       } else {
-        if (token[0] == "$") {
-          if (token.length > 1) {
-            setToken(token.slice(1));
-            currRange.start++;
-          } else
-            next();
-          this.expression = new Expression(instr2);
-          this.type = OPT.IMM;
+        this.type = OPT.MEM;
+        this.expression = new Expression(instr2, true);
+        if (this.expression.vecSize) {
+          this.size = this.expression.vecSize;
+          this.type = OPT.VMEM;
+        }
+        if (token != "(") {
+          if (!indirect && expectRelative)
+            this.type = OPT.REL;
         } else {
-          this.type = OPT.MEM;
-          this.expression = new Expression(instr2, true);
-          if (this.expression.vecSize) {
-            this.size = this.expression.vecSize;
-            this.type = OPT.VMEM;
-          }
-          if (token != "(") {
-            if (!indirect && expectRelative)
-              this.type = OPT.REL;
-          } else {
-            let tempReg;
-            if (instr2.syntax.prefix ? next() == "%" : isRegister(next())) {
-              tempReg = parseRegister([OPT.REG, OPT.IP]);
-              this.reg = tempReg.reg;
-            } else if (token == ",") {
-              this.reg = -1;
-              tempReg = { type: -1, size: 64 };
-            } else
+          let tempReg;
+          if (instr2.syntax.prefix ? next() == "%" : isRegister(next())) {
+            tempReg = parseRegister([OPT.REG, OPT.IP]);
+            this.reg = tempReg.reg;
+          } else if (token == ",") {
+            this.reg = -1;
+            tempReg = { type: -1, size: 64 };
+          } else
+            throw new ASMError("Expected register");
+          if (tempReg.size == 32)
+            this.prefs |= PREFIX_ADDRSIZE;
+          else if (tempReg.size != 64)
+            throw new ASMError("Invalid register size", regParsePos);
+          if (tempReg.type == OPT.IP)
+            this.ripRelative = true;
+          else if (token == ",") {
+            if (instr2.syntax.prefix ? next() != "%" : !isRegister(next()))
               throw new ASMError("Expected register");
-            if (tempReg.size == 32)
-              this.prefs |= PREFIX_ADDRSIZE;
-            else if (tempReg.size != 64)
-              throw new ASMError("Invalid register size", regParsePos);
-            if (tempReg.type == OPT.IP)
-              this.ripRelative = true;
-            else if (token == ",") {
-              if (instr2.syntax.prefix ? next() != "%" : !isRegister(next()))
-                throw new ASMError("Expected register");
-              tempReg = parseRegister([OPT.REG, OPT.VEC]);
-              this.reg2 = tempReg.reg;
-              if (tempReg.type == OPT.VEC) {
-                this.type = OPT.VMEM;
-                this.size = tempReg.size;
-                if (tempReg.size < 128)
-                  throw new ASMError("Invalid register size", regParsePos);
-              } else {
-                if (this.reg2 == 4)
-                  throw new ASMError("Memory index cannot be RSP", regParsePos);
-                if (tempReg.size == 32)
-                  this.prefs |= PREFIX_ADDRSIZE;
-                else if (tempReg.size != 64)
-                  throw new ASMError("Invalid register size", regParsePos);
-              }
-              if (token == ",") {
-                this.shift = "1248".indexOf(next());
-                if (this.shift < 0)
-                  throw new ASMError("Scale must be 1, 2, 4, or 8");
-                next();
-              }
-            } else if (this.reg == 4)
-              this.reg2 = 4;
-            if (token != ")")
-              throw new ASMError("Expected ')'");
-            next();
-          }
+            tempReg = parseRegister([OPT.REG, OPT.VEC]);
+            this.reg2 = tempReg.reg;
+            if (tempReg.type == OPT.VEC) {
+              this.type = OPT.VMEM;
+              this.size = tempReg.size;
+              if (tempReg.size < 128)
+                throw new ASMError("Invalid register size", regParsePos);
+            } else {
+              if (this.reg2 == 4)
+                throw new ASMError("Memory index cannot be RSP", regParsePos);
+              if (tempReg.size == 32)
+                this.prefs |= PREFIX_ADDRSIZE;
+              else if (tempReg.size != 64)
+                throw new ASMError("Invalid register size", regParsePos);
+            }
+            if (token == ",") {
+              this.shift = "1248".indexOf(next());
+              if (this.shift < 0)
+                throw new ASMError("Scale must be 1, 2, 4, or 8");
+              next();
+            }
+          } else if (this.reg == 4)
+            this.reg2 = 4;
+          if (token != ")")
+            throw new ASMError("Expected ')'");
+          next();
         }
       }
-      if (this.expression) {
-        if (this.type == OPT.REL)
-          this.expression.apply("-", new CurrentIP(instr2));
-        if (!this.expression.hasSymbols)
-          this.evaluate(instr2);
-      }
-      this.endPos = prevRange;
     }
+    if (this.expression) {
+      if (this.type == OPT.REL)
+        this.expression.apply("-", new CurrentIP(instr2));
+      if (!this.expression.hasSymbols)
+        this.evaluate(instr2);
+    }
+    this.endPos = prevRange;
   }
   Operand.prototype.sizeAllowed = function(size, unsigned = false) {
     return size >= (unsigned ? this.unsignedSize : this.size) || this.sizeAvailable(size, unsigned);
@@ -11903,7 +11909,7 @@
   Operand.prototype.evaluate = function(instr2, intelMemory = false) {
     this.value = this.expression.evaluate(instr2);
     if (intelMemory) {
-      this.prefs = 0;
+      this.prefs &= ~PREFIX_ADDRSIZE;
       let { regBase = null, regIndex = null, shift: shift2 = 1 } = this.value.regData ?? {};
       if (regBase)
         this.reg = regBase.reg;
@@ -12056,19 +12062,119 @@
       throw e;
     }
   }
+  var IdentifierValue = class {
+    constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false } = {}) {
+      this.addend = addend;
+      this.symbol = symbol;
+      this.section = section;
+      this.range = range;
+      this.regData = regData;
+      this.pcRelative = pcRelative;
+    }
+    isRelocatable() {
+      return this.symbol && this.section != pseudoSections.ABS || this.pcRelative;
+    }
+    flatten() {
+      let val = this, addend = this.addend;
+      while (val.symbol && (val.section == pseudoSections.ABS || val.symbol.value.symbol && !val.symbol.bind) && val.symbol.value !== val) {
+        val = val.symbol.value;
+        addend += val.addend;
+      }
+      return new IdentifierValue({
+        ...val,
+        addend
+      });
+    }
+    absoluteValue() {
+      let val = this, total = this.addend;
+      while (val.symbol && val.symbol.value !== val) {
+        val = val.symbol.value;
+        total += val.addend;
+      }
+      return total;
+    }
+    apply(instr2, func, op, allowPCRelative = true) {
+      this.range = this.range.until(op.range);
+      if (this.section == pseudoSections.ABS && op.section == pseudoSections.ABS)
+        ;
+      else if (func == "+" && this.section == pseudoSections.ABS && !this.pcRelative) {
+        this.section = op.section;
+        this.symbol = op.symbol;
+      } else if ((func == "+" || func == "-") && op.section == pseudoSections.ABS)
+        ;
+      else if (this.pcRelative || op.pcRelative)
+        throw new ASMError("Bad operands", this.range);
+      else if (func == "-" && this.section == op.section && (this.section != pseudoSections.UND && this.section != pseudoSections.COM || this.symbol == op.symbol)) {
+        if (this.symbol)
+          this.addend = this.absoluteValue();
+        if (op.symbol)
+          op.addend = op.absoluteValue();
+        this.section = op.section = pseudoSections.ABS;
+        this.symbol = op.symbol = null;
+      } else if (func == "-" && allowPCRelative && op.section == instr2.section)
+        this.pcRelative = true;
+      else
+        throw new ASMError("Bad operands", this.range);
+      if (this.regData || op.regData) {
+        if (func != "+" && func != "-" && func != "*" || func == "-" && op.regData)
+          throw new ASMError("Bad operands", this.range);
+        let regOp = this.regData ? this : op;
+        let nonRegOp = this.regData ? op : this;
+        if (!this.regData)
+          this.regData = op.regData;
+        else if (op.regData) {
+          if (func == "*")
+            throw new ASMError("Bad operands", this.range);
+          if (this.regData.regIndex && op.regData.regIndex)
+            throw new ASMError("Can't have multiple index registers", this.range);
+          if ([this.regData, op.regData].some((data) => data.regBase && data.regIndex))
+            throw new ASMError("Too many registers", this.range);
+          if (this.regData.regBase && op.regData.regBase) {
+            this.regData.regIndex = [this.regData.regBase, op.regData.regBase].find((reg) => reg.reg != 4);
+            if (this.regData.regIndex === void 0)
+              throw new ASMError(`Can't have both registers be ${instr2.syntax.prefix ? "%" : ""}rsp`, this.range);
+            if (this.regData.regIndex == this.regData.regBase)
+              this.regData.regBase = op.regData.regBase;
+          } else if (op.regData.regIndex) {
+            this.regData.regIndex = op.regData.regIndex;
+            this.regData.shift = op.regData.shift;
+          } else
+            this.regData.regBase = op.regData.regBase;
+        }
+        if (func == "*") {
+          if (nonRegOp.section != pseudoSections.ABS)
+            throw new ASMError("Scale must be absolute", nonRegOp.range);
+          if (regOp.regData.regIndex && regOp.regData.regBase)
+            throw new ASMError("Can't scale both base and index registers", this.range);
+          if (regOp.regData.regBase) {
+            const scaled = regOp.regData.regBase;
+            if (scaled.reg == 4)
+              throw new ASMError(`Can't scale ${nameRegister("sp", scaled.size, instr2.syntax)}`, this.range);
+            if (scaled.type == OPT.IP)
+              throw new ASMError(`Can't scale ${nameRegister("ip", scaled.size, instr2.syntax)}`, this.range);
+            this.regData.regIndex = scaled;
+            this.regData.regBase = null;
+          }
+          this.regData.shift *= Number(nonRegOp.addend);
+          this.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
+        } else if (this.addend !== null || op.addend !== null)
+          this.addend = operators[func].func(this.addend ?? 0n, op.addend ?? 0n);
+      } else
+        this.addend = operators[func].func(this.addend, op.addend);
+      this.pcRelative = this.pcRelative || op.pcRelative;
+    }
+  };
   var Identifier = class {
     constructor(instr2, value, range) {
       this.value = value;
       this.range = range;
     }
     getValue(instr2) {
-      return {
+      return new IdentifierValue({
         addend: this.value,
-        symbol: null,
         section: pseudoSections.ABS,
-        range: this.range,
-        pcRelative: false
-      };
+        range: this.range
+      });
     }
   };
   var SymbolIdentifier = class extends Identifier {
@@ -12081,32 +12187,29 @@
     }
     getValue(instr2) {
       if (this.isIP)
-        return {
+        return new IdentifierValue({
           addend: BigInt(instr2.address),
           symbol: (instr2.section.head?.statement ?? instr2).symbol,
           section: instr2.section,
-          range: this.range,
-          pcRelative: false
-        };
+          range: this.range
+        });
       const symbol = symbols.get(this.name);
       if (symbol.statement && !symbol.statement.error) {
         if (instr2.symbol && checkSymbolRecursion(instr2.symbol, symbol))
           throw new ASMError(`Recursive definition`, this.range);
-        return {
-          addend: 0n,
-          symbol,
+        let isAbs = symbol.value.section == pseudoSections.ABS;
+        return new IdentifierValue({
+          addend: isAbs ? symbol.value.addend : 0n,
+          symbol: isAbs ? null : symbol,
           section: symbol.value.section,
-          range: this.range,
-          pcRelative: false
-        };
+          range: this.range
+        });
       }
-      return {
+      return new IdentifierValue({
         addend: 0n,
         symbol,
-        section: pseudoSections.UND,
-        range: this.range,
-        pcRelative: false
-      };
+        range: this.range
+      });
     }
   };
   var RegisterIdentifier = class extends Identifier {
@@ -12115,12 +12218,9 @@
       this.register = register;
     }
     getValue() {
-      return {
-        addend: null,
-        symbol: null,
+      return new IdentifierValue({
         section: pseudoSections.ABS,
         range: this.range,
-        pcRelative: false,
         regData: this.register.type == OPT.VEC ? {
           shift: 1,
           regBase: null,
@@ -12130,7 +12230,7 @@
           regBase: this.register,
           regIndex: null
         }
-      };
+      });
     }
   };
   var Expression = class {
@@ -12229,12 +12329,11 @@
         }
       }
     }
-    evaluate(instr2, allowPCRelative = true) {
+    evaluate(instr2, allowPCRelative = true, expectAbsolute = false) {
       if (this.stack.length == 0)
-        return {
-          section: pseudoSections.ABS,
-          value: null
-        };
+        return new IdentifierValue({
+          section: pseudoSections.ABS
+        });
       let stack = [], len = 0;
       for (const op of this.stack) {
         const func = op.func;
@@ -12249,15 +12348,18 @@
               val.pcRelative = true;
             val.addend = unaries[func].func(val.addend);
           } else {
-            stack[len - 2] = applyValue(instr2, stack[len - 2], func, stack.pop(), allowPCRelative);
+            stack[len - 2].apply(instr2, func, stack.pop(), allowPCRelative);
             len--;
           }
         } else
           stack[len++] = op.getValue(instr2);
       }
       if (stack.length > 1)
-        throw new ASMError("Invalid expression");
-      stack[0].relocatable = isRelocatable(stack[0]);
+        throw new ASMError("Invalid expression", stack[0].range);
+      if (expectAbsolute) {
+        if (stack[0].section != pseudoSections.ABS)
+          throw new ASMError("Expected absolute expression", stack[0].range);
+      }
       return stack[0];
     }
     apply(func, expr = null) {
@@ -12277,84 +12379,6 @@
     this.stack = [new SymbolIdentifier(instr2, instr2.syntax.intel ? "$" : ".", currRange)];
   }
   CurrentIP.prototype = Object.create(Expression.prototype);
-  function applyValue(instr2, op1, func, op2, allowPCRelative = true) {
-    let returnValue = op1;
-    op1.range = op1.range.until(op2.range);
-    if (op1.section == pseudoSections.ABS && op2.section == pseudoSections.ABS)
-      ;
-    else if (op1.section == pseudoSections.ABS && !op1.pcRelative && func == "+") {
-      op1.section = op2.section;
-      op1.symbol = op2.symbol;
-    } else if (op2.section == pseudoSections.ABS && (func == "+" || func == "-"))
-      ;
-    else if (op1.pcRelative || op2.pcRelative)
-      throw new ASMError("Bad operands", op1.range);
-    else if (op1.section == op2.section && op1.section != pseudoSections.UND && func == "-") {
-      op1.section = op2.section = pseudoSections.ABS;
-      if (op1.symbol)
-        op1.addend += op1.symbol.value.addend;
-      if (op2.symbol)
-        op2.addend += op2.symbol.value.addend;
-      op1.symbol = op2.symbol = null;
-    } else if (allowPCRelative && op2.section == instr2.section && func == "-") {
-      op1.pcRelative = true;
-      if (op2.addend)
-        op2.addend = 0n;
-    } else
-      throw new ASMError("Bad operands", op1.range);
-    if (op1.regData || op2.regData) {
-      let regOp = op1.regData ? op1 : op2;
-      let nonRegOp = op1.regData ? op2 : op1;
-      returnValue = nonRegOp;
-      if (func != "+" && func != "-" && func != "*" || func == "-" && op2.regData)
-        throw new ASMError("Bad operands", op1.range);
-      if (!nonRegOp.regData)
-        nonRegOp.regData = regOp.regData;
-      else {
-        if (func == "*")
-          throw new ASMError("Bad operands", op1.range);
-        if (regOp.regData.regIndex && nonRegOp.regData.regIndex)
-          throw new ASMError("Can't have multiple index registers", op1.range);
-        if ([regOp.regData, nonRegOp.regData].some((data) => data.regBase && data.regIndex))
-          throw new ASMError("Too many registers", op1.range);
-        if (regOp.regData.regBase && nonRegOp.regData.regBase) {
-          nonRegOp.regData.regIndex = [nonRegOp.regData.regBase, regOp.regData.regBase].find((reg) => reg.reg != 4);
-          if (nonRegOp.regData.regIndex === void 0)
-            throw new ASMError(`Can't have both registers be ${instr2.syntax.prefix ? "%" : ""}rsp`, op1.range);
-          if (nonRegOp.regData.regIndex == nonRegOp.regData.regBase)
-            nonRegOp.regData.regBase = regOp.regData.regBase;
-        } else if (regOp.regData.regIndex) {
-          nonRegOp.regData.regIndex = regOp.regData.regIndex;
-          nonRegOp.regData.shift = regOp.regData.shift;
-        } else
-          nonRegOp.regData.regBase = regOp.regData.regBase;
-      }
-      if (func == "*") {
-        if (nonRegOp.section != pseudoSections.ABS)
-          throw new ASMError("Scale must be absolute", nonRegOp.range);
-        if (regOp.regData.regIndex && regOp.regData.regBase)
-          throw new ASMError("Can't scale both base and index registers", op1.range);
-        if (regOp.regData.regBase) {
-          const scaled = regOp.regData.regBase;
-          if (scaled.reg == 4)
-            throw new ASMError(`Can't scale ${nameRegister("sp", scaled.size, instr2.syntax)}`, op1.range);
-          if (scaled.type == OPT.IP)
-            throw new ASMError(`Can't scale ${nameRegister("ip", scaled.size, instr2.syntax)}`, op1.range);
-          nonRegOp.regData.regIndex = scaled;
-          nonRegOp.regData.regBase = null;
-        }
-        nonRegOp.regData.shift *= Number(nonRegOp.addend);
-        nonRegOp.addend = regOp.addend !== null ? nonRegOp.addend * regOp.addend : null;
-      } else if (op1.addend !== null || op2.addend !== null)
-        nonRegOp.addend = operators[func].func(op1.addend ?? 0n, op2.addend ?? 0n);
-    } else
-      op1.addend = operators[func].func(op1.addend, op2.addend);
-    op1.pcRelative = op1.pcRelative || op2.pcRelative;
-    return returnValue;
-  }
-  function isRelocatable(val) {
-    return val.symbol && val.section != pseudoSections.ABS || val.pcRelative;
-  }
   function checkSymbolRecursion(origin, symbol) {
     if (symbol === origin)
       return true;
@@ -12366,15 +12390,16 @@
 
   // core/symbols.js
   var recompQueue = [];
-  function makeSymbol({ name: name2, type = void 0, uses = [], references = [], definitions = [] } = {}) {
+  function makeSymbol({ name: name2, type = void 0, bind = void 0, uses = [], references = [], definitions = [] } = {}) {
     return {
       statement: null,
       name: name2,
       references,
       definitions,
       uses,
-      value: { addend: 0n, section: pseudoSections.UND },
-      type
+      value: new IdentifierValue({ addend: 0n }),
+      type,
+      bind
     };
   }
   var symbols = new Map();
@@ -12390,16 +12415,15 @@
   }
   var SymbolDefinition = class extends Statement {
     symbol;
-    constructor({ name: name2, opcodeRange = null, isLabel = false, type = 0, ...config2 }) {
+    constructor({ name: name2, opcodeRange = null, isLabel = false, compile = true, type = 0, bind = 0, ...config2 }) {
       if (opcodeRange === null)
         opcodeRange = config2.range;
       super(config2);
-      this.name = name2;
       let uses = [];
       try {
         if (isLabel)
           this.expression = new CurrentIP(this);
-        else {
+        else if (compile) {
           next();
           this.expression = new Expression(this, false, uses);
         }
@@ -12418,32 +12442,34 @@
         this.symbol.uses = uses;
         this.duplicate = false;
       } else
-        symbols.set(name2, this.symbol = makeSymbol({ name: name2, type, uses, definitions: [this] }));
-      try {
-        this.symbol.value = this.expression.evaluate(this, false);
-        this.symbol.statement = this;
+        symbols.set(name2, this.symbol = makeSymbol({ name: name2, type, bind, uses, definitions: [this] }));
+      if (compile) {
+        this.removed = true;
+        this.compile();
         for (const ref of this.symbol.references)
           if (!ref.removed)
             queueRecomp(ref);
-      } catch (e) {
-        this.removed = true;
-        this.error = e;
       }
     }
-    recompile() {
-      if (this.duplicate && this.symbol.statement)
-        return;
-      this.duplicate = false;
+    compile() {
       let originError = this.error;
       let originValue = this.symbol.value;
       this.error = null;
       let value;
       try {
-        this.symbol.value = value = this.expression.evaluate(this, false);
+        value = this.symbol.value = this.expression.evaluate(this, false);
+        this.removed = false;
+        this.symbol.statement = this;
       } catch (e) {
         this.error = e;
       }
-      if (!(originError && this.error) && (originValue.addend !== value.addend || originValue.section !== value.section)) {
+      return !(originError && this.error) && value && (originValue.addend !== value.addend || originValue.section !== value.section);
+    }
+    recompile() {
+      if (this.duplicate && this.symbol.statement)
+        return;
+      this.duplicate = false;
+      if (this.compile()) {
         this.symbol.statement = this;
         for (const ref of this.symbol.references)
           queueRecomp(ref);
@@ -12457,9 +12483,53 @@
           for (const instr2 of this.symbol.references)
             queueRecomp(instr2);
         } else
-          symbols.delete(this.name);
+          symbols.delete(this.symbol.name);
       }
       super.remove();
+    }
+  };
+  function getAlignment(x) {
+    return x <= 1n ? 1n : x <= 2n ? 2n : x <= 4n ? 4n : x <= 8n ? 8n : 16n;
+  }
+  var CommSymbol = class extends SymbolDefinition {
+    constructor({ name: name2, opcodeRange = null, ...config2 }) {
+      super({ ...config2, compile: false, bind: SYM_BINDS.global, type: SYM_TYPES.object, name: token });
+      next();
+      if (token != ",")
+        throw new ASMError("Expected ','");
+      next();
+      this.sizeExpr = new Expression(this);
+      this.alignExpr = null;
+      if (token == ",") {
+        next();
+        this.alignExpr = new Expression(this);
+      }
+      this.removed = true;
+      this.compile();
+      for (const ref of this.symbol.references)
+        if (!ref.removed)
+          queueRecomp(ref);
+    }
+    compile() {
+      let prevErr = this.error;
+      this.error = null;
+      try {
+        const sizeVal = this.sizeExpr.evaluate(this, false, true);
+        if (sizeVal.addend < 0n)
+          throw new ASMError("Size cannot be negative", sizeVal.range);
+        this.symbol.size = sizeVal.addend;
+        if (this.alignExpr)
+          this.symbol.value = this.alignExpr.evaluate(this, false, true);
+        else {
+          this.symbol.value = { addend: getAlignment(this.symbol.size) };
+        }
+        this.symbol.value.section = pseudoSections.COM;
+        this.removed = false;
+        return prevErr !== null;
+      } catch (e) {
+        this.error = e;
+        return prevErr === null;
+      }
     }
   };
   function referenceSymbol(instr2, name2, defining = false) {
@@ -12483,7 +12553,8 @@
   }
   var pseudoSections = {
     ABS: { name: "*ABS*", index: 65521 },
-    UND: { name: "*UND*", index: 0 }
+    UND: { name: "*UND*", index: 0 },
+    COM: { name: "*COM*", index: 65522 }
   };
   var sectionFlags = {
     a: 2,
@@ -12550,9 +12621,11 @@
   };
 
   // core/directives.js
-  var STB_LOCAL = 0;
-  var STB_GLOBAL = 1;
-  var STB_WEAK = 2;
+  var SYM_BINDS = {
+    "local": 0,
+    "global": 1,
+    "weak": 2
+  };
   var SYM_TYPES = {
     "no_type": 0,
     "object": 1,
@@ -12601,7 +12674,8 @@
     hidden: 19,
     local: 20,
     section: 21,
-    file: 22
+    file: 22,
+    comm: 23
   };
   var intelDirectives = {
     "%assign": -1,
@@ -12635,20 +12709,9 @@
       case directives.ascii:
         return new DataDirective(config2, dirID);
       case directives.intel_syntax:
+        return new SyntaxDirective(config2, true);
       case directives.att_syntax:
-        let intel = dirID == directives.intel_syntax;
-        setSyntax({ prefix: currSyntax.prefix, intel });
-        let prefix = !intel;
-        let prefSpecifier = token.toLowerCase();
-        if (prefSpecifier == "prefix")
-          prefix = true;
-        else if (prefSpecifier == "noprefix")
-          prefix = false;
-        else if (prefSpecifier != "\n" && prefSpecifier != ";")
-          throw new ASMError("Expected 'prefix' or 'noprefix'");
-        if (token != "\n" && token != ";")
-          next();
-        return new SyntaxDirective(config2, intel, prefix);
+        return new SyntaxDirective(config2, false);
       case directives.section:
         return new SectionDirective(config2);
       case directives.text:
@@ -12656,11 +12719,11 @@
       case directives.bss:
         return new SectionDirective(config2, sections["." + dir]);
       case directives.local:
-        return new SymBindDirective(config2, STB_LOCAL);
+        return new SymBindDirective(config2, SYM_BINDS.local);
       case directives.globl:
-        return new SymBindDirective(config2, STB_GLOBAL);
+        return new SymBindDirective(config2, SYM_BINDS.global);
       case directives.weak:
-        return new SymBindDirective(config2, STB_WEAK);
+        return new SymBindDirective(config2, SYM_BINDS.weak);
       case directives.size:
         return new SymSizeDirective(config2);
       case directives.type:
@@ -12669,6 +12732,13 @@
         return new SymHiddenDirective(config2);
       case directives.file:
         return new FileDirective(config2);
+      case directives.equ:
+        let name2 = token, opcodeRange = currRange;
+        if (!currSyntax.intel && next() !== ",")
+          throw new ASMError("Expected ','");
+        return new SymbolDefinition({ ...config2, name: name2, opcodeRange });
+      case directives.comm:
+        return new CommSymbol(config2);
     }
   }
   var SectionDirective = class extends Statement {
@@ -12744,7 +12814,21 @@
     }
   };
   var SyntaxDirective = class extends Statement {
-    constructor(config2, intel, prefix) {
+    constructor(config2, intel) {
+      const prevSyntax = currSyntax;
+      setSyntax({ prefix: currSyntax.prefix, intel });
+      const prefSpecifier = token.toLowerCase();
+      let prefix = !intel;
+      if (prefSpecifier == "prefix")
+        prefix = true;
+      else if (prefSpecifier == "noprefix")
+        prefix = false;
+      else if (prefSpecifier != "\n" && prefSpecifier != ";") {
+        setSyntax(prevSyntax);
+        throw new ASMError("Expected 'prefix' or 'noprefix'");
+      }
+      if (token != "\n" && token != ";")
+        next();
       super({ ...config2, maxSize: 0, syntax: { intel, prefix } });
       this.switchSyntax = true;
     }
@@ -12972,9 +13056,7 @@
       }
     }
     compile() {
-      this.value = this.expression.evaluate(this, false);
-      if (this.value.section != pseudoSections.ABS)
-        throw new ASMError("Size expression must be absolute", this.value.range);
+      this.value = this.expression.evaluate(this, false, true);
       super.compile();
     }
     setInfo(symbol) {
@@ -13481,7 +13563,7 @@
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
   Operation.prototype.getRelSize = function(operand, instr2) {
-    if (operand.value.relocatable)
+    if (operand.value.isRelocatable())
       return Math.max(...this.relativeSizes);
     const target = operand.value.addend - BigInt((this.code > 255 ? 2 : 1) + (this.prefix !== null ? 1 : 0));
     if (this.relativeSizes.length == 1) {
@@ -15298,7 +15380,7 @@ g nle`.split("\n");
       this.interpret();
     }
     interpret() {
-      let opcode = this.opcode, operand = null, prefsToGen = 0;
+      let opcode = this.opcode, operand = null;
       let vexInfo = {
         needed: false,
         evex: false,
@@ -15352,19 +15434,9 @@ g nle`.split("\n");
           }
         }
         operand = new Operand(this, expectRelative);
-        if (token == ":") {
-          if (operand.type != OPT.SEG)
-            throw new ASMError("Incorrect prefix");
-          prefsToGen |= operand.reg + 1 << 3;
-          next();
-          operand = new Operand(this, expectRelative);
-          if (operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
-            throw new ASMError("Segment prefix must be followed by memory reference");
-        }
         if (operand.expression && operand.expression.hasSymbols)
           this.needsRecompilation = true;
         operands.push(operand);
-        prefsToGen |= operand.prefs;
         if (operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
           vexInfo.evex = true;
         if (operand.type == OPT.MEM || operand.type == OPT.REL) {
@@ -15411,7 +15483,7 @@ g nle`.split("\n");
       }
       if (matchingMnemonics.length == 0)
         throw new ASMError(explainNoMatch(mnemonics2, operands, vexInfo), this.operandStartPos.until(currRange));
-      this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, prefsToGen, vexInfo };
+      this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, vexInfo };
       this.endPos = currRange;
       this.removed = false;
       try {
@@ -15424,16 +15496,19 @@ g nle`.split("\n");
         this.outline = void 0;
     }
     compile() {
-      let { operands, memoryOperand, mnemonics: mnemonics2, prefsToGen, vexInfo } = this.outline;
+      let { operands, memoryOperand, mnemonics: mnemonics2, vexInfo } = this.outline;
+      let prefsToGen = 0;
       this.clear();
-      if (memoryOperand)
+      if (memoryOperand) {
         memoryOperand.evaluate(this, this.syntax.intel);
+        prefsToGen |= memoryOperand.prefs;
+      }
       for (let i = 0; i < operands.length; i++) {
         const op2 = operands[i];
         if (op2.type == OPT.IMM) {
           if (op2.expression.hasSymbols)
             op2.evaluate(this);
-          if (op2.value.relocatable) {
+          if (op2.value.isRelocatable()) {
             const firstMnem = mnemonics2[0];
             if (firstMnem.operations.length == 1)
               op2.size = Math.max(...(firstMnem.vex ? firstMnem.operations[0].vexOpCatchers : firstMnem.operations[0].opCatchers)[i].sizes) & ~7;
@@ -15542,14 +15617,12 @@ g nle`.split("\n");
         let sizeRelative = false, value = op.rm.value;
         if (op.rm.ripRelative && op.rm.value.section != pseudoSections.ABS && !op.rm.value.pcRelative) {
           sizeRelative = true;
-          value = applyValue(this, value, "-", {
+          value.apply(this, "-", new IdentifierValue({
             addend: BigInt(this.address),
             symbol: (this.section.head.statement ?? instr).symbol,
             section: this.section,
-            range: value.range,
-            pcRelative: false
-          });
-          value.relocatable = isRelocatable(value);
+            range: value.range
+          }));
           this.ipRelative = true;
         }
         this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
@@ -15578,11 +15651,11 @@ g nle`.split("\n");
         modrm |= 192;
       else if (rmReg >= 0) {
         if (rm2.value.addend != null) {
-          if (!rm2.value.relocatable && inferImmSize(rm2.value) == 8 && (rm2.dispSize == 8 || rm2.sizeAvailable(SHORT_DISP))) {
+          if (!rm2.value.isRelocatable() && inferImmSize(rm2.value) == 8 && (rm2.dispSize == 8 || rm2.sizeAvailable(SHORT_DISP))) {
             rm2.dispSize = 8;
             modrm |= 64;
             rm2.recordSizeUse(SHORT_DISP);
-          } else if (!rm2.value.relocatable && rm2.expression && rm2.expression.hasSymbols && rm2.dispSize != 8 && rm2.sizeAvailable(SHORT_DISP)) {
+          } else if (!rm2.value.isRelocatable() && rm2.expression && rm2.expression.hasSymbols && rm2.dispSize != 8 && rm2.sizeAvailable(SHORT_DISP)) {
             rm2.dispSize = 8;
             modrm |= 64;
             rm2.recordSizeUse(SHORT_DISP);
@@ -15729,20 +15802,14 @@ g nle`.split("\n");
                 if (name2[0] == "%") {
                   isDir = true;
                   name2 += token.toLowerCase();
+                  next();
                 } else
                   isDir = isDirective(name2, true);
               } else
                 isDir = name2[0] == ".";
-              if (isDir) {
-                if (currSyntax.intel ? name2 == "%assign" : name2.toLowerCase() == ".equ" || name2.toLowerCase() == ".set") {
-                  name2 = next();
-                  let opcodeRange = currRange;
-                  if (!currSyntax.intel && next() !== ",")
-                    throw new ASMError("Expected ','");
-                  addInstruction(new SymbolDefinition({ addr, name: name2, range, opcodeRange }));
-                } else
-                  addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name2 : name2.slice(1)));
-              } else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
+              if (isDir)
+                addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name2 : name2.slice(1)));
+              else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
                 ungetToken();
                 addInstruction(new Prefix({ addr, range, name: name2 }), false);
               } else if (currSyntax.intel && isDirective(token, true)) {
@@ -15841,8 +15908,8 @@ g nle`.split("\n");
                 instr2.recompile();
               } catch (e) {
                 instr2.error = e;
-                if (instr2.name)
-                  for (let ref of symbols.get(instr2.name).references)
+                if (instr2.symbol)
+                  for (const ref of instr2.symbol.references)
                     queueRecomp(ref);
               }
             }
