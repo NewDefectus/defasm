@@ -12520,9 +12520,8 @@
         this.symbol.size = sizeVal.addend;
         if (this.alignExpr)
           this.symbol.value = this.alignExpr.evaluate(this, false, true);
-        else {
-          this.symbol.value = { addend: getAlignment(this.symbol.size) };
-        }
+        else
+          this.symbol.value = new IdentifierValue({ addend: getAlignment(this.symbol.size) });
         this.symbol.value.section = pseudoSections.COM;
         this.removed = false;
         return prevErr !== null;
@@ -12576,6 +12575,8 @@
     "preinit_array": 16
   };
   var STT_SECTION = 3;
+  var SHT_DYNSYM = 11;
+  var SHT_DYNAMIC = 6;
   var Section = class {
     constructor(name2) {
       this.name = name2;
@@ -12586,13 +12587,20 @@
       this.cursor = { head: this.head, prev: this.head };
       switch (name2) {
         case ".text":
+        case ".init":
+        case ".fini":
           this.flags = sectionFlags.a | sectionFlags.x;
           break;
         case ".rodata":
+        case ".dynsym":
+        case ".dynamic":
           this.flags = sectionFlags.a;
           break;
         case ".data":
         case ".bss":
+        case ".preinit_array":
+        case ".init_array":
+        case ".fini_array":
           this.flags = sectionFlags.a | sectionFlags.w;
           break;
         default:
@@ -12605,8 +12613,37 @@
         case ".bss":
           this.type = sectionTypes.nobits;
           break;
+        case ".preinit_array":
+          this.type = sectionTypes.preinit_array;
+          break;
+        case ".init_array":
+          this.type = sectionTypes.init_array;
+          break;
+        case ".fini_array":
+          this.type = sectionTypes.fini_array;
+          break;
+        case ".dynsym":
+          this.type = SHT_DYNSYM;
+          break;
+        case ".dynamic":
+          this.type = SHT_DYNAMIC;
+          break;
         default:
           this.type = sectionTypes.progbits;
+      }
+      switch (name2) {
+        case ".fini_array":
+        case ".init_array":
+          this.entrySize = 8;
+          break;
+        case ".dynsym":
+          this.entrySize = 24;
+          break;
+        case ".dynamic":
+          this.entrySize = 16;
+          break;
+        default:
+          this.entrySize = 0;
       }
     }
     getRelocations() {
@@ -12668,6 +12705,7 @@
     data: 13,
     bss: 14,
     globl: 15,
+    global: 15,
     weak: 16,
     size: 17,
     type: 18,
@@ -12684,7 +12722,10 @@
     dd: directives.long,
     dq: directives.quad,
     ".intel_syntax": directives.intel_syntax,
-    ".att_syntax": directives.att_syntax
+    ".att_syntax": directives.att_syntax,
+    global: directives.global,
+    section: directives.section,
+    segment: directives.segment
   };
   function isDirective(directive, intel) {
     directive = directive.toLowerCase();
@@ -12971,14 +13012,14 @@
   var SymInfo = class extends Statement {
     addSymbol() {
       let name2 = token, range = currRange;
+      if (scanIdentifier(name2, this.syntax.intel) != "symbol")
+        return false;
       next();
       if (token != "," && token != ";" && token != "\n") {
         ungetToken();
         setToken(name2);
         return false;
       }
-      if (scanIdentifier(name2, this.syntax.intel) != "symbol")
-        return false;
       const symbol = referenceSymbol(this, name2, true);
       if (symbol.type == STT_SECTION)
         throw new ASMError("Can't modify section labels");
