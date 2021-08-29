@@ -12802,7 +12802,7 @@
           for (const byte of flagString) {
             const char = String.fromCharCode(byte);
             if (!sectionFlags.hasOwnProperty(char))
-              throw new ASMError(`Unknown flag ${char}`);
+              throw new ASMError(`Unknown flag '${char}'`);
             flags |= sectionFlags[char];
           }
           if (next() == ",") {
@@ -12818,6 +12818,8 @@
         }
         if (section === null)
           sections[sectionName] = section = new Section(sectionName);
+        if (section.persistent && attribRange)
+          throw new ASMError(`Can't give attributes to ${section.name}`, attribRange);
       }
       super({ ...config2, maxSize: 0, section });
       section.entryPoints.push(this);
