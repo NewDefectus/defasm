@@ -1,3 +1,5 @@
+import { pseudoSections } from '@defasm/core/sections.js';
+
 /**
  * @param {T} fields 
  * @template T 
@@ -119,7 +121,7 @@ export class ELFSection
      * @param {number} config.address
      * @param {number} config.entrySize
      * @param {import('@defasm/core/sections.js').Section} config.section */
-    constructor({ type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0, link = 0, info = 0, align = 1, section = null } = {})
+    constructor({ type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0, link = 0, info = 0, align = 1, linkSection = null, infoSection = null, section = null } = {})
     {
         this.buffer = buffer;
         this.header = new SectionHeader({
@@ -133,6 +135,8 @@ export class ELFSection
             sh_info: info,
         });
         this.section = section;
+        this.linkSection = linkSection;
+        this.infoSection = infoSection;
     }
 
     add(buffer)
@@ -148,6 +152,15 @@ export class ELFSection
     name(name, shstrtab)
     {
         this.header.sh_name = shstrtab.getIndex(name);
+    }
+
+    setIndices(sections)
+    {
+        if(this.infoSection)
+            this.header.sh_info = sections.indexOf(this.infoSection) + 1;
+        if(this.linkSection)
+            this.header.sh_link = sections.indexOf(this.linkSection) + 1;
+        this.header.sh_size = this.buffer.length;
     }
 }
 
@@ -177,35 +190,38 @@ export class SymbolTable extends ELFSection
      * @param {StringTable} strtab */
     constructor(config, symbols, strtab)
     {
-        super({ ...config, type: 0x2, entrySize: 0x18, buffer: Buffer.alloc(0x18 * (symbols.length + 1)), info: 1, align: 8 });
+        super({ ...config, type: 0x2, entrySize: 0x18, info: 1, align: 8 });
         this.symbolCount = 1;
         this.strtab = strtab;
-        for(let index = 0x18; this.symbolCount <= symbols.length; index += 0x18)
-            this.writeSymbol(symbols[this.symbolCount - 1], this.buffer.subarray(index));
+        this.symbols = symbols.filter(symbol => symbol.value.section != pseudoSections.UND || !symbol.value.symbol);
     }
 
-    writeSymbol(symbol, buffer)
+    setIndices(sections)
     {
-        symbol.index = this.symbolCount;
+        this.buffer = Buffer.alloc(0x18 * (this.symbols.length + 1));
+        let index = 0x18, i = 1;
+        for(const symbol of this.symbols)
+        {
+            const val = symbol.value.flatten();
 
-        buffer.writeUInt32LE(this.strtab.getIndex(symbol.name), 0x0);
-        buffer.writeUInt8((symbol.type ?? 0) | (symbol.bind ?? 0) << 4, 0x4);
-        buffer.writeUInt8(symbol.visibility ?? 0, 0x5);
-        buffer.writeUInt16LE(symbol.value.section.index, 0x6);
-        buffer.writeBigUInt64LE(symbol.value.addend, 0x8);
-        buffer.writeBigUInt64LE(BigInt(symbol.size ?? 0), 0x10);
+            this.buffer.writeUInt32LE(this.strtab.getIndex(symbol.name), index + 0x0);
+            this.buffer.writeUInt8((symbol.type ?? 0) | (symbol.bind || (val.section == pseudoSections.UND ? 1 : 0)) << 4, index + 0x4);
+            this.buffer.writeUInt8(symbol.visibility ?? 0, index + 0x5);
 
-        if(!symbol.bind)
-            this.header.sh_info = this.symbolCount + 1;
-        
-        this.symbolCount++;
-    }
+            
+            this.buffer.writeUInt16LE(val.section.index, index + 0x6);
+            this.buffer.writeBigUInt64LE(val.addend, index + 0x8);
+            this.buffer.writeBigUInt64LE(BigInt(symbol.size ?? 0), index + 0x10);
 
-    addSymbol(symbol)
-    {
-        const buffer = Buffer.alloc(0x18);
-        this.writeSymbol(symbol, buffer);
-        this.add(buffer);
+            if(!symbol.bind)
+                this.header.sh_info = i + 1;
+            
+            this.symbolCount++;
+            index += 0x18;
+            i++;
+        }
+        this.buffer = this.buffer.subarray(0, index);
+        super.setIndices(sections);
     }
 }
 
@@ -216,17 +232,31 @@ export class RelocationSection extends ELFSection
      * @param {SymbolTable} symtab */
     constructor(config, relocations, symtab)
     {
-        super({ ...config, type: 0x4, entrySize: 0x18, buffer: Buffer.alloc(0x18 * relocations.length) });
-        let index = 0;
+        super({ ...config, type: 0x4, entrySize: 0x18, buffer: Buffer.alloc(0x18 * relocations.length), linkSection: symtab });
+        this.relocations = relocations;
+
         for(const reloc of relocations)
         {
-            if(reloc.symbol.index === undefined)
-                symtab.addSymbol(reloc.symbol);
+            if(reloc.symbol && !symtab.symbols.includes(reloc.symbol))
+            {
+                symtab.symbols.push(reloc.symbol);
+            }
+        }
+    }
+
+    setIndices(sections)
+    {
+        let index = 0, symtab = this.linkSection;
+        for(const reloc of this.relocations)
+        {
             this.buffer.writeBigUInt64LE(BigInt(reloc.offset), index);
-            this.buffer.writeBigUInt64LE(BigInt(reloc.type) | BigInt(reloc.symbol.index) << 32n, index + 0x8);
+            this.buffer.writeBigUInt64LE(BigInt(reloc.type) | BigInt(
+                reloc.symbol ? symtab.symbols.indexOf(reloc.symbol) + 1 : 0
+            ) << 32n, index + 0x8);
             this.buffer.writeBigInt64LE(BigInt(reloc.addend), index + 0x10);
 
             index += 0x18;
         }
+        super.setIndices(sections);
     }
 }

@@ -571,8 +571,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         rexw,
         prefix: vexInfo.needed ? null : (this.allVectors && overallSize > 64 ? 0x66 : this.prefix),
         extendOp,
-        reg,
-        rm,
+        /** @type {Operand} */ reg,
+        /** @type {Operand} */ rm,
         vex: vexInfo.needed ? vex : null,
         evexImm,
         relImm,
@@ -591,7 +591,7 @@ const absolute = x => x < 0n ? ~x : x;
 */
 Operation.prototype.getRelSize = function(operand, instr)
 {
-    if(operand.value.relocatable)
+    if(operand.value.isRelocatable())
         return Math.max(...this.relativeSizes);
     const target = operand.value.addend - BigInt(((this.code > 0xFF ? 2 : 1) + (this.prefix !== null ? 1 : 0)));
     

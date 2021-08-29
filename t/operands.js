@@ -53,6 +53,7 @@ exports.run = async function()
 
         for(let i = 0; i < 4; i++)
         {
+            console.log(test[i]);
             setSyntax(syntaxes[i]);
             loadCode(test[i]);
             let type = new Operand({syntax: syntaxes[i]}).type;

@@ -185,19 +185,14 @@ export class Statement
             num += value.symbol.value.addend;
         if(sizeRelative)
             num -= BigInt(this.length + size / 8);
-        if(value.relocatable)
+        if(value.isRelocatable())
         {
-            let addend = num;
             if(value.pcRelative)
-            {
-                addend += BigInt(this.length);
                 signed = false;
-            }
 
             this.relocations.push({
                 offset: this.length,
-                addend: value.addend,
-                symbol: value.symbol,
+                value,
                 size: signed && size == 32 ? signed32 : size,
                 pcRelative: value.pcRelative,
                 functionAddr: functionAddr && value.section == pseudoSections.UND,

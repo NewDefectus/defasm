@@ -131,21 +131,9 @@ function assemble()
     }
     let outputStream = fs.createWriteStream(outputFile, { mode: 0o0755 });
 
-    let shstrtab = new StringTable();
-    let sections = [], asmSections = Object.values(state.sections);
-    for(const section of asmSections)
-    {
-        section.index = sections.length + 1;
-        sections.push(new ELFSection({
-            type: section.type,
-            buffer: section.head.dump(),
-            flags: section.flags,
-            section
-        }));
-    }
 
     /** @type {import("@defasm/core/symbols").Symbol[]} */
-    let recordedSymbols = [], symtab = null;
+    let recordedSymbols = [];
     for(const fileSymbol of state.fileSymbols)
     {
         recordedSymbols.push({
@@ -162,36 +150,47 @@ function assemble()
             recordedSymbols.push(symbol);
     });
 
-    if(recordedSymbols.length > 0)
+    const strtab = new StringTable();
+    let shstrtab = new StringTable(), symtab = new SymbolTable({ linkSection: strtab }, recordedSymbols, strtab);
+    let sections = [], asmSections = Object.values(state.sections);
+    for(const section of asmSections)
     {
-        const strtab = new StringTable();
-        symtab = new SymbolTable({ link: sections.length + 2 }, recordedSymbols, strtab)
+        section.index = sections.length + 1;
+        let newSection = new ELFSection({
+            type: section.type,
+            buffer: section.head.dump(),
+            flags: section.flags,
+            section
+        });
+        sections.push(newSection);
+        const relocs = section.getRelocations();
+        if(relocs.length > 0)
+        {
+            const relocSection = new RelocationSection({ infoSection: newSection, flags: 0x40, align: 8 }, relocs, symtab);
+            relocSection.name('.rela' + section.name, shstrtab);
+            sections.push(relocSection);
+        }
+    }
+
+    if(symtab.symbols.length > 0)
+    {
         symtab.name('.symtab', shstrtab);
         strtab.name('.strtab', shstrtab);
 
         sections.push(symtab, strtab);
     }
     sections.push(shstrtab);
-
-    if(symtab)
-        for(const section of asmSections)
-        {
-            const relocs = section.getRelocations();
-            if(relocs.length > 0)
-            {
-                const relocSection = new RelocationSection({ link: sections.indexOf(symtab) + 1, info: section.index }, relocs, symtab);
-                relocSection.name('.rela' + section.name, shstrtab);
-                sections.push(relocSection);
-            }
-        }
     shstrtab.name('.shstrtab', shstrtab);
 
 
     // Finalizing
     let fileOffset = ELFHeader.size;
 
+    symtab.symbols.sort((a, b) => a.bind - b.bind);
+
     for(const section of sections)
     {
+        section.setIndices(sections);
         const align = section.header.sh_addralign;
         if(align)
             fileOffset = Math.ceil(fileOffset / align) * align;
@@ -229,6 +228,7 @@ function assemble()
 
     fileOffset = ELFHeader.size;
 
+    // Writing the section buffers
     for(const section of sections)
     {
         outputStream.write(Buffer.alloc(section.header.sh_offset - fileOffset));
@@ -239,6 +239,7 @@ function assemble()
     
     outputStream.write(Buffer.alloc(alignedFileOffset - fileOffset + SectionHeader.size));
     
+    // Writing the headers
     for(const section of sections)
         outputStream.write(section.header.dump());
 

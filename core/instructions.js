@@ -7,7 +7,7 @@ import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { Operation } from "./mnemonics.js";
 import { pseudoSections } from "./sections.js";
-import { applyValue, isRelocatable } from "./shuntingYard.js";
+import { IdentifierValue } from "./shuntingYard.js";
 
 export const prefixes = Object.freeze({
     lock: 0xF0,
@@ -101,7 +101,7 @@ export class Instruction extends Statement
     // Generate Instruction.outline
     interpret()
     {
-        let opcode = this.opcode, operand = null, prefsToGen = 0;
+        let opcode = this.opcode, operand = null;
         let vexInfo = {
             needed: false,
             evex: false,
@@ -178,22 +178,11 @@ export class Instruction extends Statement
                 }
             }
             operand = new Operand(this, expectRelative);
-            if(token == ':') // Segment specification for addressing
-            {
-                if(operand.type != OPT.SEG)
-                    throw new ASMError("Incorrect prefix");
-                prefsToGen |= (operand.reg + 1) << 3;
-                next();
-                operand = new Operand(this, expectRelative);
-                if(operand.type != OPT.MEM && operand.type != OPT.REL && operand.type != OPT.VMEM)
-                    throw new ASMError("Segment prefix must be followed by memory reference");
-            }
 
             if(operand.expression && operand.expression.hasSymbols)
                 this.needsRecompilation = true;
 
             operands.push(operand);
-            prefsToGen |= operand.prefs;
 
             if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
                 vexInfo.evex = true;
@@ -258,7 +247,7 @@ export class Instruction extends Statement
         if(matchingMnemonics.length == 0) // No operations match; find out why
             throw new ASMError(explainNoMatch(mnemonics, operands, vexInfo), this.operandStartPos.until(currRange));
 
-        this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, prefsToGen, vexInfo };
+        this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, vexInfo };
         this.endPos = currRange;
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
@@ -278,11 +267,15 @@ export class Instruction extends Statement
 
     compile()
     {
-        let { operands, memoryOperand, mnemonics, prefsToGen, vexInfo } = this.outline;
+        let { operands, memoryOperand, mnemonics, vexInfo } = this.outline;
+        let prefsToGen = 0;
         this.clear();
 
         if(memoryOperand)
+        {
             memoryOperand.evaluate(this, this.syntax.intel);
+            prefsToGen |= memoryOperand.prefs;
+        }
 
         // Before we compile, we'll get the immediates' sizes
         for(let i = 0; i < operands.length; i++)
@@ -292,7 +285,7 @@ export class Instruction extends Statement
             {
                 if(op.expression.hasSymbols)
                     op.evaluate(this);
-                if(op.value.relocatable)
+                if(op.value.isRelocatable())
                 {
                     // Get the maximum possible value for this relocatable immediate
                     const firstMnem = mnemonics[0];
@@ -399,7 +392,8 @@ export class Instruction extends Statement
         {
             let extraRex;
             [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
-            if(extraRex !== 0) rexVal |= extraRex, prefsToGen |= PREFIX_REX;
+            if(extraRex !== 0)
+                rexVal |= extraRex, prefsToGen |= PREFIX_REX;
         }
 
         // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
@@ -445,14 +439,12 @@ export class Instruction extends Statement
             if(op.rm.ripRelative && op.rm.value.section != pseudoSections.ABS && !op.rm.value.pcRelative)
             {
                 sizeRelative = true;
-                value = applyValue(this, value, '-', {
+                value.apply(this, '-', new IdentifierValue({
                     addend: BigInt(this.address),
                     symbol: (this.section.head.statement ?? instr).symbol,
                     section: this.section,
-                    range: value.range,
-                    pcRelative: false
-                });
-                value.relocatable = isRelocatable(value);
+                    range: value.range
+                }));
                 this.ipRelative = true;
             }
             this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
@@ -498,13 +490,13 @@ export class Instruction extends Statement
         {
             if(rm.value.addend != null)
             {
-                if(!rm.value.relocatable && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
+                if(!rm.value.isRelocatable() && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
                 {
                     rm.dispSize = 8;
                     modrm |= 0x40; // mod=01
                     rm.recordSizeUse(SHORT_DISP);
                 }
-                else if(!rm.value.relocatable && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
+                else if(!rm.value.isRelocatable() && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
                 {
                     rm.dispSize = 8;
                     modrm |= 0x40; // mod=01

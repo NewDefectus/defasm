@@ -1,4 +1,4 @@
-import { Expression, CurrentIP } from "./shuntingYard.js";
+import { Expression, CurrentIP, IdentifierValue } from "./shuntingYard.js";
 import { ASMError, next, token } from "./parser.js";
 import { Statement } from "./statement.js";
 import { pseudoSections } from "./sections.js";
@@ -27,7 +27,7 @@ export var recompQueue = [];
         references,
         definitions,
         uses,
-        value: { addend: 0n, section: pseudoSections.UND },
+        value: new IdentifierValue({ addend: 0n }),
         type,
         bind
      };
@@ -60,7 +60,6 @@ export class SymbolDefinition extends Statement
         if(opcodeRange === null)
             opcodeRange = config.range;
         super(config);
-        this.name = name;
         let uses = [];
         try
         {
@@ -152,7 +151,7 @@ export class SymbolDefinition extends Statement
                     queueRecomp(instr);
             }
             else
-                symbols.delete(this.name);
+                symbols.delete(this.symbol.name);
         }
         super.remove();
     }
@@ -183,7 +182,11 @@ export class CommSymbol extends SymbolDefinition
             next();
             this.alignExpr = new Expression(this);
         }
+        this.removed = true;
         this.compile();
+        for(const ref of this.symbol.references)
+            if(!ref.removed)
+                queueRecomp(ref);
     }
 
     compile()
@@ -205,6 +208,7 @@ export class CommSymbol extends SymbolDefinition
             }
             this.symbol.value.section = pseudoSections.COM;
 
+            this.removed = false;
             return prevErr !== null;
         }
         catch(e)

@@ -112,24 +112,9 @@ export function makeDirective(config, dir)
         case directives.ascii:
             return new DataDirective(config, dirID);
 
-        case directives.intel_syntax:
-        case directives.att_syntax:
-            let intel = dirID == directives.intel_syntax;
-            // Set the syntax now so we can correctly skip comments
-            setSyntax({ prefix: currSyntax.prefix, intel });
-            let prefix = !intel;
-            let prefSpecifier = token.toLowerCase();
+        case directives.intel_syntax: return new SyntaxDirective(config, true);
+        case directives.att_syntax:   return new SyntaxDirective(config, false);
 
-            if(prefSpecifier == 'prefix')
-                prefix = true;
-            else if(prefSpecifier == 'noprefix')
-                prefix = false;
-            else if(prefSpecifier != '\n' && prefSpecifier != ';')
-                throw new ASMError("Expected 'prefix' or 'noprefix'");
-            if(token != '\n' && token != ';')
-                next();
-            return new SyntaxDirective(config, intel, prefix);
-        
         case directives.section: return new SectionDirective(config);
         
         case directives.text:
@@ -250,8 +235,26 @@ class SectionDirective extends Statement
 
 class SyntaxDirective extends Statement
 {
-    constructor(config, intel, prefix)
+    constructor(config, intel)
     {
+        // Set the syntax now so we can correctly skip comments
+        const prevSyntax = currSyntax;
+        setSyntax({ prefix: currSyntax.prefix, intel });
+
+        const prefSpecifier = token.toLowerCase();
+        let prefix = !intel;
+
+        if(prefSpecifier == 'prefix')
+            prefix = true;
+        else if(prefSpecifier == 'noprefix')
+            prefix = false;
+        else if(prefSpecifier != '\n' && prefSpecifier != ';')
+        {
+            setSyntax(prevSyntax);
+            throw new ASMError("Expected 'prefix' or 'noprefix'");
+        }
+        if(token != '\n' && token != ';')
+            next();
         super({ ...config, maxSize: 0, syntax: { intel, prefix } });
         this.switchSyntax = true;
     }

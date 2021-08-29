@@ -284,8 +284,8 @@ export class AssemblyState
                             instr.error = e;
 
                             // When a symbol is invalidated, all references to it should be too
-                            if(instr.name)
-                                for(let ref of symbols.get(instr.name).references)
+                            if(instr.symbol)
+                                for(const ref of instr.symbol.references)
                                     queueRecomp(ref);
                         }
                     }

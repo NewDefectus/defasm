@@ -32,23 +32,19 @@ export class RelocEntry
      * 
      * @param {Object} config
      * @param {number} config.offset
-     * @param {number} config.addend
-     * @param {import("./symbols").Symbol} config.symbol
+     * @param {import("./shuntingYard").IdentifierValue} config.value
      * @param {number} config.size
      * @param {boolean} config.pcRelative
      * @param {boolean} config.functionAddr
      */
-    constructor({ offset, addend, symbol, size, pcRelative, functionAddr })
+    constructor({ offset, value, size, pcRelative, functionAddr })
     {
         this.offset = offset;
-        this.addend = addend;
-        if(symbol.bind || !symbol.value.section.head)
-            this.symbol = symbol;
-        else
-        {
-           this.symbol = symbol.value.section.head.statement.symbol;
-           this.addend += symbol.value.addend;
-        }
+        value = value.flatten();
+        this.addend = value.addend;
+        if(pcRelative)
+            this.addend += BigInt(offset);
+        this.symbol = value.symbol;
 
         this.type = relocTypes[(pcRelative ? functionAddr ? 'PLT' : 'PC' : '') + size];
     }
