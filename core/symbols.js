@@ -203,9 +203,7 @@ export class CommSymbol extends SymbolDefinition
             if(this.alignExpr)
                 this.symbol.value = this.alignExpr.evaluate(this, false, true);
             else
-            {
-                this.symbol.value = { addend: getAlignment(this.symbol.size) };
-            }
+                this.symbol.value = new IdentifierValue({ addend: getAlignment(this.symbol.size) });
             this.symbol.value.section = pseudoSections.COM;
 
             this.removed = false;

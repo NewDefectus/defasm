@@ -6,7 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define PRINT_REG(reg) fprintf(output, "\"" #reg "\":%lld,", registers.reg)
+#define PRINT_REG(reg) fprintf(output, "\"" #reg "\":\"%.16llX\",", registers.reg)
 
 unsigned long long main(int argc, char** argv)
 {

@@ -58,6 +58,7 @@ const directives = {
     data: 13,
     bss: 14,
     globl: 15,
+    global: 15,
     weak: 16,
     size: 17,
     type: 18,
@@ -75,7 +76,10 @@ const intelDirectives = {
     dd: directives.long,
     dq: directives.quad,
     ".intel_syntax": directives.intel_syntax,
-    ".att_syntax": directives.att_syntax
+    ".att_syntax": directives.att_syntax,
+    global: directives.global,
+    section: directives.section,
+    segment: directives.segment
 };
 
 /** Check if a given string corresponds to an existing directive
@@ -427,6 +431,8 @@ class SymInfo extends Statement
     addSymbol()
     {
         let name = token, range = currRange;
+        if(scanIdentifier(name, this.syntax.intel) != 'symbol')
+            return false;
         next();
         if(token != ',' && token != ';' && token != '\n')
         {
@@ -435,8 +441,6 @@ class SymInfo extends Statement
             return false;
         }
         
-        if(scanIdentifier(name, this.syntax.intel) != 'symbol')
-            return false;
         const symbol = referenceSymbol(this, name, true);
         if(symbol.type == STT_SECTION)
             throw new ASMError("Can't modify section labels");

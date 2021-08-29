@@ -264,7 +264,7 @@ function assemble()
             if(signal == '')
                 process.exit(data['exitCode']);
 
-            let lastIP = data['rip'] - entryAddr;
+            let lastIP = parseInt(data['rip'], 16) - entryAddr;
 
             if(lastIP >= 0)
             {
@@ -281,22 +281,21 @@ function assemble()
                 }
             }
 
-            let regFormat = reg => data[reg].toString(16).toUpperCase().padStart(16, '0');
             console.warn(`Signal: ${signal.toLowerCase()}${
                 errLine !== null ? ` ${pos} line ${errLine}` : ''
             } ${
-                data['rip'] !== undefined ? `(%rip was ${regFormat('rip')})` : ''
+                data['rip'] !== undefined ? `(%rip was ${data['rip']})` : ''
             }`);
             
             console.warn("Registers:");
-            let regTab = reg => `%${reg.padEnd(4, ' ')}= ${regFormat(reg)}`;
+            let regTab = reg => `%${reg.padEnd(4, ' ')}= ${data[reg]}`;
             for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
             {
                 let [reg1, reg2] = regNames.split(' ');
                 console.warn('    ' + regTab(reg1) + '        ' + regTab(reg2));
             }
             
-            let flag = i => data['eflags'] & 1 << i ? 1 : 0;
+            let flag = i => parseInt(data['eflags'], 16) & 1 << i ? 1 : 0;
             let tmp;
             let flagTab = (name, id, length, options = []) =>
                 ('    ' + name.padEnd(length, ' ') + ' = ' + (tmp = flag(id)) +
@@ -304,7 +303,7 @@ function assemble()
             let twoFlagTab = (name1, id1, options1, name2, id2, options2) =>
                 console.warn(flagTab(name1, id1, 9, options1) + (name2 ? flagTab(name2, id2, 6, options2) : ''));
 
-            console.warn(`Flags (${regFormat('eflags')}):`);
+            console.warn(`Flags (${data['eflags']}):`);
             
             twoFlagTab('Carry', 0, ['no carry', 'carry'], 'Zero', 6, ["isn't zero", 'is zero']);
             twoFlagTab('Overflow', 11, ['no overflow', 'overflow'], 'Sign', 7, ['positive', 'negative']);

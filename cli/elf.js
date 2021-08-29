@@ -236,12 +236,8 @@ export class RelocationSection extends ELFSection
         this.relocations = relocations;
 
         for(const reloc of relocations)
-        {
             if(reloc.symbol && !symtab.symbols.includes(reloc.symbol))
-            {
                 symtab.symbols.push(reloc.symbol);
-            }
-        }
     }
 
     setIndices(sections)
