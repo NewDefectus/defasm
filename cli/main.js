@@ -160,7 +160,8 @@ function assemble()
             type: section.type,
             buffer: section.head.dump(),
             flags: section.flags,
-            section
+            section,
+            entrySize: section.entrySize
         });
         sections.push(newSection);
         const relocs = section.getRelocations();

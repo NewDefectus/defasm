@@ -44,6 +44,7 @@ export const sectionTypes = {
 }
 
 export const STT_SECTION = 3, STT_FILE = 4;
+const SHT_DYNSYM = 0xB, SHT_DYNAMIC = 0x6;
 
 export class Section
 {
@@ -64,19 +65,44 @@ export class Section
 
         switch(name)
         {
-            case '.text': this.flags = sectionFlags.a | sectionFlags.x; break;
-            case '.rodata': this.flags = sectionFlags.a; break;
+            case '.text':
+            case '.init':
+            case '.fini':
+                this.flags = sectionFlags.a | sectionFlags.x; break;
+            case '.rodata':
+            case '.dynsym':
+            case '.dynamic':
+                this.flags = sectionFlags.a; break;
             case '.data':
-            case '.bss' :
+            case '.bss':
+            case '.preinit_array':
+            case '.init_array':
+            case '.fini_array':
                 this.flags = sectionFlags.a | sectionFlags.w; break;
             default: this.flags = 0;
         }
 
         switch(name)
         {
-            case '.notes': this.type = sectionTypes.note; break;
-            case '.bss'  : this.type = sectionTypes.nobits; break;
-            default: this.type = sectionTypes.progbits;
+            case '.notes':         this.type = sectionTypes.note; break;
+            case '.bss':           this.type = sectionTypes.nobits; break;
+            case '.preinit_array': this.type = sectionTypes.preinit_array; break;
+            case '.init_array':    this.type = sectionTypes.init_array; break;
+            case '.fini_array':    this.type = sectionTypes.fini_array; break;
+            case '.dynsym':        this.type = SHT_DYNSYM; break;
+            case '.dynamic':       this.type = SHT_DYNAMIC; break;
+            default:               this.type = sectionTypes.progbits;
+        }
+
+        switch(name)
+        {
+            case '.fini_array':
+            case '.init_array':
+                this.entrySize = 8; break;
+            case '.dynsym':  this.entrySize = 0x18; break;
+            case '.dynamic': this.entrySize = 0x10; break;
+            
+            default: this.entrySize = 0;
         }
     }
 
