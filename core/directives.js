@@ -2,7 +2,7 @@ import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, se
 import { Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
 import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
-import { CommSymbol, fileSymbols, queueRecomp, referenceSymbol, SymbolDefinition, symbols } from "./symbols.js";
+import { CommSymbol, fileSymbols, queueRecomp, referenceSymbol, SymbolDefinition } from "./symbols.js";
 
 export const SYM_BINDS = {
     'local': 0,
@@ -176,7 +176,7 @@ class SectionDirective extends Statement
                 {
                     const char = String.fromCharCode(byte);
                     if(!sectionFlags.hasOwnProperty(char))
-                        throw new ASMError(`Unknown flag ${char}`);
+                        throw new ASMError(`Unknown flag '${char}'`);
                     flags |= sectionFlags[char];
                 }
 
@@ -195,6 +195,8 @@ class SectionDirective extends Statement
 
             if(section === null)
                 sections[sectionName] = section = new Section(sectionName);
+            if(section.persistent && attribRange)
+                throw new ASMError(`Can't give attributes to ${section.name}`, attribRange);
         }
         super({ ...config, maxSize: 0, section });
         section.entryPoints.push(this);
