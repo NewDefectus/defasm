@@ -1,5 +1,3 @@
-import { pseudoSections } from "./sections.js";
-
 const relocTypes = {
     NONE      : 0,
     64        : 1,

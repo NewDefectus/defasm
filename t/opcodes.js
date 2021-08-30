@@ -190,7 +190,7 @@ exports.run = async function()
 
 
     let asOutput = gassemble(source);
-    if(!asOutput.equals(state.data.dump()))
+    if(!asOutput.equals(state.head.dump()))
     {
         let cmpPtr = 0, discrepancies = [];
         state.iterate(instr => {

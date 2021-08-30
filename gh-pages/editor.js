@@ -13,7 +13,7 @@ const byteCount = document.getElementById("byteCount");
 const editor = new EditorView({
     dispatch: tr => {
         const result = editor.update([tr]);
-        const bytes = editor.state.field(ASMStateField).data.length;
+        const bytes = editor.state.field(ASMStateField).head.length();
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
         byteCount.innerText = `${bytes} byte${bytes != 1 ? 's' : ''}`;
         return result;

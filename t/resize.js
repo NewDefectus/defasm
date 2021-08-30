@@ -6,7 +6,7 @@ function validate(state)
 {
     let mirrorState = new state.__proto__.constructor();
     mirrorState.compile(state.source);
-    if(!state.data.dump().equals(mirrorState.data.dump()))
+    if(!state.head.dump().equals(mirrorState.head.dump()))
         throw 'Resize inconsistency in\n' + state.source;
 }
 

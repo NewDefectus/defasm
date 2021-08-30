@@ -67,13 +67,14 @@ export class AssemblyState
         setSyntax(syntax);
         loadSymbols(this.symbols, this.fileSymbols);
 
-        this.sections = {
-            '.text': new Section('.text'),
-            '.data': new Section('.data'),
-            '.bss':  new Section('.bss')
-        };
+        /** @type {Section[]} */
+        this.sections = [
+            new Section('.text'),
+            new Section('.data'),
+            new Section('.bss')
+        ];
 
-        this.data = new StatementNode();
+        this.head = new StatementNode();
 
         /** @type {string} */
         this.source = '';
@@ -101,10 +102,10 @@ export class AssemblyState
         loadSymbols(this.symbols, this.fileSymbols);
         loadSections(this.sections, replacementRange);
 
-        let { head, tail } = this.data.getAffectedArea(replacementRange, true, source.length);
+        let { head, tail } = this.head.getAffectedArea(replacementRange, true, source.length);
         
         setSyntax(head.statement ? head.statement.syntax : this.defaultSyntax);
-        addr = setSection(head.statement ? head.statement.section : this.sections['.text']);
+        addr = setSection(head.statement ? head.statement.section : this.sections[0]);
         loadCode(this.source, replacementRange.start);
 
         prevNode = head;
@@ -181,12 +182,12 @@ export class AssemblyState
 
 
         // Correct the tails' positions, in case more instructions were parsed than initially thought
-        for(const name of Object.keys(sections))
+        for(const section of sections)
         {
-            let node = sections[name].cursor.tail;
+            let node = section.cursor.tail;
             while(node && node.statement.range.start < currRange.start)
                 node = node.next;
-            sections[name].cursor.tail = node;
+            section.cursor.tail = node;
         }
 
         while(tail && tail.statement.range.start < currRange.start)
@@ -210,10 +211,10 @@ export class AssemblyState
         }
 
         // Link the cursors' last nodes to their tail nodes
-        for(const name of Object.keys(sections))
+        for(const section of sections)
         {
-            let prev = sections[name].cursor.prev;
-            prev.next = sections[name].cursor.tail;
+            let prev = section.cursor.prev;
+            prev.next = section.cursor.tail;
             linkedInstrQueue.push(prev);
         }
         
@@ -297,28 +298,36 @@ export class AssemblyState
 
         // Error collection
         this.errors = [];
+        const reportedErrors = []
         this.iterate((instr, line) => {
             if(instr.outline && instr.outline.operands)
                 for(let op of instr.outline.operands)
                     op.attemptedSizes = op.attemptedUnsignedSizes = 0;
 
-            let e = instr.error;
-            if(e)
+            const error = instr.error;
+            if(error)
             {
-                this.errors.push(e);
+                this.errors.push(error);
 
-                /* Errors whose pos can't be determined should be logged,
-                not marked (these are usually internal compiler errors) */
-                if(!e.range)
+                /* Errors whose pos can't be determined should be logged
+                to the console (these are usually internal compiler errors) */
+                if(!error.range)
                 {
-                    console.error(`Error on line ${line}:\n`, e);
-                    e.range = new RelativeRange(instr.range, instr.range.start, instr.range.length);
+                    console.error(`Error on line ${line}:\n`, error);
+                    error.range = new RelativeRange(instr.range, instr.range.start, instr.range.length);
                 }
+                else
+                    reportedErrors.push({ line, error });
             }
         });
 
-        if(haltOnError && this.errors.length > 0)
-            throw this.errors.map(e => e.range.parent.slice(this.source) + '\n^' + e.message).join('\n');
+        if(haltOnError && reportedErrors.length > 0)
+            throw reportedErrors.map(({ error, line }) => {
+                const linePart = `Error on line ${line}: `;
+                return linePart + error.range.parent.slice(this.source) +
+                '\n' + ' '.repeat(linePart.length + error.range.start - error.range.parent.start) +
+                '^ ' + error.message
+            }).join('\n\n');
     }
 
     line(line)
@@ -348,7 +357,7 @@ export class AssemblyState
     /** @param {instrCallback} func */
     iterate(func)
     {
-        let line = 1, nextLine = 0, node = this.data.next;
+        let line = 1, nextLine = 0, node = this.head.next;
         while(nextLine != Infinity)
         {
             nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
@@ -370,7 +379,7 @@ export class AssemblyState
     bytesPerLine(func)
     {
         let lineQueue = [];
-        let line = 1, nextLine = 0, node = this.data.next;
+        let line = 1, nextLine = 0, node = this.head.next;
         while(nextLine != Infinity)
         {
             let buffers = [];

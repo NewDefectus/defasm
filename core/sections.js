@@ -3,17 +3,17 @@ import { RelocEntry } from "./relocations.js";
 import { StatementNode } from "./statement.js";
 import { SymbolDefinition } from "./symbols.js";
 
-/** @type {Object.<string, Section>} */
-export var sections = null;
+/** @type {Section[]} */
+export var sections = [];
 
 /**
- * @param {Object.<string, Section>} table
+ * @param {Section[]} table
  * @param {Range} range */
 export function loadSections(table, range)
 {
     sections = table;
-    for(const name of Object.keys(table))
-        table[name].cursor = table[name].head.getAffectedArea(range);
+    for(const section of table)
+        section.cursor = section.head.getAffectedArea(range);
 }
 
 export const pseudoSections = {

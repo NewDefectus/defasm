@@ -121,10 +121,9 @@ export function makeDirective(config, dir)
 
         case directives.section: return new SectionDirective(config);
         
-        case directives.text:
-        case directives.data:
-        case directives.bss:
-            return new SectionDirective(config, sections['.' + dir]);
+        case directives.text: return new SectionDirective(config, sections[0]);
+        case directives.data: return new SectionDirective(config, sections[1]);
+        case directives.bss:  return new SectionDirective(config, sections[2]);
         
         case directives.local: return new SymBindDirective(config, SYM_BINDS.local);
         case directives.globl: return new SymBindDirective(config, SYM_BINDS.global);
@@ -164,8 +163,7 @@ class SectionDirective extends Statement
             if(sectionName == '')
                 throw new ASMError("Expected section name");
             
-            if(sections.hasOwnProperty(sectionName))
-                section = sections[sectionName];
+            section = sections.find(x => x.name == sectionName) ?? null;
             
             if(token == ',')
             {
@@ -194,7 +192,7 @@ class SectionDirective extends Statement
             }
 
             if(section === null)
-                sections[sectionName] = section = new Section(sectionName);
+                sections.push(section = new Section(sectionName));
             if(section.persistent && attribRange)
                 throw new ASMError(`Can't give attributes to ${section.name}`, attribRange);
         }
@@ -225,7 +223,7 @@ class SectionDirective extends Statement
             if(!this.section.persistent)
             {
                 this.section.head.statement.remove();
-                delete sections[this.section.name];
+                sections.splice(sections.indexOf(this.section), 1);
             }
         }
         else if(this.sectionAttributes !== null)

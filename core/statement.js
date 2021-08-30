@@ -32,7 +32,7 @@ export class StatementNode
         return this.next?.find(pos);
     }
 
-    get length()
+    length()
     {
         let node = this, length = 0;
         while(node)
@@ -49,8 +49,8 @@ export class StatementNode
         let output, i = 0, node = this;
 
         // Use the available byte array type
-        try { output = Buffer.alloc(this.length); }
-        catch(e) { output = new Uint8Array(this.length); }
+        try { output = Buffer.alloc(this.length()); }
+        catch(e) { output = new Uint8Array(this.length()); }
 
         while(node)
         {
@@ -63,14 +63,6 @@ export class StatementNode
         }
 
         return output;
-    }
-
-    /** @returns {StatementNode} */
-    last()
-    {
-        if(this.next)
-            return this.next.last();
-        return this;
     }
 
     /** Select the instruction range that is affected by a given range
