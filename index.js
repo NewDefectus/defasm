@@ -11426,7 +11426,7 @@
         return this;
       return this.next?.find(pos);
     }
-    get length() {
+    length() {
       let node = this, length = 0;
       while (node) {
         if (node.statement)
@@ -11438,9 +11438,9 @@
     dump() {
       let output, i = 0, node = this;
       try {
-        output = Buffer.alloc(this.length);
+        output = Buffer.alloc(this.length());
       } catch (e) {
-        output = new Uint8Array(this.length);
+        output = new Uint8Array(this.length());
       }
       while (node) {
         if (node.statement) {
@@ -11450,11 +11450,6 @@
         node = node.next;
       }
       return output;
-    }
-    last() {
-      if (this.next)
-        return this.next.last();
-      return this;
     }
     getAffectedArea(range, update = false, sourceLength = 0) {
       let node = this;
@@ -12544,11 +12539,11 @@
   }
 
   // core/sections.js
-  var sections = null;
+  var sections = [];
   function loadSections(table, range) {
     sections = table;
-    for (const name2 of Object.keys(table))
-      table[name2].cursor = table[name2].head.getAffectedArea(range);
+    for (const section of table)
+      section.cursor = section.head.getAffectedArea(range);
   }
   var pseudoSections = {
     ABS: { name: "*ABS*", index: 65521 },
@@ -12756,9 +12751,11 @@
       case directives.section:
         return new SectionDirective(config2);
       case directives.text:
+        return new SectionDirective(config2, sections[0]);
       case directives.data:
+        return new SectionDirective(config2, sections[1]);
       case directives.bss:
-        return new SectionDirective(config2, sections["." + dir]);
+        return new SectionDirective(config2, sections[2]);
       case directives.local:
         return new SymBindDirective(config2, SYM_BINDS.local);
       case directives.globl:
@@ -12793,8 +12790,7 @@
         }
         if (sectionName == "")
           throw new ASMError("Expected section name");
-        if (sections.hasOwnProperty(sectionName))
-          section = sections[sectionName];
+        section = sections.find((x) => x.name == sectionName) ?? null;
         if (token == ",") {
           const flagString = readString(next());
           attribRange = currRange;
@@ -12817,7 +12813,7 @@
           attribRange = attribRange.until(currRange);
         }
         if (section === null)
-          sections[sectionName] = section = new Section(sectionName);
+          sections.push(section = new Section(sectionName));
         if (section.persistent && attribRange)
           throw new ASMError(`Can't give attributes to ${section.name}`, attribRange);
       }
@@ -12845,7 +12841,7 @@
       if (this.section.entryPoints.length == 0) {
         if (!this.section.persistent) {
           this.section.head.statement.remove();
-          delete sections[this.section.name];
+          sections.splice(sections.indexOf(this.section), 1);
         }
       } else if (this.sectionAttributes !== null) {
         const otherDefinition = this.section.entryPoints.find((entry) => entry.sectionAttributes !== null);
@@ -15806,12 +15802,12 @@ g nle`.split("\n");
       this.fileSymbols = [];
       setSyntax(syntax);
       loadSymbols(this.symbols, this.fileSymbols);
-      this.sections = {
-        ".text": new Section(".text"),
-        ".data": new Section(".data"),
-        ".bss": new Section(".bss")
-      };
-      this.data = new StatementNode();
+      this.sections = [
+        new Section(".text"),
+        new Section(".data"),
+        new Section(".bss")
+      ];
+      this.head = new StatementNode();
       this.source = "";
       this.compiledRange = new Range3();
       this.errors = [];
@@ -15824,9 +15820,9 @@ g nle`.split("\n");
       this.source = this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
       loadSymbols(this.symbols, this.fileSymbols);
       loadSections(this.sections, replacementRange);
-      let { head, tail } = this.data.getAffectedArea(replacementRange, true, source.length);
+      let { head, tail } = this.head.getAffectedArea(replacementRange, true, source.length);
       setSyntax(head.statement ? head.statement.syntax : this.defaultSyntax);
-      addr = setSection(head.statement ? head.statement.section : this.sections[".text"]);
+      addr = setSection(head.statement ? head.statement.section : this.sections[0]);
       loadCode(this.source, replacementRange.start);
       prevNode = head;
       while (match) {
@@ -15883,11 +15879,11 @@ g nle`.split("\n");
         if (currRange.end > replacementRange.end)
           break;
       }
-      for (const name2 of Object.keys(sections)) {
-        let node = sections[name2].cursor.tail;
+      for (const section of sections) {
+        let node = section.cursor.tail;
         while (node && node.statement.range.start < currRange.start)
           node = node.next;
-        sections[name2].cursor.tail = node;
+        section.cursor.tail = node;
       }
       while (tail && tail.statement.range.start < currRange.start) {
         tail.statement.remove();
@@ -15903,9 +15899,9 @@ g nle`.split("\n");
         }
         tailSection.cursor.tail = node;
       }
-      for (const name2 of Object.keys(sections)) {
-        let prev = sections[name2].cursor.prev;
-        prev.next = sections[name2].cursor.tail;
+      for (const section of sections) {
+        let prev = section.cursor.prev;
+        prev.next = section.cursor.tail;
         linkedInstrQueue.push(prev);
       }
       prevNode.next = tail;
@@ -15962,22 +15958,27 @@ g nle`.split("\n");
         } while (node && node.statement.address != addr);
       }
       this.errors = [];
+      const reportedErrors = [];
       this.iterate((instr2, line2) => {
         if (instr2.outline && instr2.outline.operands)
           for (let op of instr2.outline.operands)
             op.attemptedSizes = op.attemptedUnsignedSizes = 0;
-        let e = instr2.error;
-        if (e) {
-          this.errors.push(e);
-          if (!e.range) {
+        const error = instr2.error;
+        if (error) {
+          this.errors.push(error);
+          if (!error.range) {
             console.error(`Error on line ${line2}:
-`, e);
-            e.range = new RelativeRange(instr2.range, instr2.range.start, instr2.range.length);
-          }
+`, error);
+            error.range = new RelativeRange(instr2.range, instr2.range.start, instr2.range.length);
+          } else
+            reportedErrors.push({ line: line2, error });
         }
       });
-      if (haltOnError && this.errors.length > 0)
-        throw this.errors.map((e) => e.range.parent.slice(this.source) + "\n^" + e.message).join("\n");
+      if (haltOnError && reportedErrors.length > 0)
+        throw reportedErrors.map(({ error, line: line2 }) => {
+          const linePart = `Error on line ${line2}: `;
+          return linePart + error.range.parent.slice(this.source) + "\n" + " ".repeat(linePart.length + error.range.start - error.range.parent.start) + "^ " + error.message;
+        }).join("\n\n");
     }
     line(line2) {
       if (line2-- < 1)
@@ -15995,7 +15996,7 @@ g nle`.split("\n");
       return new Range3(start, end - start);
     }
     iterate(func) {
-      let line2 = 1, nextLine = 0, node = this.data.next;
+      let line2 = 1, nextLine = 0, node = this.head.next;
       while (nextLine != Infinity) {
         nextLine = this.source.indexOf("\n", nextLine) + 1 || Infinity;
         while (node && node.statement.range.end < nextLine) {
@@ -16007,7 +16008,7 @@ g nle`.split("\n");
     }
     bytesPerLine(func) {
       let lineQueue = [];
-      let line2 = 1, nextLine = 0, node = this.data.next;
+      let line2 = 1, nextLine = 0, node = this.head.next;
       while (nextLine != Infinity) {
         let buffers = [];
         nextLine = this.source.indexOf("\n", nextLine) + 1 || Infinity;
@@ -18097,7 +18098,7 @@ g nle`.split("\n");
     hoverTooltip((view, pos) => {
       if (!debugEnabled)
         return null;
-      const node = view.state.field(ASMStateField).data.find(pos);
+      const node = view.state.field(ASMStateField).head.find(pos);
       if (!node)
         return null;
       const instr2 = node.statement;
@@ -18116,7 +18117,7 @@ g nle`.split("\n");
     EditorView.domEventHandlers({
       mousedown: (event, view) => {
         if (debugEnabled && event.ctrlKey) {
-          console.log(view.state.field(ASMStateField).data.find(view.posAtCoords(event)));
+          console.log(view.state.field(ASMStateField).head.find(view.posAtCoords(event)));
           return true;
         }
       },
@@ -18222,7 +18223,7 @@ g nle`.split("\n");
   var editor = new EditorView({
     dispatch: (tr) => {
       const result = editor.update([tr]);
-      const bytes = editor.state.field(ASMStateField).data.length;
+      const bytes = editor.state.field(ASMStateField).head.length();
       document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
       byteCount.innerText = `${bytes} byte${bytes != 1 ? "s" : ""}`;
       return result;
