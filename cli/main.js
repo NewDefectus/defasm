@@ -2,11 +2,11 @@
 
 import fs from "fs";
 import child_process from "child_process";
-import { fileURLToPath } from "url";
 
 import { AssemblyState } from "@defasm/core";
 import { ELFHeader, ELFSection, RelocationSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
 import { pseudoSections, STT_FILE, STT_SECTION } from "@defasm/core/sections.js";
+import { debug } from "./debug.js";
 
 
 let args = process.argv.slice(2);
@@ -105,15 +105,6 @@ catch(e)
     process.exit(1);
 }
 
-function writeSize(size)
-{
-    if(sizeOutFD !== null)
-    {
-        fs.write(sizeOutFD, size + '\n', err => err && console.warn("Failed writing to size-out"));
-        fs.close(sizeOutFD, err => err && console.warn("Failed closing size-out"));
-    }
-}
-
 function assemble()
 {
     // Ensure the output path is correct
@@ -122,18 +113,25 @@ function assemble()
         outputFile = './' + outputFile;
     }
 
-    let state = new AssemblyState(assemblyConfig);
+    let state = new AssemblyState(assemblyConfig), size = 0;
 
     try
     {
         state.compile(code, { haltOnError: true });
-        writeSize(state.head.length);
     }
     catch(e)
     {
-        writeSize(0);
         console.error(e);
-        process.exit();
+        return;
+    }
+    finally
+    {
+        size = state.head.length();
+        if(sizeOutFD !== null)
+        {
+            fs.write(sizeOutFD, size + '\n', err => err && console.warn("Failed writing to size-out"));
+            fs.close(sizeOutFD, err => err && console.warn("Failed closing size-out"));
+        }
     }
     let outputStream = fs.createWriteStream(outputFile, { mode: 0o0755 });
 
@@ -251,73 +249,65 @@ function assemble()
         outputStream.write(section.header.dump());
 
     outputStream.on('close', () => {
-        if(!execute)
-            process.exit();
+        if(!execute || size == 0)
+            process.exit(0);
         child_process.execFileSync(linkerFile, [outputFile, '-o', '/tmp/asm']);
-        const entryAddr = Number(fs.readFileSync('/tmp/asm').readBigUInt64LE(0x18));
-        let proc = child_process.execFile(fileURLToPath(new URL('./debug', import.meta.url)), ['/tmp/asm', ...runtimeArgs]);
-        process.stdin.pipe(proc.stdin);
-        proc.stderr.pipe(process.stderr);
-        proc.stdout.pipe(process.stdout);
+        const entryAddr = fs.readFileSync('/tmp/asm').readBigUInt64LE(0x18);
+        const { regs, signal, exitCode } = debug('/tmp/asm', runtimeArgs);
 
-        proc.on('close', () => {
-            let errLine = null;
-            let pos = "on";
+        let errLine = null;
+        let pos = "on";
 
-            const data = JSON.parse(fs.readFileSync('/tmp/asm_trace.json').toString());
+        if(signal == 0)
+            process.exit(exitCode);
 
-            const signal = data['signal'];
-            if(signal == '')
-                process.exit(data['exitCode']);
+        let lastIP = Number(BigInt.asUintN(64, regs['rip'].toString()) - entryAddr);
 
-            let lastIP = parseInt(data['rip'], 16) - entryAddr;
-
-            if(lastIP >= 0)
+        if(lastIP >= 0)
+        {
+            state.iterate((instr, line) => {
+                if(errLine)
+                    return;
+                if(instr.address + instr.length > lastIP)
+                    errLine = line;
+            });
+            if(!errLine)
             {
-                state.iterate((instr, line) => {
-                    if(errLine)
-                        return;
-                    if(instr.address + instr.length > lastIP)
-                        errLine = line;
-                });
-                if(!errLine)
-                {
-                    pos = 'after';
-                    errLine = (state.source.match(/\n/g) || []).length + 1;
-                }
+                pos = 'after';
+                errLine = (state.source.match(/\n/g) || []).length + 1;
             }
+        }
 
-            console.warn(`Signal: ${signal.toLowerCase()}${
-                errLine !== null ? ` ${pos} line ${errLine}` : ''
-            } ${
-                data['rip'] !== undefined ? `(%rip was ${data['rip']})` : ''
-            }`);
-            
-            console.warn("Registers:");
-            let regTab = reg => `%${reg.padEnd(4, ' ')}= ${data[reg]}`;
-            for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
-            {
-                let [reg1, reg2] = regNames.split(' ');
-                console.warn('    ' + regTab(reg1) + '        ' + regTab(reg2));
-            }
-            
-            let flag = i => parseInt(data['eflags'], 16) & 1 << i ? 1 : 0;
-            let tmp;
-            let flagTab = (name, id, length, options = []) =>
-                ('    ' + name.padEnd(length, ' ') + ' = ' + (tmp = flag(id)) +
-                ' (' + options[tmp] + ')').padEnd(31, ' ');
-            let twoFlagTab = (name1, id1, options1, name2, id2, options2) =>
-                console.warn(flagTab(name1, id1, 9, options1) + (name2 ? flagTab(name2, id2, 6, options2) : ''));
+        const formatReg = reg => BigInt.asUintN(64, regs[reg].toString()).toString(16).toUpperCase().padStart(16, '0');
 
-            console.warn(`Flags (${data['eflags']}):`);
-            
-            twoFlagTab('Carry', 0, ['no carry', 'carry'], 'Zero', 6, ["isn't zero", 'is zero']);
-            twoFlagTab('Overflow', 11, ['no overflow', 'overflow'], 'Sign', 7, ['positive', 'negative']);
-            twoFlagTab('Direction', 10, ['up', 'down'], 'Parity', 2, ['odd', 'even']);
-            twoFlagTab('Adjust', 4, ['no aux carry', 'aux carry']);
+        console.warn(`Signal: ${signal}${
+            errLine !== null ? ` ${pos} line ${errLine}` : ''
+        } (%rip was ${formatReg('rip')})`);
+        
+        console.warn("Registers:");
+        let regTab = reg => `%${reg.padEnd(4, ' ')}= ${formatReg(reg)}`;
+        for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
+        {
+            let [reg1, reg2] = regNames.split(' ');
+            console.warn('    ' + regTab(reg1) + '        ' + regTab(reg2));
+        }
+        
+        let flag = i => Number(regs['eflags']) & 1 << i ? 1 : 0;
+        let tmp;
+        let flagTab = (name, id, length, options = []) =>
+            ('    ' + name.padEnd(length, ' ') + ' = ' + (tmp = flag(id)) +
+            ' (' + options[tmp] + ')').padEnd(31, ' ');
+        let twoFlagTab = (name1, id1, options1, name2, id2, options2) =>
+            console.warn(flagTab(name1, id1, 9, options1) + (name2 ? flagTab(name2, id2, 6, options2) : ''));
 
-            process.exit();
-        });
+        console.warn(`Flags (${formatReg('eflags')}):`);
+        
+        twoFlagTab('Carry', 0, ['no carry', 'carry'], 'Zero', 6, ["isn't zero", 'is zero']);
+        twoFlagTab('Overflow', 11, ['no overflow', 'overflow'], 'Sign', 7, ['positive', 'negative']);
+        twoFlagTab('Direction', 10, ['up', 'down'], 'Parity', 2, ['odd', 'even']);
+        twoFlagTab('Adjust', 4, ['no aux carry', 'aux carry']);
+
+        process.exit();
     });
 
     outputStream.close();
