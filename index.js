@@ -15139,6 +15139,8 @@ xadd:0FC0 Rbwlq r
 xbegin:C7F8 jl
 
 xchg
+90 R_0Q R_0
+87C0 R_0l R_0
 90.o R_0wlq R
 90.o Rwlq R_0
 86 Rbwlq r
