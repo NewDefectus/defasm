@@ -191,7 +191,7 @@ function assemble()
     // Finalizing
     let fileOffset = ELFHeader.size;
 
-    symtab.symbols.sort((a, b) => a.bind - b.bind);
+    symtab.symbols.sort((a, b) => (a.bind ?? 0) - (b.bind ?? 0));
 
     for(const section of sections)
     {
