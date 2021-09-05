@@ -324,8 +324,8 @@ export class AssemblyState
         if(haltOnError && reportedErrors.length > 0)
             throw reportedErrors.map(({ error, line }) => {
                 const linePart = `Error on line ${line}: `;
-                return linePart + error.range.parent.slice(this.source) +
-                '\n' + ' '.repeat(linePart.length + error.range.start - error.range.parent.start) +
+                return linePart + (error.range.parent ?? error.range).slice(this.source) +
+                '\n' + ' '.repeat(linePart.length + (error.range.parent ? error.range.start - error.range.parent.start : 0)) +
                 '^ ' + error.message
             }).join('\n\n');
     }
