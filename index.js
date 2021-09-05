@@ -15974,7 +15974,7 @@ g nle`.split("\n");
       if (haltOnError && reportedErrors.length > 0)
         throw reportedErrors.map(({ error, line: line2 }) => {
           const linePart = `Error on line ${line2}: `;
-          return linePart + error.range.parent.slice(this.source) + "\n" + " ".repeat(linePart.length + error.range.start - error.range.parent.start) + "^ " + error.message;
+          return linePart + (error.range.parent ?? error.range).slice(this.source) + "\n" + " ".repeat(linePart.length + (error.range.parent ? error.range.start - error.range.parent.start : 0)) + "^ " + error.message;
         }).join("\n\n");
     }
     line(line2) {
