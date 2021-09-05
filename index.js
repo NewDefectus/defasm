@@ -11403,10 +11403,10 @@
   };
   var signed32 = 33;
   var RelocEntry = class {
-    constructor({ offset, value, size, pcRelative, functionAddr }) {
+    constructor({ offset, sizeReduction, value, size, pcRelative, functionAddr }) {
       this.offset = offset;
       value = value.flatten();
-      this.addend = value.addend;
+      this.addend = value.addend - sizeReduction;
       if (pcRelative)
         this.addend += BigInt(offset);
       this.symbol = value.symbol;
@@ -11509,23 +11509,19 @@
       this.bytes[this.length++] = Number(byte);
     }
     genValue(value, size, signed = false, sizeRelative = false, functionAddr = false) {
-      let num = value.addend;
-      if (value.symbol && value.section == pseudoSections.ABS)
-        num += value.symbol.value.addend;
-      if (sizeRelative)
-        num -= BigInt(this.length + size / 8);
-      if (value.isRelocatable()) {
-        if (value.pcRelative)
-          signed = false;
+      let sizeReduction = sizeRelative ? BigInt(this.length + size / 8) : 0n;
+      let num = 0n;
+      if (value.isRelocatable())
         this.relocations.push({
           offset: this.length,
+          sizeReduction,
           value,
-          size: signed && size == 32 ? signed32 : size,
+          size: signed && !value.pcRelative && size == 32 ? signed32 : size,
           pcRelative: value.pcRelative,
           functionAddr: functionAddr && value.section == pseudoSections.UND
         });
-        num = 0n;
-      }
+      else
+        num = value.addend - sizeReduction;
       do {
         this.genByte(num & 0xffn);
         num >>= 8n;
@@ -15540,12 +15536,11 @@ g nle`.split("\n");
       let { operands, memoryOperand, mnemonics: mnemonics2, vexInfo } = this.outline;
       let prefsToGen = 0;
       this.clear();
-      if (memoryOperand) {
+      if (memoryOperand)
         memoryOperand.evaluate(this, this.syntax.intel);
-        prefsToGen |= memoryOperand.prefs;
-      }
       for (let i = 0; i < operands.length; i++) {
         const op2 = operands[i];
+        prefsToGen |= op2.prefs;
         if (op2.type == OPT.IMM) {
           if (op2.expression.hasSymbols)
             op2.evaluate(this);
