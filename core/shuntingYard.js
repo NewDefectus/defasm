@@ -489,7 +489,11 @@ export class Expression
                             continue;
                         }
                         if(opStack.length > 0 && opStack[opStack.length - 1].bracket)
-                            break;
+                        {
+                            ungetToken();
+                            setToken('(');
+                            return;
+                        }
                     }
                     
                     throw new ASMError("Missing left operand");
@@ -552,16 +556,10 @@ export class Expression
             }
         }
 
-        if(this.stack.length === 0 && !expectMemory)
+        if(this.stack.length == 0)
             throw new ASMError("Expected expression");
 
-        if(expectMemory && opStack.length == 1 && opStack[0].bracket)
-        {
-            ungetToken();
-            setToken('(');
-            return;
-        }
-        else if(!lastWasNum)
+        if(!lastWasNum)
             throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].range : currRange);
 
         while(opStack[0])
