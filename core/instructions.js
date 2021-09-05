@@ -272,15 +272,13 @@ export class Instruction extends Statement
         this.clear();
 
         if(memoryOperand)
-        {
             memoryOperand.evaluate(this, this.syntax.intel);
-            prefsToGen |= memoryOperand.prefs;
-        }
 
         // Before we compile, we'll get the immediates' sizes
         for(let i = 0; i < operands.length; i++)
         {
             const op = operands[i];
+            prefsToGen |= op.prefs;
             if(op.type == OPT.IMM)
             {
                 if(op.expression.hasSymbols)

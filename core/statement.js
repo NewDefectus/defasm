@@ -172,26 +172,21 @@ export class Statement
      */
     genValue(value, size, signed = false, sizeRelative = false, functionAddr = false)
     {
-        let num = value.addend;
-        if(value.symbol && value.section == pseudoSections.ABS)
-            num += value.symbol.value.addend;
-        if(sizeRelative)
-            num -= BigInt(this.length + size / 8);
+        let sizeReduction = sizeRelative ? BigInt(this.length + size / 8) : 0n;
+        let num = 0n;
+        
         if(value.isRelocatable())
-        {
-            if(value.pcRelative)
-                signed = false;
-
             this.relocations.push({
                 offset: this.length,
+                sizeReduction,
                 value,
-                size: signed && size == 32 ? signed32 : size,
+                size: (signed && !value.pcRelative) && size == 32 ? signed32 : size,
                 pcRelative: value.pcRelative,
                 functionAddr: functionAddr && value.section == pseudoSections.UND,
             });
-            
-            num = 0n;
-        }
+        else
+            num = value.addend - sizeReduction;
+
         do
         {
             this.genByte(num & 0xffn);
