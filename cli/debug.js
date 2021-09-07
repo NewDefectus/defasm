@@ -49,8 +49,7 @@ const Registers = struct(ref)(Object.assign({}, ...(
 const SigInfo = struct(ref)({
     si_signo: int,
     si_errno: int,
-    si_code: int,
-    __pad0: int
+    si_code: int
 });
 
 function redirect(stream, fd)
