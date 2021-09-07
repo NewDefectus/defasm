@@ -5,7 +5,7 @@ import child_process from "child_process";
 
 import { AssemblyState } from "@defasm/core";
 import { ELFHeader, ELFSection, RelocationSection, SectionHeader, StringTable, SymbolTable } from "./elf.js";
-import { pseudoSections, STT_FILE, STT_SECTION } from "@defasm/core/sections.js";
+import { pseudoSections, Section, STT_FILE, STT_SECTION } from "@defasm/core/sections.js";
 import { debug } from "./debug.js";
 
 
@@ -106,6 +106,63 @@ catch(e)
 {
     console.error(e);
     process.exit(1);
+}
+
+/**
+ * @param {Number} address 
+ * @param {Section[]} asmSections 
+ */
+function findInstruction(address, asmSections)
+{
+    const execData = fs.readFileSync('/tmp/asm');
+    const e_shoff = Number(execData.readBigUInt64LE(0x28));
+    const e_shentsize = execData.readUInt16LE(0x3A);
+    const e_shnum = execData.readUInt16LE(0x3C);
+    const e_shstrndx = execData.readUInt16LE(0x3E);
+
+    let shstrtab = null, sections = [];
+
+    for(let i = 0, offset = e_shoff; i < e_shnum; i++, offset += e_shentsize)
+    {
+        const header = execData.subarray(offset, offset + e_shentsize);
+        const sh_name = header.readUInt32LE(0x00);
+        const sh_addr = Number(header.readBigUInt64LE(0x10));
+        const sh_offset = Number(header.readBigUInt64LE(0x18));
+        const sh_size = Number(header.readBigUInt64LE(0x20));
+        if(i == e_shstrndx)
+            shstrtab = execData.subarray(sh_offset, sh_offset + sh_size);
+        sections.push({
+            end: Math.ceil((sh_addr + sh_size) / 0x1000) * 0x1000,
+            nameIndex: sh_name,
+            start: sh_addr
+        });
+    }
+
+    if(shstrtab === null)
+        return null;
+
+    for(const section of sections)
+    {
+        if(address >= section.start && address < section.end)
+        {
+            const localAddress = address - section.start;
+            const name = shstrtab.toString('utf-8', section.nameIndex, shstrtab.indexOf(0, section.nameIndex));
+            const resultSection = asmSections.find(section => section.name == name);
+            if(resultSection)
+            {
+                let node = resultSection.head.next;
+                while(node)
+                {
+                    if(node.statement.length > 0 && node.statement.address >= localAddress)
+                        return node.statement;
+                    node = node.next;
+                }
+                return 'LAST';
+            }
+        }
+    }
+
+    return null;
 }
 
 function assemble()
@@ -262,30 +319,31 @@ function assemble()
         {
             process.exit(-1);
         }
-        const entryAddr = fs.readFileSync('/tmp/asm').readBigUInt64LE(0x18);
+        
         const { regs, signal, exitCode } = debug('/tmp/asm', runtimeArgs);
+        if(signal == '')
+            process.exit(exitCode);
 
         let errLine = null;
         let pos = "on";
+        let errorAddr = Number(BigInt.asUintN(64, regs['rip'].toString()));
+        if(signal === "trace/breakpoint trap") // Weird behavior with int3
+            errorAddr--;
 
-        if(signal == 0)
-            process.exit(exitCode);
-
-        let lastIP = Number(BigInt.asUintN(64, regs['rip'].toString()) - entryAddr);
-
-        if(lastIP >= 0)
+        let crashedInstr = findInstruction(errorAddr, state.sections);
+        if(crashedInstr === 'LAST')
+        {
+            pos = 'after';
+            errLine = (state.source.match(/\n/g) || []).length + 1;
+        }
+        else if(crashedInstr !== null)
         {
             state.iterate((instr, line) => {
                 if(errLine)
                     return;
-                if(instr.address + instr.length > lastIP)
+                if(instr == crashedInstr)
                     errLine = line;
             });
-            if(!errLine)
-            {
-                pos = 'after';
-                errLine = (state.source.match(/\n/g) || []).length + 1;
-            }
         }
 
         const formatReg = reg => BigInt.asUintN(64, regs[reg].toString()).toString(16).toUpperCase().padStart(16, '0');
