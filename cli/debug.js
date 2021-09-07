@@ -39,9 +39,11 @@ const lib = ffi.Library(null, {
     perror: [Void, [CString]]
 });
 
+const registerNames = `r15 r14 r13 r12 rbp rbx r11 r10 r9 r8 rax rcx rdx rsi rdi
+UNUSED1 rip UNUSED2 eflags rsp UNUSED3 UNUSED4 UNUSED5 UNUSED6 UNUSED7 UNUSED8 UNUSED9`.split(/\s+/);
+
 const Registers = struct(ref)(Object.assign({}, ...(
-    `r15 r14 r13 r12 rbp rbx r11 r10 r9 r8 rax rcx rdx rsi rdi
-    orig_rax rip cs eflags rsp ss fs_base gs_base ds es fs gs`.split(/\s+/).map(x =>
+    registerNames.map(x =>
         ({ [x]: ulonglong })
     )
 )));
@@ -49,7 +51,16 @@ const Registers = struct(ref)(Object.assign({}, ...(
 const SigInfo = struct(ref)({
     si_signo: int,
     si_errno: int,
-    si_code: int
+    si_code: int,
+    __pad0: int,
+    si_addr: ptr(Void),
+    __pad1: ulonglong, __pad2: ulonglong,
+    __pad3: ulonglong, __pad4: ulonglong,
+    __pad5: ulonglong, __pad6: ulonglong,
+    __pad7: ulonglong, __pad8: ulonglong,
+    __pad9: ulonglong, __pad10: ulonglong,
+    __pad11: ulonglong, __pad12: ulonglong,
+    __pad13: ulonglong
 });
 
 function redirect(stream, fd)
@@ -86,7 +97,9 @@ export function debug(path, args)
             return {
                 exitCode: status[1],
                 signal: lib.strsignal(siginfo.si_signo).toLowerCase(),
-                regs
+                regs: Object.assign({}, ...registerNames.filter(x => !x.startsWith('UNUSED')).map(x =>
+                    ({ [x]: regs[x] })
+                ))
             };
         }
 
