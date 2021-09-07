@@ -131,15 +131,16 @@ function findInstruction(address, asmSections)
         const sh_size = Number(header.readBigUInt64LE(0x20));
         if(i == e_shstrndx)
             shstrtab = execData.subarray(sh_offset, sh_offset + sh_size);
-        sections.push({
-            end: Math.ceil((sh_addr + sh_size) / 0x1000) * 0x1000,
-            nameIndex: sh_name,
-            start: sh_addr
-        });
+        if(sh_size > 0)
+            sections.push({
+                end: Math.ceil((sh_addr + sh_size) / 0x1000) * 0x1000,
+                nameIndex: sh_name,
+                start: sh_addr
+            });
     }
 
     if(shstrtab === null)
-        return null;
+        return { section: null, instr: null };
 
     for(const section of sections)
     {
@@ -154,15 +155,15 @@ function findInstruction(address, asmSections)
                 while(node)
                 {
                     if(node.statement.length > 0 && node.statement.address >= localAddress)
-                        return node.statement;
+                        return { section: resultSection, instr: node.statement };
                     node = node.next;
                 }
-                return 'LAST';
+                return { section: resultSection, instr: null };
             }
         }
     }
 
-    return null;
+    return { section: null, instr: null };
 }
 
 function assemble()
@@ -330,13 +331,19 @@ function assemble()
         if(signal === "trace/breakpoint trap") // Weird behavior with int3
             errorAddr--;
 
-        let crashedInstr = findInstruction(errorAddr, state.sections);
-        if(crashedInstr === 'LAST')
+        let { instr: crashedInstr, section: crashedSection } = findInstruction(errorAddr, state.sections);
+        if(crashedInstr === null)
         {
-            pos = 'after';
-            errLine = (state.source.match(/\n/g) || []).length + 1;
+            if(crashedSection !== null)
+            {
+                pos = 'after';
+                state.iterate((instr, line) => {
+                    if(instr.section === crashedSection)
+                        errLine = line;
+                });
+            }
         }
-        else if(crashedInstr !== null)
+        else
         {
             state.iterate((instr, line) => {
                 if(errLine)
