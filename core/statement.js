@@ -1,6 +1,5 @@
 import { currSection } from "./compiler.js";
 import { ASMError, currSyntax, Range } from "./parser.js";
-import { RelocEntry, signed32 } from "./relocations.js";
 import { pseudoSections, Section } from "./sections.js";
 
 var totalStatements = 0;
@@ -147,7 +146,6 @@ export class Statement
 
         this.sectionNode = new StatementNode(this);
 
-        /** @type {RelocEntry[]}  */
         this.relocations = [];
     }
 
@@ -180,7 +178,8 @@ export class Statement
                 offset: this.length,
                 sizeReduction,
                 value,
-                size: (signed && !value.pcRelative) && size == 32 ? signed32 : size,
+                signed: (signed && !value.pcRelative) && size == 32,
+                size,
                 pcRelative: value.pcRelative,
                 functionAddr: functionAddr && value.section == pseudoSections.UND,
             });

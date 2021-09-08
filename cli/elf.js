@@ -1,5 +1,29 @@
 import { pseudoSections } from '@defasm/core/sections.js';
 
+const relocTypes = {
+    NONE      : 0,
+    64        : 1,
+    PC32      : 2,
+    GOT32     : 3,
+    PLT32     : 4,
+    COPY      : 5,
+    GLOB_DAT  : 6,
+    JUMP_SLOT : 7,
+    RELATIVE  : 8,
+    GOTPCREL  : 9,
+    32        : 10,
+    33        : 11, // 32S
+    16        : 12,
+    PC16      : 13,
+    8         : 14,
+    PC8       : 15,
+    PC64      : 24,
+    GOTOFF64  : 25,
+    GOTPC32   : 26,
+    SIZE32    : 32,
+    SIZE64    : 33
+};
+
 /**
  * @param {T} fields 
  * @template T 
@@ -84,6 +108,25 @@ export const ELFHeader = header({
     e_shnum:       [0x3C, 2],
     /** Contains index of the section header table entry that contains the section names. */
     e_shstrndx:    [0x3E, 2]
+});
+
+export const ProgramHeader = header({
+    /** Identifies the type of the segment. */
+    p_type:  [0x00, 4],
+    /** Segment-dependent flags. */
+    p_flags:  [0x04, 4],
+    /** Offset of the segment in the file image. */
+    p_offset: [0x08, 8],
+    /** Virtual address of the segment in memory. */
+    p_vaddr:  [0x10, 8],
+    /** On systems where physical address is relevant, reserved for segment's physical address. */
+    p_paddr:  [0x18, 8],
+    /** Size in bytes of the segment in the file image. May be 0. */
+    p_filesz: [0x20, 8],
+    /** Size in bytes of the segment in memory. May be 0. */
+    p_memsz:  [0x28, 8],
+    /** 0 and 1 specify no alignment. Otherwise should be a positive, integral power of 2, with p_vaddr equating p_offset modulus p_align. */
+    p_align:  [0x30, 8],
 });
 
 export const SectionHeader = header({
@@ -245,8 +288,9 @@ export class RelocationSection extends ELFSection
         let index = 0, symtab = this.linkSection;
         for(const reloc of this.relocations)
         {
+            const type = relocTypes[(reloc.pcRelative ? reloc.functionAddr ? 'PLT' : 'PC' : '') + reloc.size + (reloc.signed ? 'S' : '')];
             this.buffer.writeBigUInt64LE(BigInt(reloc.offset), index);
-            this.buffer.writeBigUInt64LE(BigInt(reloc.type) | BigInt(
+            this.buffer.writeBigUInt64LE(BigInt(type) | BigInt(
                 reloc.symbol ? symtab.symbols.indexOf(reloc.symbol) + 1 : 0
             ) << 32n, index + 0x8);
             this.buffer.writeBigInt64LE(BigInt(reloc.addend), index + 0x10);
