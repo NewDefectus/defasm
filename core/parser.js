@@ -57,6 +57,8 @@ var defaultNext = () => {
         {
             comment = true;
             token = ';';
+            tokenizer.lastIndex = code.indexOf('\n', tokenizer.lastIndex);
+            currRange.length = tokenizer.lastIndex - match.index + 1;
         }
     }
     else

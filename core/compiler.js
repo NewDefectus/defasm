@@ -170,11 +170,7 @@ export class AssemblyState
                     addInstruction(new Statement({ addr, range, error }));
             }
             if(comment)
-            {
-                let start = startAbsRange();
-                while(next() != '\n');
-                addInstruction(new Statement({ addr, range: start.until(currRange) }));
-            }
+                addInstruction(new Statement({ addr, range: startAbsRange() }));
             next();
             if(currRange.end > replacementRange.end)
                 break;
