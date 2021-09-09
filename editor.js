@@ -57,7 +57,7 @@ syscall
 
 # Looping
 .data
-digit: .byte   '0', '\\n'
+digit: .byte '0', '\\n'
 
 .text
 mov $10, %bl
@@ -77,7 +77,7 @@ pop %rbx
 pop %rax
 
 argLoop:
-    dec %rbx
+    dec %ebx
     jz endArgLoop
 
     pop %rsi
