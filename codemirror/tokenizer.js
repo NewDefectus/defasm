@@ -118,14 +118,8 @@ function tokenize(ctx, input)
     if(!(ctx & STATE_IN_INSTRUCTION))
     {
         const nextTok = peekNext(input);
-        if(nextTok == ':')
-            return Terms.LabelDefinition;
-        
-        if(nextTok == '=' || intel && nextTok == 'equ')
-        {
-            next(input);
-            return Terms.symEquals;
-        }
+        if(nextTok == '=' || nextTok == ':' || intel && (nextTok == 'equ' || isDirective(nextTok, true)))
+            return Terms.SymbolName;
 
         if(tok == '%' && intel)
             return isDirective('%' + next(input), true) ? Terms.Directive : null;
@@ -138,6 +132,9 @@ function tokenize(ctx, input)
 
         if(prefixes.hasOwnProperty(tok))
             return Terms.Prefix;
+        
+        if(tok == '=' || intel && tok == 'equ')
+            return Terms.symEquals;
 
         let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
         if(mnemonics.length > 0)

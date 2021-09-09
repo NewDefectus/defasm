@@ -11,10 +11,10 @@
   Ptr,
   Offset,
   symEquals,
+  SymbolName,
   VEXRound,
   number,
   immPrefix,
-  LabelDefinition,
   SpecialWord
 }
 
@@ -30,29 +30,31 @@
 }
 
 statement {
-  LabelDefinition |
+  Prefix*
+  (LabelDefinition |
   (
   InstructionStatement |
   DirectiveStatement |
   SymbolDefinition
-  ) Comment?
+  ) Comment?)
 }
+
+LabelDefinition { SymbolName ':' }
+SymbolDefinition { SymbolName symEquals Expression }
 
 
 InstructionStatement {
-  Prefix* (
-    (Opcode VEXRound? commaSep<(Register | Immediate | Relative | Memory) VEXRound? VEXMask? VEXRound?>)
-    |
-    (IOpcode commaSep<Ptr? (Register | (Offset Expression) | IImmediate | IMemory) VEXRound? VEXMask? VEXRound?>)
-    |
-    (RelOpcode (('*' (Register | Relative | Memory)) | Register | Expression | Memory))
-    |
-    (IRelOpcode (Register | Expression | IMemory))
-  )?
+  (Opcode VEXRound? commaSep<(Register | Immediate | Relative | Memory) VEXRound? VEXMask? VEXRound?>)
+  |
+  (IOpcode commaSep<Ptr? (Register | (Offset Expression) | IImmediate | IMemory) VEXRound? VEXMask? VEXRound?>)
+  |
+  (RelOpcode (('*' (Register | Relative | Memory)) | Register | Expression | Memory))
+  |
+  (IRelOpcode (Register | Expression | IMemory))
 }
 
 DirectiveStatement {
-  LabelName { word }? Directive commaSep<Expression | FullString | SpecialWord>
+  SymbolName? Directive commaSep<Expression | FullString | SpecialWord>
 }
 
 Immediate {
@@ -73,8 +75,6 @@ IImmediate[@dynamicPrecedence=1] { (unary | '(')* (number | charString) ')'* (op
 Relative { (unary | '(')* (number | charString | word) ')'* (operator Relative)? ~immSplit }
 Expression { (unary | '(')* (number | charString | word) ')'* (operator Expression)? }
 iMemExpr { (unary | '(')* (Register | number | charString | word) ')'* (operator iMemExpr)? }
-
-SymbolDefinition { symEquals Expression }
 
 commaSep<content> {
   "" | content (',' content?)*
