@@ -5,7 +5,7 @@ DefAssembler is built from scratch without the use of any additional libraries, 
 
 # JavaScript types
 ## `AssemblyState`
-This is the primary export of the assembler; an object of this type is needed to run it. Its constructor takes in an optional config object, which can be used to set the initial parsing syntax to Intel or AT&T (defaults to AT&T).
+This is the primary export of the assembler; an object of this type is needed to run it. Its constructor takes in an optional config object, which can be used to set the initial parsing syntax to Intel or AT&T (defaults to AT&T) and whether or not the .text section is writable.
 
 The class has the following properties:
 * `compiledRange` - the range of text parsed by the compiler during the last call to `compile` (used for debugging)

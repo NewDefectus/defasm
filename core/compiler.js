@@ -3,7 +3,7 @@ import { isDirective, makeDirective } from "./directives.js";
 import { Instruction, Prefix, prefixes } from "./instructions.js";
 import { SymbolDefinition, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
 import { Statement, StatementNode } from "./statement.js";
-import { loadSections, Section, sections } from "./sections.js";
+import { loadSections, Section, sectionFlags, sections } from "./sections.js";
 
 var linkedInstrQueue = [];
 
@@ -45,6 +45,7 @@ function addInstruction(instr, seekEnd = true)
 /**
  * @typedef {Object} AssemblyConfig
  * @property {import('@defasm/core/parser.js').Syntax} config.syntax The initial syntax to use
+ * @property {boolean} config.writableText Whether the .text section should be writable
  */
 
 export class AssemblyState
@@ -54,7 +55,8 @@ export class AssemblyState
         syntax = {
             intel: false,
             prefix: true
-        }
+        },
+        writableText = false
     } = {})
     {
         this.defaultSyntax = syntax;
@@ -73,6 +75,9 @@ export class AssemblyState
             new Section('.data'),
             new Section('.bss')
         ];
+
+        if(writableText)
+            this.sections[0].flags |= sectionFlags.w;
 
         this.head = new StatementNode();
 
