@@ -19,8 +19,6 @@
     "@lezer/common": "",
     "@lezer/generator": "",
     "@lezer/lr": "",
-    "esbuild": "",
-    "ffi-napi": "^4.0.3",
-    "ref-array-di": "^1.2.2"
+    "esbuild": ""
   }
 }

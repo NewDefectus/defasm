@@ -25,10 +25,7 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm/tree/master/cli#readme",
   "dependencies": {
-    "@defasm/core": "",
-    "ffi-napi": "",
-    "ref-array-di": "",
-    "ref-napi": ""
+    "@defasm/core": ""
   },
   "bin": {
     "defasm": "./main.js"
