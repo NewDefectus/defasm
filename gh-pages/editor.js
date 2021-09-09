@@ -39,26 +39,32 @@ function getLastCode()
     let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
     if(prevCode)
         prevCode = decodeURIComponent(prevCode.slice(5));
-    return prevCode || `.data
-text:  .string "Hello, World!\\n"; textSize = . - text
-digit: .byte   '0', '\\n'
+    return prevCode || `SYS_WRITE = 1
+SYS_EXIT = 60
+STDOUT_FILENO = 1
+
+# Printing
+.data
+buffer: .string "Hello, World!\n"
+bufferLen = . - buffer
 
 .text
-.globl _start
-_start:
-# Printing
-mov $1, %eax        # Syscall code 1 (write)
-mov $1, %edi        # File descriptor 1 (stdout)
-mov $text, %rsi     # Address of buffer
-mov $textSize, %edx # Length of buffer
+mov $SYS_WRITE, %eax
+mov $STDOUT_FILENO, %edi
+mov $buffer, %esi
+mov $bufferLen, %edx
 syscall
 
 # Looping
+.data
+digit: .byte   '0', '\n'
+
+.text
 mov $10, %bl
 numberLoop:
-    mov $1, %eax
-    mov $1, %edi
-    mov $digit, %rsi
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %edi
+    mov $digit, %esi
     mov $2, %edx
     syscall
 
@@ -82,17 +88,17 @@ argLoop:
     repnz scasb
 
     not %ecx
-    movb $'\\n', -1(%rsi, %rcx)
+    movb $'\n', -1(%rsi, %rcx)
 
     mov %ecx, %edx
-    mov $1, %eax
-    mov $1, %edi
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %edi
     syscall
 
     jmp argLoop
 endArgLoop:
 
-mov $60, %eax   # Syscall code 60 (exit)
-mov $0, %edi    # Exit code
+mov $SYS_EXIT, %eax
+mov $0, %edi
 syscall`;
 }
