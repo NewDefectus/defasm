@@ -299,11 +299,7 @@ class DataDirective extends Statement
                         if(token[0] == '"')
                         {
                             const strBytes = readString(token, this.lineEnds);
-                            const temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
-                            temp.set(this.bytes);
-                            temp.set(strBytes, this.length);
-                            this.bytes = temp;
-                            this.lineEnds.offset = this.length = temp.length;
+                            this.append(strBytes, strBytes.length + appendNullByte);
                         }
                         else
                             throw new ASMError("Expected string");
@@ -320,6 +316,15 @@ class DataDirective extends Statement
 
         capLineEnds(this.lineEnds);
         this.lineEnds.lineEnds.push(this.length);
+    }
+
+    append(bytes, length = bytes.length)
+    {
+        const temp = new Uint8Array(this.length + length + 1);
+        temp.set(this.bytes.subarray(0, this.length));
+        temp.set(bytes, this.length);
+        this.bytes = temp;
+        this.lineEnds.offset = this.length += length;
     }
 
     compileValues(valSize, acceptStrings = false)
@@ -352,11 +357,8 @@ class DataDirective extends Statement
                         if(acceptStrings)
                         {
                             const strBytes = readString(token, this.lineEnds);
-                            const temp = new Uint8Array(this.length + strBytes.length);
-                            temp.set(this.bytes);
-                            temp.set(strBytes, this.length);
-                            this.bytes = temp;
-                            this.lineEnds.offset = this.length = temp.length;
+                            this.outline.push({ strBytes });
+                            this.append(strBytes);
                         }
                         else
                             throw new ASMError("Unexpected string");
@@ -371,8 +373,8 @@ class DataDirective extends Statement
 
                         this.outline.push({ value, expression });
                         this.genValue(value, this.valSize * 8);
-                        this.address = startAddr + this.length;
                     }
+                    this.address = startAddr + this.length;
             } while(token === ',' && next());
         }
         finally
@@ -395,9 +397,16 @@ class DataDirective extends Statement
             op = this.outline[i];
             try
             {
-                if(op.expression.hasSymbols)
-                    op.value = op.expression.evaluate(this, true);
-                this.genValue(op.value, this.valSize * 8);
+                if(op.strBytes)
+                {
+                    this.append(op.strBytes);
+                }
+                else
+                {
+                    if(op.expression.hasSymbols)
+                        op.value = op.expression.evaluate(this, true);
+                    this.genValue(op.value, this.valSize * 8);
+                }
                 this.address = startAddr + this.length;
             }
             catch(e)
