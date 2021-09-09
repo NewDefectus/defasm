@@ -11308,6 +11308,8 @@
       if (token == (currSyntax.intel ? ";" : "#")) {
         comment2 = true;
         token = ";";
+        tokenizer.lastIndex = code.indexOf("\n", tokenizer.lastIndex);
+        currRange.length = tokenizer.lastIndex - match.index + 1;
       }
     } else {
       token = "\n";
@@ -11378,39 +11380,18 @@
   };
 
   // core/relocations.js
-  var relocTypes = {
-    NONE: 0,
-    64: 1,
-    PC32: 2,
-    GOT32: 3,
-    PLT32: 4,
-    COPY: 5,
-    GLOB_DAT: 6,
-    JUMP_SLOT: 7,
-    RELATIVE: 8,
-    GOTPCREL: 9,
-    32: 10,
-    33: 11,
-    16: 12,
-    PC16: 13,
-    8: 14,
-    PC8: 15,
-    PC64: 24,
-    GOTOFF64: 25,
-    GOTPC32: 26,
-    SIZE32: 32,
-    SIZE64: 33
-  };
-  var signed32 = 33;
   var RelocEntry = class {
-    constructor({ offset, sizeReduction, value, size, pcRelative, functionAddr }) {
+    constructor({ offset, sizeReduction, value, size, signed, pcRelative, functionAddr }) {
       this.offset = offset;
       value = value.flatten();
       this.addend = value.addend - sizeReduction;
       if (pcRelative)
         this.addend += BigInt(offset);
       this.symbol = value.symbol;
-      this.type = relocTypes[(pcRelative ? functionAddr ? "PLT" : "PC" : "") + size];
+      this.size = size;
+      this.signed = signed;
+      this.pcRelative = pcRelative;
+      this.functionAddr = functionAddr;
     }
   };
 
@@ -11516,7 +11497,8 @@
           offset: this.length,
           sizeReduction,
           value,
-          size: signed && !value.pcRelative && size == 32 ? signed32 : size,
+          signed: signed && !value.pcRelative && size == 32,
+          size,
           pcRelative: value.pcRelative,
           functionAddr: functionAddr && value.section == pseudoSections.UND
         });
@@ -12244,8 +12226,11 @@
                 this.stack.push(parseIdentifier(instr2));
                 continue;
               }
-              if (opStack.length > 0 && opStack[opStack.length - 1].bracket)
-                break;
+              if (opStack.length > 0 && opStack[opStack.length - 1].bracket) {
+                ungetToken();
+                setToken("(");
+                return;
+              }
             }
             throw new ASMError("Missing left operand");
           }
@@ -12292,13 +12277,15 @@
           this.stack.push(parseIdentifier(instr2));
         }
       }
-      if (this.stack.length === 0 && !expectMemory)
-        throw new ASMError("Expected expression");
-      if (expectMemory && opStack.length == 1 && opStack[0].bracket) {
-        ungetToken();
-        setToken("(");
-        return;
-      } else if (!lastWasNum)
+      if (this.stack.length == 0) {
+        if (expectMemory) {
+          ungetToken();
+          setToken("(");
+          return;
+        } else
+          throw new ASMError("Expected expression");
+      }
+      if (!lastWasNum)
         throw new ASMError("Missing right operand", opStack.length ? opStack[opStack.length - 1].range : currRange);
       while (opStack[0]) {
         if (opStack[opStack.length - 1].bracket)
@@ -15792,7 +15779,8 @@ g nle`.split("\n");
       syntax = {
         intel: false,
         prefix: true
-      }
+      },
+      writableText = false
     } = {}) {
       this.defaultSyntax = syntax;
       this.symbols = new Map();
@@ -15804,6 +15792,8 @@ g nle`.split("\n");
         new Section(".data"),
         new Section(".bss")
       ];
+      if (writableText)
+        this.sections[0].flags |= sectionFlags.w;
       this.head = new StatementNode();
       this.source = "";
       this.compiledRange = new Range3();
@@ -15866,12 +15856,8 @@ g nle`.split("\n");
           else
             addInstruction(new Statement({ addr, range, error }));
         }
-        if (comment2) {
-          let start = startAbsRange();
-          while (next() != "\n")
-            ;
-          addInstruction(new Statement({ addr, range: start.until(currRange) }));
-        }
+        if (comment2)
+          addInstruction(new Statement({ addr, range: startAbsRange() }));
         next();
         if (currRange.end > replacementRange.end)
           break;
@@ -18243,26 +18229,34 @@ g nle`.split("\n");
     let prevCode = document.cookie.split("; ").find((row) => row.startsWith("code="));
     if (prevCode)
       prevCode = decodeURIComponent(prevCode.slice(5));
-    return prevCode || `.data
-text:  .string "Hello, World!\\n"; textSize = . - text
-digit: .byte   '0', '\\n'
+    return prevCode || `SYS_WRITE = 1
+SYS_EXIT = 60
+STDOUT_FILENO = 1
+
+# Printing
+.data
+buffer: .string "Hello, World!
+"
+bufferLen = . - buffer
 
 .text
-.globl _start
-_start:
-# Printing
-mov $1, %eax        # Syscall code 1 (write)
-mov $1, %edi        # File descriptor 1 (stdout)
-mov $text, %rsi     # Address of buffer
-mov $textSize, %edx # Length of buffer
+mov $SYS_WRITE, %eax
+mov $STDOUT_FILENO, %edi
+mov $buffer, %esi
+mov $bufferLen, %edx
 syscall
 
 # Looping
+.data
+digit: .byte   '0', '
+'
+
+.text
 mov $10, %bl
 numberLoop:
-    mov $1, %eax
-    mov $1, %edi
-    mov $digit, %rsi
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %edi
+    mov $digit, %esi
     mov $2, %edx
     syscall
 
@@ -18286,18 +18280,19 @@ argLoop:
     repnz scasb
 
     not %ecx
-    movb $'\\n', -1(%rsi, %rcx)
+    movb $'
+', -1(%rsi, %rcx)
 
     mov %ecx, %edx
-    mov $1, %eax
-    mov $1, %edi
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %edi
     syscall
 
     jmp argLoop
 endArgLoop:
 
-mov $60, %eax   # Syscall code 60 (exit)
-mov $0, %edi    # Exit code
+mov $SYS_EXIT, %eax
+mov $0, %edi
 syscall`;
   }
 })();
