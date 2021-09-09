@@ -56,7 +56,7 @@ function execute(path, args)
             ({ [reg]: data.readBigUInt64LE(0x80 + i * 8) })
         )),
         signal: signalNames[signo] ?? `unknown signal (${signo})`
-    }
+    };
 }
 
 export function debug(path, args, state)
