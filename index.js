@@ -11309,7 +11309,9 @@
         comment2 = true;
         token = ";";
         tokenizer.lastIndex = code.indexOf("\n", tokenizer.lastIndex);
-        currRange.length = tokenizer.lastIndex - match.index + 1;
+        if (tokenizer.lastIndex < 0)
+          tokenizer.lastIndex = code.length;
+        currRange.length = tokenizer.lastIndex - match.index;
       }
     } else {
       token = "\n";
@@ -12897,11 +12899,7 @@
             do {
               if (token[0] == '"') {
                 const strBytes = readString(token, this.lineEnds);
-                const temp = new Uint8Array(this.length + strBytes.length + appendNullByte);
-                temp.set(this.bytes);
-                temp.set(strBytes, this.length);
-                this.bytes = temp;
-                this.lineEnds.offset = this.length = temp.length;
+                this.append(strBytes, strBytes.length + appendNullByte);
               } else
                 throw new ASMError("Expected string");
             } while (next() == "," && next());
@@ -12914,6 +12912,13 @@
       }
       capLineEnds(this.lineEnds);
       this.lineEnds.lineEnds.push(this.length);
+    }
+    append(bytes, length = bytes.length) {
+      const temp = new Uint8Array(this.length + length + 1);
+      temp.set(this.bytes.subarray(0, this.length));
+      temp.set(bytes, this.length);
+      this.bytes = temp;
+      this.lineEnds.offset = this.length += length;
     }
     compileValues(valSize, acceptStrings = false) {
       this.valSize = valSize;
@@ -12935,11 +12940,8 @@
             if (token[0] === '"') {
               if (acceptStrings) {
                 const strBytes = readString(token, this.lineEnds);
-                const temp = new Uint8Array(this.length + strBytes.length);
-                temp.set(this.bytes);
-                temp.set(strBytes, this.length);
-                this.bytes = temp;
-                this.lineEnds.offset = this.length = temp.length;
+                this.outline.push({ strBytes });
+                this.append(strBytes);
               } else
                 throw new ASMError("Unexpected string");
               next();
@@ -12950,8 +12952,8 @@
                 needsRecompilation = true;
               this.outline.push({ value, expression });
               this.genValue(value, this.valSize * 8);
-              this.address = startAddr + this.length;
             }
+            this.address = startAddr + this.length;
           } while (token === "," && next());
       } finally {
         if (!needsRecompilation)
@@ -12967,9 +12969,13 @@
       for (let i = 0; i < outlineLength; i++) {
         op = this.outline[i];
         try {
-          if (op.expression.hasSymbols)
-            op.value = op.expression.evaluate(this, true);
-          this.genValue(op.value, this.valSize * 8);
+          if (op.strBytes) {
+            this.append(op.strBytes);
+          } else {
+            if (op.expression.hasSymbols)
+              op.value = op.expression.evaluate(this, true);
+            this.genValue(op.value, this.valSize * 8);
+          }
           this.address = startAddr + this.length;
         } catch (e) {
           this.error = e;
@@ -15772,7 +15778,7 @@ g nle`.split("\n");
         next();
     }
     addr = instr2.address + instr2.length;
-    instr2.range.length = currRange.end - instr2.range.start - (seekEnd ? 1 : 0);
+    instr2.range.length = (seekEnd ? currRange.start : currRange.end) - instr2.range.start;
   }
   var AssemblyState = class {
     constructor({
@@ -15840,7 +15846,10 @@ g nle`.split("\n");
                 addInstruction(new Prefix({ addr, range, name: name2 }), false);
               } else if (currSyntax.intel && isDirective(token, true)) {
                 addInstruction(new SymbolDefinition({ addr, name: name2, range, isLabel: true }), false);
-                addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+                name2 = token;
+                range = startAbsRange();
+                next();
+                addInstruction(makeDirective({ addr, range }, name2));
               } else
                 addInstruction(new Instruction({ addr, name: name2, range }));
             }
@@ -15857,7 +15866,7 @@ g nle`.split("\n");
             addInstruction(new Statement({ addr, range, error }));
         }
         if (comment2)
-          addInstruction(new Statement({ addr, range: startAbsRange() }));
+          addInstruction(new Statement({ addr, range: startAbsRange() }), false);
         next();
         if (currRange.end > replacementRange.end)
           break;
@@ -18235,8 +18244,7 @@ STDOUT_FILENO = 1
 
 # Printing
 .data
-buffer: .string "Hello, World!
-"
+buffer: .string "Hello, world!\\n"
 bufferLen = . - buffer
 
 .text
@@ -18248,8 +18256,7 @@ syscall
 
 # Looping
 .data
-digit: .byte   '0', '
-'
+digit: .byte   '0', '\\n'
 
 .text
 mov $10, %bl
@@ -18280,8 +18287,7 @@ argLoop:
     repnz scasb
 
     not %ecx
-    movb $'
-', -1(%rsi, %rcx)
+    movb $'\\n', -1(%rsi, %rcx)
 
     mov %ecx, %edx
     mov $SYS_WRITE, %eax
