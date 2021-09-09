@@ -39,7 +39,7 @@ function addInstruction(instr, seekEnd = true)
     }
 
     addr = instr.address + instr.length;
-    instr.range.length = currRange.end - instr.range.start - (seekEnd ? 1 : 0);
+    instr.range.length = (seekEnd ? currRange.start : currRange.end) - instr.range.start;
 }
 
 /**
@@ -155,7 +155,9 @@ export class AssemblyState
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
                             addInstruction(new SymbolDefinition({ addr, name, range, isLabel: true }), false);
-                            addInstruction(makeDirective({ addr, range: startAbsRange() }, token));
+                            name = token; range = startAbsRange();
+                            next();
+                            addInstruction(makeDirective({ addr, range }, name));
                         }
                         else // Instruction
                             addInstruction(new Instruction({ addr, name, range }));
@@ -175,7 +177,7 @@ export class AssemblyState
                     addInstruction(new Statement({ addr, range, error }));
             }
             if(comment)
-                addInstruction(new Statement({ addr, range: startAbsRange() }));
+                addInstruction(new Statement({ addr, range: startAbsRange() }), false);
             next();
             if(currRange.end > replacementRange.end)
                 break;

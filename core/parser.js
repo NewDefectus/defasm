@@ -60,7 +60,7 @@ var defaultNext = () => {
             tokenizer.lastIndex = code.indexOf('\n', tokenizer.lastIndex);
             if(tokenizer.lastIndex < 0)
                 tokenizer.lastIndex = code.length;
-            currRange.length = tokenizer.lastIndex - match.index + 1;
+            currRange.length = tokenizer.lastIndex - match.index;
         }
     }
     else
