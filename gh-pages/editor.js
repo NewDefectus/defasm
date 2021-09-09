@@ -45,7 +45,7 @@ STDOUT_FILENO = 1
 
 # Printing
 .data
-buffer: .string "Hello, World!\n"
+buffer: .string "Hello, world!\\n"
 bufferLen = . - buffer
 
 .text
@@ -57,7 +57,7 @@ syscall
 
 # Looping
 .data
-digit: .byte   '0', '\n'
+digit: .byte   '0', '\\n'
 
 .text
 mov $10, %bl
@@ -88,7 +88,7 @@ argLoop:
     repnz scasb
 
     not %ecx
-    movb $'\n', -1(%rsi, %rcx)
+    movb $'\\n', -1(%rsi, %rcx)
 
     mov %ecx, %edx
     mov $SYS_WRITE, %eax
