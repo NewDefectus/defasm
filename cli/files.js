@@ -232,7 +232,7 @@ export function createExecutable(filename, state)
         
         if(reloc.pcRelative)
             value -= offset;
-        buffer[`write${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](value);
+        buffer[`write${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](value & (1 << reloc.size) - 1);
 
         write(buffer, section.programHeader.p_offset + reloc.offset);
     }
