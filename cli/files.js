@@ -221,18 +221,18 @@ export function createExecutable(filename, state)
     {
         const offset = section.programHeader.p_vaddr + reloc.offset;
         const buffer = Buffer.alloc(reloc.size / 8);
-        let value = Number(reloc.addend) + (reloc.symbol.value.section == pseudoSections.COM ? 
-                reloc.symbol.address + bss.p_vaddr
+        let value = reloc.addend + (reloc.symbol.value.section == pseudoSections.COM ? 
+                BigInt(reloc.symbol.address + bss.p_vaddr)
             :
                 reloc.symbol?.value ?
-                    Number(reloc.symbol.value.absoluteValue()) + reloc.symbol.value.section.programHeader.p_vaddr
+                    reloc.symbol.value.absoluteValue() + BigInt(reloc.symbol.value.section.programHeader.p_vaddr)
                 :
-                    0
+                    0n
         );
         
         if(reloc.pcRelative)
-            value -= offset;
-        buffer[`write${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](value & (1 << reloc.size) - 1);
+            value -= BigInt(offset);
+        buffer[`write${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](Number(value & (1n << BigInt(reloc.size)) - 1n));
 
         write(buffer, section.programHeader.p_offset + reloc.offset);
     }
