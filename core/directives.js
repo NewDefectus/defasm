@@ -110,11 +110,12 @@ export function makeDirective(config, dir)
         case directives.int:
         case directives.quad:
         case directives.octa:
-        case directives.float:
-        case directives.double:
         case directives.asciz:
         case directives.ascii:
             return new DataDirective(config, dirID);
+        
+        case directives.float:  return new FloatDirective(config, 0);
+        case directives.double: return new FloatDirective(config, 1);
 
         case directives.intel_syntax: return new SyntaxDirective(config, true);
         case directives.att_syntax:   return new SyntaxDirective(config, false);
@@ -287,9 +288,6 @@ class DataDirective extends Statement
                 case directives.quad:     this.compileValues(8); break;
                 case directives.octa:     this.compileValues(16); break;
 
-                case directives.float:    this.floatPrec = 1; this.compileValues(4); break;
-                case directives.double:   this.floatPrec = 2; this.compileValues(8); break;
-
                 case directives.asciz:
                     appendNullByte = 1;
                 case directives.ascii:
@@ -334,47 +332,31 @@ class DataDirective extends Statement
         this.outline = [];
         const startAddr = this.address;
         try {
-            if(this.floatPrec)
+            do
             {
-                let values = [];
-                do
+                if(token[0] === '"')
                 {
-                    if(isNaN(next()))
-                        throw new ASMError("Expected number");
-                    values.push(token);
-                } while(next() == ',');
-
-                this.bytes = new Uint8Array((
-                    this.floatPrec == 1 ? new Float32Array(values) : new Float64Array(values)
-                ).buffer);
-                this.length = this.bytes.length;
-            }
-            else
-                do
-                {
-                    if(token[0] === '"')
+                    if(acceptStrings)
                     {
-                        if(acceptStrings)
-                        {
-                            const strBytes = readString(token, this.lineEnds);
-                            this.outline.push({ strBytes });
-                            this.append(strBytes);
-                        }
-                        else
-                            throw new ASMError("Unexpected string");
-                        next();
+                        const strBytes = readString(token, this.lineEnds);
+                        this.outline.push({ strBytes });
+                        this.append(strBytes);
                     }
                     else
-                    {
-                        expression = new Expression(this);
-                        value = expression.evaluate(this);
-                        if(expression.hasSymbols)
-                            needsRecompilation = true;
+                        throw new ASMError("Unexpected string");
+                    next();
+                }
+                else
+                {
+                    expression = new Expression(this);
+                    value = expression.evaluate(this);
+                    if(expression.hasSymbols)
+                        needsRecompilation = true;
 
-                        this.outline.push({ value, expression });
-                        this.genValue(value, this.valSize * 8);
-                    }
-                    this.address = startAddr + this.length;
+                    this.outline.push({ value, expression });
+                    this.genValue(value, this.valSize * 8);
+                }
+                this.address = startAddr + this.length;
             } while(token === ',' && next());
         }
         finally
@@ -432,6 +414,30 @@ class DataDirective extends Statement
             this.bytes = temp;
         }
         this.lineEnds.offset = this.length;
+    }
+}
+
+class FloatDirective extends Statement {
+    constructor(config, precision)
+    {
+        super({ ...config })
+        let values = [];
+        do
+        {
+            if(isNaN(token))
+                throw new ASMError("Expected number");
+            if(token == '\n')
+            {
+                this.error = new ASMError("Expected number");
+                break;
+            }
+            values.push(token);
+        } while((next() == ',' && next()));
+
+        this.bytes = new Uint8Array((
+            precision > 0 ? new Float64Array(values) : new Float32Array(values)
+        ).buffer);
+        this.length = this.bytes.length;
     }
 }
 
