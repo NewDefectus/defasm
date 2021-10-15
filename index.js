@@ -11494,7 +11494,9 @@
     genValue(value, size, signed = false, sizeRelative = false, functionAddr = false) {
       let sizeReduction = sizeRelative ? BigInt(this.length + size / 8) : 0n;
       let num = 0n;
-      if (value.isRelocatable())
+      if (value.isRelocatable()) {
+        if (size >= 128)
+          throw new ASMError("Can't do 16 byte relocations", this.range);
         this.relocations.push({
           offset: this.length,
           sizeReduction,
@@ -11504,7 +11506,7 @@
           pcRelative: value.pcRelative,
           functionAddr: functionAddr && value.section == pseudoSections.UND
         });
-      else
+      } else
         num = value.addend - sizeReduction;
       do {
         this.genByte(num & 0xffn);
