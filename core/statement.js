@@ -174,6 +174,9 @@ export class Statement
         let num = 0n;
         
         if(value.isRelocatable())
+        {
+            if(size >= 128)
+                throw new ASMError("Can't do 16 byte relocations", this.range);
             this.relocations.push({
                 offset: this.length,
                 sizeReduction,
@@ -183,6 +186,7 @@ export class Statement
                 pcRelative: value.pcRelative,
                 functionAddr: functionAddr && value.section == pseudoSections.UND,
             });
+        }
         else
             num = value.addend - sizeReduction;
 

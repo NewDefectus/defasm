@@ -46,30 +46,26 @@ function execute(path, args)
     execFileSync(resolve(dirname(fileURLToPath(import.meta.url)), './debug'), [path, ...args], { stdio: 'inherit' });
     const data = readFileSync('/tmp/asm_trace');
     const signo = data.readUInt32LE();
+    const errorAddr = data.readBigUInt64LE(4);
     if(signo == 17)
         process.exit(data[0x18]);
     return {
-        regs: Object.assign({}, ...
-        `r15 r14 r13 r12 rbp rbx r11 r10 r9 r8
-        rax rcx rdx rsi rdi orig_rax rip cs eflags
-        rsp ss fs_base gs_base ds es fs gs`.split(/\s+/).map((reg, i) =>
-            ({ [reg]: data.readBigUInt64LE(0x80 + i * 8) })
-        )),
-        signal: signalNames[signo] ?? `unknown signal (${signo})`
+        errorAddr,
+        signal: signalNames[signo] ?? `unknown signal (${signo})`,
+        dump: data.toString('ascii', 12)
     };
 }
 
 export function debug(path, args, state)
 {
-    const { signal, regs } = execute(path, args);
+    const { signal, errorAddr, dump } = execute(path, args);
 
     let errLine = null;
     let pos = "on";
-    let errorAddr = Number(BigInt.asUintN(64, regs['rip'].toString()));
     if(signal === "trace/breakpoint trap") // Weird behavior with int3
         errorAddr--;
 
-    let { instr: crashedInstr, section: crashedSection } = findInstruction(state, errorAddr);
+    let { instr: crashedInstr, section: crashedSection } = findInstruction(state, Number(errorAddr));
     if(crashedInstr === null)
     {
         if(crashedSection !== null)
@@ -91,32 +87,8 @@ export function debug(path, args, state)
         });
     }
 
-    const formatReg = reg => BigInt.asUintN(64, regs[reg].toString()).toString(16).toUpperCase().padStart(16, '0');
-
     console.warn(`Signal: ${signal}${
         errLine !== null ? ` ${pos} line ${errLine}` : ''
-    } (%rip was ${formatReg('rip')})`);
-    
-    console.warn("Registers:");
-    let regTab = reg => `%${reg.padEnd(4, ' ')}= ${formatReg(reg)}`;
-    for(let regNames of "rax r8|rbx r9|rcx r10|rdx r11|rsi r12|rdi r13|rsp r14|rbp r15".split('|'))
-    {
-        let [reg1, reg2] = regNames.split(' ');
-        console.warn('    ' + regTab(reg1) + '        ' + regTab(reg2));
-    }
-    
-    let flag = i => Number(regs['eflags']) & 1 << i ? 1 : 0;
-    let tmp;
-    let flagTab = (name, id, length, options = []) =>
-        ('    ' + name.padEnd(length, ' ') + ' = ' + (tmp = flag(id)) +
-        ' (' + options[tmp] + ')').padEnd(31, ' ');
-    let twoFlagTab = (name1, id1, options1, name2, id2, options2) =>
-        console.warn(flagTab(name1, id1, 9, options1) + (name2 ? flagTab(name2, id2, 6, options2) : ''));
-
-    console.warn(`Flags (${formatReg('eflags')}):`);
-    
-    twoFlagTab('Carry', 0, ['no carry', 'carry'], 'Zero', 6, ["isn't zero", 'is zero']);
-    twoFlagTab('Overflow', 11, ['no overflow', 'overflow'], 'Sign', 7, ['positive', 'negative']);
-    twoFlagTab('Direction', 10, ['up', 'down'], 'Parity', 2, ['odd', 'even']);
-    twoFlagTab('Adjust', 4, ['no aux carry', 'aux carry']);
+    } (%rip was ${errorAddr.toString(16).toUpperCase().padStart(16, '0')})`);
+    console.warn(dump);
 }

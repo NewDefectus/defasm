@@ -232,7 +232,9 @@ export function createExecutable(filename, state)
         
         if(reloc.pcRelative)
             value -= BigInt(offset);
-        buffer[`write${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](Number(value & (1n << BigInt(reloc.size)) - 1n));
+        let bigInt = reloc.size == 64;
+        value = value & (1n << BigInt(reloc.size)) - 1n;
+        buffer[`write${bigInt ? 'Big' : ''}${reloc.signed ? '' : 'U'}Int${reloc.size}${reloc.size > 8 ? 'LE' : ''}`](bigInt ? value : Number(value));
 
         write(buffer, section.programHeader.p_offset + reloc.offset);
     }
