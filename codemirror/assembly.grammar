@@ -30,13 +30,13 @@
 }
 
 statement {
-  Prefix*
-  (LabelDefinition |
   (
+  Prefix |
+  LabelDefinition |
   InstructionStatement |
   DirectiveStatement |
   SymbolDefinition
-  ) Comment?)
+  )* Comment?
 }
 
 LabelDefinition { SymbolName ':' }

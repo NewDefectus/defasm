@@ -205,7 +205,7 @@ export const tokenizer = new ExternalTokenizer(
 
         next(input);
         const type = tokenize(stack.context, input);
-        if(type !== null)
+        if(type !== null || tok.match(/^[\w.]*$/))
             input.acceptToken(type);
         
     }, {
