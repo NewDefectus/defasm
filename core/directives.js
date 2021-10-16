@@ -1,6 +1,6 @@
 import { ASMError, token, next, setSyntax, currSyntax, currRange, ungetToken, setToken } from "./parser.js";
 import { Section, sectionFlags, sections, sectionTypes, STT_SECTION } from "./sections.js";
-import { capLineEnds, Expression, readString, scanIdentifier } from "./shuntingYard.js";
+import { Expression, readString, scanIdentifier } from "./shuntingYard.js";
 import { Statement } from "./statement.js";
 import { CommSymbol, fileSymbols, queueRecomp, referenceSymbol, SymbolDefinition } from "./symbols.js";
 
@@ -309,8 +309,6 @@ class DataDirective extends Statement
             while(token != ';' && token != '\n')
                 next();
         }
-
-        //capLineEnds(this.lineEnds);
     }
 
     append({ bytes, lineEnds }, length = bytes.length)
@@ -327,7 +325,7 @@ class DataDirective extends Statement
     compileValues(valSize, acceptStrings = false)
     {
         this.valSize = valSize;
-        let value, expression, needsRecompilation = false;
+        let value, expression, needsRecompilation = false, error = null;
         this.outline = [];
         const startAddr = this.address;
         try {
@@ -353,10 +351,16 @@ class DataDirective extends Statement
                         needsRecompilation = true;
 
                     this.outline.push({ value, expression });
-                    this.genValue(value, this.valSize * 8);
+                    if(!error)
+                    {
+                        try { this.genValue(value, this.valSize * 8); }
+                        catch(e) { error = e; }
+                    }
                 }
                 this.address = startAddr + this.length;
             } while(token === ',' && next());
+            if(error)
+                throw error;
         }
         finally
         {
@@ -399,7 +403,6 @@ class DataDirective extends Statement
             }
         }
         this.address = startAddr;
-        //capLineEnds(this.lineEnds);
     }
 
     genByte(byte)

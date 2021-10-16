@@ -178,7 +178,7 @@ export class Statement
         if(value.isRelocatable())
         {
             if(size >= 128)
-                throw new ASMError("Can't do 16 byte relocations", this.range);
+                throw new ASMError("Can't do 16 byte relocations", value.range);
             this.relocations.push({
                 offset: this.length,
                 sizeReduction,

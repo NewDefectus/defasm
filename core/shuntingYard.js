@@ -71,14 +71,6 @@ const stringEscapeSeqs = {
     'v': 0x0B,
 }
 
-export function capLineEnds({ lineEnds, offset })
-{
-    // Cap line ends at the given offset
-    for(let i = 0; i < lineEnds.length; i++)
-        if(lineEnds[i] > offset)
-            lineEnds[i] = offset;
-}
-
 
 const encoder = new TextEncoder();
 export function readString(string)
