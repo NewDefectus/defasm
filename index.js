@@ -11918,8 +11918,8 @@
   var operatorTemps = [
     {
       "*": (a, b) => a * b,
-      "/": (a, b) => a / b,
-      "%": (a, b) => a % b,
+      "/": (a, b) => a / (b || 1n),
+      "%": (a, b) => a % (b || 1n),
       "<<": (a, b) => a << b,
       ">>": (a, b) => a >> b
     },
@@ -11934,16 +11934,16 @@
       "-": (a, b) => a - b
     },
     {
-      "==": (a, b) => a == b ? -1 : 0,
-      "<>": (a, b) => a != b ? -1 : 0,
-      "!=": (a, b) => a != b ? -1 : 0,
-      "<": (a, b) => a < b ? -1 : 0,
-      ">": (a, b) => a > b ? -1 : 0,
-      ">=": (a, b) => a >= b ? -1 : 0,
-      "<=": (a, b) => a <= b ? -1 : 0
+      "==": (a, b) => a == b ? -1n : 0n,
+      "<>": (a, b) => a != b ? -1n : 0n,
+      "!=": (a, b) => a != b ? -1n : 0n,
+      "<": (a, b) => a < b ? -1n : 0n,
+      ">": (a, b) => a > b ? -1n : 0n,
+      ">=": (a, b) => a >= b ? -1n : 0n,
+      "<=": (a, b) => a <= b ? -1n : 0n
     },
-    { "&&": (a, b) => a && b ? 1 : 0 },
-    { "||": (a, b) => a || b ? 1 : 0 }
+    { "&&": (a, b) => a && b ? 1n : 0n },
+    { "||": (a, b) => a || b ? 1n : 0n }
   ];
   var operators = {};
   var unaries = {};
@@ -17914,6 +17914,7 @@ g nle`.split("\n");
 
   // codemirror/tokenizer.js
   var tok;
+  var pureString;
   function next2(input) {
     tok = "";
     let char;
@@ -17922,12 +17923,14 @@ g nle`.split("\n");
     if (input.next >= 0 && !(char = String.fromCharCode(input.next)).match(/[.$\w]/)) {
       tok = char;
       input.advance();
+      pureString = false;
     } else
       while (input.next >= 0 && (char = String.fromCharCode(input.next)).match(/[.$\w]/)) {
         tok += char;
         input.advance();
       }
-    return tok = tok.toLowerCase() || "\n";
+    tok = tok.toLowerCase() || "\n";
+    return tok;
   }
   function peekNext(input) {
     let i = 0, char;
@@ -18053,9 +18056,10 @@ g nle`.split("\n");
   var tokenizer2 = new ExternalTokenizer((input, stack) => {
     if (input.next < 0 || String.fromCharCode(input.next).match(/\s/))
       return;
+    pureString = true;
     next2(input);
     const type = tokenize(stack.context, input);
-    if (type !== null || tok.match(/^[\w.]*$/))
+    if (type !== null || pureString)
       input.acceptToken(type);
   }, {
     contextual: false
