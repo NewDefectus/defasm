@@ -81,12 +81,12 @@ export function capLineEnds({ lineEnds, offset })
 
 
 const encoder = new TextEncoder();
-export function readString(string, { offset = 0, lineEnds = [] } = {})
+export function readString(string)
 {
     if(string.length < 2 || string[string.length - 1] != string[0])
         throw new ASMError("Incomplete string");
     
-    capLineEnds({ lineEnds, offset });
+    const lineEnds = [];
 
     let output = [];
     let matches = string.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|(.|\n)?))|\n|[^\\\n]+/ig);
@@ -114,10 +114,10 @@ export function readString(string, { offset = 0, lineEnds = [] } = {})
                 output.push(...encoder.encode(x));
 
             if(x == '\n')
-                lineEnds.push(output.length + offset);
+                lineEnds.push(output.length);
         }
 
-    return new Uint8Array(output);
+    return { bytes: new Uint8Array(output), lineEnds };
 }
 
 /** Get the type of an identifier (returns null if the string isn't a valid identifier).
@@ -147,35 +147,35 @@ function parseIdentifier(instr)
             throw new ASMError("Expected value, got none");
         if(token[0] === "'")
         {
-            let bytes = readString(token, instr.lineEnds ?? {}), i = bytes.length;
+            let { bytes, lineEnds } = readString(token), i = bytes.length;
             
             while(i--)
             {
                 value <<= 8n;
                 value += BigInt(bytes[i]);
             }
+
+            next();
+            return new Identifier(instr, value, startRange, lineEnds);
         }
-        else
+        if(instr.syntax.prefix ? token == '%' : isRegister(token)) // Register
+            return new RegisterIdentifier(instr, parseRegister([OPT.REG, OPT.IP, OPT.VEC]), regParsePos);
+        
+        const idType = scanIdentifier(token, instr.syntax.intel);
+        if(idType == 'symbol') // Symbol
         {
-            if(instr.syntax.prefix ? token == '%' : isRegister(token)) // Register
-                return new RegisterIdentifier(instr, parseRegister([OPT.REG, OPT.IP, OPT.VEC]), regParsePos);
-            
-            const idType = scanIdentifier(token, instr.syntax.intel);
-            if(idType == 'symbol') // Symbol
-            {
-                const name = token;
-                next();
-                return new SymbolIdentifier(instr, name, startRange);
-            }
-
-            if(idType === null)
-                throw new ASMError("Invalid number");
-
-            let mainToken = token;
-            if(token[token.length - 1].toLowerCase() == 'h')
-                mainToken = '0x' + token.slice(0, -1);
-            value = BigInt(mainToken);
+            const name = token;
+            next();
+            return new SymbolIdentifier(instr, name, startRange);
         }
+
+        if(idType === null)
+            throw new ASMError("Invalid number");
+
+        let mainToken = token;
+        if(token[token.length - 1].toLowerCase() == 'h')
+            mainToken = '0x' + token.slice(0, -1);
+        value = BigInt(mainToken);
         next();
         return new Identifier(instr, value, startRange);
     }
@@ -202,8 +202,9 @@ export class IdentifierValue
      * @property {import('./symbols.js').Symbol} config.symbol
      * @property {Section} config.section
      * @property {Range} config.range
-     * @property {RegData} config.regData */
-    constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false } = {})
+     * @property {RegData} config.regData
+     * @property {Number[]} lineEnds */
+    constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false, lineEnds = [] } = {})
     {
         this.addend = addend;
         this.symbol = symbol;
@@ -211,6 +212,7 @@ export class IdentifierValue
         this.range = range;
         this.regData = regData;
         this.pcRelative = pcRelative;
+        this.lineEnds = lineEnds;
     }
 
     isRelocatable()
@@ -342,6 +344,7 @@ export class IdentifierValue
         else
             this.addend = operators[func].func(this.addend, op.addend);
         this.pcRelative = this.pcRelative || op.pcRelative;
+        this.lineEnds = [...this.lineEnds, ...op.lineEnds].sort((a, b) => a - b);
      }
 }
 
@@ -350,11 +353,13 @@ class Identifier
     /**
      * @param {Statement} instr
      * @param {Number} value
-     * @param {Range} range */
-    constructor(instr, value, range)
+     * @param {Range} range
+     * @param {Number[]} lineEnds */
+    constructor(instr, value, range, lineEnds = [])
     {
         this.value = value;
         this.range = range;
+        this.lineEnds = lineEnds;
     }
 
     /**
@@ -365,7 +370,8 @@ class Identifier
         return new IdentifierValue({
             addend: this.value,
             section: pseudoSections.ABS,
-            range: this.range
+            range: this.range,
+            lineEnds: this.lineEnds
         });
     }
 }

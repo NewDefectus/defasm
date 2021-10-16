@@ -138,7 +138,6 @@ export class Statement
         
         this.error = error;
         this.range = range;
-        this.length = 0;
         this.bytes = new Uint8Array(maxSize);
         this.syntax = syntax;
         this.address = addr;
@@ -146,13 +145,16 @@ export class Statement
 
         this.sectionNode = new StatementNode(this);
 
-        this.relocations = [];
+        this.clear();
     }
 
     clear()
     {
         this.length = 0;
         this.relocations = [];
+
+        /** @type {Number[]} */
+        this.lineEnds = [];
     }
 
     /** @param {BigInt|Number} byte */
@@ -189,6 +191,9 @@ export class Statement
         }
         else
             num = value.addend - sizeReduction;
+
+        for(const lineEnd of value.lineEnds)
+            this.lineEnds.push(this.length + Math.min(lineEnd, size / 8));
 
         do
         {

@@ -396,31 +396,22 @@ export class AssemblyState
 
             while(node && node.statement.range.start < nextLine)
             {
-                let instr = node.statement;
-                if(instr.hasOwnProperty('lineEnds'))
+                let instr = node.statement, prevEnd = 0;
+                for(const end of [...instr.lineEnds, instr.length])
                 {
-                    let prevEnd = 0;
-                    for(const end of instr.lineEnds.lineEnds)
-                    {
-                        if(end <= instr.length)
-                            lineQueue.push({
-                                section: instr.section,
-                                bytes: instr.bytes.subarray(prevEnd, end)
-                            });
-                        prevEnd = end;
-                    }
-                    if(lineQueue.length > 0)
-                    {
-                        const line = lineQueue.shift();
-                        if(line.bytes.length > 0)
-                            buffers.push(line);
-                    }
+                    if(end <= instr.length)
+                        lineQueue.push({
+                            section: instr.section,
+                            bytes: instr.bytes.subarray(prevEnd, end)
+                        });
+                    prevEnd = end;
                 }
-                else if(instr.length > 0)
-                    buffers.push({
-                        section: instr.section,
-                        bytes: instr.bytes.subarray(0, instr.length)
-                    });
+                if(lineQueue.length > 0)
+                {
+                    const line = lineQueue.shift();
+                    if(line.bytes.length > 0)
+                        buffers.push(line);
+                }
                 node = node.next;
             }
             func(buffers, line);

@@ -168,10 +168,9 @@ class SectionDirective extends Statement
             
             if(token == ',')
             {
-                const flagString = readString(next());
                 attribRange = currRange;
                 flags = 0;
-                for(const byte of flagString)
+                for(const byte of readString(next()).bytes)
                 {
                     const char = String.fromCharCode(byte);
                     if(!sectionFlags.hasOwnProperty(char))
@@ -272,7 +271,6 @@ class DataDirective extends Statement
         super({ ...config, maxSize: DIRECTIVE_BUFFER_SIZE });
         this.outline = null;
         this.floatPrec = 0;
-        this.lineEnds = { lineEnds: [], offset: 0 };
 
         let appendNullByte = 0;
         
@@ -296,8 +294,8 @@ class DataDirective extends Statement
                     {
                         if(token[0] == '"')
                         {
-                            const strBytes = readString(token, this.lineEnds);
-                            this.append(strBytes, strBytes.length + appendNullByte);
+                            const string = readString(token);
+                            this.append(string, string.bytes.length + appendNullByte);
                         }
                         else
                             throw new ASMError("Expected string");
@@ -312,17 +310,18 @@ class DataDirective extends Statement
                 next();
         }
 
-        capLineEnds(this.lineEnds);
-        this.lineEnds.lineEnds.push(this.length);
+        //capLineEnds(this.lineEnds);
     }
 
-    append(bytes, length = bytes.length)
+    append({ bytes, lineEnds }, length = bytes.length)
     {
         const temp = new Uint8Array(this.length + length + 1);
         temp.set(this.bytes.subarray(0, this.length));
         temp.set(bytes, this.length);
         this.bytes = temp;
-        this.lineEnds.offset = this.length += length;
+        for(const lineEnd of lineEnds)
+            this.lineEnds.push(this.length + lineEnd);
+        this.length += length;
     }
 
     compileValues(valSize, acceptStrings = false)
@@ -338,9 +337,9 @@ class DataDirective extends Statement
                 {
                     if(acceptStrings)
                     {
-                        const strBytes = readString(token, this.lineEnds);
-                        this.outline.push({ strBytes });
-                        this.append(strBytes);
+                        const string = readString(token);
+                        this.outline.push(string);
+                        this.append(string);
                     }
                     else
                         throw new ASMError("Unexpected string");
@@ -373,7 +372,6 @@ class DataDirective extends Statement
         const startAddr = this.address;
         this.clear();
         this.error = null;
-        this.lineEnds = { lineEnds: [], offset: 0 };
 
         for(let i = 0; i < outlineLength; i++)
         {
@@ -401,8 +399,7 @@ class DataDirective extends Statement
             }
         }
         this.address = startAddr;
-        capLineEnds(this.lineEnds);
-        this.lineEnds.lineEnds.push(this.length);
+        //capLineEnds(this.lineEnds);
     }
 
     genByte(byte)
@@ -416,7 +413,6 @@ class DataDirective extends Statement
             temp.set(this.bytes);
             this.bytes = temp;
         }
-        this.lineEnds.offset = this.length;
     }
 }
 
@@ -640,7 +636,7 @@ class FileDirective extends Statement
         super({ ...config, maxSize: 0 });
         try
         {
-            this.filename = decoder.decode(readString(token));
+            this.filename = decoder.decode(readString(token).bytes);
         }
         catch(e)
         {
