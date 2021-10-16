@@ -15873,7 +15873,7 @@ g nle`.split("\n");
             console.error(`Error on line ${line}:
 `, error);
           else
-            addInstruction(new Statement({ addr, range, error }));
+            addInstruction(new Statement({ addr, range, error }), !comment2);
         }
         if (comment2)
           addInstruction(new Statement({ addr, range: startAbsRange() }), false);
