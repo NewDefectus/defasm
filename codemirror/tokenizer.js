@@ -6,7 +6,7 @@ import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
 
 import * as Terms from './parser.terms.js';
 
-var tok;
+var tok, pureString;
 
 /** @param {InputStream} input */
 function next(input)
@@ -20,6 +20,7 @@ function next(input)
     {
         tok = char;
         input.advance();
+        pureString = false;
     }
     else
         while(input.next >= 0 && (char = String.fromCharCode(input.next)).match(/[.$\w]/))
@@ -27,8 +28,10 @@ function next(input)
             tok += char;
             input.advance();
         }
+        
+    tok = tok.toLowerCase() || '\n';
 
-    return tok = tok.toLowerCase() || '\n';
+    return tok;
 }
 
 /** @param {InputStream} input */
@@ -203,9 +206,10 @@ export const tokenizer = new ExternalTokenizer(
         if(input.next < 0 || String.fromCharCode(input.next).match(/\s/))
             return;
 
+        pureString = true;
         next(input);
         const type = tokenize(stack.context, input);
-        if(type !== null || tok.match(/^[\w.]*$/))
+        if(type !== null || pureString)
             input.acceptToken(type);
         
     }, {
