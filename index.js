@@ -11476,17 +11476,17 @@
       this.id = totalStatements++;
       this.error = error;
       this.range = range;
-      this.length = 0;
       this.bytes = new Uint8Array(maxSize);
       this.syntax = syntax;
       this.address = addr2;
       this.section = section;
       this.sectionNode = new StatementNode(this);
-      this.relocations = [];
+      this.clear();
     }
     clear() {
       this.length = 0;
       this.relocations = [];
+      this.lineEnds = [];
     }
     genByte(byte) {
       this.bytes[this.length++] = Number(byte);
@@ -11496,7 +11496,7 @@
       let num = 0n;
       if (value.isRelocatable()) {
         if (size >= 128)
-          throw new ASMError("Can't do 16 byte relocations", this.range);
+          throw new ASMError("Can't do 16 byte relocations", value.range);
         this.relocations.push({
           offset: this.length,
           sizeReduction,
@@ -11508,6 +11508,8 @@
         });
       } else
         num = value.addend - sizeReduction;
+      for (const lineEnd of value.lineEnds)
+        this.lineEnds.push(this.length + Math.min(lineEnd, size / 8));
       do {
         this.genByte(num & 0xffn);
         num >>= 8n;
@@ -11960,16 +11962,11 @@
     "t": 9,
     "v": 11
   };
-  function capLineEnds({ lineEnds, offset }) {
-    for (let i = 0; i < lineEnds.length; i++)
-      if (lineEnds[i] > offset)
-        lineEnds[i] = offset;
-  }
   var encoder = new TextEncoder();
-  function readString(string2, { offset = 0, lineEnds = [] } = {}) {
+  function readString(string2) {
     if (string2.length < 2 || string2[string2.length - 1] != string2[0])
       throw new ASMError("Incomplete string");
-    capLineEnds({ lineEnds, offset });
+    const lineEnds = [];
     let output = [];
     let matches = string2.slice(1, -1).match(/(\\(?:x[0-9a-f]{1,2}|[0-7]{1,3}|u[0-9a-f]{1,8}|(.|\n)?))|\n|[^\\\n]+/ig);
     if (matches)
@@ -11991,9 +11988,9 @@
         } else
           output.push(...encoder.encode(x));
         if (x == "\n")
-          lineEnds.push(output.length + offset);
+          lineEnds.push(output.length);
       }
-    return new Uint8Array(output);
+    return { bytes: new Uint8Array(output), lineEnds };
   }
   function scanIdentifier(id2, intel) {
     if (id2[0].match(/[a-z_.$]/i))
@@ -12010,27 +12007,28 @@
       if (token === "\n")
         throw new ASMError("Expected value, got none");
       if (token[0] === "'") {
-        let bytes = readString(token, instr2.lineEnds ?? {}), i = bytes.length;
+        let { bytes, lineEnds } = readString(token), i = bytes.length;
         while (i--) {
           value <<= 8n;
           value += BigInt(bytes[i]);
         }
-      } else {
-        if (instr2.syntax.prefix ? token == "%" : isRegister(token))
-          return new RegisterIdentifier(instr2, parseRegister([OPT.REG, OPT.IP, OPT.VEC]), regParsePos);
-        const idType = scanIdentifier(token, instr2.syntax.intel);
-        if (idType == "symbol") {
-          const name2 = token;
-          next();
-          return new SymbolIdentifier(instr2, name2, startRange);
-        }
-        if (idType === null)
-          throw new ASMError("Invalid number");
-        let mainToken = token;
-        if (token[token.length - 1].toLowerCase() == "h")
-          mainToken = "0x" + token.slice(0, -1);
-        value = BigInt(mainToken);
+        next();
+        return new Identifier(instr2, value, startRange, lineEnds);
       }
+      if (instr2.syntax.prefix ? token == "%" : isRegister(token))
+        return new RegisterIdentifier(instr2, parseRegister([OPT.REG, OPT.IP, OPT.VEC]), regParsePos);
+      const idType = scanIdentifier(token, instr2.syntax.intel);
+      if (idType == "symbol") {
+        const name2 = token;
+        next();
+        return new SymbolIdentifier(instr2, name2, startRange);
+      }
+      if (idType === null)
+        throw new ASMError("Invalid number");
+      let mainToken = token;
+      if (token[token.length - 1].toLowerCase() == "h")
+        mainToken = "0x" + token.slice(0, -1);
+      value = BigInt(mainToken);
       next();
       return new Identifier(instr2, value, startRange);
     } catch (e) {
@@ -12040,13 +12038,14 @@
     }
   }
   var IdentifierValue = class {
-    constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false } = {}) {
+    constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false, lineEnds = [] } = {}) {
       this.addend = addend;
       this.symbol = symbol;
       this.section = section;
       this.range = range;
       this.regData = regData;
       this.pcRelative = pcRelative;
+      this.lineEnds = lineEnds;
     }
     isRelocatable() {
       return this.symbol && this.section != pseudoSections.ABS || this.pcRelative;
@@ -12139,18 +12138,21 @@
       } else
         this.addend = operators[func].func(this.addend, op.addend);
       this.pcRelative = this.pcRelative || op.pcRelative;
+      this.lineEnds = [...this.lineEnds, ...op.lineEnds].sort((a, b) => a - b);
     }
   };
   var Identifier = class {
-    constructor(instr2, value, range) {
+    constructor(instr2, value, range, lineEnds = []) {
       this.value = value;
       this.range = range;
+      this.lineEnds = lineEnds;
     }
     getValue(instr2) {
       return new IdentifierValue({
         addend: this.value,
         section: pseudoSections.ABS,
-        range: this.range
+        range: this.range,
+        lineEnds: this.lineEnds
       });
     }
   };
@@ -12781,10 +12783,9 @@
           throw new ASMError("Expected section name");
         section = sections.find((x) => x.name == sectionName) ?? null;
         if (token == ",") {
-          const flagString = readString(next());
           attribRange = currRange;
           flags = 0;
-          for (const byte of flagString) {
+          for (const byte of readString(next()).bytes) {
             const char = String.fromCharCode(byte);
             if (!sectionFlags.hasOwnProperty(char))
               throw new ASMError(`Unknown flag '${char}'`);
@@ -12866,7 +12867,6 @@
       super({ ...config2, maxSize: DIRECTIVE_BUFFER_SIZE });
       this.outline = null;
       this.floatPrec = 0;
-      this.lineEnds = { lineEnds: [], offset: 0 };
       let appendNullByte = 0;
       try {
         switch (dirID) {
@@ -12894,8 +12894,8 @@
             this.bytes = new Uint8Array();
             do {
               if (token[0] == '"') {
-                const strBytes = readString(token, this.lineEnds);
-                this.append(strBytes, strBytes.length + appendNullByte);
+                const string2 = readString(token);
+                this.append(string2, string2.bytes.length + appendNullByte);
               } else
                 throw new ASMError("Expected string");
             } while (next() == "," && next());
@@ -12906,28 +12906,28 @@
         while (token != ";" && token != "\n")
           next();
       }
-      capLineEnds(this.lineEnds);
-      this.lineEnds.lineEnds.push(this.length);
     }
-    append(bytes, length = bytes.length) {
+    append({ bytes, lineEnds }, length = bytes.length) {
       const temp = new Uint8Array(this.length + length + 1);
       temp.set(this.bytes.subarray(0, this.length));
       temp.set(bytes, this.length);
       this.bytes = temp;
-      this.lineEnds.offset = this.length += length;
+      for (const lineEnd of lineEnds)
+        this.lineEnds.push(this.length + lineEnd);
+      this.length += length;
     }
     compileValues(valSize, acceptStrings = false) {
       this.valSize = valSize;
-      let value, expression, needsRecompilation = false;
+      let value, expression, needsRecompilation = false, error = null;
       this.outline = [];
       const startAddr = this.address;
       try {
         do {
           if (token[0] === '"') {
             if (acceptStrings) {
-              const strBytes = readString(token, this.lineEnds);
-              this.outline.push({ strBytes });
-              this.append(strBytes);
+              const string2 = readString(token);
+              this.outline.push(string2);
+              this.append(string2);
             } else
               throw new ASMError("Unexpected string");
             next();
@@ -12937,10 +12937,18 @@
             if (expression.hasSymbols)
               needsRecompilation = true;
             this.outline.push({ value, expression });
-            this.genValue(value, this.valSize * 8);
+            if (!error) {
+              try {
+                this.genValue(value, this.valSize * 8);
+              } catch (e) {
+                error = e;
+              }
+            }
           }
           this.address = startAddr + this.length;
         } while (token === "," && next());
+        if (error)
+          throw error;
       } finally {
         if (!needsRecompilation)
           this.outline = null;
@@ -12979,7 +12987,6 @@
         temp.set(this.bytes);
         this.bytes = temp;
       }
-      this.lineEnds.offset = this.length;
     }
   };
   var FloatDirective = class extends Statement {
@@ -13160,7 +13167,7 @@
     constructor(config2) {
       super({ ...config2, maxSize: 0 });
       try {
-        this.filename = decoder.decode(readString(token));
+        this.filename = decoder.decode(readString(token).bytes);
       } catch (e) {
         throw new ASMError("Bad string");
       }
@@ -16013,27 +16020,20 @@ g nle`.split("\n");
             buffers.push(line3);
         }
         while (node && node.statement.range.start < nextLine) {
-          let instr2 = node.statement;
-          if (instr2.hasOwnProperty("lineEnds")) {
-            let prevEnd = 0;
-            for (const end of instr2.lineEnds.lineEnds) {
-              if (end <= instr2.length)
-                lineQueue.push({
-                  section: instr2.section,
-                  bytes: instr2.bytes.subarray(prevEnd, end)
-                });
-              prevEnd = end;
-            }
-            if (lineQueue.length > 0) {
-              const line3 = lineQueue.shift();
-              if (line3.bytes.length > 0)
-                buffers.push(line3);
-            }
-          } else if (instr2.length > 0)
-            buffers.push({
-              section: instr2.section,
-              bytes: instr2.bytes.subarray(0, instr2.length)
-            });
+          let instr2 = node.statement, prevEnd = 0;
+          for (const end of [...instr2.lineEnds, instr2.length]) {
+            if (end <= instr2.length)
+              lineQueue.push({
+                section: instr2.section,
+                bytes: instr2.bytes.subarray(prevEnd, end)
+              });
+            prevEnd = end;
+          }
+          if (lineQueue.length > 0) {
+            const line3 = lineQueue.shift();
+            if (line3.bytes.length > 0)
+              buffers.push(line3);
+          }
           node = node.next;
         }
         func(buffers, line2);
@@ -18055,7 +18055,7 @@ g nle`.split("\n");
       return;
     next2(input);
     const type = tokenize(stack.context, input);
-    if (type !== null)
+    if (type !== null || tok.match(/^[\w.]*$/))
       input.acceptToken(type);
   }, {
     contextual: false
@@ -18064,9 +18064,9 @@ g nle`.split("\n");
   // codemirror/parser.js
   var parser = LRParser.deserialize({
     version: 13,
-    states: "8fOVQROOOOQP'#Cx'#CxOVQRO'#DWOnQRO'#ClO!nQRO'#CmO#ZQRO'#CmO$VQRO'#CmO$aQRO'#CmO$kQRO'#CuOOQO'#DW'#DWO%`QRO'#DWQ%nQQOOOOQP-E6v-E6vOOQO,59r,59rO%vQRO,59rOOQO,59W,59WO$kQRO,59aO&UQRO,59cOOQP'#Cy'#CyO&gQRO'#CyO'OQRO'#CpO&UQRO'#CnO'aQTO'#CpO(mQRO'#DYO(UQRO'#DYOOQP,59X,59XOyQRO,59XO(tQRO'#CpO)VQTO'#CpO)wQRO'#CtO*]QQO'#CtO*bQRO'#DcO&UQRO'#DcO*yQRO'#DcO+TQRO'#CoO+wQTO'#CoO,UQQO'#CqO,lQRO,59XO,sQRO'#CoO-UQTO'#CoO-fQRO'#DhOOQP,59a,59aOVQRO'#DPQ%nQQOOOOQO1G/^1G/^OOQP1G.{1G.{OOQP1G.}1G.}OOQP,59],59]O-wQQO,59]OOQP-E6w-E6wO.PQTO,59[OOQP,59Y,59YOOQP'#Cz'#CzO.PQTO,59[O.tQRO,59[O/VQRO,59]O/_QRO'#CrO/dQRO'#C|O/}QRO,59tO0`QRO,59tO0jQRO,59tOOQP1G.s1G.sO0qQTO,59[O0qQTO,59[O1cQRO,59[O1tQRO'#DeO2YQSO'#DeO2eQQO,59`O)wQRO,59`O2jQRO'#C}O3WQRO,59}O3iQRO,59}O3sQRO,59}O3zQRO,59}O&UQRO,59}O4UQTO,59ZO4UQTO,59ZO4pQRO,59ZO5RQRO1G.sO5dQTO,59ZO5dQTO,59ZO&UQRO,59ZO6RQRO'#DOO6lQRO,5:SOOQO,59k,59kOOQO-E6}-E6}O6}QRO'#C{O7]QQO1G.wOOQP1G.w1G.wO7eQTO1G.vO.tQRO1G.vOOQP-E6x-E6xOOQP1G.v1G.vO7]QQO1G.wO8YQQO,59^O8vQRO,59hO8_QRO,59hOOQP-E6z-E6zO8}QRO1G/`O8}QRO1G/`O9`QRO1G/`O9gQTO1G.vO1cQRO1G.vOOQP1G.y1G.yO:XQSO,5:PO:XQSO,5:PO)wQRO,5:POOQP1G.z1G.zO:dQQO1G.zO:iQRO,59iO&UQRO,59iO;QQRO,59iOOQP-E6{-E6{O;[QRO1G/iO;[QRO1G/iO;mQRO1G/iO;tQRO1G/iO<OQRO1G/iO<kQTO1G.uO4pQRO1G.uOOQP1G.u1G.uO<xQTO1G.uO&UQRO1G.uOOQP,59j,59jOOQP-E6|-E6|OOQO,59g,59gOOQO-E6y-E6yOOQP7+$c7+$cO.tQRO7+$bOOQP7+$b7+$bO=YQQO7+$cOOQP1G.x1G.xO=vQRO1G/SO=bQRO1G/SO=}QRO7+$zO=}QRO7+$zO1cQRO7+$bOOQP7+$e7+$eO>`QSO1G/kO)wQRO1G/kOOQO1G/k1G/kOOQP7+$f7+$fO?PQRO1G/TO>kQRO1G/TO?WQRO1G/TO&UQRO1G/TO?oQRO7+%TO?oQRO7+%TO@QQRO7+%TO@XQRO7+%TO4pQRO7+$aOOQP7+$a7+$aO&UQRO7+$aOOQP<<G|<<G|OOQP<<G}<<G}OOQP7+$n7+$nO@cQRO7+$nO@wQRO<<HfOOQP<<HP<<HPO)wQRO7+%VOOQO7+%V7+%VOOQP7+$o7+$oOAYQRO7+$oOAnQRO7+$oOAuQRO7+$oOB^QRO<<HoOB^QRO<<HoOBoQRO<<HoOOQP<<G{<<G{OOQP<<HY<<HYOOQO<<Hq<<HqOOQP<<HZ<<HZOBvQRO<<HZOC[QRO<<HZOCcQROAN>ZOCcQROAN>ZOOQPAN=uAN=uOCtQROAN=uODYQROG23uOOQPG23aG23a",
-    stateData: "Dk~O^OS~OQWOSSOTTOUUOVVOWPOZRO~OQ`OvaO{_O~OPhOufOwfOxeO}bO!OcO!PfOR|Pt|P!]|P!^|P~O[jO~PyOufOwlO}bO!ObO!PlO!WmO~OPoOXqOYpOR!VPt!VP!]!VP!^!VP~P!uOPiOusOwsO}bO!PsO~O!OcO!ZuO~P#tO!ObO!WmO~P#tO]xOjxOuwOwwO}bO!ObO!PwOR![Pt![P!]![P!^![P~OR]OtzX!]zX!^zX~O!]zO!^zO~OR|Otza!]za!^za~OuwOwwO}bO!ObO!PwO~OP!QO!Q!POumXwmX}mX!OmX!PmX~Ou!SOw!SO}bO!ObO!P!SO~O!Q!UO!R!WORdX[dXtdX!OdX!SdX!TdX!]dX!^dX!WdX~O[!]O!S!ZO!T!YOR|Xt|X!]|X!^|X~O!O!XO~P(UOu!SOw!`O}bO!ObO!P!`O~O!Q!UO!R!bORgX[gXtgX!SgX!TgX!WdX!]gX!^gX~OP!dOu!dOw!dO}bO!ObO!P!dO~O!W!fO~O[!iO!S!gO!T!YOR!VXt!VX!]!VX!^!VX~OP!kOY!lO~P!uOu!mOw!mO}bO!ObO!P!mO~O!Q!UORcXtcX!]cX!^cX~O!R!oO!OdX!WdX~P+fO!O!XO~OufOwfO}bO!OcO!PfO~OP!_O~P,ZOu!qOw!qO}bO!ObO!P!qO~O!R!sO!ScX[cX!TcX~P+fO!S!tOR![Xt![X!]![X!^![X~O!Q!zO!S!xO~O!Q!UO!R!|ORda[datda!Oda!Sda!Tda!]da!^da!Wda~OufOwfO}bO!ObO!PfO~OP#PO!Q!zO~OP#QO~OP#SOxeORpXtpX!SpX!]pX!^pX~P,ZO!S!ZOR|at|a!]|a!^|a~O[#VO!T!YO~P/}O[#VO~P/}O!Q!UO!R#YORga[gatga!Sga!Tga!Wda!]ga!^ga~OufOwlO}bO!ObO!PlO~OP#[Ou#[Ow#[O}bO!ObO!P#[O~O!Q!UO!R#^O!Y!XX~O!Y#_O~OP#aOX#cOY#bORqXtqX!SqX!]qX!^qX~P!uO!S!gOR!Vat!Va!]!Va!^!Va~O[#fO!T!YO~P3WO[#fO~P3WO[#hO!T!YO~P3WO!Q!UO!R#kORcatca!Oda!]ca!^ca!Wda~OusOwsO}bO!ObO!PsO~O!O!XORaitai!]ai!^ai~O!Q!UO!R#nORcatca!Sca!]ca!^ca[ca!Tca~O]#oOj#oORrXtrX!SrX!]rX!^rX~P&UO!S!tOR![at![a!]![a!^![a~OP#qOw#qO!QoX!SoX~O!Q#sO!S!xO~O!Q!UO!R#tORdi[ditdi!Odi!Sdi!Tdi!]di!^di!Wdi~O!U#wO~O[#xO!T!YORpatpa!Spa!]pa!^pa~O!O!XO~P8_O!S!ZOR|it|i!]|i!^|i~O[#{O~P8}O!Q!UO!R#|ORgi[gitgi!Sgi!Tgi!Wdi!]gi!^gi~O!Q!UO!R$PO!Y!Xa~O!Y$RO~O[$SO!T!YORqatqa!Sqa!]qa!^qa~OP$UOY$VO~P!uO!S!gOR!Vit!Vi!]!Vi!^!Vi~O[$XO~P;[O[$XO!T!YO~P;[O[$ZO!T!YO~P;[O!Q!UORcitci!]ci!^ci~O!R$[O!Odi!Wdi~P<YO!R$^O!Sci[ci!Tci~P<YO!Q$`O!S!xO~O[$aORpitpi!Spi!]pi!^pi~O!T!YO~P=bO!S!ZOR|qt|q!]|q!^|q~O!Q!UO!R$eO!Y!Xi~O[$gORqitqi!Sqi!]qi!^qi~O!T!YO~P>kO[$iO!T!YORqitqi!Sqi!]qi!^qi~O!S!gOR!Vqt!Vq!]!Vq!^!Vq~O[$lO~P?oO[$lO!T!YO~P?oO[$oORpqtpq!Spq!]pq!^pq~O!S!ZOR|yt|y!]|y!^|y~O[$qORqqtqq!Sqq!]qq!^qq~O!T!YO~PAYO[$sO!T!YORqqtqq!Sqq!]qq!^qq~O!S!gOR!Vyt!Vy!]!Vy!^!Vy~O[$uO~PB^O[$vORqytqy!Sqy!]qy!^qy~O!T!YO~PBvO!S!gOR!V!Rt!V!R!]!V!R!^!V!R~O[$yORq!Rtq!R!Sq!R!]q!R!^q!R~O!S!gOR!V!Zt!V!Z!]!V!Z!^!V!Z~O",
-    goto: "+R!]PPPPPPPPPPPPPPPP!^!e!l!s#n$c$p%l&R!eP!e&b&i'p(l(v)]*P*VPPPPPP*]P*cPPPPPPPP*iP*lPP*{SXOzR]QSYOzR^QShSjR#S!ZSiUVSxW`Q!OaQ!TeQ!kpQ#i!lS#l!o!sQ#o!tQ$U#bS$]#k#nQ$j$VT$n$[$^SgSjYnTVq!g#cQtUQ!puU#O!W!b!oQ#R!ZU#u!|#Y#kV$_#t#|$[ShSjQiUQ!_uR#S!ZS!^ghQ!joQ#W!]S#g!i!kS#y#R#SQ$T#aS$Y#h#iQ$b#xS$h$S$UQ$m$ZS$r$i$jR$w$sQoTQ!kqQ#Z!bQ#a!gQ#}#YQ$U#cR$d#|QiVQoTQ!kqQ#a!gR$U#cSQOzR[Q^dSju!W!Z!|#t^kTq!b!g#Y#c#|YrUV!o#k$[hvW`aep!l!s!t#b#n$V$^Y!Rdkrv!cZ!cm!f#^$P$eQ!VfQ!alQ!nsQ!rwQ!{!Sd!}!V!a!n!r!{#X#]#j#m$OQ#X!`Q#]!dQ#j!mQ#m!qR$O#[Q!y!QS#r!y#vR#v#PS![ghW#T![#U#z$cS#U!]!^S#z#V#WR$c#{Q!ho[#d!h#e$W$k$t$xU#e!i!j!kW$W#f#g#h#iU$k$X$Y$ZS$t$l$mR$x$uQ!uxR#p!uQ{ZR!w{QZOR!vzQiSR!_jRiTQ!emQ#`!fQ$Q#^Q$f$PR$p$eQyWR}`",
+    states: "8SOVQROOOzQRO'#ClO#aQRO'#CmO#|QRO'#CmO%_QRO'#CmO%iQRO'#CmO%sQRO'#CuOOQP'#Cx'#CxO'fQRO'#DWOOQO'#DW'#DWQ'vQQOOOOQP,59W,59WO%sQRO,59aO(OQRO,59cOOQP'#Cy'#CyO(aQRO'#CyO(xQRO'#CpO(OQRO'#CnO)ZQTO'#CpO+cQRO'#DYO*eQRO'#DYOOQP,59X,59XO!VQRO,59XO+jQRO'#CpO+{QTO'#CpO-SQRO'#CtO-hQQO'#CtO-mQRO'#DcO(OQRO'#DcO.kQRO'#DcO.uQRO'#CoO0OQTO'#CoO0]QQO'#CqO0sQRO,59XO0zQRO'#CoO1]QTO'#CoO1mQRO'#DhOOQP,59a,59aOOQP-E6v-E6vOOQO,59r,59rOVQRO'#DPQ'vQQOOOOQP1G.{1G.{OOQP1G.}1G.}OOQP,59],59]O2eQQO,59]OOQP-E6w-E6wO2mQTO,59[OOQP,59Y,59YOOQP'#Cz'#CzO2mQTO,59[O3wQRO,59[O4YQRO,59]O4bQRO'#CrO4gQRO'#C|O5gQRO,59tO6_QRO,59tO6iQRO,59tOOQP1G.s1G.sO6pQTO,59[O6pQTO,59[O7wQRO,59[O8YQRO'#DeO8nQSO'#DeO8yQQO,59`O-SQRO,59`O9OQRO'#C}O:RQRO,59}O:yQRO,59}O;TQRO,59}O;[QRO,59}O(OQRO,59}O;fQTO,59ZO;fQTO,59ZO<gQRO,59ZO<xQRO1G.sO=pQTO,59ZO=pQTO,59ZO(OQRO,59ZO>tQRO'#DOO?tQRO,5:SOOQO,59k,59kOOQO-E6}-E6}O@lQRO'#C{O@zQQO1G.wOOQP1G.w1G.wOASQTO1G.vO3wQRO1G.vOOQP-E6x-E6xOOQP1G.v1G.vO@zQQO1G.wOB^QQO,59^OCaQRO,59hOBcQRO,59hOOQP-E6z-E6zOChQRO1G/`OChQRO1G/`OD`QRO1G/`ODgQTO1G.vO7wQRO1G.vOOQP1G.y1G.yOEnQSO,5:POEnQSO,5:PO-SQRO,5:POOQP1G.z1G.zOEyQQO1G.zOFOQRO,59iO(OQRO,59iOF|QRO,59iOOQP-E6{-E6{OGWQRO1G/iOGWQRO1G/iOHOQRO1G/iOHVQRO1G/iOHaQRO1G/iOIcQTO1G.uO<gQRO1G.uOOQP1G.u1G.uOIpQTO1G.uO(OQRO1G.uOOQP,59j,59jOOQP-E6|-E6|OOQO,59g,59gOOQO-E6y-E6yOOQP7+$c7+$cO3wQRO7+$bOOQP7+$b7+$bOJQQQO7+$cOOQP1G.x1G.xOKTQRO1G/SOJYQRO1G/SOK[QRO7+$zOK[QRO7+$zO7wQRO7+$bOOQP7+$e7+$eOLSQSO1G/kO-SQRO1G/kOOQO1G/k1G/kOOQP7+$f7+$fOMYQRO1G/TOL_QRO1G/TOMaQRO1G/TO(OQRO1G/TON_QRO7+%TON_QRO7+%TO! VQRO7+%TO! ^QRO7+%TO<gQRO7+$aOOQP7+$a7+$aO(OQRO7+$aOOQP<<G|<<G|OOQP<<G}<<G}OOQP7+$n7+$nO! hQRO7+$nO!!cQRO<<HfOOQP<<HP<<HPO-SQRO7+%VOOQO7+%V7+%VOOQP7+$o7+$oO!#ZQRO7+$oO!$UQRO7+$oO!$]QRO7+$oO!%ZQRO<<HoO!%ZQRO<<HoO!&RQRO<<HoOOQP<<G{<<G{OOQP<<HY<<HYOOQO<<Hq<<HqOOQP<<HZ<<HZO!&YQRO<<HZO!'TQRO<<HZO!'[QROAN>ZO!'[QROAN>ZOOQPAN=uAN=uO!(SQROAN=uO!(}QROG23uOOQPG23aG23a",
+    stateData: "!)u~O^OS~OQUORXOSQOTROUSOVTOWVOZPOtzP!]zP!^zP~OQ[Ov]O{ZO~OPdOubOwbOxaO}^O!O_O!PbOQ|PR|PS|PT|PU|PV|PW|PZ|Pt|P!]|P!^|P~O[fO~P!VOubOwhO}^O!O^O!PhO!WiO~OPkOXmOYlOQ!VPR!VPS!VPT!VPU!VPV!VPW!VPZ!VPt!VP!]!VP!^!VP~P#hOPeOuoOwoO}^O!PoO~O!O_O!ZqO~P$|O!O^O!WiO~P$|O]tOjtOusOwsO}^O!O^O!PsOQ![PR![PS![PT![PU![PV![PW![PZ![Pt![P!]![P!^![P~OQUOSQOTROUSOVTOWVOZPO~ORwOtzX!]zX!^zX~P&}O!]xO!^xO~OusOwsO}^O!O^O!PsO~OP}O!Q|OumXwmX}mX!OmX!PmX~Ou!POw!PO}^O!O^O!P!PO~O!Q!RO!R!TOQdXRdXSdXTdXUdXVdXWdXZdX[dXtdX!OdX!SdX!TdX!]dX!^dX!WdX~O[!YO!S!WO!T!VOQ|XR|XS|XT|XU|XV|XW|XZ|Xt|X!]|X!^|X~O!O!UO~P*eOu!POw!]O}^O!O^O!P!]O~O!Q!RO!R!_OQgXRgXSgXTgXUgXVgXWgXZgX[gXtgX!SgX!TgX!WdX!]gX!^gX~OP!aOu!aOw!aO}^O!O^O!P!aO~O!W!cO~O[!fO!S!dO!T!VOQ!VXR!VXS!VXT!VXU!VXV!VXW!VXZ!VXt!VX!]!VX!^!VX~OP!hOY!iO~P#hOu!jOw!jO}^O!O^O!P!jO~O!Q!ROQcXRcXScXTcXUcXVcXWcXZcXtcX!]cX!^cX~O!R!lO!OdX!WdX~P/WO!O!UO~OubOwbO}^O!O_O!PbO~OP![O~P0bOu!nOw!nO}^O!O^O!P!nO~O!R!pO!ScX[cX!TcX~P/WO!S!qOQ![XR![XS![XT![XU![XV![XW![XZ![Xt![X!]![X!^![X~O!Q!wO!S!uO~O!Q!RO!R!yOQdaRdaSdaTdaUdaVdaWdaZda[datda!Oda!Sda!Tda!]da!^da!Wda~OubOwbO}^O!O^O!PbO~OP!|O!Q!wO~OP!}O~OP#POxaOQpXRpXSpXTpXUpXVpXWpXZpXtpX!SpX!]pX!^pX~P0bO!S!WOQ|aR|aS|aT|aU|aV|aW|aZ|at|a!]|a!^|a~O[#SO!T!VO~P5gO[#SO~P5gO!Q!RO!R#VOQgaRgaSgaTgaUgaVgaWgaZga[gatga!Sga!Tga!Wda!]ga!^ga~OubOwhO}^O!O^O!PhO~OP#XOu#XOw#XO}^O!O^O!P#XO~O!Q!RO!R#ZO!Y!XX~O!Y#[O~OP#^OX#`OY#_OQqXRqXSqXTqXUqXVqXWqXZqXtqX!SqX!]qX!^qX~P#hO!S!dOQ!VaR!VaS!VaT!VaU!VaV!VaW!VaZ!Vat!Va!]!Va!^!Va~O[#cO!T!VO~P:RO[#cO~P:RO[#eO!T!VO~P:RO!Q!RO!R#hOQcaRcaScaTcaUcaVcaWcaZcatca!Oda!]ca!^ca!Wda~OuoOwoO}^O!O^O!PoO~O!O!UOQaiRaiSaiTaiUaiVaiWaiZaitai!]ai!^ai~O!Q!RO!R#kOQcaRcaScaTcaUcaVcaWcaZcatca!Sca!]ca!^ca[ca!Tca~O]#lOj#lOQrXRrXSrXTrXUrXVrXWrXZrXtrX!SrX!]rX!^rX~P(OO!S!qOQ![aR![aS![aT![aU![aV![aW![aZ![at![a!]![a!^![a~OP#nOw#nO!QoX!SoX~O!Q#pO!S!uO~O!Q!RO!R#qOQdiRdiSdiTdiUdiVdiWdiZdi[ditdi!Odi!Sdi!Tdi!]di!^di!Wdi~O!U#tO~O[#uO!T!VOQpaRpaSpaTpaUpaVpaWpaZpatpa!Spa!]pa!^pa~O!O!UO~PBcO!S!WOQ|iR|iS|iT|iU|iV|iW|iZ|it|i!]|i!^|i~O[#xO~PChO!Q!RO!R#yOQgiRgiSgiTgiUgiVgiWgiZgi[gitgi!Sgi!Tgi!Wdi!]gi!^gi~O!Q!RO!R#|O!Y!Xa~O!Y$OO~O[$PO!T!VOQqaRqaSqaTqaUqaVqaWqaZqatqa!Sqa!]qa!^qa~OP$ROY$SO~P#hO!S!dOQ!ViR!ViS!ViT!ViU!ViV!ViW!ViZ!Vit!Vi!]!Vi!^!Vi~O[$UO~PGWO[$UO!T!VO~PGWO[$WO!T!VO~PGWO!Q!ROQciRciSciTciUciVciWciZcitci!]ci!^ci~O!R$XO!Odi!Wdi~PHkO!R$ZO!Sci[ci!Tci~PHkO!Q$]O!S!uO~O[$^OQpiRpiSpiTpiUpiVpiWpiZpitpi!Spi!]pi!^pi~O!T!VO~PJYO!S!WOQ|qR|qS|qT|qU|qV|qW|qZ|qt|q!]|q!^|q~O!Q!RO!R$bO!Y!Xi~O[$dOQqiRqiSqiTqiUqiVqiWqiZqitqi!Sqi!]qi!^qi~O!T!VO~PL_O[$fO!T!VOQqiRqiSqiTqiUqiVqiWqiZqitqi!Sqi!]qi!^qi~O!S!dOQ!VqR!VqS!VqT!VqU!VqV!VqW!VqZ!Vqt!Vq!]!Vq!^!Vq~O[$iO~PN_O[$iO!T!VO~PN_O[$lOQpqRpqSpqTpqUpqVpqWpqZpqtpq!Spq!]pq!^pq~O!S!WOQ|yR|yS|yT|yU|yV|yW|yZ|yt|y!]|y!^|y~O[$nOQqqRqqSqqTqqUqqVqqWqqZqqtqq!Sqq!]qq!^qq~O!T!VO~P!#ZO[$pO!T!VOQqqRqqSqqTqqUqqVqqWqqZqqtqq!Sqq!]qq!^qq~O!S!dOQ!VyR!VyS!VyT!VyU!VyV!VyW!VyZ!Vyt!Vy!]!Vy!^!Vy~O[$rO~P!%ZO[$sOQqyRqySqyTqyUqyVqyWqyZqytqy!Sqy!]qy!^qy~O!T!VO~P!&YO!S!dOQ!V!RR!V!RS!V!RT!V!RU!V!RV!V!RW!V!RZ!V!Rt!V!R!]!V!R!^!V!R~O[$vOQq!RRq!RSq!RTq!RUq!RVq!RWq!RZq!Rtq!R!Sq!R!]q!R!^q!R~O!S!dOQ!V!ZR!V!ZS!V!ZT!V!ZU!V!ZV!V!ZW!V!ZZ!V!Zt!V!Z!]!V!Z!^!V!Z~O",
+    goto: "*x!]PPPPPPPPPPPPPPPP!^!^!c!j#e$Y$g%c%x!^P!^&X&`'g(c(m)S)v)|PPPPPP*SP*YPPPPPPPP*`P*cPP*rVVOWxSdQfR#P!WSeSTStU[Q{]Q!QaQ!hlQ#f!iS#i!l!pQ#l!qQ$R#_S$Y#h#kQ$g$ST$k$X$ZScQfYjRTm!d#`QpSQ!mqU!{!T!_!lQ#O!WU#r!y#V#hV$[#q#y$XSdQfQeSQ![qR#P!WS!ZcdQ!gkQ#T!YS#d!f!hS#v#O#PQ$Q#^S$V#e#fQ$_#uS$e$P$RQ$j$WS$o$f$gR$t$pQkRQ!hmQ#W!_Q#^!dQ#z#VQ$R#`R$a#yQeTQkRQ!hmQ#^!dR$R#`SWOxRvW^`Qfq!T!W!y#q^gRm!_!d#V#`#yYnST!l#h$XhrU[]al!i!p!q#_#k$S$ZY!O`gnr!`Z!`i!c#Z#|$bQ!SbQ!^hQ!koQ!osQ!x!Pd!z!S!^!k!o!x#U#Y#g#j#{Q#U!]Q#Y!aQ#g!jQ#j!nR#{#XQ!v}S#o!v#sR#s!|S!XcdW#Q!X#R#w$`S#R!Y!ZS#w#S#TR$`#xQ!ek[#a!e#b$T$h$q$uU#b!f!g!hW$T#c#d#e#fU$h$U$V$WS$q$i$jR$u$rQ!rtR#m!rQyYR!tyQYOR!sxQeQR![fReRQ!biQ#]!cQ#}#ZQ$c#|R$m$bQuURz[",
     nodeNames: "\u26A0 Register Directive Comment Opcode IOpcode RelOpcode IRelOpcode Prefix Ptr Offset SymbolName VEXRound SpecialWord Space Program LabelDefinition InstructionStatement Immediate Expression Relative Memory VEXMask IImmediate IMemory DirectiveStatement FullString SymbolDefinition",
     maxTerm: 60,
     skippedNodes: [0, 14],
