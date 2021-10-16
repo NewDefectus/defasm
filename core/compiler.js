@@ -174,7 +174,7 @@ export class AssemblyState
                 if(!error.range)
                     console.error(`Error on line ${line}:\n`, error);
                 else
-                    addInstruction(new Statement({ addr, range, error }));
+                    addInstruction(new Statement({ addr, range, error }), !comment);
             }
             if(comment)
                 addInstruction(new Statement({ addr, range: startAbsRange() }), false);
