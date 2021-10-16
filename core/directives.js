@@ -373,6 +373,7 @@ class DataDirective extends Statement
         const startAddr = this.address;
         this.clear();
         this.error = null;
+        this.lineEnds = { lineEnds: [], offset: 0 };
 
         for(let i = 0; i < outlineLength; i++)
         {
@@ -400,6 +401,8 @@ class DataDirective extends Statement
             }
         }
         this.address = startAddr;
+        capLineEnds(this.lineEnds);
+        this.lineEnds.lineEnds.push(this.length);
     }
 
     genByte(byte)
