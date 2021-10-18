@@ -45,10 +45,11 @@ function execute(path, args)
 {
     execFileSync(resolve(dirname(fileURLToPath(import.meta.url)), './debug'), [path, ...args], { stdio: 'inherit' });
     const data = readFileSync('/tmp/asm_trace');
-    const signo = data.readUInt32LE();
-    const errorAddr = data.readBigUInt64LE(4);
+    const signo = data.readUInt32LE(0);
+    const status = data.readUInt32LE(4);
+    const errorAddr = data.readBigUInt64LE(8);
     if(signo == 17)
-        process.exit(data[0x18]);
+        process.exit(status);
     return {
         errorAddr,
         signal: signalNames[signo] ?? `unknown signal (${signo})`,

@@ -35,7 +35,11 @@ jz execFile
 
 # Tracing the file
 .bss
-siginfo: .octa 0, 0, 0, 0, 0, 0, 0, 0
+siginfo:
+si_signo: .quad 0
+.octa 0
+si_status: .quad 0
+.octa 0, 0, 0, 0, 0, 0
 
 regs:
 r_R15:      .quad 0
@@ -68,6 +72,7 @@ r_GS:       .quad 0
 
 outputData:
 signo:   .long 0
+status:  .long 0
 errAddr: .quad 0
 outputDataLength = . - outputData
 
@@ -106,7 +111,8 @@ jmp continue
 
 endDebug:
 
-mov (%r10), %eax; mov %eax, signo
+mov si_signo, %eax; mov %eax, signo
+mov si_status, %eax; mov %eax, status
 mov r_RIP,  %eax; mov %eax, errAddr
 
 # Write to file
@@ -138,7 +144,6 @@ syscall
 
 # Execute the file
 execFile:
-mov $0x123456789, %rbx
 # prctl, to ensure the child process
 # doesn't continue after its parent dies
 mov $sys_prctl, %eax
