@@ -53,7 +53,7 @@ function execute(path, args)
         errorAddr,
         status,
         signal: signalNames[signo] ?? `unknown signal (${signo})`,
-        dump: data.toString('ascii', 12)
+        dump: data.toString('ascii', 16)
     };
 }
 
