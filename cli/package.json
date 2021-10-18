@@ -4,7 +4,7 @@
   "description": "Command-line utility for DefAssembler",
   "main": "main.js",
   "scripts": {
-    "build": "./main.js -x debug.s -o debug",
+    "build": "./cli.js -x debug.s -o debug",
     "prepare": "npm run build"
   },
   "repository": {
@@ -28,6 +28,6 @@
     "@defasm/core": ""
   },
   "bin": {
-    "defasm": "./main.js"
+    "defasm": "./cli.js"
   }
 }

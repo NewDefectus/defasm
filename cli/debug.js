@@ -11,6 +11,7 @@ const signalNames = {
     7: "bus error",
     8: "floating point error",
     11: "segmentation fault",
+    17: "EXIT",
     29: "i/o error",
     31: "bad system call"
 };
@@ -48,18 +49,25 @@ function execute(path, args)
     const signo = data.readUInt32LE(0);
     const status = data.readUInt32LE(4);
     const errorAddr = data.readBigUInt64LE(8);
-    if(signo == 17)
-        process.exit(status);
     return {
         errorAddr,
+        status,
         signal: signalNames[signo] ?? `unknown signal (${signo})`,
         dump: data.toString('ascii', 12)
     };
 }
 
+/**
+ * @param {string} path 
+ * @param {string[]} args 
+ * @param {AssemblyState} state 
+ * @returns 
+ */
 export function debug(path, args, state)
 {
-    const { signal, errorAddr, dump } = execute(path, args);
+    const { signal, status, errorAddr, dump } = execute(path, args);
+    if(signal === "EXIT")
+        return status;
 
     let errLine = null;
     let pos = "on";
@@ -92,4 +100,5 @@ export function debug(path, args, state)
         errLine !== null ? ` ${pos} line ${errLine}` : ''
     } (%rip was ${errorAddr.toString(16).toUpperCase().padStart(16, '0')})`);
     console.warn(dump);
+    return 0;
 }

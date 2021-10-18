@@ -19,6 +19,7 @@
     "@lezer/common": "",
     "@lezer/generator": "",
     "@lezer/lr": "",
+    "cli": "^1.0.1",
     "esbuild": ""
   }
 }

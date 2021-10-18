@@ -91,7 +91,9 @@ export class AssemblyState
         this.errors = [];
     }
 
-    /* Compile Assembly from source code into machine code */
+    /** Compile Assembly from source code into machine code 
+     * @param {string} source
+    */
     compile(source, {
         haltOnError = false,
         range: replacementRange = new Range(),
