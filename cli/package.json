@@ -1,6 +1,6 @@
 {
   "name": "@defasm/cli",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Command-line utility for DefAssembler",
   "main": "main.js",
   "scripts": {
