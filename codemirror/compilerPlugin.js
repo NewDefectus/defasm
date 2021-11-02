@@ -15,9 +15,12 @@ export const ASMStateField = StateField.define({
 
         /* In case there are multiple changed ranges, we'll compile each
         range separately and only run the second pass on the final state. */
+        let offset = 0;
         transaction.changes.iterChanges(
-            (fromA, toA, fromB, toB) =>
-                state.compile(transaction.state.sliceDoc(fromB, toB), { range: new Range(fromA, toA - fromA), doSecondPass: false })
+            (fromA, toA, fromB, toB) => {
+                state.compile(transaction.state.sliceDoc(fromB, toB), { range: new Range(fromA + offset, toA - fromA), doSecondPass: false });
+                offset += toB - fromB - (toA - fromA);
+            }
         );
 
         state.secondPass();
