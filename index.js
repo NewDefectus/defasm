@@ -16052,7 +16052,11 @@ g nle`.split("\n");
     update: (state, transaction) => {
       if (!transaction.docChanged)
         return state;
-      transaction.changes.iterChanges((fromA, toA, fromB, toB) => state.compile(transaction.state.sliceDoc(fromB, toB), { range: new Range3(fromA, toA - fromA), doSecondPass: false }));
+      let offset = 0;
+      transaction.changes.iterChanges((fromA, toA, fromB, toB) => {
+        state.compile(transaction.state.sliceDoc(fromB, toB), { range: new Range3(fromA + offset, toA - fromA), doSecondPass: false });
+        offset += toB - fromB - (toA - fromA);
+      });
       state.secondPass();
       return state;
     }
