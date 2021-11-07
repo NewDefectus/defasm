@@ -183,7 +183,7 @@ export class Statement
                 offset: this.length,
                 sizeReduction,
                 value,
-                signed: (signed && !value.pcRelative) && size == 32,
+                signed: signed && !value.pcRelative && size == 32,
                 size,
                 pcRelative: value.pcRelative,
                 functionAddr: functionAddr && value.section == pseudoSections.UND,

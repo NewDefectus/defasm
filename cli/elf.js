@@ -12,7 +12,7 @@ const relocTypes = {
     RELATIVE  : 8,
     GOTPCREL  : 9,
     32        : 10,
-    33        : 11, // 32S
+    '32S'     : 11,
     16        : 12,
     PC16      : 13,
     8         : 14,
