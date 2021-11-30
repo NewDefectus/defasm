@@ -555,11 +555,17 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         else if(overallSize == 256)
             vex |= 0x400;
     }
-    else if(overallSize > 128)
+    else
     {
+        if(overallSize > 128)
+        {
+            for(let reg of operands)
+                if(reg.size > 128 && reg.endPos)
+                    throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
+        }
         for(let reg of operands)
-            if(reg.size > 128 && reg.endPos)
-                throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
+            if(reg.type == OPT.VEC && reg.reg >= 16 && reg.endPos)
+                throw new ASMError("Registers with ID >= 16 can't be encoded without EVEX", reg.endPos);
     }
 
     if(adjustByteOp)
