@@ -14119,10 +14119,15 @@
           vex |= 524288;
       } else if (overallSize == 256)
         vex |= 1024;
-    } else if (overallSize > 128) {
+    } else {
+      if (overallSize > 128) {
+        for (let reg2 of operands)
+          if (reg2.size > 128 && reg2.endPos)
+            throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg2.endPos);
+      }
       for (let reg2 of operands)
-        if (reg2.size > 128 && reg2.endPos)
-          throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg2.endPos);
+        if (reg2.type == OPT.VEC && reg2.reg >= 16 && reg2.endPos)
+          throw new ASMError("Registers with ID >= 16 can't be encoded without EVEX", reg2.endPos);
     }
     if (adjustByteOp)
       correctedOpcode += this.opDiff;
