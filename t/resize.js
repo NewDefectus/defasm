@@ -35,6 +35,21 @@ exports.run = async function()
     state.compile("sym = . + 0x7c", { range: state.line(2) }); validate(state);
     state.compile("sym = . + 0x7d", { range: state.line(2) }); validate(state);
     state.compile("sym = . + 0x7c", { range: state.line(2) }); validate(state);
+
+    // Unknown symbol resizing
+    state.compile(`\
+sym = . - 0x7c
+jmp a
+a:`, { range: state.line(1).until(state.line(3)) });
+    state.compile("jmp sym", { range: state.line(4) }); validate(state);
+
+    state.compile(`\
+sym = . - 0x7A
+jmp b
+jmp a
+a:
+b:`, { range: state.line(1).until(state.line(5)) });
+    state.compile("jmp sym", { range: state.line(6) }); validate(state);
 }
 
 if(require.main === module)

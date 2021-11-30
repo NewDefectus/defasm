@@ -145,6 +145,10 @@ export class Statement
 
         this.sectionNode = new StatementNode(this);
 
+        /* A statement is marked as removed if its initial compilation resulted
+        in an unfixable error, or if it was deleted by user input. */
+        this.removed = true;
+
         this.clear();
     }
 

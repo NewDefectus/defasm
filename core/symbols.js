@@ -1,9 +1,10 @@
 import { Expression, CurrentIP, IdentifierValue } from "./shuntingYard.js";
 import { ASMError, next, token } from "./parser.js";
-import { Statement } from "./statement.js";
+import { Statement, StatementNode } from "./statement.js";
 import { pseudoSections } from "./sections.js";
 import { SYM_BINDS, SYM_TYPES } from "./directives.js";
 
+/** @type {StatementNode[]} */
 export var recompQueue = [];
 
 /**
@@ -44,6 +45,7 @@ export function loadSymbols(table, fileArr)
     fileSymbols = fileArr;
 }
 
+/** @param {Statement} instr */
 export function queueRecomp(instr)
 {
     if(!instr.wantsRecomp)
@@ -61,20 +63,17 @@ export class SymbolDefinition extends Statement
             opcodeRange = config.range;
         super(config);
         let uses = [];
-        try
+        if(isLabel)
+            this.expression = new CurrentIP(this);
+        else
         {
-            if(isLabel)
-                this.expression = new CurrentIP(this);
-            else if(compile)
+            if(compile)
             {
                 next();
                 this.expression = new Expression(this, false, uses);
             }
-        }
-        catch(e)
-        {
-            this.removed = true;
-            throw e;
+            else
+                this.removed = false;
         }
 
         if(symbols.has(name))
@@ -95,7 +94,6 @@ export class SymbolDefinition extends Statement
 
         if(compile)
         {
-            this.removed = true;
             this.compile();
             for(const ref of this.symbol.references)
                 if(!ref.removed)

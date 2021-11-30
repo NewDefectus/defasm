@@ -473,7 +473,6 @@ class SymInfo extends Statement
             throw new ASMError("Expected symbol name");
         this.infoName = name;
         this.setting = [name];
-        this.removed = true;
         
         while(true)
         {

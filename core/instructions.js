@@ -114,7 +114,6 @@ export class Instruction extends Statement
         /** @type {Operand?} */
         let memoryOperand = null;
         this.needsRecompilation = false;
-        this.removed = true; // Unless we get to the end, assume this instruction is removed due to an error
 
         /** @type { Operand[] } */
         let operands = [];
@@ -126,7 +125,7 @@ export class Instruction extends Statement
         mnemonics = mnemonics.filter(mnemonic => mnemonic.size !== null);
         if(mnemonics.length == 0)
             throw new ASMError("Invalid opcode suffix",
-                new RelativeRange(this.range, this.opcodeRange.start + this.opcodeRange.length - 1, 1)
+                new RelativeRange(this.range, this.opcodeRange.end - 1, 1)
             );
         
         const expectRelative = mnemonics.some(mnemonic => mnemonic.relative);
@@ -288,9 +287,12 @@ export class Instruction extends Statement
                     // Get the maximum possible value for this relocatable immediate
                     const firstMnem = mnemonics[0];
                     if(firstMnem.operations.length == 1)
+                    {
+                        let operation = firstMnem.operations[0];
                         op.size = Math.max(
-                            ...(firstMnem.vex ? firstMnem.operations[0].vexOpCatchers : firstMnem.operations[0].opCatchers)[i].sizes
+                            ...(firstMnem.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
                         ) & ~7;
+                    }
                     else
                     {
                         op.size = 8;

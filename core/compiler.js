@@ -5,8 +5,6 @@ import { SymbolDefinition, recompQueue, queueRecomp, loadSymbols, symbols } from
 import { Statement, StatementNode } from "./statement.js";
 import { loadSections, Section, sectionFlags, sections } from "./sections.js";
 
-var linkedInstrQueue = [];
-
 /** @type {StatementNode} */ var prevNode = null;
 /** @type {Section}       */ export var currSection = null;
 
@@ -220,7 +218,14 @@ export class AssemblyState
         {
             let prev = section.cursor.prev;
             prev.next = section.cursor.tail;
-            linkedInstrQueue.push(prev);
+
+            /* To update the addresses following the insertion, add the last
+            inserted statement to the recompilation queue.
+            We don't call queueRecomp because that function also marks the
+            statement as wanting recompilation, which it doesn't - it's only
+            queued so it can update the addresses of the proceeding statements. */
+            if(prev.next)
+                recompQueue.push(prev);
         }
         
         prevNode.next = tail;
@@ -267,7 +272,11 @@ export class AssemblyState
                 symbols.delete(name);
         });
 
-        while(node = linkedInstrQueue.shift() || recompQueue.shift())
+        /* For efficiency (and also to fix certain edge cases), we'll make sure
+        to recompile in order of statement address. */
+        recompQueue.sort((a, b) => a.statement.address - b.statement.address);
+
+        while(node = recompQueue.shift())
         {
             addr = node.statement.address;
             do
@@ -307,7 +316,7 @@ export class AssemblyState
         this.iterate((instr, line) => {
             if(instr.outline && instr.outline.operands)
                 for(let op of instr.outline.operands)
-                    op.attemptedSizes = op.attemptedUnsignedSizes = 0;
+                    op.clearAttemptedSizes();
 
             const error = instr.error;
             if(error)
