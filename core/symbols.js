@@ -83,6 +83,7 @@ export class SymbolDefinition extends Statement
             {
                 this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, opcodeRange);
                 this.duplicate = true;
+                this.removed = false; // To ensure this definition won't be removed from the references
                 this.symbol.references.push(this);
                 return;
             }
