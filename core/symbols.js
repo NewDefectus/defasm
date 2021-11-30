@@ -12,7 +12,7 @@ export var recompQueue = [];
  * @property {SymbolDefinition?} statement The statement defining this symbol, if it exists
  * @property {string} name The symbol's name
  * @property {Statement[]} references List of instructions that reference this symbol
- * @property {Statement[]} definitions List of instructions define or give attributes to this symbol
+ * @property {Statement[]} definitions List of instructions that define or give attributes to this symbol
  * @property {Symbol[]} uses List of symbols used in this symbol's definition
  * @property {number?} type The type field of the symbol in the ELF file
  * @property {number?} bind The bind field of the symbol in the ELF file
@@ -84,7 +84,7 @@ export class SymbolDefinition extends Statement
                 this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, opcodeRange);
                 this.duplicate = true;
                 this.removed = false; // To ensure this definition won't be removed from the references
-                this.symbol.references.push(this);
+                this.symbol.definitions.push(this);
                 return;
             }
             this.symbol.uses = uses;
@@ -142,12 +142,19 @@ export class SymbolDefinition extends Statement
     {
         if(!this.duplicate)
         {
-            if(this.symbol.references.length > 0)
+            let refs = this.symbol.references;
+            if(refs.length > 0)
             {
                 this.symbol.statement = null;
                 this.symbol.uses = [];
-                for(const instr of this.symbol.references)
-                    queueRecomp(instr);
+                
+                // Find a new definition for this symbol, if any exist
+                let newDef = this.symbol.definitions.find(def => def.duplicate);
+                if(newDef)
+                    newDef.recompile();
+                else
+                    for(const instr of this.symbol.references)
+                        queueRecomp(instr);
             }
             else
                 symbols.delete(this.symbol.name);

@@ -50,6 +50,34 @@ jmp a
 a:
 b:`, { range: state.line(1).until(state.line(5)) });
     state.compile("jmp sym", { range: state.line(6) }); validate(state);
+
+    // Indentation resizing
+    function indent(lines)
+    {
+        for(let i = 0; i < 2; i++)
+        {
+            for(let line = 1; line <= lines; line++)
+            {
+                let range = state.line(line);
+                range.length = 0;
+                state.compile(' ', { doSecondPass: false, range });
+            }
+            state.secondPass();
+        }
+    }
+    state.compile(`\
+jmp sym
+sym = .`, { range: state.line(1).until(state.line(6)) });
+    indent(2); validate(state);
+
+    state.compile(`\
+sym = . - 0x7A
+jmp b  # IMPORTANT
+jmp a
+a:
+b:
+jmp sym`, { range: state.line(1).until(state.line(3) )});
+    indent(6); validate(state);
 }
 
 if(require.main === module)
