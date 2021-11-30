@@ -12960,7 +12960,7 @@
           this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
           this.duplicate = true;
           this.removed = false;
-          this.symbol.references.push(this);
+          this.symbol.definitions.push(this);
           return;
         }
         this.symbol.uses = uses;
@@ -13000,11 +13000,16 @@
     }
     remove() {
       if (!this.duplicate) {
-        if (this.symbol.references.length > 0) {
+        let refs = this.symbol.references;
+        if (refs.length > 0) {
           this.symbol.statement = null;
           this.symbol.uses = [];
-          for (const instr2 of this.symbol.references)
-            queueRecomp(instr2);
+          let newDef = this.symbol.definitions.find((def) => def.duplicate);
+          if (newDef)
+            newDef.recompile();
+          else
+            for (const instr2 of this.symbol.references)
+              queueRecomp(instr2);
         } else
           symbols.delete(this.symbol.name);
       }
@@ -16072,7 +16077,7 @@ g nle`.split("\n");
       if (!this.needsRecompilation && !this.ipRelative)
         this.outline = void 0;
     }
-    compile(recordSizes = false) {
+    compile() {
       let { operands, memoryOperand, mnemonics: mnemonics2, vexInfo } = this.outline;
       let prefsToGen = 0;
       this.clear();
@@ -16112,8 +16117,7 @@ g nle`.split("\n");
             for (let size = 8; size <= max; size *= 2) {
               if ((size != op2.size || op2.size == max) && op2.sizeAllowed(size)) {
                 op2.size = size;
-                if (recordSizes)
-                  op2.recordSizeUse(size);
+                op2.recordSizeUse(size);
                 if (size < max)
                   queueRecomp(this);
                 break;
@@ -16123,8 +16127,7 @@ g nle`.split("\n");
             for (let size = 8; size <= max; size *= 2) {
               if ((size != op2.unsignedSize || op2.unsignedSize == max) && op2.sizeAllowed(size, true)) {
                 op2.unsignedSize = size;
-                if (recordSizes)
-                  op2.recordSizeUse(size, true);
+                op2.recordSizeUse(size, true);
                 if (size < max)
                   queueRecomp(this);
                 break;
@@ -16267,7 +16270,7 @@ g nle`.split("\n");
         for (const op of this.outline.operands)
           if (op.expression && op.expression.hasSymbols)
             op.value = op.expression.evaluate(this);
-        this.compile(true);
+        this.compile();
       } catch (e) {
         this.clear();
         throw e;
