@@ -51,6 +51,13 @@ a:
 b:`, { range: state.line(1).until(state.line(5)) });
     state.compile("jmp sym", { range: state.line(6) }); validate(state);
 
+    // Unknown identifier resizing
+    state.compile(`\
+.byte y-.
+y=x
+x:`, { range: state.line(1).until(state.line(6)) });
+    state.compile("push $y-.", { range: state.line(1) }); validate(state);
+
     // Indentation resizing
     function indent(lines)
     {
@@ -67,7 +74,7 @@ b:`, { range: state.line(1).until(state.line(5)) });
     }
     state.compile(`\
 jmp sym
-sym = .`, { range: state.line(1).until(state.line(6)) });
+sym = .`, { range: state.line(1).until(state.line(3)) });
     indent(2); validate(state);
 
     state.compile(`\

@@ -1,11 +1,10 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
-import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange, match } from "./parser.js";
+import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
 import { fetchMnemonic, Mnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
-import { Operation } from "./mnemonics.js";
 import { pseudoSections } from "./sections.js";
 import { IdentifierValue } from "./shuntingYard.js";
 

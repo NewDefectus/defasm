@@ -107,6 +107,7 @@ export class SymbolDefinition extends Statement
     {
         let originError = this.error;
         let originValue = this.symbol.value;
+        let prevAbs = this.prevAbs;
         this.error = null;
 
         let value;
@@ -120,9 +121,9 @@ export class SymbolDefinition extends Statement
         {
             this.error = e;
         }
-
+        this.prevAbs = value.absoluteValue();
         return !(originError && this.error) && value && (originValue.addend !== value.addend
-            || originValue.section !== value.section);
+            || originValue.section !== value.section || prevAbs !== this.prevAbs);
     }
 
     recompile()
