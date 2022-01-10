@@ -12977,6 +12977,7 @@
     compile() {
       let originError = this.error;
       let originValue = this.symbol.value;
+      let prevAbs = this.prevAbs;
       this.error = null;
       let value;
       try {
@@ -12986,7 +12987,8 @@
       } catch (e) {
         this.error = e;
       }
-      return !(originError && this.error) && value && (originValue.addend !== value.addend || originValue.section !== value.section);
+      this.prevAbs = value.absoluteValue();
+      return !(originError && this.error) && value && (originValue.addend !== value.addend || originValue.section !== value.section || prevAbs !== this.prevAbs);
     }
     recompile() {
       if (this.duplicate && this.symbol.statement)
