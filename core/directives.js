@@ -349,14 +349,14 @@ class DataDirective extends Statement
                     this.outline.push({ expression });
                 }
             } while(token === ',' && next());
+            this.removed = false;
+            this.compile();
         }
         finally
         {
             if(!needsRecompilation)
                 this.outline = null;
         }
-        this.removed = false;
-        this.compile();
     }
 
     compile()
