@@ -274,7 +274,6 @@ class DataDirective extends Statement
 
         let appendNullByte = 0;
         
-
         try
         {
             switch(dirID)
@@ -325,9 +324,8 @@ class DataDirective extends Statement
     compileValues(valSize, acceptStrings = false)
     {
         this.valSize = valSize;
-        let value, expression, needsRecompilation = false, error = null;
+        let expression, needsRecompilation = false;
         this.outline = [];
-        const startAddr = this.address;
         try {
             do
             {
@@ -346,49 +344,35 @@ class DataDirective extends Statement
                 else
                 {
                     expression = new Expression(this);
-                    value = expression.evaluate(this);
                     if(expression.hasSymbols)
                         needsRecompilation = true;
-
-                    this.outline.push({ value, expression });
-                    if(!error)
-                    {
-                        try { this.genValue(value, this.valSize * 8); }
-                        catch(e) { error = e; }
-                    }
+                    this.outline.push({ expression });
                 }
-                this.address = startAddr + this.length;
             } while(token === ',' && next());
-            if(error)
-                throw error;
         }
         finally
         {
             if(!needsRecompilation)
                 this.outline = null;
-            this.address = startAddr;
         }
+        this.removed = false;
+        this.compile();
     }
 
-    recompile()
+    compile()
     {
         let op, outlineLength = this.outline.length;
         const startAddr = this.address;
-        this.clear();
-        this.error = null;
-
         for(let i = 0; i < outlineLength; i++)
         {
             op = this.outline[i];
             try
             {
                 if(op.strBytes)
-                {
                     this.append(op.strBytes);
-                }
                 else
                 {
-                    if(op.expression.hasSymbols)
+                    if(op.value === undefined || op.expression.hasSymbols)
                         op.value = op.expression.evaluate(this, true);
                     this.genValue(op.value, this.valSize * 8);
                 }
@@ -403,6 +387,14 @@ class DataDirective extends Statement
             }
         }
         this.address = startAddr;
+    }
+
+    recompile()
+    {
+        this.clear();
+        this.error = null;
+
+        this.compile();
     }
 
     genByte(byte)

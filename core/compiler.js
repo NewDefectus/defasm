@@ -288,7 +288,6 @@ export class AssemblyState
                     if((instr.wantsRecomp || instr.ipRelative) && !instr.removed)
                     {
                         // Recompiling the instruction
-                        instr.removed = false;
                         try
                         {
                             instr.wantsRecomp = false;

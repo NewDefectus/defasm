@@ -72,9 +72,10 @@ export class SymbolDefinition extends Statement
                 next();
                 this.expression = new Expression(this, false, uses);
             }
-            else
-                this.removed = false;
         }
+
+        // By now, the expression has been correctly parsed, so the instruction is not removed
+        this.removed = false;
 
         if(symbols.has(name))
         {
@@ -83,7 +84,6 @@ export class SymbolDefinition extends Statement
             {
                 this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, opcodeRange);
                 this.duplicate = true;
-                this.removed = false; // To ensure this definition won't be removed from the references
                 this.symbol.definitions.push(this);
                 return;
             }
@@ -114,7 +114,6 @@ export class SymbolDefinition extends Statement
         try
         {
             value = this.symbol.value = this.expression.evaluate(this, false);
-            this.removed = false;
             this.symbol.statement = this;
         }
         catch(e)
