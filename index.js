@@ -12951,15 +12951,14 @@
         if (compile) {
           next();
           this.expression = new Expression(this, false, uses);
-        } else
-          this.removed = false;
+        }
       }
+      this.removed = false;
       if (symbols.has(name2)) {
         this.symbol = symbols.get(name2);
         if (this.symbol.statement) {
           this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
           this.duplicate = true;
-          this.removed = false;
           this.symbol.definitions.push(this);
           return;
         }
@@ -12982,7 +12981,6 @@
       let value;
       try {
         value = this.symbol.value = this.expression.evaluate(this, false);
-        this.removed = false;
         this.symbol.statement = this;
       } catch (e) {
         this.error = e;
@@ -13464,9 +13462,8 @@
     }
     compileValues(valSize, acceptStrings = false) {
       this.valSize = valSize;
-      let value, expression, needsRecompilation = false, error = null;
+      let expression, needsRecompilation = false;
       this.outline = [];
-      const startAddr = this.address;
       try {
         do {
           if (token[0] === '"') {
@@ -13479,40 +13476,28 @@
             next();
           } else {
             expression = new Expression(this);
-            value = expression.evaluate(this);
             if (expression.hasSymbols)
               needsRecompilation = true;
-            this.outline.push({ value, expression });
-            if (!error) {
-              try {
-                this.genValue(value, this.valSize * 8);
-              } catch (e) {
-                error = e;
-              }
-            }
+            this.outline.push({ expression });
           }
-          this.address = startAddr + this.length;
         } while (token === "," && next());
-        if (error)
-          throw error;
+        this.removed = false;
+        this.compile();
       } finally {
         if (!needsRecompilation)
           this.outline = null;
-        this.address = startAddr;
       }
     }
-    recompile() {
+    compile() {
       let op, outlineLength = this.outline.length;
       const startAddr = this.address;
-      this.clear();
-      this.error = null;
       for (let i = 0; i < outlineLength; i++) {
         op = this.outline[i];
         try {
-          if (op.strBytes) {
+          if (op.strBytes)
             this.append(op.strBytes);
-          } else {
-            if (op.expression.hasSymbols)
+          else {
+            if (op.value === void 0 || op.expression.hasSymbols)
               op.value = op.expression.evaluate(this, true);
             this.genValue(op.value, this.valSize * 8);
           }
@@ -13525,6 +13510,11 @@
         }
       }
       this.address = startAddr;
+    }
+    recompile() {
+      this.clear();
+      this.error = null;
+      this.compile();
     }
     genByte(byte) {
       super.genByte(byte);
@@ -16494,7 +16484,6 @@ g nle`.split("\n");
           if (instr2) {
             instr2.address = addr;
             if ((instr2.wantsRecomp || instr2.ipRelative) && !instr2.removed) {
-              instr2.removed = false;
               try {
                 instr2.wantsRecomp = false;
                 instr2.recompile();
