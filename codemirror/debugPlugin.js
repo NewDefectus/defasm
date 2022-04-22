@@ -1,6 +1,5 @@
-import { EditorView, ViewPlugin, ViewUpdate, Decoration } from '@codemirror/view';
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, hoverTooltip } from '@codemirror/view';
 import { EditorState, ChangeSet } from '@codemirror/state';
-import { hoverTooltip } from '@codemirror/tooltip';
 import { ASMStateField } from './compilerPlugin.js';
 
 var debugEnabled = false;

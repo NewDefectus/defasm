@@ -1,11 +1,11 @@
-import { ASMStateField, byteDumper }                   from "./compilerPlugin.js";
-import { errorMarker, errorTooltipper }                from "./errorPlugin.js";
-import { parser }                                      from "./parser.js";
-import { debugPlugin }                                 from "./debugPlugin.js";
-import { ctxTracker }                                  from "./tokenizer.js";
-import { LRLanguage, LanguageSupport }                 from '@codemirror/language';
-import { styleTags, tags }                             from '@codemirror/highlight';
-import { AssemblyState }                               from '@defasm/core';
+import { ASMStateField, byteDumper }    from "./compilerPlugin.js";
+import { errorMarker, errorTooltipper } from "./errorPlugin.js";
+import { parser }                       from "./parser.js";
+import { debugPlugin }                  from "./debugPlugin.js";
+import { ctxTracker }                   from "./tokenizer.js";
+import { LRLanguage, LanguageSupport }  from '@codemirror/language';
+import { styleTags, tags }              from '@lezer/highlight';
+import { AssemblyState }                from '@defasm/core';
 
 const assemblyLang = LRLanguage.define({
     parser: parser.configure({

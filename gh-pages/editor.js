@@ -1,11 +1,9 @@
-import { closeBrackets, closeBracketsKeymap } from "@codemirror/closebrackets";
-import { standardKeymap, indentWithTab }      from "@codemirror/commands";
-import { lineNumbers }                        from "@codemirror/gutter";
-import { defaultHighlightStyle }              from "@codemirror/highlight";
-import { history, historyKeymap }             from "@codemirror/history";
-import { EditorState }                        from "@codemirror/state";
-import { EditorView, keymap }                 from "@codemirror/view";
-import { assembly, ASMStateField }            from "@defasm/codemirror";
+import { standardKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
+import { closeBrackets, closeBracketsKeymap }                    from "@codemirror/autocomplete";
+import { defaultHighlightStyle, syntaxHighlighting }             from "@codemirror/language";
+import { EditorState }                                           from "@codemirror/state";
+import { EditorView, keymap, lineNumbers }                       from "@codemirror/view";
+import { assembly, ASMStateField }                               from "@defasm/codemirror";
 
 const byteCount = document.getElementById("byteCount");
 
@@ -22,7 +20,7 @@ const editor = new EditorView({
     state: EditorState.create({
         doc: getLastCode(),
         extensions: [
-            defaultHighlightStyle,
+            syntaxHighlighting(defaultHighlightStyle),
             closeBrackets(),
             history(),
             keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),

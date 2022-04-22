@@ -1,5 +1,4 @@
-import { hoverTooltip } from '@codemirror/tooltip';
-import { EditorView, ViewPlugin, Decoration, WidgetType } from '@codemirror/view';
+import { EditorView, ViewPlugin, Decoration, WidgetType, hoverTooltip } from '@codemirror/view';
 import { ASMStateField } from "./compilerPlugin";
 import { EditorState } from '@codemirror/state';
 

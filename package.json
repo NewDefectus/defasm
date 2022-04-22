@@ -5,21 +5,17 @@
     "test": "node tests.js"
   },
   "dependencies": {
-    "@codemirror/closebrackets": "",
+    "@codemirror/autocomplete": "",
     "@codemirror/commands": "",
-    "@codemirror/gutter": "",
-    "@codemirror/highlight": "",
-    "@codemirror/history": "",
     "@codemirror/language": "",
-    "@codemirror/tooltip": "",
     "@codemirror/view": "",
     "@defasm/cli": "file:cli",
     "@defasm/codemirror": "file:codemirror",
     "@defasm/core": "file:core",
     "@lezer/common": "",
     "@lezer/generator": "",
+    "@lezer/highlight": "",
     "@lezer/lr": "",
-    "cli": "^1.0.1",
     "esbuild": ""
   }
 }

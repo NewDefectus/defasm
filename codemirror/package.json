@@ -25,12 +25,12 @@
   },
   "homepage": "https://github.com/NewDefectus/defAsm/tree/master/codemirror#readme",
   "dependencies": {
-    "@codemirror/highlight": "",
     "@codemirror/language": "",
-    "@codemirror/tooltip": "",
+    "@codemirror/state": "",
     "@codemirror/view": "",
     "@defasm/core": "",
     "@lezer/common": "",
+    "@lezer/highlight": "",
     "@lezer/lr": ""
   },
   "devDependencies": {
