@@ -1,106 +1,5 @@
 (() => {
-  // node_modules/@codemirror/text/dist/index.js
-  var extend = /* @__PURE__ */ "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((s) => s ? parseInt(s, 36) : 1);
-  for (let i = 1; i < extend.length; i++)
-    extend[i] += extend[i - 1];
-  function isExtendingChar(code2) {
-    for (let i = 1; i < extend.length; i += 2)
-      if (extend[i] > code2)
-        return extend[i - 1] <= code2;
-    return false;
-  }
-  function isRegionalIndicator(code2) {
-    return code2 >= 127462 && code2 <= 127487;
-  }
-  var ZWJ = 8205;
-  function findClusterBreak(str, pos, forward = true) {
-    return (forward ? nextClusterBreak : prevClusterBreak)(str, pos);
-  }
-  function nextClusterBreak(str, pos) {
-    if (pos == str.length)
-      return pos;
-    if (pos && surrogateLow(str.charCodeAt(pos)) && surrogateHigh(str.charCodeAt(pos - 1)))
-      pos--;
-    let prev = codePointAt(str, pos);
-    pos += codePointSize(prev);
-    while (pos < str.length) {
-      let next3 = codePointAt(str, pos);
-      if (prev == ZWJ || next3 == ZWJ || isExtendingChar(next3)) {
-        pos += codePointSize(next3);
-        prev = next3;
-      } else if (isRegionalIndicator(next3)) {
-        let countBefore = 0, i = pos - 2;
-        while (i >= 0 && isRegionalIndicator(codePointAt(str, i))) {
-          countBefore++;
-          i -= 2;
-        }
-        if (countBefore % 2 == 0)
-          break;
-        else
-          pos += 2;
-      } else {
-        break;
-      }
-    }
-    return pos;
-  }
-  function prevClusterBreak(str, pos) {
-    while (pos > 0) {
-      let found = nextClusterBreak(str, pos - 2);
-      if (found < pos)
-        return found;
-      pos--;
-    }
-    return 0;
-  }
-  function surrogateLow(ch) {
-    return ch >= 56320 && ch < 57344;
-  }
-  function surrogateHigh(ch) {
-    return ch >= 55296 && ch < 56320;
-  }
-  function codePointAt(str, pos) {
-    let code0 = str.charCodeAt(pos);
-    if (!surrogateHigh(code0) || pos + 1 == str.length)
-      return code0;
-    let code1 = str.charCodeAt(pos + 1);
-    if (!surrogateLow(code1))
-      return code0;
-    return (code0 - 55296 << 10) + (code1 - 56320) + 65536;
-  }
-  function fromCodePoint(code2) {
-    if (code2 <= 65535)
-      return String.fromCharCode(code2);
-    code2 -= 65536;
-    return String.fromCharCode((code2 >> 10) + 55296, (code2 & 1023) + 56320);
-  }
-  function codePointSize(code2) {
-    return code2 < 65536 ? 1 : 2;
-  }
-  function countColumn(string2, tabSize, to = string2.length) {
-    let n = 0;
-    for (let i = 0; i < to; ) {
-      if (string2.charCodeAt(i) == 9) {
-        n += tabSize - n % tabSize;
-        i++;
-      } else {
-        n++;
-        i = findClusterBreak(string2, i);
-      }
-    }
-    return n;
-  }
-  function findColumn(string2, col, tabSize, strict) {
-    for (let i = 0, n = 0; ; ) {
-      if (n >= col)
-        return i;
-      if (i == string2.length)
-        break;
-      n += string2.charCodeAt(i) == 9 ? tabSize - n % tabSize : 1;
-      i = findClusterBreak(string2, i);
-    }
-    return strict === true ? -1 : string2.length;
-  }
+  // node_modules/@codemirror/state/dist/index.js
   var Text = class {
     constructor() {
     }
@@ -562,8 +461,83 @@
       return this.to - this.from;
     }
   };
-
-  // node_modules/@codemirror/state/dist/index.js
+  var extend = /* @__PURE__ */ "lc,34,7n,7,7b,19,,,,2,,2,,,20,b,1c,l,g,,2t,7,2,6,2,2,,4,z,,u,r,2j,b,1m,9,9,,o,4,,9,,3,,5,17,3,3b,f,,w,1j,,,,4,8,4,,3,7,a,2,t,,1m,,,,2,4,8,,9,,a,2,q,,2,2,1l,,4,2,4,2,2,3,3,,u,2,3,,b,2,1l,,4,5,,2,4,,k,2,m,6,,,1m,,,2,,4,8,,7,3,a,2,u,,1n,,,,c,,9,,14,,3,,1l,3,5,3,,4,7,2,b,2,t,,1m,,2,,2,,3,,5,2,7,2,b,2,s,2,1l,2,,,2,4,8,,9,,a,2,t,,20,,4,,2,3,,,8,,29,,2,7,c,8,2q,,2,9,b,6,22,2,r,,,,,,1j,e,,5,,2,5,b,,10,9,,2u,4,,6,,2,2,2,p,2,4,3,g,4,d,,2,2,6,,f,,jj,3,qa,3,t,3,t,2,u,2,1s,2,,7,8,,2,b,9,,19,3,3b,2,y,,3a,3,4,2,9,,6,3,63,2,2,,1m,,,7,,,,,2,8,6,a,2,,1c,h,1r,4,1c,7,,,5,,14,9,c,2,w,4,2,2,,3,1k,,,2,3,,,3,1m,8,2,2,48,3,,d,,7,4,,6,,3,2,5i,1m,,5,ek,,5f,x,2da,3,3x,,2o,w,fe,6,2x,2,n9w,4,,a,w,2,28,2,7k,,3,,4,,p,2,5,,47,2,q,i,d,,12,8,p,b,1a,3,1c,,2,4,2,2,13,,1v,6,2,2,2,2,c,,8,,1b,,1f,,,3,2,2,5,2,,,16,2,8,,6m,,2,,4,,fn4,,kh,g,g,g,a6,2,gt,,6a,,45,5,1ae,3,,2,5,4,14,3,4,,4l,2,fx,4,ar,2,49,b,4w,,1i,f,1k,3,1d,4,2,2,1x,3,10,5,,8,1q,,c,2,1g,9,a,4,2,,2n,3,2,,,2,6,,4g,,3,8,l,2,1l,2,,,,,m,,e,7,3,5,5f,8,2,3,,,n,,29,,2,6,,,2,,,2,,2,6j,,2,4,6,2,,2,r,2,2d,8,2,,,2,2y,,,,2,6,,,2t,3,2,4,,5,77,9,,2,6t,,a,2,,,4,,40,4,2,2,4,,w,a,14,6,2,4,8,,9,6,2,3,1a,d,,2,ba,7,,6,,,2a,m,2,7,,2,,2,3e,6,3,,,2,,7,,,20,2,3,,,,9n,2,f0b,5,1n,7,t4,,1r,4,29,,f5k,2,43q,,,3,4,5,8,8,2,7,u,4,44,3,1iz,1j,4,1e,8,,e,,m,5,,f,11s,7,,h,2,7,,2,,5,79,7,c5,4,15s,7,31,7,240,5,gx7k,2o,3k,6o".split(",").map((s) => s ? parseInt(s, 36) : 1);
+  for (let i = 1; i < extend.length; i++)
+    extend[i] += extend[i - 1];
+  function isExtendingChar(code2) {
+    for (let i = 1; i < extend.length; i += 2)
+      if (extend[i] > code2)
+        return extend[i - 1] <= code2;
+    return false;
+  }
+  function isRegionalIndicator(code2) {
+    return code2 >= 127462 && code2 <= 127487;
+  }
+  var ZWJ = 8205;
+  function findClusterBreak(str, pos, forward = true, includeExtending = true) {
+    return (forward ? nextClusterBreak : prevClusterBreak)(str, pos, includeExtending);
+  }
+  function nextClusterBreak(str, pos, includeExtending) {
+    if (pos == str.length)
+      return pos;
+    if (pos && surrogateLow(str.charCodeAt(pos)) && surrogateHigh(str.charCodeAt(pos - 1)))
+      pos--;
+    let prev = codePointAt(str, pos);
+    pos += codePointSize(prev);
+    while (pos < str.length) {
+      let next3 = codePointAt(str, pos);
+      if (prev == ZWJ || next3 == ZWJ || includeExtending && isExtendingChar(next3)) {
+        pos += codePointSize(next3);
+        prev = next3;
+      } else if (isRegionalIndicator(next3)) {
+        let countBefore = 0, i = pos - 2;
+        while (i >= 0 && isRegionalIndicator(codePointAt(str, i))) {
+          countBefore++;
+          i -= 2;
+        }
+        if (countBefore % 2 == 0)
+          break;
+        else
+          pos += 2;
+      } else {
+        break;
+      }
+    }
+    return pos;
+  }
+  function prevClusterBreak(str, pos, includeExtending) {
+    while (pos > 0) {
+      let found = nextClusterBreak(str, pos - 2, includeExtending);
+      if (found < pos)
+        return found;
+      pos--;
+    }
+    return 0;
+  }
+  function surrogateLow(ch) {
+    return ch >= 56320 && ch < 57344;
+  }
+  function surrogateHigh(ch) {
+    return ch >= 55296 && ch < 56320;
+  }
+  function codePointAt(str, pos) {
+    let code0 = str.charCodeAt(pos);
+    if (!surrogateHigh(code0) || pos + 1 == str.length)
+      return code0;
+    let code1 = str.charCodeAt(pos + 1);
+    if (!surrogateLow(code1))
+      return code0;
+    return (code0 - 55296 << 10) + (code1 - 56320) + 65536;
+  }
+  function fromCodePoint(code2) {
+    if (code2 <= 65535)
+      return String.fromCharCode(code2);
+    code2 -= 65536;
+    return String.fromCharCode((code2 >> 10) + 55296, (code2 & 1023) + 56320);
+  }
+  function codePointSize(code2) {
+    return code2 < 65536 ? 1 : 2;
+  }
   var DefaultSplit = /\r\n?|\n/;
   var MapMode = /* @__PURE__ */ function(MapMode2) {
     MapMode2[MapMode2["Simple"] = 0] = "Simple";
@@ -1045,7 +1019,13 @@
       return value == 33554431 ? void 0 : value;
     }
     map(change, assoc = -1) {
-      let from = change.mapPos(this.from, assoc), to = change.mapPos(this.to, assoc);
+      let from, to;
+      if (this.empty) {
+        from = to = change.mapPos(this.from, assoc);
+      } else {
+        from = change.mapPos(this.from, 1);
+        to = change.mapPos(this.to, -1);
+      }
       return from == this.from && to == this.to ? this : new SelectionRange(from, to, this.flags);
     }
     extend(from, to = from) {
@@ -1125,7 +1105,7 @@
     }
     static range(anchor, head, goalColumn) {
       let goal = (goalColumn !== null && goalColumn !== void 0 ? goalColumn : 33554431) << 5;
-      return head < anchor ? new SelectionRange(head, anchor, 16 | goal) : new SelectionRange(anchor, head, goal);
+      return head < anchor ? new SelectionRange(head, anchor, 16 | goal | 8) : new SelectionRange(anchor, head, goal | (head > anchor ? 4 : 0));
     }
   };
   function normalized(ranges, mainIndex = 0) {
@@ -1193,36 +1173,49 @@
       this.id = nextID++;
     }
     dynamicSlot(addresses) {
-      var _a;
+      var _a2;
       let getter = this.value;
       let compare2 = this.facet.compareInput;
-      let idx = addresses[this.id] >> 1, multi = this.type == 2;
+      let id2 = this.id, idx = addresses[id2] >> 1, multi = this.type == 2;
       let depDoc = false, depSel = false, depAddrs = [];
       for (let dep of this.dependencies) {
         if (dep == "doc")
           depDoc = true;
         else if (dep == "selection")
           depSel = true;
-        else if ((((_a = addresses[dep.id]) !== null && _a !== void 0 ? _a : 1) & 1) == 0)
+        else if ((((_a2 = addresses[dep.id]) !== null && _a2 !== void 0 ? _a2 : 1) & 1) == 0)
           depAddrs.push(addresses[dep.id]);
       }
-      return (state, tr) => {
-        let oldVal = state.values[idx];
-        if (oldVal === Uninitialized) {
+      return {
+        create(state) {
           state.values[idx] = getter(state);
           return 1;
-        }
-        if (tr) {
-          let depChanged = depDoc && tr.docChanged || depSel && (tr.docChanged || tr.selection) || depAddrs.some((addr2) => (ensureAddr(state, addr2) & 1) > 0);
-          if (depChanged) {
+        },
+        update(state, tr) {
+          if (depDoc && tr.docChanged || depSel && (tr.docChanged || tr.selection) || ensureAll(state, depAddrs)) {
             let newVal = getter(state);
-            if (multi ? !compareArray(newVal, oldVal, compare2) : !compare2(newVal, oldVal)) {
+            if (multi ? !compareArray(newVal, state.values[idx], compare2) : !compare2(newVal, state.values[idx])) {
               state.values[idx] = newVal;
               return 1;
             }
           }
+          return 0;
+        },
+        reconfigure: (state, oldState) => {
+          let newVal = getter(state);
+          let oldAddr = oldState.config.address[id2];
+          if (oldAddr != null) {
+            let oldVal = getAddr(oldState, oldAddr);
+            if (this.dependencies.every((dep) => {
+              return dep instanceof Facet ? oldState.facet(dep) === state.facet(dep) : dep instanceof StateField ? oldState.field(dep, false) == state.field(dep, false) : true;
+            }) || (multi ? compareArray(newVal, oldVal, compare2) : compare2(newVal, oldVal))) {
+              state.values[idx] = oldVal;
+              return 0;
+            }
+          }
+          state.values[idx] = newVal;
+          return 1;
         }
-        return 0;
       };
     }
   };
@@ -1234,33 +1227,61 @@
         return false;
     return true;
   }
+  function ensureAll(state, addrs) {
+    let changed = false;
+    for (let addr2 of addrs)
+      if (ensureAddr(state, addr2) & 1)
+        changed = true;
+    return changed;
+  }
   function dynamicFacetSlot(addresses, facet, providers) {
     let providerAddrs = providers.map((p) => addresses[p.id]);
     let providerTypes = providers.map((p) => p.type);
     let dynamic = providerAddrs.filter((p) => !(p & 1));
     let idx = addresses[facet.id] >> 1;
-    return (state, tr) => {
-      let oldVal = state.values[idx], changed = oldVal === Uninitialized || !tr;
-      for (let dynAddr of dynamic) {
-        if (ensureAddr(state, dynAddr) & 1)
-          changed = true;
-      }
-      if (!changed)
-        return 0;
+    function get(state) {
       let values = [];
       for (let i = 0; i < providerAddrs.length; i++) {
-        let value2 = getAddr(state, providerAddrs[i]);
+        let value = getAddr(state, providerAddrs[i]);
         if (providerTypes[i] == 2)
-          for (let val of value2)
+          for (let val of value)
             values.push(val);
         else
-          values.push(value2);
+          values.push(value);
       }
-      let value = facet.combine(values);
-      if (oldVal !== Uninitialized && facet.compare(value, oldVal))
-        return 0;
-      state.values[idx] = value;
-      return 1;
+      return facet.combine(values);
+    }
+    return {
+      create(state) {
+        for (let addr2 of providerAddrs)
+          ensureAddr(state, addr2);
+        state.values[idx] = get(state);
+        return 1;
+      },
+      update(state, tr) {
+        if (!ensureAll(state, dynamic))
+          return 0;
+        let value = get(state);
+        if (facet.compare(value, state.values[idx]))
+          return 0;
+        state.values[idx] = value;
+        return 1;
+      },
+      reconfigure(state, oldState) {
+        let depChanged = ensureAll(state, providerAddrs);
+        let oldProviders = oldState.config.facets[facet.id], oldValue = oldState.facet(facet);
+        if (oldProviders && !depChanged && sameArray(providers, oldProviders)) {
+          state.values[idx] = oldValue;
+          return 0;
+        }
+        let value = get(state);
+        if (facet.compare(value, oldValue)) {
+          state.values[idx] = oldValue;
+          return 0;
+        }
+        state.values[idx] = value;
+        return 1;
+      }
     };
   }
   var initField = /* @__PURE__ */ Facet.define({ static: true });
@@ -1285,20 +1306,27 @@
     }
     slot(addresses) {
       let idx = addresses[this.id] >> 1;
-      return (state, tr) => {
-        let oldVal = state.values[idx];
-        if (oldVal === Uninitialized) {
+      return {
+        create: (state) => {
+          state.values[idx] = this.create(state);
+          return 1;
+        },
+        update: (state, tr) => {
+          let oldVal = state.values[idx];
+          let value = this.updateF(oldVal, tr);
+          if (this.compareF(oldVal, value))
+            return 0;
+          state.values[idx] = value;
+          return 1;
+        },
+        reconfigure: (state, oldState) => {
+          if (oldState.config.address[this.id] != null) {
+            state.values[idx] = oldState.field(this);
+            return 0;
+          }
           state.values[idx] = this.create(state);
           return 1;
         }
-        if (tr) {
-          let value = this.updateF(oldVal, tr);
-          if (!this.compareF(oldVal, value)) {
-            state.values[idx] = value;
-            return 1;
-          }
-        }
-        return 0;
       };
     }
     init(create) {
@@ -1313,14 +1341,11 @@
     return (ext) => new PrecExtension(ext, value);
   }
   var Prec = {
-    lowest: /* @__PURE__ */ prec(Prec_.lowest),
-    low: /* @__PURE__ */ prec(Prec_.low),
-    default: /* @__PURE__ */ prec(Prec_.default),
-    high: /* @__PURE__ */ prec(Prec_.high),
     highest: /* @__PURE__ */ prec(Prec_.highest),
-    fallback: /* @__PURE__ */ prec(Prec_.lowest),
-    extend: /* @__PURE__ */ prec(Prec_.high),
-    override: /* @__PURE__ */ prec(Prec_.highest)
+    high: /* @__PURE__ */ prec(Prec_.high),
+    default: /* @__PURE__ */ prec(Prec_.default),
+    low: /* @__PURE__ */ prec(Prec_.low),
+    lowest: /* @__PURE__ */ prec(Prec_.lowest)
   };
   var PrecExtension = class {
     constructor(inner, prec2) {
@@ -1346,12 +1371,13 @@
     }
   };
   var Configuration = class {
-    constructor(base2, compartments, dynamicSlots, address, staticValues) {
+    constructor(base2, compartments, dynamicSlots, address, staticValues, facets) {
       this.base = base2;
       this.compartments = compartments;
       this.dynamicSlots = dynamicSlots;
       this.address = address;
       this.staticValues = staticValues;
+      this.facets = facets;
       this.statusTemplate = [];
       while (this.statusTemplate.length < dynamicSlots.length)
         this.statusTemplate.push(0);
@@ -1362,7 +1388,7 @@
     }
     static resolve(base2, compartments, oldState) {
       let fields = [];
-      let facets = Object.create(null);
+      let facets = /* @__PURE__ */ Object.create(null);
       let newCompartments = /* @__PURE__ */ new Map();
       for (let ext of flatten(base2, compartments, newCompartments)) {
         if (ext instanceof StateField)
@@ -1370,27 +1396,25 @@
         else
           (facets[ext.facet.id] || (facets[ext.facet.id] = [])).push(ext);
       }
-      let address = Object.create(null);
+      let address = /* @__PURE__ */ Object.create(null);
       let staticValues = [];
       let dynamicSlots = [];
-      let dynamicDeps = [];
       for (let field of fields) {
         address[field.id] = dynamicSlots.length << 1;
         dynamicSlots.push((a) => field.slot(a));
-        dynamicDeps.push([]);
       }
+      let oldFacets = oldState === null || oldState === void 0 ? void 0 : oldState.config.facets;
       for (let id2 in facets) {
         let providers = facets[id2], facet = providers[0].facet;
+        let oldProviders = oldFacets && oldFacets[id2] || [];
         if (providers.every((p) => p.type == 0)) {
           address[facet.id] = staticValues.length << 1 | 1;
-          let value = facet.combine(providers.map((p) => p.value));
-          let oldAddr = oldState ? oldState.config.address[facet.id] : null;
-          if (oldAddr != null) {
-            let oldVal = getAddr(oldState, oldAddr);
-            if (facet.compare(value, oldVal))
-              value = oldVal;
+          if (sameArray(oldProviders, providers)) {
+            staticValues.push(oldState.facet(facet));
+          } else {
+            let value = facet.combine(providers.map((p) => p.value));
+            staticValues.push(oldState && facet.compare(value, oldState.facet(facet)) ? oldState.facet(facet) : value);
           }
-          staticValues.push(value);
         } else {
           for (let p of providers) {
             if (p.type == 0) {
@@ -1399,35 +1423,14 @@
             } else {
               address[p.id] = dynamicSlots.length << 1;
               dynamicSlots.push((a) => p.dynamicSlot(a));
-              dynamicDeps.push(p.dependencies.filter((d) => typeof d != "string").map((d) => d.id));
             }
           }
           address[facet.id] = dynamicSlots.length << 1;
           dynamicSlots.push((a) => dynamicFacetSlot(a, facet, providers));
-          dynamicDeps.push(providers.filter((p) => p.type != 0).map((d) => d.id));
         }
       }
-      let dynamicValues = dynamicSlots.map((_) => Uninitialized);
-      if (oldState) {
-        let canReuse = (id2, depth) => {
-          if (depth > 7)
-            return false;
-          let addr2 = address[id2];
-          if (!(addr2 & 1))
-            return dynamicDeps[addr2 >> 1].every((id3) => canReuse(id3, depth + 1));
-          let oldAddr = oldState.config.address[id2];
-          return oldAddr != null && getAddr(oldState, oldAddr) == staticValues[addr2 >> 1];
-        };
-        for (let id2 in address) {
-          let cur = address[id2], prev = oldState.config.address[id2];
-          if (prev != null && (cur & 1) == 0 && canReuse(+id2, 0))
-            dynamicValues[cur >> 1] = getAddr(oldState, prev);
-        }
-      }
-      return {
-        configuration: new Configuration(base2, newCompartments, dynamicSlots.map((f) => f(address)), address, staticValues),
-        values: dynamicValues
-      };
+      let dynamic = dynamicSlots.map((f) => f(address));
+      return new Configuration(base2, newCompartments, dynamic, address, staticValues, facets);
     }
   };
   function flatten(extension, compartments, newCompartments) {
@@ -1436,7 +1439,7 @@
     function inner(ext, prec2) {
       let known = seen.get(ext);
       if (known != null) {
-        if (known >= prec2)
+        if (known <= prec2)
           return;
         let found = result[known].indexOf(ext);
         if (found > -1)
@@ -1474,7 +1477,6 @@
     inner(extension, Prec_.default);
     return result.reduce((a, b) => a.concat(b));
   }
-  var Uninitialized = {};
   function ensureAddr(state, addr2) {
     if (addr2 & 1)
       return 2;
@@ -1485,7 +1487,7 @@
     if (status & 2)
       return status;
     state.status[idx] = 4;
-    let changed = state.config.dynamicSlots[idx](state, state.applying);
+    let changed = state.computeSlot(state, state.config.dynamicSlots[idx]);
     return state.status[idx] = 2 | changed;
   }
   function getAddr(state, addr2) {
@@ -1558,13 +1560,13 @@
   StateEffect.reconfigure = /* @__PURE__ */ StateEffect.define();
   StateEffect.appendConfig = /* @__PURE__ */ StateEffect.define();
   var Transaction = class {
-    constructor(startState, changes, selection, effects, annotations, scrollIntoView) {
+    constructor(startState, changes, selection, effects, annotations, scrollIntoView2) {
       this.startState = startState;
       this.changes = changes;
       this.selection = selection;
       this.effects = effects;
       this.annotations = annotations;
-      this.scrollIntoView = scrollIntoView;
+      this.scrollIntoView = scrollIntoView2;
       this._doc = null;
       this._state = null;
       if (selection)
@@ -1623,7 +1625,7 @@
     }
   }
   function mergeTransaction(a, b, sequential) {
-    var _a;
+    var _a2;
     let mapForA, mapForB, changes;
     if (sequential) {
       mapForA = b.changes;
@@ -1636,7 +1638,7 @@
     }
     return {
       changes,
-      selection: b.selection ? b.selection.map(mapForB) : (_a = a.selection) === null || _a === void 0 ? void 0 : _a.map(mapForA),
+      selection: b.selection ? b.selection.map(mapForB) : (_a2 = a.selection) === null || _a2 === void 0 ? void 0 : _a2.map(mapForA),
       effects: StateEffect.mapEffects(a.effects, mapForA).concat(StateEffect.mapEffects(b.effects, mapForB)),
       annotations: a.annotations.length ? a.annotations.concat(b.annotations) : b.annotations,
       scrollIntoView: a.scrollIntoView || b.scrollIntoView
@@ -1751,19 +1753,18 @@
     };
   }
   var EditorState = class {
-    constructor(config2, doc2, selection, values, tr = null) {
+    constructor(config2, doc2, selection, values, computeSlot, tr) {
       this.config = config2;
       this.doc = doc2;
       this.selection = selection;
       this.values = values;
-      this.applying = null;
       this.status = config2.statusTemplate.slice();
-      this.applying = tr;
+      this.computeSlot = computeSlot;
       if (tr)
         tr._state = this;
       for (let i = 0; i < this.config.dynamicSlots.length; i++)
         ensureAddr(this, i << 1);
-      this.applying = null;
+      this.computeSlot = null;
     }
     field(field, require2 = true) {
       let addr2 = this.config.address[field.id];
@@ -1798,14 +1799,13 @@
       }
       let startValues;
       if (!conf) {
-        let resolved = Configuration.resolve(base2, compartments, this);
-        conf = resolved.configuration;
-        let intermediateState = new EditorState(conf, this.doc, this.selection, resolved.values, null);
+        conf = Configuration.resolve(base2, compartments, this);
+        let intermediateState = new EditorState(conf, this.doc, this.selection, conf.dynamicSlots.map(() => null), (state, slot) => slot.reconfigure(state, this), null);
         startValues = intermediateState.values;
       } else {
         startValues = tr.startState.values.slice();
       }
-      new EditorState(conf, tr.newDoc, tr.newSelection, startValues, tr);
+      new EditorState(conf, tr.newDoc, tr.newSelection, startValues, (state, slot) => slot.update(state, tr), tr);
     }
     replaceSelection(text) {
       if (typeof text == "string")
@@ -1883,13 +1883,13 @@
       });
     }
     static create(config2 = {}) {
-      let { configuration, values } = Configuration.resolve(config2.extensions || [], /* @__PURE__ */ new Map());
+      let configuration = Configuration.resolve(config2.extensions || [], /* @__PURE__ */ new Map());
       let doc2 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(EditorState.lineSeparator) || DefaultSplit));
       let selection = !config2.selection ? EditorSelection.single(0) : config2.selection instanceof EditorSelection ? config2.selection : EditorSelection.single(config2.selection.anchor, config2.selection.head);
       checkSelection(selection, doc2.length);
       if (!configuration.staticFacet(allowMultipleSelections))
         selection = selection.asSingle();
-      return new EditorState(configuration, doc2, selection, values);
+      return new EditorState(configuration, doc2, selection, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
     }
     get tabSize() {
       return this.facet(EditorState.tabSize);
@@ -1944,7 +1944,12 @@
   });
   EditorState.lineSeparator = lineSeparator;
   EditorState.readOnly = readOnly;
-  EditorState.phrases = /* @__PURE__ */ Facet.define();
+  EditorState.phrases = /* @__PURE__ */ Facet.define({
+    compare(a, b) {
+      let kA = Object.keys(a), kB = Object.keys(b);
+      return kA.length == kB.length && kA.every((k) => a[k] == b[k]);
+    }
+  });
   EditorState.languageData = languageData;
   EditorState.changeFilter = changeFilter;
   EditorState.transactionFilter = transactionFilter;
@@ -1969,105 +1974,6 @@
         result[key] = defaults2[key];
     return result;
   }
-
-  // node_modules/style-mod/src/style-mod.js
-  var C = "\u037C";
-  var COUNT = typeof Symbol == "undefined" ? "__" + C : Symbol.for(C);
-  var SET = typeof Symbol == "undefined" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet");
-  var top = typeof globalThis != "undefined" ? globalThis : typeof window != "undefined" ? window : {};
-  var StyleModule = class {
-    constructor(spec, options) {
-      this.rules = [];
-      let { finish } = options || {};
-      function splitSelector(selector) {
-        return /^@/.test(selector) ? [selector] : selector.split(/,\s*/);
-      }
-      function render(selectors, spec2, target, isKeyframes) {
-        let local = [], isAt = /^@(\w+)\b/.exec(selectors[0]), keyframes = isAt && isAt[1] == "keyframes";
-        if (isAt && spec2 == null)
-          return target.push(selectors[0] + ";");
-        for (let prop in spec2) {
-          let value = spec2[prop];
-          if (/&/.test(prop)) {
-            render(prop.split(/,\s*/).map((part) => selectors.map((sel) => part.replace(/&/, sel))).reduce((a, b) => a.concat(b)), value, target);
-          } else if (value && typeof value == "object") {
-            if (!isAt)
-              throw new RangeError("The value of a property (" + prop + ") should be a primitive value.");
-            render(splitSelector(prop), value, local, keyframes);
-          } else if (value != null) {
-            local.push(prop.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value + ";");
-          }
-        }
-        if (local.length || keyframes) {
-          target.push((finish && !isAt && !isKeyframes ? selectors.map(finish) : selectors).join(", ") + " {" + local.join(" ") + "}");
-        }
-      }
-      for (let prop in spec)
-        render(splitSelector(prop), spec[prop], this.rules);
-    }
-    getRules() {
-      return this.rules.join("\n");
-    }
-    static newName() {
-      let id2 = top[COUNT] || 1;
-      top[COUNT] = id2 + 1;
-      return C + id2.toString(36);
-    }
-    static mount(root, modules) {
-      (root[SET] || new StyleSet(root)).mount(Array.isArray(modules) ? modules : [modules]);
-    }
-  };
-  var adoptedSet = null;
-  var StyleSet = class {
-    constructor(root) {
-      if (!root.head && root.adoptedStyleSheets && typeof CSSStyleSheet != "undefined") {
-        if (adoptedSet) {
-          root.adoptedStyleSheets = [adoptedSet.sheet].concat(root.adoptedStyleSheets);
-          return root[SET] = adoptedSet;
-        }
-        this.sheet = new CSSStyleSheet();
-        root.adoptedStyleSheets = [this.sheet].concat(root.adoptedStyleSheets);
-        adoptedSet = this;
-      } else {
-        this.styleTag = (root.ownerDocument || root).createElement("style");
-        let target = root.head || root;
-        target.insertBefore(this.styleTag, target.firstChild);
-      }
-      this.modules = [];
-      root[SET] = this;
-    }
-    mount(modules) {
-      let sheet = this.sheet;
-      let pos = 0, j = 0;
-      for (let i = 0; i < modules.length; i++) {
-        let mod = modules[i], index = this.modules.indexOf(mod);
-        if (index < j && index > -1) {
-          this.modules.splice(index, 1);
-          j--;
-          index = -1;
-        }
-        if (index == -1) {
-          this.modules.splice(j++, 0, mod);
-          if (sheet)
-            for (let k = 0; k < mod.rules.length; k++)
-              sheet.insertRule(mod.rules[k], pos++);
-        } else {
-          while (j < index)
-            pos += this.modules[j++].rules.length;
-          pos += mod.rules.length;
-          j++;
-        }
-      }
-      if (!sheet) {
-        let text = "";
-        for (let i = 0; i < this.modules.length; i++)
-          text += this.modules[i].getRules() + "\n";
-        this.styleTag.textContent = text;
-      }
-    }
-  };
-
-  // node_modules/@codemirror/rangeset/dist/index.js
   var RangeValue = class {
     eq(other) {
       return this == other;
@@ -2128,6 +2034,11 @@
           if (mapped == null)
             continue;
           newFrom = newTo = mapped;
+          if (val.startSide != val.endSide) {
+            newTo = changes.mapPos(curFrom, val.endSide);
+            if (newTo < newFrom)
+              continue;
+          }
         } else {
           newFrom = changes.mapPos(curFrom, val.startSide);
           newTo = changes.mapPos(curTo, val.endSide);
@@ -2175,7 +2086,7 @@
       if (add.length == 0 && !filter)
         return this;
       if (sort)
-        add.slice().sort(cmpRange);
+        add = add.slice().sort(cmpRange);
       if (this.isEmpty)
         return add.length ? RangeSet.of(add) : this;
       let cur = new LayerCursor(this, null, -1).goto(0), i = 0, spill = [];
@@ -2198,7 +2109,7 @@
       return builder.finishInner(this.nextLayer.isEmpty && !spill.length ? RangeSet.empty : this.nextLayer.update({ add: spill, filter, filterFrom, filterTo }));
     }
     map(changes) {
-      if (changes.length == 0 || this.isEmpty)
+      if (changes.empty || this.isEmpty)
         return this;
       let chunks = [], chunkPos = [], maxPoint = -1;
       for (let i = 0; i < this.chunk.length; i++) {
@@ -2240,8 +2151,8 @@
       return HeapCursor.from(sets).goto(from);
     }
     static compare(oldSets, newSets, textDiff, comparator, minPointSize = -1) {
-      let a = oldSets.filter((set) => set.maxPoint >= 500 || !set.isEmpty && set.maxPoint >= minPointSize);
-      let b = newSets.filter((set) => set.maxPoint >= 500 || !set.isEmpty && set.maxPoint >= minPointSize);
+      let a = oldSets.filter((set) => set.maxPoint > 0 || !set.isEmpty && set.maxPoint >= minPointSize);
+      let b = newSets.filter((set) => set.maxPoint > 0 || !set.isEmpty && set.maxPoint >= minPointSize);
       let sharedChunks = findSharedChunks(a, b, textDiff);
       let sideA = new SpanCursor(a, sharedChunks, minPointSize);
       let sideB = new SpanCursor(b, sharedChunks, minPointSize);
@@ -2275,7 +2186,7 @@
       for (; ; ) {
         let curTo = Math.min(cursor.to, to);
         if (cursor.point) {
-          iterator.point(pos, curTo, cursor.point, cursor.activeForPoint(cursor.to), open);
+          iterator.point(pos, curTo, cursor.point, cursor.activeForPoint(cursor.to), open, cursor.pointRank);
           open = cursor.openEnd(curTo) + (cursor.to > curTo ? 1 : 0);
         } else if (curTo > pos) {
           iterator.span(pos, curTo, cursor.active, open);
@@ -2389,13 +2300,13 @@
     let inA = /* @__PURE__ */ new Map();
     for (let set of a)
       for (let i = 0; i < set.chunk.length; i++)
-        if (set.chunk[i].maxPoint < 500)
+        if (set.chunk[i].maxPoint <= 0)
           inA.set(set.chunk[i], set.chunkPos[i]);
     let shared = /* @__PURE__ */ new Set();
     for (let set of b)
       for (let i = 0; i < set.chunk.length; i++) {
         let known = inA.get(set.chunk[i]);
-        if (known != null && (textDiff ? textDiff.mapPos(known) : known) == set.chunkPos[i])
+        if (known != null && (textDiff ? textDiff.mapPos(known) : known) == set.chunkPos[i] && !(textDiff === null || textDiff === void 0 ? void 0 : textDiff.touchesRange(known, known + set.chunk[i].length)))
           shared.add(set.chunk[i]);
       }
     return shared;
@@ -2473,7 +2384,7 @@
       this.next();
     }
     compare(other) {
-      return this.from - other.from || this.startSide - other.startSide || this.to - other.to || this.endSide - other.endSide;
+      return this.from - other.from || this.startSide - other.startSide || this.rank - other.rank || this.to - other.to || this.endSide - other.endSide;
     }
   };
   var HeapCursor = class {
@@ -2617,7 +2528,7 @@
           if (!nextVal.point) {
             this.addActive(trackOpen);
             this.cursor.next();
-          } else if (wasPoint && this.cursor.to == this.to && this.cursor.from < this.cursor.to && nextVal.endSide == this.endSide) {
+          } else if (wasPoint && this.cursor.to == this.to && this.cursor.from < this.cursor.to) {
             this.cursor.next();
           } else {
             this.point = nextVal;
@@ -2628,8 +2539,7 @@
             if (this.cursor.from < from)
               trackExtra = 1;
             this.cursor.next();
-            if (this.to > from)
-              this.forward(this.to, this.endSide);
+            this.forward(this.to, this.endSide);
             break;
           }
         }
@@ -2711,6 +2621,127 @@
       }
     return found;
   }
+  function countColumn(string2, tabSize, to = string2.length) {
+    let n = 0;
+    for (let i = 0; i < to; ) {
+      if (string2.charCodeAt(i) == 9) {
+        n += tabSize - n % tabSize;
+        i++;
+      } else {
+        n++;
+        i = findClusterBreak(string2, i);
+      }
+    }
+    return n;
+  }
+  function findColumn(string2, col, tabSize, strict) {
+    for (let i = 0, n = 0; ; ) {
+      if (n >= col)
+        return i;
+      if (i == string2.length)
+        break;
+      n += string2.charCodeAt(i) == 9 ? tabSize - n % tabSize : 1;
+      i = findClusterBreak(string2, i);
+    }
+    return strict === true ? -1 : string2.length;
+  }
+
+  // node_modules/style-mod/src/style-mod.js
+  var C = "\u037C";
+  var COUNT = typeof Symbol == "undefined" ? "__" + C : Symbol.for(C);
+  var SET = typeof Symbol == "undefined" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet");
+  var top = typeof globalThis != "undefined" ? globalThis : typeof window != "undefined" ? window : {};
+  var StyleModule = class {
+    constructor(spec, options) {
+      this.rules = [];
+      let { finish } = options || {};
+      function splitSelector(selector) {
+        return /^@/.test(selector) ? [selector] : selector.split(/,\s*/);
+      }
+      function render(selectors, spec2, target, isKeyframes) {
+        let local = [], isAt = /^@(\w+)\b/.exec(selectors[0]), keyframes = isAt && isAt[1] == "keyframes";
+        if (isAt && spec2 == null)
+          return target.push(selectors[0] + ";");
+        for (let prop in spec2) {
+          let value = spec2[prop];
+          if (/&/.test(prop)) {
+            render(prop.split(/,\s*/).map((part) => selectors.map((sel) => part.replace(/&/, sel))).reduce((a, b) => a.concat(b)), value, target);
+          } else if (value && typeof value == "object") {
+            if (!isAt)
+              throw new RangeError("The value of a property (" + prop + ") should be a primitive value.");
+            render(splitSelector(prop), value, local, keyframes);
+          } else if (value != null) {
+            local.push(prop.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value + ";");
+          }
+        }
+        if (local.length || keyframes) {
+          target.push((finish && !isAt && !isKeyframes ? selectors.map(finish) : selectors).join(", ") + " {" + local.join(" ") + "}");
+        }
+      }
+      for (let prop in spec)
+        render(splitSelector(prop), spec[prop], this.rules);
+    }
+    getRules() {
+      return this.rules.join("\n");
+    }
+    static newName() {
+      let id2 = top[COUNT] || 1;
+      top[COUNT] = id2 + 1;
+      return C + id2.toString(36);
+    }
+    static mount(root, modules) {
+      (root[SET] || new StyleSet(root)).mount(Array.isArray(modules) ? modules : [modules]);
+    }
+  };
+  var adoptedSet = null;
+  var StyleSet = class {
+    constructor(root) {
+      if (!root.head && root.adoptedStyleSheets && typeof CSSStyleSheet != "undefined") {
+        if (adoptedSet) {
+          root.adoptedStyleSheets = [adoptedSet.sheet].concat(root.adoptedStyleSheets);
+          return root[SET] = adoptedSet;
+        }
+        this.sheet = new CSSStyleSheet();
+        root.adoptedStyleSheets = [this.sheet].concat(root.adoptedStyleSheets);
+        adoptedSet = this;
+      } else {
+        this.styleTag = (root.ownerDocument || root).createElement("style");
+        let target = root.head || root;
+        target.insertBefore(this.styleTag, target.firstChild);
+      }
+      this.modules = [];
+      root[SET] = this;
+    }
+    mount(modules) {
+      let sheet = this.sheet;
+      let pos = 0, j = 0;
+      for (let i = 0; i < modules.length; i++) {
+        let mod = modules[i], index = this.modules.indexOf(mod);
+        if (index < j && index > -1) {
+          this.modules.splice(index, 1);
+          j--;
+          index = -1;
+        }
+        if (index == -1) {
+          this.modules.splice(j++, 0, mod);
+          if (sheet)
+            for (let k = 0; k < mod.rules.length; k++)
+              sheet.insertRule(mod.rules[k], pos++);
+        } else {
+          while (j < index)
+            pos += this.modules[j++].rules.length;
+          pos += mod.rules.length;
+          j++;
+        }
+      }
+      if (!sheet) {
+        let text = "";
+        for (let i = 0; i < this.modules.length; i++)
+          text += this.modules[i].getRules() + "\n";
+        this.styleTag.textContent = text;
+      }
+    }
+  };
 
   // node_modules/w3c-keyname/index.es.js
   var base = {
@@ -2845,7 +2876,7 @@
     return target.getSelection();
   }
   function contains(dom, node) {
-    return node ? dom.contains(node.nodeType != 1 ? node.parentNode : node) : false;
+    return node ? dom == node || dom.contains(node.nodeType != 1 ? node.parentNode : node) : false;
   }
   function deepActiveElement() {
     let elt = document.activeElement;
@@ -2918,8 +2949,7 @@
       bottom: win.innerHeight
     };
   }
-  var ScrollSpace = 5;
-  function scrollRectIntoView(dom, rect, side, center) {
+  function scrollRectIntoView(dom, rect, side, x, y, xMargin, yMargin, ltr) {
     let doc2 = dom.ownerDocument, win = doc2.defaultView;
     for (let cur = dom; cur; ) {
       if (cur.nodeType == 1) {
@@ -2940,35 +2970,34 @@
           };
         }
         let moveX = 0, moveY = 0;
-        if (center) {
+        if (y == "nearest") {
+          if (rect.top < bounding.top) {
+            moveY = -(bounding.top - rect.top + yMargin);
+            if (side > 0 && rect.bottom > bounding.bottom + moveY)
+              moveY = rect.bottom - bounding.bottom + moveY + yMargin;
+          } else if (rect.bottom > bounding.bottom) {
+            moveY = rect.bottom - bounding.bottom + yMargin;
+            if (side < 0 && rect.top - moveY < bounding.top)
+              moveY = -(bounding.top + moveY - rect.top + yMargin);
+          }
+        } else {
           let rectHeight = rect.bottom - rect.top, boundingHeight = bounding.bottom - bounding.top;
-          let targetTop;
-          if (rectHeight <= boundingHeight)
-            targetTop = rect.top + rectHeight / 2 - boundingHeight / 2;
-          else if (side < 0)
-            targetTop = rect.top - ScrollSpace;
-          else
-            targetTop = rect.bottom + ScrollSpace - boundingHeight;
+          let targetTop = y == "center" && rectHeight <= boundingHeight ? rect.top + rectHeight / 2 - boundingHeight / 2 : y == "start" || y == "center" && side < 0 ? rect.top - yMargin : rect.bottom - boundingHeight + yMargin;
           moveY = targetTop - bounding.top;
-          if (Math.abs(moveY) <= 1)
-            moveY = 0;
-        } else if (rect.top < bounding.top) {
-          moveY = -(bounding.top - rect.top + ScrollSpace);
-          if (side > 0 && rect.bottom > bounding.bottom + moveY)
-            moveY = rect.bottom - bounding.bottom + moveY + ScrollSpace;
-        } else if (rect.bottom > bounding.bottom) {
-          moveY = rect.bottom - bounding.bottom + ScrollSpace;
-          if (side < 0 && rect.top - moveY < bounding.top)
-            moveY = -(bounding.top + moveY - rect.top + ScrollSpace);
         }
-        if (rect.left < bounding.left) {
-          moveX = -(bounding.left - rect.left + ScrollSpace);
-          if (side > 0 && rect.right > bounding.right + moveX)
-            moveX = rect.right - bounding.right + moveX + ScrollSpace;
-        } else if (rect.right > bounding.right) {
-          moveX = rect.right - bounding.right + ScrollSpace;
-          if (side < 0 && rect.left < bounding.left + moveX)
-            moveX = -(bounding.left + moveX - rect.left + ScrollSpace);
+        if (x == "nearest") {
+          if (rect.left < bounding.left) {
+            moveX = -(bounding.left - rect.left + xMargin);
+            if (side > 0 && rect.right > bounding.right + moveX)
+              moveX = rect.right - bounding.right + moveX + xMargin;
+          } else if (rect.right > bounding.right) {
+            moveX = rect.right - bounding.right + xMargin;
+            if (side < 0 && rect.left < bounding.left + moveX)
+              moveX = -(bounding.left + moveX - rect.left + xMargin);
+          }
+        } else {
+          let targetLeft = x == "center" ? rect.left + (rect.right - rect.left) / 2 - (bounding.right - bounding.left) / 2 : x == "start" == ltr ? rect.left - xMargin : rect.right - (bounding.right - bounding.left) + xMargin;
+          moveX = targetLeft - bounding.left;
         }
         if (moveX || moveY) {
           if (top2) {
@@ -2995,7 +3024,7 @@
         if (top2)
           break;
         cur = cur.assignedSlot || cur.parentNode;
-        center = false;
+        x = y = "nearest";
       } else if (cur.nodeType == 11) {
         cur = cur.host;
       } else {
@@ -3077,6 +3106,10 @@
     }
     return null;
   }
+  function clearAttributes(node) {
+    while (node.attributes.length)
+      node.removeAttributeNode(node.attributes[0]);
+  }
   var DOMPos = class {
     constructor(node, offset, precise = true) {
       this.node = node;
@@ -3090,7 +3123,7 @@
       return new DOMPos(dom.parentNode, domIndex(dom) + 1, precise);
     }
   };
-  var none$3 = [];
+  var noChildren = [];
   var ContentView = class {
     constructor() {
       this.parent = null;
@@ -3127,31 +3160,35 @@
       return null;
     }
     sync(track) {
-      var _a;
       if (this.dirty & 2) {
         let parent = this.dom;
-        let pos = parent.firstChild;
+        let prev = null, next3;
         for (let child of this.children) {
           if (child.dirty) {
-            if (!child.dom && pos && !((_a = ContentView.get(pos)) === null || _a === void 0 ? void 0 : _a.parent))
-              child.reuseDOM(pos);
+            if (!child.dom && (next3 = prev ? prev.nextSibling : parent.firstChild)) {
+              let contentView = ContentView.get(next3);
+              if (!contentView || !contentView.parent && contentView.constructor == child.constructor)
+                child.reuseDOM(next3);
+            }
             child.sync(track);
             child.dirty = 0;
           }
-          if (track && !track.written && track.node == parent && pos != child.dom)
+          next3 = prev ? prev.nextSibling : parent.firstChild;
+          if (track && !track.written && track.node == parent && next3 != child.dom)
             track.written = true;
           if (child.dom.parentNode == parent) {
-            while (pos && pos != child.dom)
-              pos = rm(pos);
-            pos = child.dom.nextSibling;
+            while (next3 && next3 != child.dom)
+              next3 = rm$1(next3);
           } else {
-            parent.insertBefore(child.dom, pos);
+            parent.insertBefore(child.dom, next3);
           }
+          prev = child.dom;
         }
-        if (pos && track && track.node == parent)
+        next3 = prev ? prev.nextSibling : parent.firstChild;
+        if (next3 && track && track.node == parent)
           track.written = true;
-        while (pos)
-          pos = rm(pos);
+        while (next3)
+          next3 = rm$1(next3);
       } else if (this.dirty & 1) {
         for (let child of this.children)
           if (child.dirty) {
@@ -3161,7 +3198,6 @@
       }
     }
     reuseDOM(_dom) {
-      return false;
     }
     localPosFromDOM(node, offset) {
       let after;
@@ -3259,12 +3295,12 @@
         v = parent;
       }
     }
-    replaceChildren(from, to, children = none$3) {
+    replaceChildren(from, to, children = noChildren) {
       this.markDirty();
       for (let i = from; i < to; i++) {
         let child = this.children[i];
         if (child.parent == this)
-          child.parent = null;
+          child.destroy();
       }
       this.children.splice(from, to - from, ...children);
       for (let i = 0; i < children.length; i++)
@@ -3292,9 +3328,21 @@
     get isEditable() {
       return true;
     }
+    merge(from, to, source, hasStart, openStart, openEnd) {
+      return false;
+    }
+    become(other) {
+      return false;
+    }
+    getSide() {
+      return 0;
+    }
+    destroy() {
+      this.parent = null;
+    }
   };
   ContentView.prototype.breakAfter = 0;
-  function rm(dom) {
+  function rm$1(dom) {
     let next3 = dom.nextSibling;
     dom.parentNode.removeChild(dom);
     return next3;
@@ -3317,7 +3365,76 @@
       }
     }
   };
-  var [nav, doc] = typeof navigator != "undefined" ? [navigator, document] : [{ userAgent: "", vendor: "", platform: "" }, { documentElement: { style: {} } }];
+  function replaceRange(parent, fromI, fromOff, toI, toOff, insert2, breakAtStart, openStart, openEnd) {
+    let { children } = parent;
+    let before = children.length ? children[fromI] : null;
+    let last = insert2.length ? insert2[insert2.length - 1] : null;
+    let breakAtEnd = last ? last.breakAfter : breakAtStart;
+    if (fromI == toI && before && !breakAtStart && !breakAtEnd && insert2.length < 2 && before.merge(fromOff, toOff, insert2.length ? last : null, fromOff == 0, openStart, openEnd))
+      return;
+    if (toI < children.length) {
+      let after = children[toI];
+      if (after && toOff < after.length) {
+        if (fromI == toI) {
+          after = after.split(toOff);
+          toOff = 0;
+        }
+        if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
+          insert2[insert2.length - 1] = after;
+        } else {
+          if (toOff)
+            after.merge(0, toOff, null, false, 0, openEnd);
+          insert2.push(after);
+        }
+      } else if (after === null || after === void 0 ? void 0 : after.breakAfter) {
+        if (last)
+          last.breakAfter = 1;
+        else
+          breakAtStart = 1;
+      }
+      toI++;
+    }
+    if (before) {
+      before.breakAfter = breakAtStart;
+      if (fromOff > 0) {
+        if (!breakAtStart && insert2.length && before.merge(fromOff, before.length, insert2[0], false, openStart, 0)) {
+          before.breakAfter = insert2.shift().breakAfter;
+        } else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
+          before.merge(fromOff, before.length, null, false, openStart, 0);
+        }
+        fromI++;
+      }
+    }
+    while (fromI < toI && insert2.length) {
+      if (children[toI - 1].become(insert2[insert2.length - 1])) {
+        toI--;
+        insert2.pop();
+        openEnd = insert2.length ? 0 : openStart;
+      } else if (children[fromI].become(insert2[0])) {
+        fromI++;
+        insert2.shift();
+        openStart = insert2.length ? 0 : openEnd;
+      } else {
+        break;
+      }
+    }
+    if (!insert2.length && fromI && toI < children.length && !children[fromI - 1].breakAfter && children[toI].merge(0, 0, children[fromI - 1], false, openStart, openEnd))
+      fromI--;
+    if (fromI < toI || insert2.length)
+      parent.replaceChildren(fromI, toI, insert2);
+  }
+  function mergeChildrenInto(parent, from, to, insert2, openStart, openEnd) {
+    let cur = parent.childCursor();
+    let { i: toI, off: toOff } = cur.findPos(to, 1);
+    let { i: fromI, off: fromOff } = cur.findPos(from, -1);
+    let dLen = from - to;
+    for (let view of insert2)
+      dLen += view.length;
+    parent.length += dLen;
+    replaceRange(parent, fromI, fromOff, toI, toOff, insert2, 0, openStart, openEnd);
+  }
+  var nav = typeof navigator != "undefined" ? navigator : { userAgent: "", vendor: "", platform: "" };
+  var doc = typeof document != "undefined" ? document : { documentElement: { style: {} } };
   var ie_edge = /* @__PURE__ */ /Edge\/(\d+)/.exec(nav.userAgent);
   var ie_upto10 = /* @__PURE__ */ /MSIE \d/.test(nav.userAgent);
   var ie_11up = /* @__PURE__ */ /Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(nav.userAgent);
@@ -3344,18 +3461,8 @@
     webkit_version: webkit ? +(/* @__PURE__ */ /\bAppleWebKit\/(\d+)/.exec(navigator.userAgent) || [0, 0])[1] : 0,
     tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
   };
-  var none$2 = [];
-  var InlineView = class extends ContentView {
-    become(_other) {
-      return false;
-    }
-    getSide() {
-      return 0;
-    }
-  };
-  InlineView.prototype.children = none$2;
   var MaxJoinLen = 256;
-  var TextView = class extends InlineView {
+  var TextView = class extends ContentView {
     constructor(text) {
       super();
       this.text = text;
@@ -3376,10 +3483,8 @@
       }
     }
     reuseDOM(dom) {
-      if (dom.nodeType != 3)
-        return false;
-      this.createDOM(dom);
-      return true;
+      if (dom.nodeType == 3)
+        this.createDOM(dom);
     }
     merge(from, to, source) {
       if (source && (!(source instanceof TextView) || this.length - (to - from) + source.length > MaxJoinLen))
@@ -3388,9 +3493,10 @@
       this.markDirty();
       return true;
     }
-    slice(from) {
+    split(from) {
       let result = new TextView(this.text.slice(from));
       this.text = this.text.slice(0, from);
+      this.markDirty();
       return result;
     }
     localPosFromDOM(node, offset) {
@@ -3406,7 +3512,7 @@
       return textCoords(this.dom, pos, side);
     }
   };
-  var MarkView = class extends InlineView {
+  var MarkView = class extends ContentView {
     constructor(mark, children = [], length = 0) {
       super();
       this.mark = mark;
@@ -3415,33 +3521,41 @@
       for (let ch of children)
         ch.setParent(this);
     }
-    createDOM() {
-      let dom = document.createElement(this.mark.tagName);
+    setAttrs(dom) {
+      clearAttributes(dom);
       if (this.mark.class)
         dom.className = this.mark.class;
       if (this.mark.attrs)
         for (let name2 in this.mark.attrs)
           dom.setAttribute(name2, this.mark.attrs[name2]);
-      this.setDOM(dom);
+      return dom;
+    }
+    reuseDOM(node) {
+      if (node.nodeName == this.mark.tagName.toUpperCase()) {
+        this.setDOM(node);
+        this.dirty |= 4 | 2;
+      }
     }
     sync(track) {
-      if (!this.dom || this.dirty & 4)
-        this.createDOM();
+      if (!this.dom)
+        this.setDOM(this.setAttrs(document.createElement(this.mark.tagName)));
+      else if (this.dirty & 4)
+        this.setAttrs(this.dom);
       super.sync(track);
     }
-    merge(from, to, source, openStart, openEnd) {
+    merge(from, to, source, _hasStart, openStart, openEnd) {
       if (source && (!(source instanceof MarkView && source.mark.eq(this.mark)) || from && openStart <= 0 || to < this.length && openEnd <= 0))
         return false;
-      mergeInlineChildren(this, from, to, source ? source.children : none$2, openStart - 1, openEnd - 1);
+      mergeChildrenInto(this, from, to, source ? source.children : [], openStart - 1, openEnd - 1);
       this.markDirty();
       return true;
     }
-    slice(from) {
+    split(from) {
       let result = [], off = 0, detachFrom = -1, i = 0;
       for (let elt of this.children) {
         let end = off + elt.length;
         if (end > from)
-          result.push(off < from ? elt.slice(from - off) : elt);
+          result.push(off < from ? elt.split(from - off) : elt);
         if (detachFrom < 0 && off >= from)
           detachFrom = i;
         off = end;
@@ -3449,8 +3563,10 @@
       }
       let length = this.length - from;
       this.length = from;
-      if (detachFrom > -1)
-        this.replaceChildren(detachFrom, this.children.length);
+      if (detachFrom > -1) {
+        this.children.length = detachFrom;
+        this.markDirty();
+      }
       return new MarkView(this.mark, result, length);
     }
     domAtPos(pos) {
@@ -3489,23 +3605,27 @@
       rect = Array.prototype.find.call(rects, (r) => r.width) || rect;
     return flatten2 ? flattenRect(rect, flatten2 < 0) : rect || null;
   }
-  var WidgetView = class extends InlineView {
+  var WidgetView = class extends ContentView {
     constructor(widget, length, side) {
       super();
       this.widget = widget;
       this.length = length;
       this.side = side;
+      this.prevWidget = null;
     }
     static create(widget, length, side) {
       return new (widget.customView || WidgetView)(widget, length, side);
     }
-    slice(from) {
+    split(from) {
       let result = WidgetView.create(this.widget, this.length - from, this.side);
       this.length -= from;
       return result;
     }
     sync() {
       if (!this.dom || !this.widget.updateDOM(this.dom)) {
+        if (this.dom && this.prevWidget)
+          this.prevWidget.destroy(this.dom);
+        this.prevWidget = null;
         this.setDOM(this.widget.toDOM(this.editorView));
         this.dom.contentEditable = "false";
       }
@@ -3513,7 +3633,7 @@
     getSide() {
       return this.side;
     }
-    merge(from, to, source, openStart, openEnd) {
+    merge(from, to, source, hasStart, openStart, openEnd) {
       if (source && (!(source instanceof WidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
         return false;
       this.length = from + (source ? source.length : 0) + (this.length - to);
@@ -3524,6 +3644,8 @@
         if (this.widget.constructor == other.widget.constructor) {
           if (!this.widget.eq(other.widget))
             this.markDirty(true);
+          if (this.dom && !this.prevWidget)
+            this.prevWidget = this.widget;
           this.widget = other.widget;
           return true;
         }
@@ -3565,17 +3687,27 @@
     get isEditable() {
       return false;
     }
+    destroy() {
+      super.destroy();
+      if (this.dom)
+        this.widget.destroy(this.dom);
+    }
   };
   var CompositionView = class extends WidgetView {
     domAtPos(pos) {
-      return new DOMPos(this.widget.text, pos);
+      let { topView, text } = this.widget;
+      if (!topView)
+        return new DOMPos(text, Math.min(pos, text.nodeValue.length));
+      return scanCompositionTree(pos, 0, topView, text, (v, p) => v.domAtPos(p), (p) => new DOMPos(text, Math.min(p, text.nodeValue.length)));
     }
     sync() {
-      if (!this.dom)
-        this.setDOM(this.widget.toDOM());
+      this.setDOM(this.widget.toDOM());
     }
     localPosFromDOM(node, offset) {
-      return !offset ? 0 : node.nodeType == 3 ? Math.min(offset, this.length) : this.length;
+      let { topView, text } = this.widget;
+      if (!topView)
+        return Math.min(offset, this.length);
+      return posFromDOMInCompositionTree(node, offset, topView, text);
     }
     ignoreMutation() {
       return false;
@@ -3584,13 +3716,50 @@
       return null;
     }
     coordsAt(pos, side) {
-      return textCoords(this.widget.text, pos, side);
+      let { topView, text } = this.widget;
+      if (!topView)
+        return textCoords(text, pos, side);
+      return scanCompositionTree(pos, side, topView, text, (v, pos2, side2) => v.coordsAt(pos2, side2), (pos2, side2) => textCoords(text, pos2, side2));
+    }
+    destroy() {
+      var _a2;
+      super.destroy();
+      (_a2 = this.widget.topView) === null || _a2 === void 0 ? void 0 : _a2.destroy();
     }
     get isEditable() {
       return true;
     }
   };
-  var WidgetBufferView = class extends InlineView {
+  function scanCompositionTree(pos, side, view, text, enterView, fromText) {
+    if (view instanceof MarkView) {
+      for (let child of view.children) {
+        let hasComp = contains(child.dom, text);
+        let len = hasComp ? text.nodeValue.length : child.length;
+        if (pos < len || pos == len && child.getSide() <= 0)
+          return hasComp ? scanCompositionTree(pos, side, child, text, enterView, fromText) : enterView(child, pos, side);
+        pos -= len;
+      }
+      return enterView(view, view.length, -1);
+    } else if (view.dom == text) {
+      return fromText(pos, side);
+    } else {
+      return enterView(view, pos, side);
+    }
+  }
+  function posFromDOMInCompositionTree(node, offset, view, text) {
+    if (view instanceof MarkView) {
+      for (let child of view.children) {
+        let pos = 0, hasComp = contains(child.dom, text);
+        if (contains(child.dom, node))
+          return pos + (hasComp ? posFromDOMInCompositionTree(node, offset, child, text) : child.localPosFromDOM(node, offset));
+        pos += hasComp ? text.nodeValue.length : child.length;
+      }
+    } else if (view.dom == text) {
+      return Math.min(offset, text.nodeValue.length);
+    }
+    return view.localPosFromDOM(node, offset);
+  }
+  var WidgetBufferView = class extends ContentView {
     constructor(side) {
       super();
       this.side = side;
@@ -3604,14 +3773,16 @@
     become(other) {
       return other instanceof WidgetBufferView && other.side == this.side;
     }
-    slice() {
+    split() {
       return new WidgetBufferView(this.side);
     }
     sync() {
-      if (!this.dom)
-        this.setDOM(document.createTextNode("\u200B"));
-      else if (this.dirty && this.dom.nodeValue != "\u200B")
-        this.dom.nodeValue = "\u200B";
+      if (!this.dom) {
+        let dom = document.createElement("img");
+        dom.className = "cm-widgetBuffer";
+        dom.setAttribute("aria-hidden", "true");
+        this.setDOM(dom);
+      }
     }
     getSide() {
       return this.side;
@@ -3619,84 +3790,44 @@
     domAtPos(pos) {
       return DOMPos.before(this.dom);
     }
+    localPosFromDOM() {
+      return 0;
+    }
     domBoundsAround() {
       return null;
     }
     coordsAt(pos) {
-      let rects = clientRectsFor(this.dom);
-      return rects[rects.length - 1] || null;
+      let imgRect = this.dom.getBoundingClientRect();
+      let siblingRect = inlineSiblingRect(this, this.side > 0 ? -1 : 1);
+      return siblingRect && siblingRect.top < imgRect.bottom && siblingRect.bottom > imgRect.top ? { left: imgRect.left, right: imgRect.right, top: siblingRect.top, bottom: siblingRect.bottom } : imgRect;
     }
     get overrideDOMText() {
-      return Text.of([this.dom.nodeValue.replace(/\u200b/g, "")]);
+      return Text.empty;
     }
   };
-  function mergeInlineChildren(parent, from, to, elts, openStart, openEnd) {
-    let cur = parent.childCursor();
-    let { i: toI, off: toOff } = cur.findPos(to, 1);
-    let { i: fromI, off: fromOff } = cur.findPos(from, -1);
-    let dLen = from - to;
-    for (let view of elts)
-      dLen += view.length;
-    parent.length += dLen;
-    let { children } = parent;
-    if (fromI == toI && fromOff) {
-      let start = children[fromI];
-      if (elts.length == 1 && start.merge(fromOff, toOff, elts[0], openStart, openEnd))
-        return;
-      if (elts.length == 0) {
-        start.merge(fromOff, toOff, null, openStart, openEnd);
-        return;
-      }
-      let after = start.slice(toOff);
-      if (after.merge(0, 0, elts[elts.length - 1], 0, openEnd))
-        elts[elts.length - 1] = after;
-      else
-        elts.push(after);
-      toI++;
-      openEnd = toOff = 0;
-    }
-    if (toOff) {
-      let end = children[toI];
-      if (elts.length && end.merge(0, toOff, elts[elts.length - 1], 0, openEnd)) {
-        elts.pop();
-        openEnd = elts.length ? 0 : openStart;
+  TextView.prototype.children = WidgetView.prototype.children = WidgetBufferView.prototype.children = noChildren;
+  function inlineSiblingRect(view, side) {
+    let parent = view.parent, index = parent ? parent.children.indexOf(view) : -1;
+    while (parent && index >= 0) {
+      if (side < 0 ? index > 0 : index < parent.children.length) {
+        let next3 = parent.children[index + side];
+        if (next3 instanceof TextView) {
+          let nextRect = next3.coordsAt(side < 0 ? next3.length : 0, side);
+          if (nextRect)
+            return nextRect;
+        }
+        index += side;
+      } else if (parent instanceof MarkView && parent.parent) {
+        index = parent.parent.children.indexOf(parent) + (side < 0 ? 0 : 1);
+        parent = parent.parent;
       } else {
-        end.merge(0, toOff, null, 0, 0);
-      }
-    } else if (toI < children.length && elts.length && children[toI].merge(0, 0, elts[elts.length - 1], 0, openEnd)) {
-      elts.pop();
-      openEnd = elts.length ? 0 : openStart;
-    }
-    if (fromOff) {
-      let start = children[fromI];
-      if (elts.length && start.merge(fromOff, start.length, elts[0], openStart, 0)) {
-        elts.shift();
-        openStart = elts.length ? 0 : openEnd;
-      } else {
-        start.merge(fromOff, start.length, null, 0, 0);
-      }
-      fromI++;
-    } else if (fromI && elts.length) {
-      let end = children[fromI - 1];
-      if (end.merge(end.length, end.length, elts[0], openStart, 0)) {
-        elts.shift();
-        openStart = elts.length ? 0 : openEnd;
+        let last = parent.dom.lastChild;
+        if (last && last.nodeName == "BR")
+          return last.getClientRects()[0];
+        break;
       }
     }
-    while (fromI < toI && elts.length && children[toI - 1].become(elts[elts.length - 1])) {
-      elts.pop();
-      toI--;
-      openEnd = elts.length ? 0 : openStart;
-    }
-    while (fromI < toI && elts.length && children[fromI].become(elts[0])) {
-      elts.shift();
-      fromI++;
-      openStart = elts.length ? 0 : openEnd;
-    }
-    if (!elts.length && fromI && toI < children.length && children[toI].merge(0, 0, children[fromI - 1], openStart, openEnd))
-      fromI--;
-    if (elts.length || fromI != toI)
-      parent.replaceChildren(fromI, toI, elts);
+    return void 0;
   }
   function inlineDOMAtPos(dom, children, pos) {
     let i = 0;
@@ -3737,7 +3868,7 @@
             continue;
           flatten2 = side = -child.getSide();
         }
-        let rect = child.coordsAt(pos - off, side);
+        let rect = child.coordsAt(Math.max(0, pos - off), side);
         return flatten2 && rect ? flattenRect(rect, side < 0) : rect;
       }
       off = end;
@@ -3786,10 +3917,10 @@
     }
   }
   var WidgetType = class {
-    eq(_widget) {
+    eq(widget) {
       return false;
     }
-    updateDOM(_dom) {
+    updateDOM(dom) {
       return false;
     }
     compare(other) {
@@ -3798,11 +3929,13 @@
     get estimatedHeight() {
       return -1;
     }
-    ignoreEvent(_event) {
+    ignoreEvent(event) {
       return true;
     }
     get customView() {
       return null;
+    }
+    destroy(dom) {
     }
   };
   var BlockType = /* @__PURE__ */ function(BlockType2) {
@@ -3827,14 +3960,20 @@
       return new MarkDecoration(spec);
     }
     static widget(spec) {
-      let side = spec.side || 0;
-      return new PointDecoration(spec, side, side, !!spec.block, spec.widget || null, false);
+      let side = spec.side || 0, block = !!spec.block;
+      side += block ? side > 0 ? 3e8 : -4e8 : side > 0 ? 1e8 : -1e8;
+      return new PointDecoration(spec, side, side, block, spec.widget || null, false);
     }
     static replace(spec) {
-      let block = !!spec.block;
-      let { start, end } = getInclusive(spec, block);
-      let startSide = 1e8 * (start ? -1 : 1) * (block ? 2 : 1);
-      let endSide = 1e8 * (end ? 1 : -1) * (block ? 2 : 1);
+      let block = !!spec.block, startSide, endSide;
+      if (spec.isBlockGap) {
+        startSide = -5e8;
+        endSide = 4e8;
+      } else {
+        let { start, end } = getInclusive(spec, block);
+        startSide = (start ? block ? -3e8 : -1 : 5e8) - 1;
+        endSide = (end ? block ? 2e8 : 1 : -6e8) + 1;
+      }
       return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
     }
     static line(spec) {
@@ -3851,7 +3990,7 @@
   var MarkDecoration = class extends Decoration {
     constructor(spec) {
       let { start, end } = getInclusive(spec);
-      super(1e8 * (start ? -1 : 1), 1e8 * (end ? 1 : -1), null, spec);
+      super(start ? -1 : 5e8, end ? 1 : -6e8, null, spec);
       this.tagName = spec.tagName || "span";
       this.class = spec.class || "";
       this.attrs = spec.attributes || null;
@@ -3868,7 +4007,7 @@
   MarkDecoration.prototype.point = false;
   var LineDecoration = class extends Decoration {
     constructor(spec) {
-      super(-1e8, -1e8, null, spec);
+      super(-2e8, -2e8, null, spec);
     }
     eq(other) {
       return other instanceof LineDecoration && attrsEq(this.spec.attributes, other.spec.attributes);
@@ -3886,10 +4025,10 @@
       super(startSide, endSide, widget, spec);
       this.block = block;
       this.isReplace = isReplace;
-      this.mapMode = !block ? MapMode.TrackDel : startSide < 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
+      this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
     }
     get type() {
-      return this.startSide < this.endSide ? BlockType.WidgetRange : this.startSide < 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
+      return this.startSide < this.endSide ? BlockType.WidgetRange : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
     }
     get heightRelevant() {
       return this.block || !!this.widget && this.widget.estimatedHeight >= 5;
@@ -3898,7 +4037,7 @@
       return other instanceof PointDecoration && widgetsEq(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
     }
     range(from, to = from) {
-      if (this.isReplace && (from > to || from == to && this.startSide > 0 && this.endSide < 0))
+      if (this.isReplace && (from > to || from == to && this.startSide > 0 && this.endSide <= 0))
         throw new RangeError("Invalid range for replacement decoration");
       if (!this.isReplace && to != from)
         throw new RangeError("Widget decorations can only have zero-length ranges");
@@ -3919,7 +4058,7 @@
   }
   function addRange(from, to, ranges, margin = 0) {
     let last = ranges.length - 1;
-    if (last >= 0 && ranges[last] + margin > from)
+    if (last >= 0 && ranges[last] + margin >= from)
       ranges[last] = Math.max(ranges[last], to);
     else
       ranges.push(from, to);
@@ -3933,16 +4072,16 @@
       this.attrs = null;
       this.breakAfter = 0;
     }
-    merge(from, to, source, takeDeco, openStart, openEnd) {
+    merge(from, to, source, hasStart, openStart, openEnd) {
       if (source) {
         if (!(source instanceof LineView))
           return false;
         if (!this.dom)
           source.transferDOM(this);
       }
-      if (takeDeco)
+      if (hasStart)
         this.setDeco(source ? source.attrs : null);
-      mergeInlineChildren(this, from, to, source ? source.children : none$1, openStart, openEnd);
+      mergeChildrenInto(this, from, to, source ? source.children : [], openStart, openEnd);
       return true;
     }
     split(at) {
@@ -3952,16 +4091,14 @@
         return end;
       let { i, off } = this.childPos(at);
       if (off) {
-        end.append(this.children[i].slice(off), 0);
-        this.children[i].merge(off, this.children[i].length, null, 0, 0);
+        end.append(this.children[i].split(off), 0);
+        this.children[i].merge(off, this.children[i].length, null, false, 0, 0);
         i++;
       }
       for (let j = i; j < this.children.length; j++)
         end.append(this.children[j], 0);
-      while (i > 0 && this.children[i - 1].length == 0) {
-        this.children[i - 1].parent = null;
-        i--;
-      }
+      while (i > 0 && this.children[i - 1].length == 0)
+        this.children[--i].destroy();
       this.children.length = i;
       this.markDirty();
       this.length = at;
@@ -3992,15 +4129,25 @@
       if (attrs)
         this.attrs = combineAttrs(attrs, this.attrs || {});
       if (cls)
-        this.attrs = combineAttrs(attrs, { class: cls });
+        this.attrs = combineAttrs({ class: cls }, this.attrs || {});
     }
     domAtPos(pos) {
       return inlineDOMAtPos(this.dom, this.children, pos);
     }
+    reuseDOM(node) {
+      if (node.nodeName == "DIV") {
+        this.setDOM(node);
+        this.dirty |= 4 | 2;
+      }
+    }
     sync(track) {
-      var _a;
-      if (!this.dom || this.dirty & 4) {
+      var _a2;
+      if (!this.dom) {
         this.setDOM(document.createElement("div"));
+        this.dom.className = "cm-line";
+        this.prevAttrs = this.attrs ? null : void 0;
+      } else if (this.dirty & 4) {
+        clearAttributes(this.dom);
         this.dom.className = "cm-line";
         this.prevAttrs = this.attrs ? null : void 0;
       }
@@ -4013,7 +4160,7 @@
       let last = this.dom.lastChild;
       while (last && ContentView.get(last) instanceof MarkView)
         last = last.lastChild;
-      if (!last || last.nodeName != "BR" && ((_a = ContentView.get(last)) === null || _a === void 0 ? void 0 : _a.isEditable) == false && (!browser.ios || !this.children.some((ch) => ch instanceof TextView))) {
+      if (!last || !this.length || last.nodeName != "BR" && ((_a2 = ContentView.get(last)) === null || _a2 === void 0 ? void 0 : _a2.isEditable) == false && (!browser.ios || !this.children.some((ch) => ch instanceof TextView))) {
         let hack = document.createElement("BR");
         hack.cmIgnore = true;
         this.dom.appendChild(hack);
@@ -4039,26 +4186,26 @@
     coordsAt(pos, side) {
       return coordsInChildren(this, pos, side);
     }
-    match(_other) {
+    become(_other) {
       return false;
     }
     get type() {
       return BlockType.Text;
     }
     static find(docView, pos) {
-      for (let i = 0, off = 0; ; i++) {
+      for (let i = 0, off = 0; i < docView.children.length; i++) {
         let block = docView.children[i], end = off + block.length;
         if (end >= pos) {
           if (block instanceof LineView)
             return block;
-          if (block.length)
-            return null;
+          if (end > pos)
+            break;
         }
         off = end + block.breakAfter;
       }
+      return null;
     }
   };
-  var none$1 = [];
   var BlockWidgetView = class extends ContentView {
     constructor(widget, length, type) {
       super();
@@ -4066,6 +4213,7 @@
       this.length = length;
       this.type = type;
       this.breakAfter = 0;
+      this.prevWidget = null;
     }
     merge(from, to, source, _takeDeco, openStart, openEnd) {
       if (source && (!(source instanceof BlockWidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
@@ -4084,10 +4232,13 @@
       return end;
     }
     get children() {
-      return none$1;
+      return noChildren;
     }
     sync() {
       if (!this.dom || !this.widget.updateDOM(this.dom)) {
+        if (this.dom && this.prevWidget)
+          this.prevWidget.destroy(this.dom);
+        this.prevWidget = null;
         this.setDOM(this.widget.toDOM(this.editorView));
         this.dom.contentEditable = "false";
       }
@@ -4098,10 +4249,12 @@
     domBoundsAround() {
       return null;
     }
-    match(other) {
+    become(other) {
       if (other instanceof BlockWidgetView && other.type == this.type && other.widget.constructor == this.widget.constructor) {
         if (!other.widget.eq(this.widget))
           this.markDirty(true);
+        if (this.dom && !this.prevWidget)
+          this.prevWidget = this.widget;
         this.widget = other.widget;
         this.length = other.length;
         this.breakAfter = other.breakAfter;
@@ -4115,12 +4268,18 @@
     ignoreEvent(event) {
       return this.widget.ignoreEvent(event);
     }
+    destroy() {
+      super.destroy();
+      if (this.dom)
+        this.widget.destroy(this.dom);
+    }
   };
   var ContentBuilder = class {
-    constructor(doc2, pos, end) {
+    constructor(doc2, pos, end, disallowBlockEffectsFor) {
       this.doc = doc2;
       this.pos = pos;
       this.end = end;
+      this.disallowBlockEffectsFor = disallowBlockEffectsFor;
       this.content = [];
       this.curLine = null;
       this.breakAtStart = 0;
@@ -4189,7 +4348,7 @@
           }
         }
         let take = Math.min(this.text.length - this.textOff, length, 512);
-        this.flushBuffer(active);
+        this.flushBuffer(active.slice(0, openStart));
         this.getLine().append(wrapMarks(new TextView(this.text.slice(this.textOff, this.textOff + take)), active), openStart);
         this.atCursorPos = true;
         this.textOff += take;
@@ -4203,7 +4362,13 @@
       if (this.openStart < 0)
         this.openStart = openStart;
     }
-    point(from, to, deco, active, openStart) {
+    point(from, to, deco, active, openStart, index) {
+      if (this.disallowBlockEffectsFor[index] && deco instanceof PointDecoration) {
+        if (deco.block)
+          throw new RangeError("Block decorations may not be specified via plugins");
+        if (to > this.doc.lineAt(this.pos).to)
+          throw new RangeError("Decorations that replace line breaks may not be specified via plugins");
+      }
       let len = to - from;
       if (deco instanceof PointDecoration) {
         if (deco.block) {
@@ -4243,8 +4408,8 @@
       if (this.openStart < 0)
         this.openStart = openStart;
     }
-    static build(text, from, to, decorations2) {
-      let builder = new ContentBuilder(text, from, to);
+    static build(text, from, to, decorations2, dynamicDecorationMap) {
+      let builder = new ContentBuilder(text, from, to, dynamicDecorationMap);
       builder.openEnd = RangeSet.spans(decorations2, from, to, builder);
       if (builder.openStart < 0)
         builder.openStart = builder.openEnd;
@@ -4279,12 +4444,22 @@
   var exceptionSink = /* @__PURE__ */ Facet.define();
   var updateListener = /* @__PURE__ */ Facet.define();
   var inputHandler = /* @__PURE__ */ Facet.define();
-  var scrollTo = /* @__PURE__ */ StateEffect.define({
-    map: (range, changes) => range.map(changes)
+  var perLineTextDirection = /* @__PURE__ */ Facet.define({
+    combine: (values) => values.some((x) => x)
   });
-  var centerOn = /* @__PURE__ */ StateEffect.define({
-    map: (range, changes) => range.map(changes)
-  });
+  var ScrollTarget = class {
+    constructor(range, y = "nearest", x = "nearest", yMargin = 5, xMargin = 5) {
+      this.range = range;
+      this.y = y;
+      this.x = x;
+      this.yMargin = yMargin;
+      this.xMargin = xMargin;
+    }
+    map(changes) {
+      return changes.empty ? this : new ScrollTarget(this.range.map(changes), this.y, this.x, this.yMargin, this.xMargin);
+    }
+  };
+  var scrollIntoView = /* @__PURE__ */ StateEffect.define({ map: (t2, ch) => t2.map(ch) });
   function logException(state, exception, context) {
     let handler = state.facet(exceptionSink);
     if (handler.length)
@@ -4297,90 +4472,71 @@
       console.error(exception);
   }
   var editable = /* @__PURE__ */ Facet.define({ combine: (values) => values.length ? values[0] : true });
-  var PluginFieldProvider = class {
-    constructor(field, get) {
-      this.field = field;
-      this.get = get;
-    }
-  };
-  var PluginField = class {
-    from(get) {
-      return new PluginFieldProvider(this, get);
-    }
-    static define() {
-      return new PluginField();
-    }
-  };
-  PluginField.decorations = /* @__PURE__ */ PluginField.define();
-  PluginField.atomicRanges = /* @__PURE__ */ PluginField.define();
-  PluginField.scrollMargins = /* @__PURE__ */ PluginField.define();
   var nextPluginID = 0;
   var viewPlugin = /* @__PURE__ */ Facet.define();
   var ViewPlugin = class {
-    constructor(id2, create, fields) {
+    constructor(id2, create, domEventHandlers, buildExtensions) {
       this.id = id2;
       this.create = create;
-      this.fields = fields;
-      this.extension = viewPlugin.of(this);
+      this.domEventHandlers = domEventHandlers;
+      this.extension = buildExtensions(this);
     }
     static define(create, spec) {
-      let { eventHandlers, provide, decorations: decorations2 } = spec || {};
-      let fields = [];
-      if (provide)
-        for (let provider of Array.isArray(provide) ? provide : [provide])
-          fields.push(provider);
-      if (eventHandlers)
-        fields.push(domEventHandlers.from((value) => ({ plugin: value, handlers: eventHandlers })));
-      if (decorations2)
-        fields.push(PluginField.decorations.from(decorations2));
-      return new ViewPlugin(nextPluginID++, create, fields);
+      const { eventHandlers, provide, decorations: deco } = spec || {};
+      return new ViewPlugin(nextPluginID++, create, eventHandlers, (plugin) => {
+        let ext = [viewPlugin.of(plugin)];
+        if (deco)
+          ext.push(decorations.of((view) => {
+            let pluginInst = view.plugin(plugin);
+            return pluginInst ? deco(pluginInst) : Decoration.none;
+          }));
+        if (provide)
+          ext.push(provide(plugin));
+        return ext;
+      });
     }
     static fromClass(cls, spec) {
       return ViewPlugin.define((view) => new cls(view), spec);
     }
   };
-  var domEventHandlers = /* @__PURE__ */ PluginField.define();
   var PluginInstance = class {
     constructor(spec) {
       this.spec = spec;
       this.mustUpdate = null;
       this.value = null;
     }
-    takeField(type, target) {
-      for (let { field, get } of this.spec.fields)
-        if (field == type)
-          target.push(get(this.value));
-    }
     update(view) {
       if (!this.value) {
-        try {
-          this.value = this.spec.create(view);
-        } catch (e) {
-          logException(view.state, e, "CodeMirror plugin crashed");
-          return PluginInstance.dummy;
+        if (this.spec) {
+          try {
+            this.value = this.spec.create(view);
+          } catch (e) {
+            logException(view.state, e, "CodeMirror plugin crashed");
+            this.deactivate();
+          }
         }
       } else if (this.mustUpdate) {
         let update = this.mustUpdate;
         this.mustUpdate = null;
-        if (!this.value.update)
-          return this;
-        try {
-          this.value.update(update);
-        } catch (e) {
-          logException(update.state, e, "CodeMirror plugin crashed");
-          if (this.value.destroy)
-            try {
-              this.value.destroy();
-            } catch (_) {
-            }
-          return PluginInstance.dummy;
+        if (this.value.update) {
+          try {
+            this.value.update(update);
+          } catch (e) {
+            logException(update.state, e, "CodeMirror plugin crashed");
+            if (this.value.destroy)
+              try {
+                this.value.destroy();
+              } catch (_) {
+              }
+            this.deactivate();
+          }
         }
       }
       return this;
     }
     destroy(view) {
-      var _a;
-      if ((_a = this.value) === null || _a === void 0 ? void 0 : _a.destroy) {
+      var _a2;
+      if ((_a2 = this.value) === null || _a2 === void 0 ? void 0 : _a2.destroy) {
         try {
           this.value.destroy();
         } catch (e) {
@@ -4388,21 +4544,15 @@
         }
       }
     }
+    deactivate() {
+      this.spec = this.value = null;
+    }
   };
-  PluginInstance.dummy = /* @__PURE__ */ new PluginInstance(/* @__PURE__ */ ViewPlugin.define(() => ({})));
-  function combineFacetAttrs(values) {
-    let result = {};
-    for (let i = values.length - 1; i >= 0; i--)
-      combineAttrs(values[i], result);
-    return result;
-  }
-  var editorAttributes = /* @__PURE__ */ Facet.define({
-    combine: combineFacetAttrs
-  });
-  var contentAttributes = /* @__PURE__ */ Facet.define({
-    combine: combineFacetAttrs
-  });
+  var editorAttributes = /* @__PURE__ */ Facet.define();
+  var contentAttributes = /* @__PURE__ */ Facet.define();
   var decorations = /* @__PURE__ */ Facet.define();
+  var atomicRanges = /* @__PURE__ */ Facet.define();
+  var scrollMargins = /* @__PURE__ */ Facet.define();
   var styleModule = /* @__PURE__ */ Facet.define();
   var ChangedRange = class {
     constructor(fromA, toA, fromB, toB) {
@@ -4471,8 +4621,6 @@
         view.inputState.notifiedFocused = focus;
         this.flags |= 1;
       }
-      if (this.docChanged)
-        this.flags |= 2;
     }
     get viewportChanged() {
       return (this.flags & 4) > 0;
@@ -4487,7 +4635,7 @@
       return (this.flags & 1) > 0;
     }
     get docChanged() {
-      return this.transactions.some((tr) => tr.docChanged);
+      return !this.changes.empty;
     }
     get selectionSet() {
       return this.transactions.some((tr) => tr.selection);
@@ -4496,487 +4644,6 @@
       return this.flags == 0 && this.transactions.length == 0;
     }
   };
-  var DocView = class extends ContentView {
-    constructor(view) {
-      super();
-      this.view = view;
-      this.compositionDeco = Decoration.none;
-      this.decorations = [];
-      this.minWidth = 0;
-      this.minWidthFrom = 0;
-      this.minWidthTo = 0;
-      this.impreciseAnchor = null;
-      this.impreciseHead = null;
-      this.forceSelection = false;
-      this.lastUpdate = Date.now();
-      this.setDOM(view.contentDOM);
-      this.children = [new LineView()];
-      this.children[0].setParent(this);
-      this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], this.updateDeco(), 0);
-    }
-    get root() {
-      return this.view.root;
-    }
-    get editorView() {
-      return this.view;
-    }
-    get length() {
-      return this.view.state.doc.length;
-    }
-    update(update) {
-      let changedRanges = update.changedRanges;
-      if (this.minWidth > 0 && changedRanges.length) {
-        if (!changedRanges.every(({ fromA, toA }) => toA < this.minWidthFrom || fromA > this.minWidthTo)) {
-          this.minWidth = 0;
-        } else {
-          this.minWidthFrom = update.changes.mapPos(this.minWidthFrom, 1);
-          this.minWidthTo = update.changes.mapPos(this.minWidthTo, 1);
-        }
-      }
-      if (this.view.inputState.composing < 0)
-        this.compositionDeco = Decoration.none;
-      else if (update.transactions.length)
-        this.compositionDeco = computeCompositionDeco(this.view, update.changes);
-      if ((browser.ie || browser.chrome) && !this.compositionDeco.size && update && update.state.doc.lines != update.startState.doc.lines)
-        this.forceSelection = true;
-      let prevDeco = this.decorations, deco = this.updateDeco();
-      let decoDiff = findChangedDeco(prevDeco, deco, update.changes);
-      changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
-      if (this.dirty == 0 && changedRanges.length == 0) {
-        return false;
-      } else {
-        this.updateInner(changedRanges, deco, update.startState.doc.length);
-        if (update.transactions.length)
-          this.lastUpdate = Date.now();
-        return true;
-      }
-    }
-    reset(sel) {
-      if (this.dirty) {
-        this.view.observer.ignore(() => this.view.docView.sync());
-        this.dirty = 0;
-        this.updateSelection(true);
-      } else {
-        this.updateSelection();
-      }
-    }
-    updateInner(changes, deco, oldLength) {
-      this.view.viewState.mustMeasureContent = true;
-      this.updateChildren(changes, deco, oldLength);
-      let { observer } = this.view;
-      observer.ignore(() => {
-        this.dom.style.height = this.view.viewState.contentHeight + "px";
-        this.dom.style.minWidth = this.minWidth ? this.minWidth + "px" : "";
-        let track = browser.chrome || browser.ios ? { node: observer.selectionRange.focusNode, written: false } : void 0;
-        this.sync(track);
-        this.dirty = 0;
-        if (track && (track.written || observer.selectionRange.focusNode != track.node))
-          this.forceSelection = true;
-        this.dom.style.height = "";
-      });
-      let gaps = [];
-      if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length) {
-        for (let child of this.children)
-          if (child instanceof BlockWidgetView && child.widget instanceof BlockGapWidget)
-            gaps.push(child.dom);
-      }
-      observer.updateGaps(gaps);
-    }
-    updateChildren(changes, deco, oldLength) {
-      let cursor = this.childCursor(oldLength);
-      for (let i = changes.length - 1; ; i--) {
-        let next3 = i >= 0 ? changes[i] : null;
-        if (!next3)
-          break;
-        let { fromA, toA, fromB, toB } = next3;
-        let { content: content2, breakAtStart, openStart, openEnd } = ContentBuilder.build(this.view.state.doc, fromB, toB, deco);
-        let { i: toI, off: toOff } = cursor.findPos(toA, 1);
-        let { i: fromI, off: fromOff } = cursor.findPos(fromA, -1);
-        this.replaceRange(fromI, fromOff, toI, toOff, content2, breakAtStart, openStart, openEnd);
-      }
-    }
-    replaceRange(fromI, fromOff, toI, toOff, content2, breakAtStart, openStart, openEnd) {
-      let before = this.children[fromI], last = content2.length ? content2[content2.length - 1] : null;
-      let breakAtEnd = last ? last.breakAfter : breakAtStart;
-      if (fromI == toI && !breakAtStart && !breakAtEnd && content2.length < 2 && before.merge(fromOff, toOff, content2.length ? last : null, fromOff == 0, openStart, openEnd))
-        return;
-      let after = this.children[toI];
-      if (toOff < after.length) {
-        if (fromI == toI) {
-          after = after.split(toOff);
-          toOff = 0;
-        }
-        if (!breakAtEnd && last && after.merge(0, toOff, last, true, 0, openEnd)) {
-          content2[content2.length - 1] = after;
-        } else {
-          if (toOff)
-            after.merge(0, toOff, null, false, 0, openEnd);
-          content2.push(after);
-        }
-      } else if (after.breakAfter) {
-        if (last)
-          last.breakAfter = 1;
-        else
-          breakAtStart = 1;
-      }
-      toI++;
-      before.breakAfter = breakAtStart;
-      if (fromOff > 0) {
-        if (!breakAtStart && content2.length && before.merge(fromOff, before.length, content2[0], false, openStart, 0)) {
-          before.breakAfter = content2.shift().breakAfter;
-        } else if (fromOff < before.length || before.children.length && before.children[before.children.length - 1].length == 0) {
-          before.merge(fromOff, before.length, null, false, openStart, 0);
-        }
-        fromI++;
-      }
-      while (fromI < toI && content2.length) {
-        if (this.children[toI - 1].match(content2[content2.length - 1]))
-          toI--, content2.pop();
-        else if (this.children[fromI].match(content2[0]))
-          fromI++, content2.shift();
-        else
-          break;
-      }
-      if (fromI < toI || content2.length)
-        this.replaceChildren(fromI, toI, content2);
-    }
-    updateSelection(mustRead = false, fromPointer = false) {
-      if (mustRead)
-        this.view.observer.readSelectionRange();
-      if (!(fromPointer || this.mayControlSelection()) || browser.ios && this.view.inputState.rapidCompositionStart)
-        return;
-      let force = this.forceSelection;
-      this.forceSelection = false;
-      let main = this.view.state.selection.main;
-      let anchor = this.domAtPos(main.anchor);
-      let head = main.empty ? anchor : this.domAtPos(main.head);
-      if (browser.gecko && main.empty && betweenUneditable(anchor)) {
-        let dummy = document.createTextNode("");
-        this.view.observer.ignore(() => anchor.node.insertBefore(dummy, anchor.node.childNodes[anchor.offset] || null));
-        anchor = head = new DOMPos(dummy, 0);
-        force = true;
-      }
-      let domSel = this.view.observer.selectionRange;
-      if (force || !domSel.focusNode || !isEquivalentPosition(anchor.node, anchor.offset, domSel.anchorNode, domSel.anchorOffset) || !isEquivalentPosition(head.node, head.offset, domSel.focusNode, domSel.focusOffset)) {
-        this.view.observer.ignore(() => {
-          if (browser.android && browser.chrome && this.dom.contains(domSel.focusNode) && inUneditable(domSel.focusNode, this.dom)) {
-            this.dom.blur();
-            this.dom.focus({ preventScroll: true });
-          }
-          let rawSel = getSelection(this.root);
-          if (main.empty) {
-            if (browser.gecko) {
-              let nextTo = nextToUneditable(anchor.node, anchor.offset);
-              if (nextTo && nextTo != (1 | 2)) {
-                let text = nearbyTextNode(anchor.node, anchor.offset, nextTo == 1 ? 1 : -1);
-                if (text)
-                  anchor = new DOMPos(text, nextTo == 1 ? 0 : text.nodeValue.length);
-              }
-            }
-            rawSel.collapse(anchor.node, anchor.offset);
-            if (main.bidiLevel != null && domSel.cursorBidiLevel != null)
-              domSel.cursorBidiLevel = main.bidiLevel;
-          } else if (rawSel.extend) {
-            rawSel.collapse(anchor.node, anchor.offset);
-            rawSel.extend(head.node, head.offset);
-          } else {
-            let range = document.createRange();
-            if (main.anchor > main.head)
-              [anchor, head] = [head, anchor];
-            range.setEnd(head.node, head.offset);
-            range.setStart(anchor.node, anchor.offset);
-            rawSel.removeAllRanges();
-            rawSel.addRange(range);
-          }
-        });
-        this.view.observer.setSelectionRange(anchor, head);
-      }
-      this.impreciseAnchor = anchor.precise ? null : new DOMPos(domSel.anchorNode, domSel.anchorOffset);
-      this.impreciseHead = head.precise ? null : new DOMPos(domSel.focusNode, domSel.focusOffset);
-    }
-    enforceCursorAssoc() {
-      if (this.view.composing)
-        return;
-      let cursor = this.view.state.selection.main;
-      let sel = getSelection(this.root);
-      if (!cursor.empty || !cursor.assoc || !sel.modify)
-        return;
-      let line2 = LineView.find(this, cursor.head);
-      if (!line2)
-        return;
-      let lineStart = line2.posAtStart;
-      if (cursor.head == lineStart || cursor.head == lineStart + line2.length)
-        return;
-      let before = this.coordsAt(cursor.head, -1), after = this.coordsAt(cursor.head, 1);
-      if (!before || !after || before.bottom > after.top)
-        return;
-      let dom = this.domAtPos(cursor.head + cursor.assoc);
-      sel.collapse(dom.node, dom.offset);
-      sel.modify("move", cursor.assoc < 0 ? "forward" : "backward", "lineboundary");
-    }
-    mayControlSelection() {
-      return this.view.state.facet(editable) ? this.root.activeElement == this.dom : hasSelection(this.dom, this.view.observer.selectionRange);
-    }
-    nearest(dom) {
-      for (let cur = dom; cur; ) {
-        let domView = ContentView.get(cur);
-        if (domView && domView.rootView == this)
-          return domView;
-        cur = cur.parentNode;
-      }
-      return null;
-    }
-    posFromDOM(node, offset) {
-      let view = this.nearest(node);
-      if (!view)
-        throw new RangeError("Trying to find position for a DOM position outside of the document");
-      return view.localPosFromDOM(node, offset) + view.posAtStart;
-    }
-    domAtPos(pos) {
-      let { i, off } = this.childCursor().findPos(pos, -1);
-      for (; i < this.children.length - 1; ) {
-        let child = this.children[i];
-        if (off < child.length || child instanceof LineView)
-          break;
-        i++;
-        off = 0;
-      }
-      return this.children[i].domAtPos(off);
-    }
-    coordsAt(pos, side) {
-      for (let off = this.length, i = this.children.length - 1; ; i--) {
-        let child = this.children[i], start = off - child.breakAfter - child.length;
-        if (pos > start || pos == start && child.type != BlockType.WidgetBefore && child.type != BlockType.WidgetAfter && (!i || side == 2 || this.children[i - 1].breakAfter || this.children[i - 1].type == BlockType.WidgetBefore && side > -2))
-          return child.coordsAt(pos - start, side);
-        off = start;
-      }
-    }
-    measureVisibleLineHeights() {
-      let result = [], { from, to } = this.view.viewState.viewport;
-      let minWidth = Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
-      for (let pos = 0, i = 0; i < this.children.length; i++) {
-        let child = this.children[i], end = pos + child.length;
-        if (end > to)
-          break;
-        if (pos >= from) {
-          result.push(child.dom.getBoundingClientRect().height);
-          let width = child.dom.scrollWidth;
-          if (width > minWidth) {
-            this.minWidth = minWidth = width;
-            this.minWidthFrom = pos;
-            this.minWidthTo = end;
-          }
-        }
-        pos = end + child.breakAfter;
-      }
-      return result;
-    }
-    measureTextSize() {
-      for (let child of this.children) {
-        if (child instanceof LineView) {
-          let measure = child.measureTextSize();
-          if (measure)
-            return measure;
-        }
-      }
-      let dummy = document.createElement("div"), lineHeight, charWidth;
-      dummy.className = "cm-line";
-      dummy.textContent = "abc def ghi jkl mno pqr stu";
-      this.view.observer.ignore(() => {
-        this.dom.appendChild(dummy);
-        let rect = clientRectsFor(dummy.firstChild)[0];
-        lineHeight = dummy.getBoundingClientRect().height;
-        charWidth = rect ? rect.width / 27 : 7;
-        dummy.remove();
-      });
-      return { lineHeight, charWidth };
-    }
-    childCursor(pos = this.length) {
-      let i = this.children.length;
-      if (i)
-        pos -= this.children[--i].length;
-      return new ChildCursor(this.children, pos, i);
-    }
-    computeBlockGapDeco() {
-      let deco = [], vs = this.view.viewState;
-      for (let pos = 0, i = 0; ; i++) {
-        let next3 = i == vs.viewports.length ? null : vs.viewports[i];
-        let end = next3 ? next3.from - 1 : this.length;
-        if (end > pos) {
-          let height = vs.lineBlockAt(end).bottom - vs.lineBlockAt(pos).top;
-          deco.push(Decoration.replace({ widget: new BlockGapWidget(height), block: true, inclusive: true }).range(pos, end));
-        }
-        if (!next3)
-          break;
-        pos = next3.to + 1;
-      }
-      return Decoration.set(deco);
-    }
-    updateDeco() {
-      return this.decorations = [
-        ...this.view.pluginField(PluginField.decorations),
-        ...this.view.state.facet(decorations),
-        this.compositionDeco,
-        this.computeBlockGapDeco(),
-        this.view.viewState.lineGapDeco
-      ];
-    }
-    scrollIntoView({ range, center }) {
-      let rect = this.coordsAt(range.head, range.empty ? range.assoc : range.head > range.anchor ? -1 : 1), other;
-      if (!rect)
-        return;
-      if (!range.empty && (other = this.coordsAt(range.anchor, range.anchor > range.head ? -1 : 1)))
-        rect = {
-          left: Math.min(rect.left, other.left),
-          top: Math.min(rect.top, other.top),
-          right: Math.max(rect.right, other.right),
-          bottom: Math.max(rect.bottom, other.bottom)
-        };
-      let mLeft = 0, mRight = 0, mTop = 0, mBottom = 0;
-      for (let margins of this.view.pluginField(PluginField.scrollMargins))
-        if (margins) {
-          let { left, right, top: top2, bottom } = margins;
-          if (left != null)
-            mLeft = Math.max(mLeft, left);
-          if (right != null)
-            mRight = Math.max(mRight, right);
-          if (top2 != null)
-            mTop = Math.max(mTop, top2);
-          if (bottom != null)
-            mBottom = Math.max(mBottom, bottom);
-        }
-      scrollRectIntoView(this.view.scrollDOM, {
-        left: rect.left - mLeft,
-        top: rect.top - mTop,
-        right: rect.right + mRight,
-        bottom: rect.bottom + mBottom
-      }, range.head < range.anchor ? -1 : 1, center);
-    }
-  };
-  function betweenUneditable(pos) {
-    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
-  }
-  var BlockGapWidget = class extends WidgetType {
-    constructor(height) {
-      super();
-      this.height = height;
-    }
-    toDOM() {
-      let elt = document.createElement("div");
-      this.updateDOM(elt);
-      return elt;
-    }
-    eq(other) {
-      return other.height == this.height;
-    }
-    updateDOM(elt) {
-      elt.style.height = this.height + "px";
-      return true;
-    }
-    get estimatedHeight() {
-      return this.height;
-    }
-  };
-  function computeCompositionDeco(view, changes) {
-    let sel = view.observer.selectionRange;
-    let textNode = sel.focusNode && nearbyTextNode(sel.focusNode, sel.focusOffset, 0);
-    if (!textNode)
-      return Decoration.none;
-    let cView = view.docView.nearest(textNode);
-    let from, to, topNode = textNode;
-    if (cView instanceof InlineView) {
-      while (cView.parent instanceof InlineView)
-        cView = cView.parent;
-      from = cView.posAtStart;
-      to = from + cView.length;
-      topNode = cView.dom;
-    } else if (cView instanceof LineView) {
-      while (topNode.parentNode != cView.dom)
-        topNode = topNode.parentNode;
-      let prev = topNode.previousSibling;
-      while (prev && !ContentView.get(prev))
-        prev = prev.previousSibling;
-      from = to = prev ? ContentView.get(prev).posAtEnd : cView.posAtStart;
-    } else {
-      return Decoration.none;
-    }
-    let newFrom = changes.mapPos(from, 1), newTo = Math.max(newFrom, changes.mapPos(to, -1));
-    let text = textNode.nodeValue, { state } = view;
-    if (newTo - newFrom < text.length) {
-      if (state.sliceDoc(newFrom, Math.min(state.doc.length, newFrom + text.length)) == text)
-        newTo = newFrom + text.length;
-      else if (state.sliceDoc(Math.max(0, newTo - text.length), newTo) == text)
-        newFrom = newTo - text.length;
-      else
-        return Decoration.none;
-    } else if (state.sliceDoc(newFrom, newTo) != text) {
-      return Decoration.none;
-    }
-    return Decoration.set(Decoration.replace({ widget: new CompositionWidget(topNode, textNode) }).range(newFrom, newTo));
-  }
-  var CompositionWidget = class extends WidgetType {
-    constructor(top2, text) {
-      super();
-      this.top = top2;
-      this.text = text;
-    }
-    eq(other) {
-      return this.top == other.top && this.text == other.text;
-    }
-    toDOM() {
-      return this.top;
-    }
-    ignoreEvent() {
-      return false;
-    }
-    get customView() {
-      return CompositionView;
-    }
-  };
-  function nearbyTextNode(node, offset, side) {
-    for (; ; ) {
-      if (node.nodeType == 3)
-        return node;
-      if (node.nodeType == 1 && offset > 0 && side <= 0) {
-        node = node.childNodes[offset - 1];
-        offset = maxOffset(node);
-      } else if (node.nodeType == 1 && offset < node.childNodes.length && side >= 0) {
-        node = node.childNodes[offset];
-        offset = 0;
-      } else {
-        return null;
-      }
-    }
-  }
-  function nextToUneditable(node, offset) {
-    if (node.nodeType != 1)
-      return 0;
-    return (offset && node.childNodes[offset - 1].contentEditable == "false" ? 1 : 0) | (offset < node.childNodes.length && node.childNodes[offset].contentEditable == "false" ? 2 : 0);
-  }
-  var DecorationComparator$1 = class {
-    constructor() {
-      this.changes = [];
-    }
-    compareRange(from, to) {
-      addRange(from, to, this.changes);
-    }
-    comparePoint(from, to) {
-      addRange(from, to, this.changes);
-    }
-  };
-  function findChangedDeco(a, b, diff) {
-    let comp = new DecorationComparator$1();
-    RangeSet.compare(a, b, diff, comp);
-    return comp.changes;
-  }
-  function inUneditable(node, inside2) {
-    for (let cur = node; cur && cur != inside2; cur = cur.assignedSlot || cur.parentNode) {
-      if (cur.nodeType == 1 && cur.contentEditable == "false") {
-        return true;
-      }
-    }
-    return false;
-  }
   var Direction = /* @__PURE__ */ function(Direction2) {
     Direction2[Direction2["LTR"] = 0] = "LTR";
     Direction2[Direction2["RTL"] = 1] = "RTL";
@@ -5151,7 +4818,7 @@
   }
   var movedOver = "";
   function moveVisually(line2, order, dir, start, forward) {
-    var _a;
+    var _a2;
     let startIndex = start.head - line2.from, spanI = -1;
     if (startIndex == 0) {
       if (!forward || !line2.length)
@@ -5170,7 +4837,7 @@
       }
     }
     if (spanI < 0)
-      spanI = BidiSpan.find(order, startIndex, (_a = start.bidiLevel) !== null && _a !== void 0 ? _a : -1, start.assoc);
+      spanI = BidiSpan.find(order, startIndex, (_a2 = start.bidiLevel) !== null && _a2 !== void 0 ? _a2 : -1, start.assoc);
     let span = order[spanI];
     if (startIndex == span.side(forward, dir)) {
       span = order[spanI += forward ? 1 : -1];
@@ -5187,6 +4854,580 @@
     if (nextSpan && nextSpan.level < span.level)
       return EditorSelection.cursor(nextSpan.side(!forward, dir) + line2.from, forward ? 1 : -1, nextSpan.level);
     return EditorSelection.cursor(nextIndex + line2.from, forward ? -1 : 1, span.level);
+  }
+  var LineBreakPlaceholder = "\uFFFF";
+  var DOMReader = class {
+    constructor(points, state) {
+      this.points = points;
+      this.text = "";
+      this.lineSeparator = state.facet(EditorState.lineSeparator);
+    }
+    append(text) {
+      this.text += text;
+    }
+    lineBreak() {
+      this.text += LineBreakPlaceholder;
+    }
+    readRange(start, end) {
+      if (!start)
+        return this;
+      let parent = start.parentNode;
+      for (let cur = start; ; ) {
+        this.findPointBefore(parent, cur);
+        this.readNode(cur);
+        let next3 = cur.nextSibling;
+        if (next3 == end)
+          break;
+        let view = ContentView.get(cur), nextView = ContentView.get(next3);
+        if (view && nextView ? view.breakAfter : (view ? view.breakAfter : isBlockElement(cur)) || isBlockElement(next3) && (cur.nodeName != "BR" || cur.cmIgnore))
+          this.lineBreak();
+        cur = next3;
+      }
+      this.findPointBefore(parent, end);
+      return this;
+    }
+    readTextNode(node) {
+      let text = node.nodeValue;
+      for (let point of this.points)
+        if (point.node == node)
+          point.pos = this.text.length + Math.min(point.offset, text.length);
+      for (let off = 0, re = this.lineSeparator ? null : /\r\n?|\n/g; ; ) {
+        let nextBreak = -1, breakSize = 1, m;
+        if (this.lineSeparator) {
+          nextBreak = text.indexOf(this.lineSeparator, off);
+          breakSize = this.lineSeparator.length;
+        } else if (m = re.exec(text)) {
+          nextBreak = m.index;
+          breakSize = m[0].length;
+        }
+        this.append(text.slice(off, nextBreak < 0 ? text.length : nextBreak));
+        if (nextBreak < 0)
+          break;
+        this.lineBreak();
+        if (breakSize > 1) {
+          for (let point of this.points)
+            if (point.node == node && point.pos > this.text.length)
+              point.pos -= breakSize - 1;
+        }
+        off = nextBreak + breakSize;
+      }
+    }
+    readNode(node) {
+      if (node.cmIgnore)
+        return;
+      let view = ContentView.get(node);
+      let fromView = view && view.overrideDOMText;
+      if (fromView != null) {
+        this.findPointInside(node, fromView.length);
+        for (let i = fromView.iter(); !i.next().done; ) {
+          if (i.lineBreak)
+            this.lineBreak();
+          else
+            this.append(i.value);
+        }
+      } else if (node.nodeType == 3) {
+        this.readTextNode(node);
+      } else if (node.nodeName == "BR") {
+        if (node.nextSibling)
+          this.lineBreak();
+      } else if (node.nodeType == 1) {
+        this.readRange(node.firstChild, null);
+      }
+    }
+    findPointBefore(node, next3) {
+      for (let point of this.points)
+        if (point.node == node && node.childNodes[point.offset] == next3)
+          point.pos = this.text.length;
+    }
+    findPointInside(node, maxLen) {
+      for (let point of this.points)
+        if (node.nodeType == 3 ? point.node == node : node.contains(point.node))
+          point.pos = this.text.length + Math.min(maxLen, point.offset);
+    }
+  };
+  function isBlockElement(node) {
+    return node.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
+  }
+  var DOMPoint = class {
+    constructor(node, offset) {
+      this.node = node;
+      this.offset = offset;
+      this.pos = -1;
+    }
+  };
+  var DocView = class extends ContentView {
+    constructor(view) {
+      super();
+      this.view = view;
+      this.compositionDeco = Decoration.none;
+      this.decorations = [];
+      this.dynamicDecorationMap = [];
+      this.minWidth = 0;
+      this.minWidthFrom = 0;
+      this.minWidthTo = 0;
+      this.impreciseAnchor = null;
+      this.impreciseHead = null;
+      this.forceSelection = false;
+      this.lastUpdate = Date.now();
+      this.setDOM(view.contentDOM);
+      this.children = [new LineView()];
+      this.children[0].setParent(this);
+      this.updateDeco();
+      this.updateInner([new ChangedRange(0, 0, 0, view.state.doc.length)], 0);
+    }
+    get root() {
+      return this.view.root;
+    }
+    get editorView() {
+      return this.view;
+    }
+    get length() {
+      return this.view.state.doc.length;
+    }
+    update(update) {
+      let changedRanges = update.changedRanges;
+      if (this.minWidth > 0 && changedRanges.length) {
+        if (!changedRanges.every(({ fromA, toA }) => toA < this.minWidthFrom || fromA > this.minWidthTo)) {
+          this.minWidth = this.minWidthFrom = this.minWidthTo = 0;
+        } else {
+          this.minWidthFrom = update.changes.mapPos(this.minWidthFrom, 1);
+          this.minWidthTo = update.changes.mapPos(this.minWidthTo, 1);
+        }
+      }
+      if (this.view.inputState.composing < 0)
+        this.compositionDeco = Decoration.none;
+      else if (update.transactions.length || this.dirty)
+        this.compositionDeco = computeCompositionDeco(this.view, update.changes);
+      if ((browser.ie || browser.chrome) && !this.compositionDeco.size && update && update.state.doc.lines != update.startState.doc.lines)
+        this.forceSelection = true;
+      let prevDeco = this.decorations, deco = this.updateDeco();
+      let decoDiff = findChangedDeco(prevDeco, deco, update.changes);
+      changedRanges = ChangedRange.extendWithRanges(changedRanges, decoDiff);
+      if (this.dirty == 0 && changedRanges.length == 0) {
+        return false;
+      } else {
+        this.updateInner(changedRanges, update.startState.doc.length);
+        if (update.transactions.length)
+          this.lastUpdate = Date.now();
+        return true;
+      }
+    }
+    updateInner(changes, oldLength) {
+      this.view.viewState.mustMeasureContent = true;
+      this.updateChildren(changes, oldLength);
+      let { observer } = this.view;
+      observer.ignore(() => {
+        this.dom.style.height = this.view.viewState.contentHeight + "px";
+        this.dom.style.minWidth = this.minWidth ? this.minWidth + "px" : "";
+        let track = browser.chrome || browser.ios ? { node: observer.selectionRange.focusNode, written: false } : void 0;
+        this.sync(track);
+        this.dirty = 0;
+        if (track && (track.written || observer.selectionRange.focusNode != track.node))
+          this.forceSelection = true;
+        this.dom.style.height = "";
+      });
+      let gaps = [];
+      if (this.view.viewport.from || this.view.viewport.to < this.view.state.doc.length) {
+        for (let child of this.children)
+          if (child instanceof BlockWidgetView && child.widget instanceof BlockGapWidget)
+            gaps.push(child.dom);
+      }
+      observer.updateGaps(gaps);
+    }
+    updateChildren(changes, oldLength) {
+      let cursor = this.childCursor(oldLength);
+      for (let i = changes.length - 1; ; i--) {
+        let next3 = i >= 0 ? changes[i] : null;
+        if (!next3)
+          break;
+        let { fromA, toA, fromB, toB } = next3;
+        let { content: content2, breakAtStart, openStart, openEnd } = ContentBuilder.build(this.view.state.doc, fromB, toB, this.decorations, this.dynamicDecorationMap);
+        let { i: toI, off: toOff } = cursor.findPos(toA, 1);
+        let { i: fromI, off: fromOff } = cursor.findPos(fromA, -1);
+        replaceRange(this, fromI, fromOff, toI, toOff, content2, breakAtStart, openStart, openEnd);
+      }
+    }
+    updateSelection(mustRead = false, fromPointer = false) {
+      if (mustRead)
+        this.view.observer.readSelectionRange();
+      if (!(fromPointer || this.mayControlSelection()) || browser.ios && this.view.inputState.rapidCompositionStart)
+        return;
+      let force = this.forceSelection;
+      this.forceSelection = false;
+      let main = this.view.state.selection.main;
+      let anchor = this.domAtPos(main.anchor);
+      let head = main.empty ? anchor : this.domAtPos(main.head);
+      if (browser.gecko && main.empty && betweenUneditable(anchor)) {
+        let dummy = document.createTextNode("");
+        this.view.observer.ignore(() => anchor.node.insertBefore(dummy, anchor.node.childNodes[anchor.offset] || null));
+        anchor = head = new DOMPos(dummy, 0);
+        force = true;
+      }
+      let domSel = this.view.observer.selectionRange;
+      if (force || !domSel.focusNode || !isEquivalentPosition(anchor.node, anchor.offset, domSel.anchorNode, domSel.anchorOffset) || !isEquivalentPosition(head.node, head.offset, domSel.focusNode, domSel.focusOffset)) {
+        this.view.observer.ignore(() => {
+          if (browser.android && browser.chrome && this.dom.contains(domSel.focusNode) && inUneditable(domSel.focusNode, this.dom)) {
+            this.dom.blur();
+            this.dom.focus({ preventScroll: true });
+          }
+          let rawSel = getSelection(this.root);
+          if (main.empty) {
+            if (browser.gecko) {
+              let nextTo = nextToUneditable(anchor.node, anchor.offset);
+              if (nextTo && nextTo != (1 | 2)) {
+                let text = nearbyTextNode(anchor.node, anchor.offset, nextTo == 1 ? 1 : -1);
+                if (text)
+                  anchor = new DOMPos(text, nextTo == 1 ? 0 : text.nodeValue.length);
+              }
+            }
+            rawSel.collapse(anchor.node, anchor.offset);
+            if (main.bidiLevel != null && domSel.cursorBidiLevel != null)
+              domSel.cursorBidiLevel = main.bidiLevel;
+          } else if (rawSel.extend) {
+            rawSel.collapse(anchor.node, anchor.offset);
+            rawSel.extend(head.node, head.offset);
+          } else {
+            let range = document.createRange();
+            if (main.anchor > main.head)
+              [anchor, head] = [head, anchor];
+            range.setEnd(head.node, head.offset);
+            range.setStart(anchor.node, anchor.offset);
+            rawSel.removeAllRanges();
+            rawSel.addRange(range);
+          }
+        });
+        this.view.observer.setSelectionRange(anchor, head);
+      }
+      this.impreciseAnchor = anchor.precise ? null : new DOMPos(domSel.anchorNode, domSel.anchorOffset);
+      this.impreciseHead = head.precise ? null : new DOMPos(domSel.focusNode, domSel.focusOffset);
+    }
+    enforceCursorAssoc() {
+      if (this.compositionDeco.size)
+        return;
+      let cursor = this.view.state.selection.main;
+      let sel = getSelection(this.root);
+      if (!cursor.empty || !cursor.assoc || !sel.modify)
+        return;
+      let line2 = LineView.find(this, cursor.head);
+      if (!line2)
+        return;
+      let lineStart = line2.posAtStart;
+      if (cursor.head == lineStart || cursor.head == lineStart + line2.length)
+        return;
+      let before = this.coordsAt(cursor.head, -1), after = this.coordsAt(cursor.head, 1);
+      if (!before || !after || before.bottom > after.top)
+        return;
+      let dom = this.domAtPos(cursor.head + cursor.assoc);
+      sel.collapse(dom.node, dom.offset);
+      sel.modify("move", cursor.assoc < 0 ? "forward" : "backward", "lineboundary");
+    }
+    mayControlSelection() {
+      return this.view.state.facet(editable) ? this.root.activeElement == this.dom : hasSelection(this.dom, this.view.observer.selectionRange);
+    }
+    nearest(dom) {
+      for (let cur = dom; cur; ) {
+        let domView = ContentView.get(cur);
+        if (domView && domView.rootView == this)
+          return domView;
+        cur = cur.parentNode;
+      }
+      return null;
+    }
+    posFromDOM(node, offset) {
+      let view = this.nearest(node);
+      if (!view)
+        throw new RangeError("Trying to find position for a DOM position outside of the document");
+      return view.localPosFromDOM(node, offset) + view.posAtStart;
+    }
+    domAtPos(pos) {
+      let { i, off } = this.childCursor().findPos(pos, -1);
+      for (; i < this.children.length - 1; ) {
+        let child = this.children[i];
+        if (off < child.length || child instanceof LineView)
+          break;
+        i++;
+        off = 0;
+      }
+      return this.children[i].domAtPos(off);
+    }
+    coordsAt(pos, side) {
+      for (let off = this.length, i = this.children.length - 1; ; i--) {
+        let child = this.children[i], start = off - child.breakAfter - child.length;
+        if (pos > start || pos == start && child.type != BlockType.WidgetBefore && child.type != BlockType.WidgetAfter && (!i || side == 2 || this.children[i - 1].breakAfter || this.children[i - 1].type == BlockType.WidgetBefore && side > -2))
+          return child.coordsAt(pos - start, side);
+        off = start;
+      }
+    }
+    measureVisibleLineHeights(viewport) {
+      let result = [], { from, to } = viewport;
+      let contentWidth = this.view.contentDOM.clientWidth;
+      let isWider = contentWidth > Math.max(this.view.scrollDOM.clientWidth, this.minWidth) + 1;
+      let widest = -1, ltr = this.view.textDirection == Direction.LTR;
+      for (let pos = 0, i = 0; i < this.children.length; i++) {
+        let child = this.children[i], end = pos + child.length;
+        if (end > to)
+          break;
+        if (pos >= from) {
+          let childRect = child.dom.getBoundingClientRect();
+          result.push(childRect.height);
+          if (isWider) {
+            let last = child.dom.lastChild;
+            let rects = last ? clientRectsFor(last) : [];
+            if (rects.length) {
+              let rect = rects[rects.length - 1];
+              let width = ltr ? rect.right - childRect.left : childRect.right - rect.left;
+              if (width > widest) {
+                widest = width;
+                this.minWidth = contentWidth;
+                this.minWidthFrom = pos;
+                this.minWidthTo = end;
+              }
+            }
+          }
+        }
+        pos = end + child.breakAfter;
+      }
+      return result;
+    }
+    textDirectionAt(pos) {
+      let { i } = this.childPos(pos, 1);
+      return getComputedStyle(this.children[i].dom).direction == "rtl" ? Direction.RTL : Direction.LTR;
+    }
+    measureTextSize() {
+      for (let child of this.children) {
+        if (child instanceof LineView) {
+          let measure = child.measureTextSize();
+          if (measure)
+            return measure;
+        }
+      }
+      let dummy = document.createElement("div"), lineHeight, charWidth;
+      dummy.className = "cm-line";
+      dummy.textContent = "abc def ghi jkl mno pqr stu";
+      this.view.observer.ignore(() => {
+        this.dom.appendChild(dummy);
+        let rect = clientRectsFor(dummy.firstChild)[0];
+        lineHeight = dummy.getBoundingClientRect().height;
+        charWidth = rect ? rect.width / 27 : 7;
+        dummy.remove();
+      });
+      return { lineHeight, charWidth };
+    }
+    childCursor(pos = this.length) {
+      let i = this.children.length;
+      if (i)
+        pos -= this.children[--i].length;
+      return new ChildCursor(this.children, pos, i);
+    }
+    computeBlockGapDeco() {
+      let deco = [], vs = this.view.viewState;
+      for (let pos = 0, i = 0; ; i++) {
+        let next3 = i == vs.viewports.length ? null : vs.viewports[i];
+        let end = next3 ? next3.from - 1 : this.length;
+        if (end > pos) {
+          let height = vs.lineBlockAt(end).bottom - vs.lineBlockAt(pos).top;
+          deco.push(Decoration.replace({
+            widget: new BlockGapWidget(height),
+            block: true,
+            inclusive: true,
+            isBlockGap: true
+          }).range(pos, end));
+        }
+        if (!next3)
+          break;
+        pos = next3.to + 1;
+      }
+      return Decoration.set(deco);
+    }
+    updateDeco() {
+      let allDeco = this.view.state.facet(decorations).map((d, i) => {
+        let dynamic = this.dynamicDecorationMap[i] = typeof d == "function";
+        return dynamic ? d(this.view) : d;
+      });
+      for (let i = allDeco.length; i < allDeco.length + 3; i++)
+        this.dynamicDecorationMap[i] = false;
+      return this.decorations = [
+        ...allDeco,
+        this.compositionDeco,
+        this.computeBlockGapDeco(),
+        this.view.viewState.lineGapDeco
+      ];
+    }
+    scrollIntoView(target) {
+      let { range } = target;
+      let rect = this.coordsAt(range.head, range.empty ? range.assoc : range.head > range.anchor ? -1 : 1), other;
+      if (!rect)
+        return;
+      if (!range.empty && (other = this.coordsAt(range.anchor, range.anchor > range.head ? -1 : 1)))
+        rect = {
+          left: Math.min(rect.left, other.left),
+          top: Math.min(rect.top, other.top),
+          right: Math.max(rect.right, other.right),
+          bottom: Math.max(rect.bottom, other.bottom)
+        };
+      let mLeft = 0, mRight = 0, mTop = 0, mBottom = 0;
+      for (let margins of this.view.state.facet(scrollMargins).map((f) => f(this.view)))
+        if (margins) {
+          let { left, right, top: top2, bottom } = margins;
+          if (left != null)
+            mLeft = Math.max(mLeft, left);
+          if (right != null)
+            mRight = Math.max(mRight, right);
+          if (top2 != null)
+            mTop = Math.max(mTop, top2);
+          if (bottom != null)
+            mBottom = Math.max(mBottom, bottom);
+        }
+      let targetRect = {
+        left: rect.left - mLeft,
+        top: rect.top - mTop,
+        right: rect.right + mRight,
+        bottom: rect.bottom + mBottom
+      };
+      scrollRectIntoView(this.view.scrollDOM, targetRect, range.head < range.anchor ? -1 : 1, target.x, target.y, target.xMargin, target.yMargin, this.view.textDirection == Direction.LTR);
+    }
+  };
+  function betweenUneditable(pos) {
+    return pos.node.nodeType == 1 && pos.node.firstChild && (pos.offset == 0 || pos.node.childNodes[pos.offset - 1].contentEditable == "false") && (pos.offset == pos.node.childNodes.length || pos.node.childNodes[pos.offset].contentEditable == "false");
+  }
+  var BlockGapWidget = class extends WidgetType {
+    constructor(height) {
+      super();
+      this.height = height;
+    }
+    toDOM() {
+      let elt = document.createElement("div");
+      this.updateDOM(elt);
+      return elt;
+    }
+    eq(other) {
+      return other.height == this.height;
+    }
+    updateDOM(elt) {
+      elt.style.height = this.height + "px";
+      return true;
+    }
+    get estimatedHeight() {
+      return this.height;
+    }
+  };
+  function compositionSurroundingNode(view) {
+    let sel = view.observer.selectionRange;
+    let textNode = sel.focusNode && nearbyTextNode(sel.focusNode, sel.focusOffset, 0);
+    if (!textNode)
+      return null;
+    let cView = view.docView.nearest(textNode);
+    if (!cView)
+      return null;
+    if (cView instanceof LineView) {
+      let topNode = textNode;
+      while (topNode.parentNode != cView.dom)
+        topNode = topNode.parentNode;
+      let prev = topNode.previousSibling;
+      while (prev && !ContentView.get(prev))
+        prev = prev.previousSibling;
+      let pos = prev ? ContentView.get(prev).posAtEnd : cView.posAtStart;
+      return { from: pos, to: pos, node: topNode, text: textNode };
+    } else {
+      for (; ; ) {
+        let { parent } = cView;
+        if (!parent)
+          return null;
+        if (parent instanceof LineView)
+          break;
+        cView = parent;
+      }
+      let from = cView.posAtStart;
+      return { from, to: from + cView.length, node: cView.dom, text: textNode };
+    }
+  }
+  function computeCompositionDeco(view, changes) {
+    let surrounding = compositionSurroundingNode(view);
+    if (!surrounding)
+      return Decoration.none;
+    let { from, to, node, text: textNode } = surrounding;
+    let newFrom = changes.mapPos(from, 1), newTo = Math.max(newFrom, changes.mapPos(to, -1));
+    let { state } = view, text = node.nodeType == 3 ? node.nodeValue : new DOMReader([], state).readRange(node.firstChild, null).text;
+    if (newTo - newFrom < text.length) {
+      if (state.doc.sliceString(newFrom, Math.min(state.doc.length, newFrom + text.length), LineBreakPlaceholder) == text)
+        newTo = newFrom + text.length;
+      else if (state.doc.sliceString(Math.max(0, newTo - text.length), newTo, LineBreakPlaceholder) == text)
+        newFrom = newTo - text.length;
+      else
+        return Decoration.none;
+    } else if (state.doc.sliceString(newFrom, newTo, LineBreakPlaceholder) != text) {
+      return Decoration.none;
+    }
+    let topView = ContentView.get(node);
+    if (topView instanceof CompositionView)
+      topView = topView.widget.topView;
+    else if (topView)
+      topView.parent = null;
+    return Decoration.set(Decoration.replace({ widget: new CompositionWidget(node, textNode, topView) }).range(newFrom, newTo));
+  }
+  var CompositionWidget = class extends WidgetType {
+    constructor(top2, text, topView) {
+      super();
+      this.top = top2;
+      this.text = text;
+      this.topView = topView;
+    }
+    eq(other) {
+      return this.top == other.top && this.text == other.text;
+    }
+    toDOM() {
+      return this.top;
+    }
+    ignoreEvent() {
+      return false;
+    }
+    get customView() {
+      return CompositionView;
+    }
+  };
+  function nearbyTextNode(node, offset, side) {
+    for (; ; ) {
+      if (node.nodeType == 3)
+        return node;
+      if (node.nodeType == 1 && offset > 0 && side <= 0) {
+        node = node.childNodes[offset - 1];
+        offset = maxOffset(node);
+      } else if (node.nodeType == 1 && offset < node.childNodes.length && side >= 0) {
+        node = node.childNodes[offset];
+        offset = 0;
+      } else {
+        return null;
+      }
+    }
+  }
+  function nextToUneditable(node, offset) {
+    if (node.nodeType != 1)
+      return 0;
+    return (offset && node.childNodes[offset - 1].contentEditable == "false" ? 1 : 0) | (offset < node.childNodes.length && node.childNodes[offset].contentEditable == "false" ? 2 : 0);
+  }
+  var DecorationComparator$1 = class {
+    constructor() {
+      this.changes = [];
+    }
+    compareRange(from, to) {
+      addRange(from, to, this.changes);
+    }
+    comparePoint(from, to) {
+      addRange(from, to, this.changes);
+    }
+  };
+  function findChangedDeco(a, b, diff) {
+    let comp = new DecorationComparator$1();
+    RangeSet.compare(a, b, diff, comp);
+    return comp.changes;
+  }
+  function inUneditable(node, inside2) {
+    for (let cur = node; cur && cur != inside2; cur = cur.assignedSlot || cur.parentNode) {
+      if (cur.nodeType == 1 && cur.contentEditable == "false") {
+        return true;
+      }
+    }
+    return false;
   }
   function groupAt(state, pos, bias = 1) {
     let categorize = state.charCategorizer(pos);
@@ -5311,35 +5552,47 @@
     return { node, offset: closestOffset > -1 ? closestOffset : generalSide > 0 ? node.nodeValue.length : 0 };
   }
   function posAtCoords(view, { x, y }, precise, bias = -1) {
-    var _a;
+    var _a2;
     let content2 = view.contentDOM.getBoundingClientRect(), docTop = content2.top + view.viewState.paddingTop;
-    let halfLine = view.defaultLineHeight / 2;
-    let block, yOffset = y - docTop;
-    for (let bounced = false; ; ) {
+    let block, { docHeight } = view.viewState;
+    let yOffset = y - docTop;
+    if (yOffset < 0)
+      return 0;
+    if (yOffset > docHeight)
+      return view.state.doc.length;
+    for (let halfLine = view.defaultLineHeight / 2, bounced = false; ; ) {
       block = view.elementAtHeight(yOffset);
-      if (block.top > yOffset || block.bottom < yOffset) {
-        bias = block.top > yOffset ? -1 : 1;
-        yOffset = Math.min(block.bottom - halfLine, Math.max(block.top + halfLine, yOffset));
-        if (bounced)
-          return precise ? null : 0;
-        else
-          bounced = true;
-      }
       if (block.type == BlockType.Text)
         break;
-      yOffset = bias > 0 ? block.bottom + halfLine : block.top - halfLine;
+      for (; ; ) {
+        yOffset = bias > 0 ? block.bottom + halfLine : block.top - halfLine;
+        if (yOffset >= 0 && yOffset <= docHeight)
+          break;
+        if (bounced)
+          return precise ? null : 0;
+        bounced = true;
+        bias = -bias;
+      }
     }
     y = docTop + yOffset;
     let lineStart = block.from;
-    x = Math.max(content2.left + 1, Math.min(content2.right - 1, x));
     if (lineStart < view.viewport.from)
-      return view.viewport.from == 0 ? 0 : posAtCoordsImprecise(view, content2, block, x, y);
+      return view.viewport.from == 0 ? 0 : precise ? null : posAtCoordsImprecise(view, content2, block, x, y);
     if (lineStart > view.viewport.to)
-      return view.viewport.to == view.state.doc.length ? view.state.doc.length : posAtCoordsImprecise(view, content2, block, x, y);
+      return view.viewport.to == view.state.doc.length ? view.state.doc.length : precise ? null : posAtCoordsImprecise(view, content2, block, x, y);
     let doc2 = view.dom.ownerDocument;
-    let element = (view.root.elementFromPoint ? view.root : doc2).elementFromPoint(x, y);
+    let root = view.root.elementFromPoint ? view.root : doc2;
+    let element = root.elementFromPoint(x, y);
+    if (element && !view.contentDOM.contains(element))
+      element = null;
+    if (!element) {
+      x = Math.max(content2.left + 1, Math.min(content2.right - 1, x));
+      element = root.elementFromPoint(x, y);
+      if (element && !view.contentDOM.contains(element))
+        element = null;
+    }
     let node, offset = -1;
-    if (element && view.contentDOM.contains(element) && ((_a = view.docView.nearest(element)) === null || _a === void 0 ? void 0 : _a.isEditable) != false) {
+    if (element && ((_a2 = view.docView.nearest(element)) === null || _a2 === void 0 ? void 0 : _a2.isEditable) != false) {
       if (doc2.caretPositionFromPoint) {
         let pos = doc2.caretPositionFromPoint(x, y);
         if (pos)
@@ -5355,6 +5608,8 @@
     }
     if (!node || !view.docView.dom.contains(node)) {
       let line2 = LineView.find(view.docView, lineStart);
+      if (!line2)
+        return yOffset > block.top + block.height / 2 ? block.to : block.from;
       ({ node, offset } = domPosAtCoords(line2.dom, x, y));
     }
     return view.docView.posFromDOM(node, offset);
@@ -5382,8 +5637,9 @@
     let coords = !includeWrap || !view.lineWrapping ? null : view.coordsAtPos(start.assoc < 0 && start.head > line2.from ? start.head - 1 : start.head);
     if (coords) {
       let editorRect = view.dom.getBoundingClientRect();
+      let direction = view.textDirectionAt(line2.from);
       let pos = view.posAtCoords({
-        x: forward == (view.textDirection == Direction.LTR) ? editorRect.right - 1 : editorRect.left + 1,
+        x: forward == (direction == Direction.LTR) ? editorRect.right - 1 : editorRect.left + 1,
         y: (coords.top + coords.bottom) / 2
       });
       if (pos != null)
@@ -5395,8 +5651,9 @@
   }
   function moveByChar(view, start, forward, by) {
     let line2 = view.state.doc.lineAt(start.head), spans = view.bidiSpans(line2);
+    let direction = view.textDirectionAt(line2.from);
     for (let cur = start, check = null; ; ) {
-      let next3 = moveVisually(line2, spans, view.textDirection, cur, forward), char = movedOver;
+      let next3 = moveVisually(line2, spans, direction, cur, forward), char = movedOver;
       if (!next3) {
         if (line2.number == (forward ? view.state.doc.lines : 1))
           return cur;
@@ -5428,7 +5685,7 @@
   function moveVertically(view, start, forward, distance) {
     let startPos = start.head, dir = forward ? 1 : -1;
     if (startPos == (forward ? view.state.doc.length : 0))
-      return EditorSelection.cursor(startPos);
+      return EditorSelection.cursor(startPos, start.assoc);
     let goal = start.goalColumn, startY;
     let rect = view.contentDOM.getBoundingClientRect();
     let startCoords = view.coordsAtPos(startPos), docTop = view.documentTop;
@@ -5437,7 +5694,7 @@
         goal = startCoords.left - rect.left;
       startY = dir < 0 ? startCoords.top : startCoords.bottom;
     } else {
-      let line2 = view.viewState.lineBlockAt(startPos - docTop);
+      let line2 = view.viewState.lineBlockAt(startPos);
       if (goal == null)
         goal = Math.min(rect.right - rect.left, view.defaultCharacterWidth * (startPos - line2.from));
       startY = (dir < 0 ? line2.top : line2.bottom) + docTop;
@@ -5448,11 +5705,11 @@
       let curY = startY + (dist + extra) * dir;
       let pos = posAtCoords(view, { x: resolvedGoal, y: curY }, false, dir);
       if (curY < rect.top || curY > rect.bottom || (dir < 0 ? pos < startPos : pos > startPos))
-        return EditorSelection.cursor(pos, void 0, void 0, goal);
+        return EditorSelection.cursor(pos, start.assoc, void 0, goal);
     }
   }
   function skipAtoms(view, oldPos, pos) {
-    let atoms = view.pluginField(PluginField.atomicRanges);
+    let atoms = view.state.facet(atomicRanges).map((f) => f(view));
     for (; ; ) {
       let moved = false;
       for (let set of atoms) {
@@ -5471,7 +5728,6 @@
     constructor(view) {
       this.lastKeyCode = 0;
       this.lastKeyTime = 0;
-      this.pendingAndroidKey = void 0;
       this.pendingIOSKey = void 0;
       this.lastSelectionOrigin = null;
       this.lastSelectionTime = 0;
@@ -5488,9 +5744,9 @@
       for (let type in handlers) {
         let handler = handlers[type];
         view.contentDOM.addEventListener(type, (event) => {
-          if (type == "keydown" && this.keydown(view, event))
-            return;
           if (!eventBelongsToEditor(view, event) || this.ignoreDuringComposition(event))
+            return;
+          if (type == "keydown" && this.keydown(view, event))
             return;
           if (this.mustFlushObserver(event))
             view.observer.forceFlush();
@@ -5502,7 +5758,6 @@
         this.registeredEvents.push(type);
       }
       this.notifiedFocused = view.hasFocus;
-      this.ensureHandlers(view);
       if (browser.safari)
         view.contentDOM.addEventListener("input", () => null);
     }
@@ -5510,34 +5765,33 @@
       this.lastSelectionOrigin = origin;
       this.lastSelectionTime = Date.now();
     }
-    ensureHandlers(view) {
-      let handlers2 = this.customHandlers = view.pluginField(domEventHandlers);
-      for (let set of handlers2) {
-        for (let type in set.handlers)
-          if (this.registeredEvents.indexOf(type) < 0 && type != "scroll") {
-            this.registeredEvents.push(type);
-            view.contentDOM.addEventListener(type, (event) => {
-              if (!eventBelongsToEditor(view, event))
-                return;
-              if (this.runCustomHandlers(type, view, event))
-                event.preventDefault();
-            });
-          }
-      }
+    ensureHandlers(view, plugins) {
+      var _a2;
+      let handlers2;
+      for (let plugin of plugins)
+        if (handlers2 = (_a2 = plugin.update(view).spec) === null || _a2 === void 0 ? void 0 : _a2.domEventHandlers) {
+          this.customHandlers.push({ plugin: plugin.value, handlers: handlers2 });
+          for (let type in handlers2)
+            if (this.registeredEvents.indexOf(type) < 0 && type != "scroll") {
+              this.registeredEvents.push(type);
+              view.contentDOM.addEventListener(type, (event) => {
+                if (!eventBelongsToEditor(view, event))
+                  return;
+                if (this.runCustomHandlers(type, view, event))
+                  event.preventDefault();
+              });
+            }
+        }
     }
     runCustomHandlers(type, view, event) {
       for (let set of this.customHandlers) {
-        let handler = set.handlers[type], handled = false;
+        let handler = set.handlers[type];
         if (handler) {
           try {
-            handled = handler.call(set.plugin, event, view);
+            if (handler.call(set.plugin, event, view) || event.defaultPrevented)
+              return true;
           } catch (e) {
             logException(view.state, e);
-          }
-          if (handled || event.defaultPrevented) {
-            if (browser.android && type == "keydown" && event.keyCode == 13)
-              view.observer.flushSoon();
-            return true;
           }
         }
       }
@@ -5558,8 +5812,12 @@
     keydown(view, event) {
       this.lastKeyCode = event.keyCode;
       this.lastKeyTime = Date.now();
-      if (this.screenKeyEvent(view, event))
+      if (event.keyCode == 9 && Date.now() < this.lastEscPress + 2e3)
         return true;
+      if (browser.android && browser.chrome && !event.synthetic && (event.keyCode == 13 || event.keyCode == 8)) {
+        view.observer.delayAndroidKey(event.key, event.keyCode);
+        return true;
+      }
       let pending;
       if (browser.ios && (pending = PendingKeys.find((key) => key.keyCode == event.keyCode)) && !(event.ctrlKey || event.altKey || event.metaKey) && !event.synthetic) {
         this.pendingIOSKey = pending;
@@ -5575,46 +5833,24 @@
       this.pendingIOSKey = void 0;
       return dispatchKey(view.contentDOM, key.key, key.keyCode);
     }
-    setPendingAndroidKey(view, pending) {
-      this.pendingAndroidKey = pending;
-      requestAnimationFrame(() => {
-        let key = this.pendingAndroidKey;
-        if (!key)
-          return;
-        this.pendingAndroidKey = void 0;
-        view.observer.processRecords();
-        let startState = view.state;
-        dispatchKey(view.contentDOM, key.key, key.keyCode);
-        if (view.state == startState)
-          view.docView.reset(true);
-      });
-    }
     ignoreDuringComposition(event) {
       if (!/^key/.test(event.type))
         return false;
       if (this.composing > 0)
         return true;
-      if (browser.safari && Date.now() - this.compositionEndedAt < 500) {
+      if (browser.safari && Date.now() - this.compositionEndedAt < 100) {
         this.compositionEndedAt = 0;
         return true;
       }
       return false;
     }
-    screenKeyEvent(view, event) {
-      let protectedTab = event.keyCode == 9 && Date.now() < this.lastEscPress + 2e3;
-      if (event.keyCode == 27)
-        this.lastEscPress = Date.now();
-      else if (modifierCodes.indexOf(event.keyCode) < 0)
-        this.lastEscPress = 0;
-      return protectedTab;
-    }
     mustFlushObserver(event) {
       return event.type == "keydown" && event.keyCode != 229 || event.type == "compositionend" && !browser.ios;
     }
-    startMouseSelection(view, event, style) {
+    startMouseSelection(mouseSelection) {
       if (this.mouseSelection)
         this.mouseSelection.destroy();
-      this.mouseSelection = new MouseSelection(this, view, event, style);
+      this.mouseSelection = mouseSelection;
     }
     update(update) {
       if (this.mouseSelection)
@@ -5634,10 +5870,10 @@
   ];
   var modifierCodes = [16, 17, 18, 20, 91, 92, 224, 225];
   var MouseSelection = class {
-    constructor(inputState, view, startEvent, style) {
-      this.inputState = inputState;
+    constructor(view, startEvent, style, mustSelect) {
       this.view = view;
       this.style = style;
+      this.mustSelect = mustSelect;
       this.lastEvent = startEvent;
       let doc2 = view.contentDOM.ownerDocument;
       doc2.addEventListener("mousemove", this.move = this.move.bind(this));
@@ -5669,16 +5905,17 @@
       let doc2 = this.view.contentDOM.ownerDocument;
       doc2.removeEventListener("mousemove", this.move);
       doc2.removeEventListener("mouseup", this.up);
-      this.inputState.mouseSelection = null;
+      this.view.inputState.mouseSelection = null;
     }
     select(event) {
       let selection = this.style.get(event, this.extend, this.multiple);
-      if (!selection.eq(this.view.state.selection) || selection.main.assoc != this.view.state.selection.main.assoc)
+      if (this.mustSelect || !selection.eq(this.view.state.selection) || selection.main.assoc != this.view.state.selection.main.assoc)
         this.view.dispatch({
           selection,
           userEvent: "select.pointer",
           scrollIntoView: true
         });
+      this.mustSelect = false;
     }
     update(update) {
       if (update.docChanged && this.dragging)
@@ -5770,6 +6007,10 @@
   }
   handlers.keydown = (view, event) => {
     view.inputState.setSelectionOrigin("select");
+    if (event.keyCode == 27)
+      view.inputState.lastEscPress = Date.now();
+    else if (modifierCodes.indexOf(event.keyCode) < 0)
+      view.inputState.lastEscPress = 0;
   };
   var lastTouch = 0;
   handlers.touchstart = (view, e) => {
@@ -5781,7 +6022,7 @@
   };
   handlers.mousedown = (view, event) => {
     view.observer.flush();
-    if (lastTouch > Date.now() - 2e3)
+    if (lastTouch > Date.now() - 2e3 && getClickType(event) == 1)
       return;
     let style = null;
     for (let makeStyle of view.state.facet(mouseSelectionStyle)) {
@@ -5792,9 +6033,10 @@
     if (!style && event.button == 0)
       style = basicMouseSelection(view, event);
     if (style) {
-      if (view.root.activeElement != view.contentDOM)
+      let mustFocus = view.root.activeElement != view.contentDOM;
+      if (mustFocus)
         view.observer.ignore(() => focusPreventScroll(view.contentDOM));
-      view.inputState.startMouseSelection(view, event, style);
+      view.inputState.startMouseSelection(new MouseSelection(view, event, style, mustFocus));
     }
   };
   function rangeForClick(view, pos, bias, type) {
@@ -5894,9 +6136,9 @@
     }
   };
   function dropText(view, event, text, direct) {
-    let dropPos = view.posAtCoords({ x: event.clientX, y: event.clientY });
-    if (dropPos == null || !text)
+    if (!text)
       return;
+    let dropPos = view.posAtCoords({ x: event.clientX, y: event.clientY }, false);
     event.preventDefault();
     let { mouseSelection } = view.inputState;
     let del = direct && mouseSelection && mouseSelection.dragging && mouseSelection.dragMove ? { from: mouseSelection.dragging.from, to: mouseSelection.dragging.to } : null;
@@ -6011,14 +6253,6 @@
         view.update([]);
     }, 10);
   };
-  handlers.beforeprint = (view) => {
-    view.viewState.printing = true;
-    view.requestMeasure();
-    setTimeout(() => {
-      view.viewState.printing = false;
-      view.requestMeasure();
-    }, 2e3);
-  };
   function forceClearComposition(view, rapid) {
     if (view.docView.compositionDeco.size) {
       view.inputState.rapidCompositionStart = rapid;
@@ -6033,11 +6267,11 @@
     if (view.inputState.compositionFirstChange == null)
       view.inputState.compositionFirstChange = true;
     if (view.inputState.composing < 0) {
+      view.inputState.composing = 0;
       if (view.docView.compositionDeco.size) {
         view.observer.flush();
         forceClearComposition(view, true);
       }
-      view.inputState.composing = 0;
     }
   };
   handlers.compositionend = (view) => {
@@ -6053,15 +6287,15 @@
     view.inputState.lastContextMenu = Date.now();
   };
   handlers.beforeinput = (view, event) => {
-    var _a;
+    var _a2;
     let pending;
     if (browser.chrome && browser.android && (pending = PendingKeys.find((key) => key.inputType == event.inputType))) {
-      view.inputState.setPendingAndroidKey(view, pending);
+      view.observer.delayAndroidKey(pending.key, pending.keyCode);
       if (pending.key == "Backspace" || pending.key == "Delete") {
-        let startViewHeight = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.height) || 0;
+        let startViewHeight = ((_a2 = window.visualViewport) === null || _a2 === void 0 ? void 0 : _a2.height) || 0;
         setTimeout(() => {
-          var _a2;
-          if ((((_a2 = window.visualViewport) === null || _a2 === void 0 ? void 0 : _a2.height) || 0) > startViewHeight + 10 && view.hasFocus) {
+          var _a3;
+          if ((((_a3 = window.visualViewport) === null || _a3 === void 0 ? void 0 : _a3.height) || 0) > startViewHeight + 10 && view.hasFocus) {
             view.contentDOM.blur();
             view.focus();
           }
@@ -6074,7 +6308,6 @@
     constructor() {
       this.doc = Text.empty;
       this.lineWrapping = false;
-      this.direction = Direction.LTR;
       this.heightSamples = {};
       this.lineHeight = 14;
       this.charWidth = 7;
@@ -6097,8 +6330,8 @@
       this.doc = doc2;
       return this;
     }
-    mustRefreshForStyle(whiteSpace, direction) {
-      return wrappingWhiteSpace.indexOf(whiteSpace) > -1 != this.lineWrapping || this.direction != direction;
+    mustRefreshForWrapping(whiteSpace) {
+      return wrappingWhiteSpace.indexOf(whiteSpace) > -1 != this.lineWrapping;
     }
     mustRefreshForHeights(lineHeights) {
       let newHeight = false;
@@ -6113,11 +6346,10 @@
       }
       return newHeight;
     }
-    refresh(whiteSpace, direction, lineHeight, charWidth, lineLength, knownHeights) {
+    refresh(whiteSpace, lineHeight, charWidth, lineLength, knownHeights) {
       let lineWrapping = wrappingWhiteSpace.indexOf(whiteSpace) > -1;
-      let changed = Math.round(lineHeight) != Math.round(this.lineHeight) || this.lineWrapping != lineWrapping || this.direction != direction;
+      let changed = Math.round(lineHeight) != Math.round(this.lineHeight) || this.lineWrapping != lineWrapping;
       this.lineWrapping = lineWrapping;
-      this.direction = direction;
       this.lineHeight = lineHeight;
       this.charWidth = charWidth;
       this.lineLength = lineLength;
@@ -6161,9 +6393,6 @@
     join(other) {
       let detail = (Array.isArray(this.type) ? this.type : [this]).concat(Array.isArray(other.type) ? other.type : [other]);
       return new BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, detail);
-    }
-    moveY(offset) {
-      return !offset ? this : new BlockInfo(this.from, this.length, this.top + offset, this.height, Array.isArray(this.type) ? this.type.map((b) => b.moveY(offset)) : this.type);
     }
   };
   var QueryType = /* @__PURE__ */ function(QueryType2) {
@@ -6284,8 +6513,9 @@
     lineAt(_value, _type, doc2, top2, offset) {
       return this.blockAt(0, doc2, top2, offset);
     }
-    forEachLine(_from, _to, doc2, top2, offset, f) {
-      f(this.blockAt(0, doc2, top2, offset));
+    forEachLine(from, to, doc2, top2, offset, f) {
+      if (from <= offset + this.length && to >= offset)
+        f(this.blockAt(0, doc2, top2, offset));
     }
     updateHeight(oracle, offset = 0, _force = false, measured) {
       if (measured && measured.from <= offset && measured.more)
@@ -6437,11 +6667,11 @@
     }
     blockAt(height, doc2, top2, offset) {
       let mid = top2 + this.left.height;
-      return height < mid || this.right.height == 0 ? this.left.blockAt(height, doc2, top2, offset) : this.right.blockAt(height, doc2, mid, offset + this.left.length + this.break);
+      return height < mid ? this.left.blockAt(height, doc2, top2, offset) : this.right.blockAt(height, doc2, mid, offset + this.left.length + this.break);
     }
     lineAt(value, type, doc2, top2, offset) {
       let rightTop = top2 + this.left.height, rightOffset = offset + this.left.length + this.break;
-      let left = type == QueryType.ByHeight ? value < rightTop || this.right.height == 0 : value < rightOffset;
+      let left = type == QueryType.ByHeight ? value < rightTop : value < rightOffset;
       let base2 = left ? this.left.lineAt(value, type, doc2, top2, offset) : this.right.lineAt(value, type, doc2, rightTop, rightOffset);
       if (this.break || (left ? base2.to < rightOffset : base2.from > rightOffset))
         return base2;
@@ -6580,7 +6810,9 @@
     }
     point(from, to, deco) {
       if (from < to || deco.heightRelevant) {
-        let height = deco.widget ? Math.max(0, deco.widget.estimatedHeight) : 0;
+        let height = deco.widget ? deco.widget.estimatedHeight : 0;
+        if (height < 0)
+          height = this.oracle.lineHeight;
         let len = to - from;
         if (deco.block) {
           this.addBlock(new HeightMapBlock(len, height, deco.type));
@@ -6700,9 +6932,18 @@
     }
     return {
       left: left - rect.left,
-      right: right - rect.left,
+      right: Math.max(left, right) - rect.left,
       top: top2 - (rect.top + paddingTop),
-      bottom: bottom - (rect.top + paddingTop)
+      bottom: Math.max(top2, bottom) - (rect.top + paddingTop)
+    };
+  }
+  function fullPixelRange(dom, paddingTop) {
+    let rect = dom.getBoundingClientRect();
+    return {
+      left: 0,
+      right: rect.right - rect.left,
+      top: paddingTop,
+      bottom: rect.bottom - (rect.top + paddingTop)
     };
   }
   var LineGap = class {
@@ -6749,15 +6990,6 @@
       return this.vertical ? this.size : -1;
     }
   };
-  var ScrollTarget = class {
-    constructor(range, center = false) {
-      this.range = range;
-      this.center = center;
-    }
-    map(changes) {
-      return changes.empty ? this : new ScrollTarget(this.range.map(changes), this.center);
-    }
-  };
   var ViewState = class {
     constructor(state) {
       this.state = state;
@@ -6768,14 +7000,17 @@
       this.contentDOMWidth = 0;
       this.contentDOMHeight = 0;
       this.editorHeight = 0;
+      this.editorWidth = 0;
       this.heightOracle = new HeightOracle();
       this.scaler = IdScaler;
       this.scrollTarget = null;
       this.printing = false;
       this.mustMeasureContent = true;
+      this.defaultTextDirection = Direction.RTL;
       this.visibleRanges = [];
       this.mustEnforceCursorAssoc = false;
-      this.heightMap = HeightMap.empty().applyChanges(state.facet(decorations), Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange(0, 0, 0, state.doc.length)]);
+      this.stateDeco = state.facet(decorations).filter((d) => typeof d != "function");
+      this.heightMap = HeightMap.empty().applyChanges(this.stateDeco, Text.empty, this.heightOracle.setDoc(state.doc), [new ChangedRange(0, 0, 0, state.doc.length)]);
       this.viewport = this.getViewport(0, null);
       this.updateViewportLines();
       this.updateForViewport();
@@ -6802,22 +7037,23 @@
       });
     }
     update(update, scrollTarget = null) {
-      let prev = this.state;
       this.state = update.state;
-      let newDeco = this.state.facet(decorations);
+      let prevDeco = this.stateDeco;
+      this.stateDeco = this.state.facet(decorations).filter((d) => typeof d != "function");
       let contentChanges = update.changedRanges;
-      let heightChanges = ChangedRange.extendWithRanges(contentChanges, heightRelevantDecoChanges(update.startState.facet(decorations), newDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
+      let heightChanges = ChangedRange.extendWithRanges(contentChanges, heightRelevantDecoChanges(prevDeco, this.stateDeco, update ? update.changes : ChangeSet.empty(this.state.doc.length)));
       let prevHeight = this.heightMap.height;
-      this.heightMap = this.heightMap.applyChanges(newDeco, prev.doc, this.heightOracle.setDoc(this.state.doc), heightChanges);
+      this.heightMap = this.heightMap.applyChanges(this.stateDeco, update.startState.doc, this.heightOracle.setDoc(this.state.doc), heightChanges);
       if (this.heightMap.height != prevHeight)
         update.flags |= 2;
       let viewport = heightChanges.length ? this.mapViewport(this.viewport, update.changes) : this.viewport;
       if (scrollTarget && (scrollTarget.range.head < viewport.from || scrollTarget.range.head > viewport.to) || !this.viewportIsAppropriate(viewport))
         viewport = this.getViewport(0, scrollTarget);
-      if (!update.changes.empty || update.flags & 2 || viewport.from != this.viewport.from || viewport.to != this.viewport.to)
-        this.updateViewportLines();
+      let updateLines = !update.changes.empty || update.flags & 2 || viewport.from != this.viewport.from || viewport.to != this.viewport.to;
       this.viewport = viewport;
       this.updateForViewport();
+      if (updateLines)
+        this.updateViewportLines();
       if (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3)
         this.updateLineGaps(this.ensureLineGaps(this.mapLineGaps(this.lineGaps, update.changes)));
       update.flags |= this.computeVisibleRanges();
@@ -6829,10 +7065,17 @@
     measure(view) {
       let dom = view.contentDOM, style = window.getComputedStyle(dom);
       let oracle = this.heightOracle;
-      let whiteSpace = style.whiteSpace, direction = style.direction == "rtl" ? Direction.RTL : Direction.LTR;
-      let refresh = this.heightOracle.mustRefreshForStyle(whiteSpace, direction);
+      let whiteSpace = style.whiteSpace;
+      this.defaultTextDirection = style.direction == "rtl" ? Direction.RTL : Direction.LTR;
+      let refresh = this.heightOracle.mustRefreshForWrapping(whiteSpace);
       let measureContent = refresh || this.mustMeasureContent || this.contentDOMHeight != dom.clientHeight;
       let result = 0, bias = 0;
+      if (this.editorWidth != view.scrollDOM.clientWidth) {
+        if (oracle.lineWrapping)
+          measureContent = true;
+        this.editorWidth = view.scrollDOM.clientWidth;
+        result |= 8;
+      }
       if (measureContent) {
         this.mustMeasureContent = false;
         this.contentDOMHeight = dom.clientHeight;
@@ -6843,48 +7086,53 @@
           this.paddingBottom = paddingBottom;
         }
       }
-      let pixelViewport = this.printing ? { top: -1e8, bottom: 1e8, left: -1e8, right: 1e8 } : visiblePixelRange(dom, this.paddingTop);
+      let pixelViewport = (this.printing ? fullPixelRange : visiblePixelRange)(dom, this.paddingTop);
       let dTop = pixelViewport.top - this.pixelViewport.top, dBottom = pixelViewport.bottom - this.pixelViewport.bottom;
       this.pixelViewport = pixelViewport;
-      this.inView = this.pixelViewport.bottom > this.pixelViewport.top && this.pixelViewport.right > this.pixelViewport.left;
+      let inView = this.pixelViewport.bottom > this.pixelViewport.top && this.pixelViewport.right > this.pixelViewport.left;
+      if (inView != this.inView) {
+        this.inView = inView;
+        if (inView)
+          measureContent = true;
+      }
       if (!this.inView)
         return 0;
+      let contentWidth = dom.clientWidth;
+      if (this.contentDOMWidth != contentWidth || this.editorHeight != view.scrollDOM.clientHeight) {
+        this.contentDOMWidth = contentWidth;
+        this.editorHeight = view.scrollDOM.clientHeight;
+        result |= 8;
+      }
       if (measureContent) {
-        let lineHeights = view.docView.measureVisibleLineHeights();
+        let lineHeights = view.docView.measureVisibleLineHeights(this.viewport);
         if (oracle.mustRefreshForHeights(lineHeights))
           refresh = true;
-        let contentWidth = dom.clientWidth;
         if (refresh || oracle.lineWrapping && Math.abs(contentWidth - this.contentDOMWidth) > oracle.charWidth) {
           let { lineHeight, charWidth } = view.docView.measureTextSize();
-          refresh = oracle.refresh(whiteSpace, direction, lineHeight, charWidth, contentWidth / charWidth, lineHeights);
+          refresh = oracle.refresh(whiteSpace, lineHeight, charWidth, contentWidth / charWidth, lineHeights);
           if (refresh) {
             view.docView.minWidth = 0;
             result |= 8;
           }
-        }
-        if (this.contentDOMWidth != contentWidth) {
-          this.contentDOMWidth = contentWidth;
-          result |= 8;
-        }
-        if (this.editorHeight != view.scrollDOM.clientHeight) {
-          this.editorHeight = view.scrollDOM.clientHeight;
-          result |= 8;
         }
         if (dTop > 0 && dBottom > 0)
           bias = Math.max(dTop, dBottom);
         else if (dTop < 0 && dBottom < 0)
           bias = Math.min(dTop, dBottom);
         oracle.heightChanged = false;
-        this.heightMap = this.heightMap.updateHeight(oracle, 0, refresh, new MeasuredHeights(this.viewport.from, lineHeights));
+        for (let vp of this.viewports) {
+          let heights = vp.from == this.viewport.from ? lineHeights : view.docView.measureVisibleLineHeights(vp);
+          this.heightMap = this.heightMap.updateHeight(oracle, 0, refresh, new MeasuredHeights(vp.from, heights));
+        }
         if (oracle.heightChanged)
           result |= 2;
       }
       let viewportChange = !this.viewportIsAppropriate(this.viewport, bias) || this.scrollTarget && (this.scrollTarget.range.head < this.viewport.from || this.scrollTarget.range.head > this.viewport.to);
       if (viewportChange)
         this.viewport = this.getViewport(bias, this.scrollTarget);
+      this.updateForViewport();
       if (result & 2 || viewportChange)
         this.updateViewportLines();
-      this.updateForViewport();
       if (this.lineGaps.length || this.viewport.to - this.viewport.from > 4e3)
         this.updateLineGaps(this.ensureLineGaps(refresh ? [] : this.lineGaps));
       result |= this.computeVisibleRanges();
@@ -6905,12 +7153,13 @@
       let map = this.heightMap, doc2 = this.state.doc, { visibleTop, visibleBottom } = this;
       let viewport = new Viewport(map.lineAt(visibleTop - marginTop * 1e3, QueryType.ByHeight, doc2, 0, 0).from, map.lineAt(visibleBottom + (1 - marginTop) * 1e3, QueryType.ByHeight, doc2, 0, 0).to);
       if (scrollTarget) {
-        let { head } = scrollTarget.range, viewHeight = visibleBottom - visibleTop;
+        let { head } = scrollTarget.range;
         if (head < viewport.from || head > viewport.to) {
+          let viewHeight = Math.min(this.editorHeight, this.pixelViewport.bottom - this.pixelViewport.top);
           let block = map.lineAt(head, QueryType.ByPos, doc2, 0, 0), topPos;
-          if (scrollTarget.center)
+          if (scrollTarget.y == "center")
             topPos = (block.top + block.bottom) / 2 - viewHeight / 2;
-          else if (head < viewport.from)
+          else if (scrollTarget.y == "start" || scrollTarget.y == "nearest" && head < viewport.from)
             topPos = block.top;
           else
             topPos = block.bottom - viewHeight;
@@ -6924,6 +7173,8 @@
       return new Viewport(this.heightMap.lineAt(from, QueryType.ByPos, this.state.doc, 0, 0).from, this.heightMap.lineAt(to, QueryType.ByPos, this.state.doc, 0, 0).to);
     }
     viewportIsAppropriate({ from, to }, bias = 0) {
+      if (!this.inView)
+        return true;
       let { top: top2 } = this.heightMap.lineAt(from, QueryType.ByPos, this.state.doc, 0, 0);
       let { bottom } = this.heightMap.lineAt(to, QueryType.ByPos, this.state.doc, 0, 0);
       let { visibleTop, visibleBottom } = this;
@@ -6940,12 +7191,12 @@
     }
     ensureLineGaps(current) {
       let gaps = [];
-      if (this.heightOracle.direction != Direction.LTR)
+      if (this.defaultTextDirection != Direction.LTR)
         return gaps;
       for (let line2 of this.viewportLines) {
         if (line2.length < 4e3)
           continue;
-        let structure = lineStructure(line2.from, line2.to, this.state);
+        let structure = lineStructure(line2.from, line2.to, this.stateDeco);
         if (structure.total < 4e3)
           continue;
         let viewFrom, viewTo;
@@ -6991,7 +7242,7 @@
       }
     }
     computeVisibleRanges() {
-      let deco = this.state.facet(decorations);
+      let deco = this.stateDeco;
       if (this.lineGaps.length)
         deco = deco.concat(this.lineGapDeco);
       let ranges = [];
@@ -7007,7 +7258,7 @@
       return changed ? 4 : 0;
     }
     lineBlockAt(pos) {
-      return pos >= this.viewport.from && pos <= this.viewport.to && this.viewportLines.find((b) => b.from <= pos && b.to <= pos) || scaleBlock(this.heightMap.lineAt(pos, QueryType.ByPos, this.state.doc, 0, 0), this.scaler);
+      return pos >= this.viewport.from && pos <= this.viewport.to && this.viewportLines.find((b) => b.from <= pos && b.to >= pos) || scaleBlock(this.heightMap.lineAt(pos, QueryType.ByPos, this.state.doc, 0, 0), this.scaler);
     }
     lineBlockAtHeight(height) {
       return scaleBlock(this.heightMap.lineAt(this.scaler.fromDOM(height), QueryType.ByHeight, this.state.doc, 0, 0), this.scaler);
@@ -7015,8 +7266,11 @@
     elementAtHeight(height) {
       return scaleBlock(this.heightMap.blockAt(this.scaler.fromDOM(height), this.state.doc, 0, 0), this.scaler);
     }
+    get docHeight() {
+      return this.scaler.toDOM(this.heightMap.height);
+    }
     get contentHeight() {
-      return this.scaler.toDOM(this.heightMap.height) + this.paddingTop + this.paddingBottom;
+      return this.docHeight + this.paddingTop + this.paddingBottom;
     }
   };
   var Viewport = class {
@@ -7025,9 +7279,9 @@
       this.to = to;
     }
   };
-  function lineStructure(from, to, state) {
+  function lineStructure(from, to, stateDeco) {
     let ranges = [], pos = from, total = 0;
-    RangeSet.spans(state.facet(decorations), from, to, {
+    RangeSet.spans(stateDeco, from, to, {
       span() {
       },
       point(from2, to2) {
@@ -7161,7 +7415,7 @@
       }
     });
   }
-  var baseTheme = /* @__PURE__ */ buildTheme("." + baseThemeID, {
+  var baseTheme$1 = /* @__PURE__ */ buildTheme("." + baseThemeID, {
     "&.cm-editor": {
       position: "relative !important",
       boxSizing: "border-box",
@@ -7236,11 +7490,13 @@
     },
     "@keyframes cm-blink": { "0%": {}, "50%": { visibility: "hidden" }, "100%": {} },
     "@keyframes cm-blink2": { "0%": {}, "50%": { visibility: "hidden" }, "100%": {} },
-    ".cm-cursor": {
+    ".cm-cursor, .cm-dropCursor": {
       position: "absolute",
       borderLeft: "1.2px solid black",
       marginLeft: "-0.6px",
-      pointerEvents: "none",
+      pointerEvents: "none"
+    },
+    ".cm-cursor": {
       display: "none"
     },
     "&dark .cm-cursor": {
@@ -7253,21 +7509,86 @@
     "&dark .cm-activeLine": { backgroundColor: "#223039" },
     "&light .cm-specialChar": { color: "red" },
     "&dark .cm-specialChar": { color: "#f78" },
+    ".cm-gutters": {
+      display: "flex",
+      height: "100%",
+      boxSizing: "border-box",
+      left: 0,
+      zIndex: 200
+    },
+    "&light .cm-gutters": {
+      backgroundColor: "#f5f5f5",
+      color: "#6c6c6c",
+      borderRight: "1px solid #ddd"
+    },
+    "&dark .cm-gutters": {
+      backgroundColor: "#333338",
+      color: "#ccc"
+    },
+    ".cm-gutter": {
+      display: "flex !important",
+      flexDirection: "column",
+      flexShrink: 0,
+      boxSizing: "border-box",
+      minHeight: "100%",
+      overflow: "hidden"
+    },
+    ".cm-gutterElement": {
+      boxSizing: "border-box"
+    },
+    ".cm-lineNumbers .cm-gutterElement": {
+      padding: "0 3px 0 5px",
+      minWidth: "20px",
+      textAlign: "right",
+      whiteSpace: "nowrap"
+    },
+    "&light .cm-activeLineGutter": {
+      backgroundColor: "#e2f2ff"
+    },
+    "&dark .cm-activeLineGutter": {
+      backgroundColor: "#222227"
+    },
+    ".cm-panels": {
+      boxSizing: "border-box",
+      position: "sticky",
+      left: 0,
+      right: 0
+    },
+    "&light .cm-panels": {
+      backgroundColor: "#f5f5f5",
+      color: "black"
+    },
+    "&light .cm-panels-top": {
+      borderBottom: "1px solid #ddd"
+    },
+    "&light .cm-panels-bottom": {
+      borderTop: "1px solid #ddd"
+    },
+    "&dark .cm-panels": {
+      backgroundColor: "#333338",
+      color: "white"
+    },
     ".cm-tab": {
       display: "inline-block",
       overflow: "hidden",
       verticalAlign: "bottom"
     },
+    ".cm-widgetBuffer": {
+      verticalAlign: "text-top",
+      height: "1em",
+      display: "inline"
+    },
     ".cm-placeholder": {
       color: "#888",
-      display: "inline-block"
+      display: "inline-block",
+      verticalAlign: "top"
     },
     ".cm-button": {
       verticalAlign: "middle",
       color: "inherit",
       fontSize: "70%",
       padding: ".2em 1em",
-      borderRadius: "3px"
+      borderRadius: "1px"
     },
     "&light .cm-button": {
       backgroundImage: "linear-gradient(#eff1f5, #d9d9df)",
@@ -7317,6 +7638,7 @@
       this.delayedFlush = -1;
       this.resizeTimeout = -1;
       this.queue = [];
+      this.delayedAndroidKey = null;
       this.scrollTargets = [];
       this.intersection = null;
       this.resize = null;
@@ -7343,19 +7665,17 @@
           this.flushSoon();
         };
       this.onSelectionChange = this.onSelectionChange.bind(this);
+      window.addEventListener("resize", this.onResize = this.onResize.bind(this));
       if (typeof ResizeObserver == "function") {
         this.resize = new ResizeObserver(() => {
-          if (this.view.docView.lastUpdate < Date.now() - 75 && this.resizeTimeout < 0)
-            this.resizeTimeout = setTimeout(() => {
-              this.resizeTimeout = -1;
-              this.view.requestMeasure();
-            }, 50);
+          if (this.view.docView.lastUpdate < Date.now() - 75)
+            this.onResize();
         });
         this.resize.observe(view.scrollDOM);
       }
+      window.addEventListener("beforeprint", this.onPrint = this.onPrint.bind(this));
       this.start();
-      this.onScroll = this.onScroll.bind(this);
-      window.addEventListener("scroll", this.onScroll);
+      window.addEventListener("scroll", this.onScroll = this.onScroll.bind(this));
       if (typeof IntersectionObserver == "function") {
         this.intersection = new IntersectionObserver((entries) => {
           if (this.parentCheck < 0)
@@ -7381,6 +7701,21 @@
         this.flush(false);
       this.onScrollChanged(e);
     }
+    onResize() {
+      if (this.resizeTimeout < 0)
+        this.resizeTimeout = setTimeout(() => {
+          this.resizeTimeout = -1;
+          this.view.requestMeasure();
+        }, 50);
+    }
+    onPrint() {
+      this.view.viewState.printing = true;
+      this.view.measure();
+      setTimeout(() => {
+        this.view.viewState.printing = false;
+        this.view.requestMeasure();
+      }, 500);
+    }
     updateGaps(gaps) {
       if (this.gapIntersection && (gaps.length != this.gaps.length || this.gaps.some((g, i) => g != gaps[i]))) {
         this.gapIntersection.disconnect();
@@ -7390,7 +7725,7 @@
       }
     }
     onSelectionChange(event) {
-      if (!this.readSelectionRange())
+      if (!this.readSelectionRange() || this.delayedAndroidKey)
         return;
       let { view } = this, sel = this.selectionRange;
       if (view.state.facet(editable) ? view.root.activeElement != this.dom : !hasSelection(view.dom, sel))
@@ -7398,7 +7733,7 @@
       let context = sel.anchorNode && view.docView.nearest(sel.anchorNode);
       if (context && context.ignoreEvent(event))
         return;
-      if (browser.ie && browser.ie_version <= 11 && !view.state.selection.main.empty && sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
+      if ((browser.ie && browser.ie_version <= 11 || browser.android && browser.chrome) && !view.state.selection.main.empty && sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
         this.flushSoon();
       else
         this.flush(false);
@@ -7470,9 +7805,25 @@
         this.dom.removeEventListener("DOMCharacterDataModified", this.onCharData);
     }
     clear() {
-      this.observer.takeRecords();
+      this.processRecords();
       this.queue.length = 0;
       this.selectionChanged = false;
+    }
+    delayAndroidKey(key, keyCode) {
+      if (!this.delayedAndroidKey)
+        requestAnimationFrame(() => {
+          let key2 = this.delayedAndroidKey;
+          this.delayedAndroidKey = null;
+          let startState = this.view.state;
+          if (dispatchKey(this.view.contentDOM, key2.key, key2.keyCode))
+            this.processRecords();
+          else
+            this.flush();
+          if (this.view.state == startState)
+            this.view.update([]);
+        });
+      if (!this.delayedAndroidKey || key == "Enter")
+        this.delayedAndroidKey = { key, keyCode };
     }
     flushSoon() {
       if (this.delayedFlush < 0)
@@ -7511,10 +7862,10 @@
       return { from, to, typeOver };
     }
     flush(readSelection = true) {
+      if (this.delayedFlush >= 0 || this.delayedAndroidKey)
+        return;
       if (readSelection)
         this.readSelectionRange();
-      if (this.delayedFlush >= 0 || this.view.inputState.pendingAndroidKey)
-        return;
       let { from, to, typeOver } = this.processRecords();
       let newSel = this.selectionChanged && hasSelection(this.dom, this.selectionRange);
       if (from < 0 && !newSel)
@@ -7523,7 +7874,7 @@
       let startState = this.view.state;
       this.onChange(from, to, typeOver);
       if (this.view.state == startState)
-        this.view.docView.reset(newSel);
+        this.view.update([]);
     }
     readMutation(rec) {
       let cView = this.view.docView.nearest(rec.target);
@@ -7547,14 +7898,17 @@
       }
     }
     destroy() {
-      var _a, _b, _c;
+      var _a2, _b, _c;
       this.stop();
-      (_a = this.intersection) === null || _a === void 0 ? void 0 : _a.disconnect();
+      (_a2 = this.intersection) === null || _a2 === void 0 ? void 0 : _a2.disconnect();
       (_b = this.gapIntersection) === null || _b === void 0 ? void 0 : _b.disconnect();
       (_c = this.resize) === null || _c === void 0 ? void 0 : _c.disconnect();
       for (let dom of this.scrollTargets)
         dom.removeEventListener("scroll", this.onScroll);
       window.removeEventListener("scroll", this.onScroll);
+      window.removeEventListener("resize", this.onResize);
+      window.removeEventListener("beforeprint", this.onPrint);
+      this.dom.ownerDocument.removeEventListener("selectionchange", this.onSelectionChange);
       clearTimeout(this.parentCheck);
       clearTimeout(this.resizeTimeout);
     }
@@ -7597,21 +7951,24 @@
         return;
       let { from, to } = bounds;
       let selPoints = view.docView.impreciseHead || view.docView.impreciseAnchor ? [] : selectionPoints(view);
-      let reader = new DOMReader(selPoints, view);
+      let reader = new DOMReader(selPoints, view.state);
       reader.readRange(bounds.startDOM, bounds.endDOM);
-      newSel = selectionFromPoints(selPoints, from);
       let preferredPos = sel.from, preferredSide = null;
       if (view.inputState.lastKeyCode === 8 && view.inputState.lastKeyTime > Date.now() - 100 || browser.android && reader.text.length < to - from) {
         preferredPos = sel.to;
         preferredSide = "end";
       }
-      let diff = findDiff(view.state.sliceDoc(from, to), reader.text, preferredPos - from, preferredSide);
-      if (diff)
+      let diff = findDiff(view.state.doc.sliceString(from, to, LineBreakPlaceholder), reader.text, preferredPos - from, preferredSide);
+      if (diff) {
+        if (browser.chrome && view.inputState.lastKeyCode == 13 && diff.toB == diff.from + 2 && reader.text.slice(diff.from, diff.toB) == LineBreakPlaceholder + LineBreakPlaceholder)
+          diff.toB--;
         change = {
           from: from + diff.from,
           to: from + diff.toA,
-          insert: view.state.toText(reader.text.slice(diff.from, diff.toB))
+          insert: Text.of(reader.text.slice(diff.from, diff.toB).split(LineBreakPlaceholder))
         };
+      }
+      newSel = selectionFromPoints(selPoints, from);
     } else if (view.hasFocus || !view.state.facet(editable)) {
       let domSel = view.observer.selectionRange;
       let { impreciseHead: iHead, impreciseAnchor: iAnchor } = view.docView;
@@ -7634,22 +7991,43 @@
       let startState = view.state;
       if (browser.ios && view.inputState.flushIOSKey(view))
         return;
+      if (browser.android && (change.from == sel.from && change.to == sel.to && change.insert.length == 1 && change.insert.lines == 2 && dispatchKey(view.contentDOM, "Enter", 13) || change.from == sel.from - 1 && change.to == sel.to && change.insert.length == 0 && dispatchKey(view.contentDOM, "Backspace", 8) || change.from == sel.from && change.to == sel.to + 1 && change.insert.length == 0 && dispatchKey(view.contentDOM, "Delete", 46)))
+        return;
       let text = change.insert.toString();
       if (view.state.facet(inputHandler).some((h) => h(view, change.from, change.to, text)))
         return;
       if (view.inputState.composing >= 0)
         view.inputState.composing++;
       let tr;
-      if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length)) {
+      if (change.from >= sel.from && change.to <= sel.to && change.to - change.from >= (sel.to - sel.from) / 3 && (!newSel || newSel.main.empty && newSel.main.from == change.from + change.insert.length) && view.inputState.composing < 0) {
         let before = sel.from < change.from ? startState.sliceDoc(sel.from, change.from) : "";
         let after = sel.to > change.to ? startState.sliceDoc(change.to, sel.to) : "";
         tr = startState.replaceSelection(view.state.toText(before + change.insert.sliceString(0, void 0, view.state.lineBreak) + after));
       } else {
         let changes = startState.changes(change);
-        tr = {
-          changes,
-          selection: newSel && !startState.selection.main.eq(newSel.main) && newSel.main.to <= changes.newLength ? startState.selection.replaceRange(newSel.main) : void 0
-        };
+        let mainSel = newSel && !startState.selection.main.eq(newSel.main) && newSel.main.to <= changes.newLength ? newSel.main : void 0;
+        if (startState.selection.ranges.length > 1 && view.inputState.composing >= 0 && change.to <= sel.to && change.to >= sel.to - 10) {
+          let replaced = view.state.sliceDoc(change.from, change.to);
+          let compositionRange = compositionSurroundingNode(view) || view.state.doc.lineAt(sel.head);
+          let offset = sel.to - change.to, size = sel.to - sel.from;
+          tr = startState.changeByRange((range) => {
+            if (range.from == sel.from && range.to == sel.to)
+              return { changes, range: mainSel || range.map(changes) };
+            let to = range.to - offset, from = to - replaced.length;
+            if (range.to - range.from != size || view.state.sliceDoc(from, to) != replaced || compositionRange && range.to >= compositionRange.from && range.from <= compositionRange.to)
+              return { range };
+            let rangeChanges = startState.changes({ from, to, insert: change.insert }), selOff = range.to - sel.to;
+            return {
+              changes: rangeChanges,
+              range: !mainSel ? range.map(rangeChanges) : EditorSelection.range(Math.max(0, mainSel.anchor + selOff), Math.max(0, mainSel.head + selOff))
+            };
+          });
+        } else {
+          tr = {
+            changes,
+            selection: mainSel && startState.selection.replaceRange(mainSel)
+          };
+        }
       }
       let userEvent = "input.type";
       if (view.composing) {
@@ -7661,13 +8039,13 @@
       }
       view.dispatch(tr, { scrollIntoView: true, userEvent });
     } else if (newSel && !newSel.main.eq(sel)) {
-      let scrollIntoView = false, userEvent = "select";
+      let scrollIntoView2 = false, userEvent = "select";
       if (view.inputState.lastSelectionTime > Date.now() - 50) {
         if (view.inputState.lastSelectionOrigin == "select")
-          scrollIntoView = true;
+          scrollIntoView2 = true;
         userEvent = view.inputState.lastSelectionOrigin;
       }
-      view.dispatch({ selection: newSel, scrollIntoView, userEvent });
+      view.dispatch({ selection: newSel, scrollIntoView: scrollIntoView2, userEvent });
     }
   }
   function findDiff(a, b, preferredPos, preferredSide) {
@@ -7699,72 +8077,6 @@
     }
     return { from, toA, toB };
   }
-  var DOMReader = class {
-    constructor(points, view) {
-      this.points = points;
-      this.view = view;
-      this.text = "";
-      this.lineBreak = view.state.lineBreak;
-    }
-    readRange(start, end) {
-      if (!start)
-        return;
-      let parent = start.parentNode;
-      for (let cur = start; ; ) {
-        this.findPointBefore(parent, cur);
-        this.readNode(cur);
-        let next3 = cur.nextSibling;
-        if (next3 == end)
-          break;
-        let view = ContentView.get(cur), nextView = ContentView.get(next3);
-        if (view && nextView ? view.breakAfter : (view ? view.breakAfter : isBlockElement(cur)) || isBlockElement(next3) && (cur.nodeName != "BR" || cur.cmIgnore))
-          this.text += this.lineBreak;
-        cur = next3;
-      }
-      this.findPointBefore(parent, end);
-    }
-    readNode(node) {
-      if (node.cmIgnore)
-        return;
-      let view = ContentView.get(node);
-      let fromView = view && view.overrideDOMText;
-      let text;
-      if (fromView != null)
-        text = fromView.sliceString(0, void 0, this.lineBreak);
-      else if (node.nodeType == 3)
-        text = node.nodeValue;
-      else if (node.nodeName == "BR")
-        text = node.nextSibling ? this.lineBreak : "";
-      else if (node.nodeType == 1)
-        this.readRange(node.firstChild, null);
-      if (text != null) {
-        this.findPointIn(node, text.length);
-        this.text += text;
-        if (browser.chrome && this.view.inputState.lastKeyCode == 13 && !node.nextSibling && /\n\n$/.test(this.text))
-          this.text = this.text.slice(0, -1);
-      }
-    }
-    findPointBefore(node, next3) {
-      for (let point of this.points)
-        if (point.node == node && node.childNodes[point.offset] == next3)
-          point.pos = this.text.length;
-    }
-    findPointIn(node, maxLen) {
-      for (let point of this.points)
-        if (point.node == node)
-          point.pos = this.text.length + Math.min(point.offset, maxLen);
-    }
-  };
-  function isBlockElement(node) {
-    return node.nodeType == 1 && /^(DIV|P|LI|UL|OL|BLOCKQUOTE|DD|DT|H\d|SECTION|PRE)$/.test(node.nodeName);
-  }
-  var DOMPoint = class {
-    constructor(node, offset) {
-      this.node = node;
-      this.offset = offset;
-      this.pos = -1;
-    }
-  };
   function selectionPoints(view) {
     let result = [];
     if (view.root.activeElement != view.contentDOM)
@@ -7786,6 +8098,7 @@
   var EditorView = class {
     constructor(config2 = {}) {
       this.plugins = [];
+      this.pluginMap = /* @__PURE__ */ new Map();
       this.editorAttrs = {};
       this.contentAttrs = {};
       this.bidiCache = [];
@@ -7808,7 +8121,9 @@
       this.dispatch = this.dispatch.bind(this);
       this.root = config2.root || getRoot(config2.parent) || document;
       this.viewState = new ViewState(config2.state || EditorState.create());
-      this.plugins = this.state.facet(viewPlugin).map((spec) => new PluginInstance(spec).update(this));
+      this.plugins = this.state.facet(viewPlugin).map((spec) => new PluginInstance(spec));
+      for (let plugin of this.plugins)
+        plugin.update(this);
       this.observer = new DOMObserver(this, (from, to, typeOver) => {
         applyDOMChange(this, from, to, typeOver);
       }, (event) => {
@@ -7817,11 +8132,11 @@
           this.measure();
       });
       this.inputState = new InputState(this);
+      this.inputState.ensureHandlers(this, this.plugins);
       this.docView = new DocView(this);
       this.mountStyles();
       this.updateAttrs();
       this.updateState = 0;
-      ensureGlobalHandler();
       this.requestMeasure();
       if (config2.parent)
         config2.parent.appendChild(this.dom);
@@ -7840,6 +8155,9 @@
     }
     get composing() {
       return this.inputState.composing > 0;
+    }
+    get compositionStarted() {
+      return this.inputState.composing >= 0;
     }
     dispatch(...input) {
       this._dispatch(input.length == 1 && input[0] instanceof Transaction ? input[0] : this.state.update(...input));
@@ -7861,7 +8179,7 @@
       if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
         return this.setState(state);
       update = new ViewUpdate(this, state, transactions);
-      let scrollTarget = null;
+      let scrollTarget = this.viewState.scrollTarget;
       try {
         this.updateState = 2;
         for (let tr of transactions) {
@@ -7871,12 +8189,9 @@
             let { main } = tr.state.selection;
             scrollTarget = new ScrollTarget(main.empty ? main : EditorSelection.cursor(main.head, main.head > main.anchor ? -1 : 1));
           }
-          for (let e of tr.effects) {
-            if (e.is(scrollTo))
-              scrollTarget = new ScrollTarget(e.value);
-            else if (e.is(centerOn))
-              scrollTarget = new ScrollTarget(e.value, true);
-          }
+          for (let e of tr.effects)
+            if (e.is(scrollIntoView))
+              scrollTarget = e.value;
         }
         this.viewState.update(update, scrollTarget);
         this.bidiCache = CachedOrder.update(this.bidiCache, update.changes);
@@ -7893,7 +8208,9 @@
       } finally {
         this.updateState = 0;
       }
-      if (redrawn || scrollTarget || this.viewState.mustEnforceCursorAssoc)
+      if (update.startState.facet(theme) != update.state.facet(theme))
+        this.viewState.mustMeasureContent = true;
+      if (redrawn || scrollTarget || this.viewState.mustEnforceCursorAssoc || this.viewState.mustMeasureContent)
         this.requestMeasure();
       if (!update.empty)
         for (let listener of this.state.facet(updateListener))
@@ -7907,19 +8224,25 @@
         return;
       }
       this.updateState = 2;
+      let hadFocus = this.hasFocus;
       try {
         for (let plugin of this.plugins)
           plugin.destroy(this);
         this.viewState = new ViewState(newState);
-        this.plugins = newState.facet(viewPlugin).map((spec) => new PluginInstance(spec).update(this));
+        this.plugins = newState.facet(viewPlugin).map((spec) => new PluginInstance(spec));
+        this.pluginMap.clear();
+        for (let plugin of this.plugins)
+          plugin.update(this);
         this.docView = new DocView(this);
-        this.inputState.ensureHandlers(this);
+        this.inputState.ensureHandlers(this, this.plugins);
         this.mountStyles();
         this.updateAttrs();
         this.bidiCache = [];
       } finally {
         this.updateState = 0;
       }
+      if (hadFocus)
+        this.focus();
       this.requestMeasure();
     }
     updatePlugins(update) {
@@ -7940,13 +8263,14 @@
           if (plugin.mustUpdate != update)
             plugin.destroy(this);
         this.plugins = newPlugins;
-        this.inputState.ensureHandlers(this);
+        this.pluginMap.clear();
+        this.inputState.ensureHandlers(this, this.plugins);
       } else {
         for (let p of this.plugins)
           p.mustUpdate = update;
       }
       for (let i = 0; i < this.plugins.length; i++)
-        this.plugins[i] = this.plugins[i].update(this);
+        this.plugins[i].update(this);
     }
     measure(flush = true) {
       if (this.destroyed)
@@ -7979,7 +8303,7 @@
               return BadMeasure;
             }
           });
-          let update = new ViewUpdate(this, this.state), redrawn = false;
+          let update = new ViewUpdate(this, this.state), redrawn = false, scrolled = false;
           update.flags |= changed;
           if (!updated)
             updated = update;
@@ -8005,10 +8329,11 @@
           if (this.viewState.scrollTarget) {
             this.docView.scrollIntoView(this.viewState.scrollTarget);
             this.viewState.scrollTarget = null;
+            scrolled = true;
           }
           if (redrawn)
             this.docView.updateSelection(true);
-          if (this.viewport.from == oldViewport.from && this.viewport.to == oldViewport.to && this.measureRequests.length == 0)
+          if (this.viewport.from == oldViewport.from && this.viewport.to == oldViewport.to && !scrolled && this.measureRequests.length == 0)
             break;
         }
       } finally {
@@ -8023,7 +8348,7 @@
       return baseThemeID + " " + (this.state.facet(darkTheme) ? baseDarkID : baseLightID) + " " + this.state.facet(theme);
     }
     updateAttrs() {
-      let editorAttrs = combineAttrs(this.state.facet(editorAttributes), {
+      let editorAttrs = attrsFromFacet(this, editorAttributes, {
         class: "cm-editor" + (this.hasFocus ? " cm-focused " : " ") + this.themeClasses
       });
       let contentAttrs = {
@@ -8039,7 +8364,7 @@
       };
       if (this.state.readOnly)
         contentAttrs["aria-readonly"] = "true";
-      combineAttrs(this.state.facet(contentAttributes), contentAttrs);
+      attrsFromFacet(this, contentAttributes, contentAttrs);
       this.observer.ignore(() => {
         updateAttrs(this.contentDOM, this.contentAttrs, contentAttrs);
         updateAttrs(this.dom, this.editorAttrs, editorAttrs);
@@ -8061,7 +8386,7 @@
     }
     mountStyles() {
       this.styleModules = this.state.facet(styleModule);
-      StyleModule.mount(this.root, this.styleModules.concat(baseTheme).reverse());
+      StyleModule.mount(this.root, this.styleModules.concat(baseTheme$1).reverse());
     }
     readMeasured() {
       if (this.updateState == 2)
@@ -8083,47 +8408,28 @@
         this.measureRequests.push(request);
       }
     }
-    pluginField(field) {
-      let result = [];
-      for (let plugin of this.plugins)
-        plugin.update(this).takeField(field, result);
-      return result;
-    }
     plugin(plugin) {
-      for (let inst of this.plugins)
-        if (inst.spec == plugin)
-          return inst.update(this).value;
-      return null;
+      let known = this.pluginMap.get(plugin);
+      if (known === void 0 || known && known.spec != plugin)
+        this.pluginMap.set(plugin, known = this.plugins.find((p) => p.spec == plugin) || null);
+      return known && known.update(this).value;
     }
     get documentTop() {
       return this.contentDOM.getBoundingClientRect().top + this.viewState.paddingTop;
     }
-    blockAtHeight(height, docTop) {
-      let top2 = ensureTop(docTop, this);
-      return this.elementAtHeight(height - top2).moveY(top2);
+    get documentPadding() {
+      return { top: this.viewState.paddingTop, bottom: this.viewState.paddingBottom };
     }
     elementAtHeight(height) {
       this.readMeasured();
       return this.viewState.elementAtHeight(height);
     }
-    visualLineAtHeight(height, docTop) {
-      let top2 = ensureTop(docTop, this);
-      return this.lineBlockAtHeight(height - top2).moveY(top2);
-    }
     lineBlockAtHeight(height) {
       this.readMeasured();
       return this.viewState.lineBlockAtHeight(height);
     }
-    viewportLines(f, docTop) {
-      let top2 = ensureTop(docTop, this);
-      for (let line2 of this.viewportLineBlocks)
-        f(line2.moveY(top2));
-    }
     get viewportLineBlocks() {
       return this.viewState.viewportLines;
-    }
-    visualLineAt(pos, docTop = 0) {
-      return this.lineBlockAt(pos).moveY(docTop + this.viewState.paddingTop);
     }
     lineBlockAt(pos) {
       return this.viewState.lineBlockAt(pos);
@@ -8142,9 +8448,6 @@
     }
     moveVertically(start, forward, distance) {
       return skipAtoms(this, start, moveVertically(this, start, forward, distance));
-    }
-    scrollPosIntoView(pos) {
-      this.dispatch({ effects: scrollTo.of(EditorSelection.cursor(pos)) });
     }
     domAtPos(pos) {
       return this.docView.domAtPos(pos);
@@ -8172,7 +8475,14 @@
       return this.viewState.heightOracle.lineHeight;
     }
     get textDirection() {
-      return this.viewState.heightOracle.direction;
+      return this.viewState.defaultTextDirection;
+    }
+    textDirectionAt(pos) {
+      let perLine = this.state.facet(perLineTextDirection);
+      if (!perLine || pos < this.viewport.from || pos > this.viewport.to)
+        return this.textDirection;
+      this.readMeasured();
+      return this.docView.textDirectionAt(pos);
     }
     get lineWrapping() {
       return this.viewState.heightOracle.lineWrapping;
@@ -8180,17 +8490,17 @@
     bidiSpans(line2) {
       if (line2.length > MaxBidiLine)
         return trivialOrder(line2.length);
-      let dir = this.textDirection;
+      let dir = this.textDirectionAt(line2.from);
       for (let entry of this.bidiCache)
         if (entry.from == line2.from && entry.dir == dir)
           return entry.order;
-      let order = computeOrder(line2.text, this.textDirection);
+      let order = computeOrder(line2.text, dir);
       this.bidiCache.push(new CachedOrder(line2.from, line2.to, dir, order));
       return order;
     }
     get hasFocus() {
-      var _a;
-      return (document.hasFocus() || browser.safari && ((_a = this.inputState) === null || _a === void 0 ? void 0 : _a.lastContextMenu) > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
+      var _a2;
+      return (document.hasFocus() || browser.safari && ((_a2 = this.inputState) === null || _a2 === void 0 ? void 0 : _a2.lastContextMenu) > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
     }
     focus() {
       this.observer.ignore(() => {
@@ -8209,6 +8519,9 @@
         cancelAnimationFrame(this.measureScheduled);
       this.destroyed = true;
     }
+    static scrollIntoView(pos, options = {}) {
+      return scrollIntoView.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, options.y, options.x, options.yMargin, options.xMargin));
+    }
     static domEventHandlers(handlers2) {
       return ViewPlugin.define(() => ({}), { eventHandlers: handlers2 });
     }
@@ -8223,10 +8536,9 @@
       return Prec.lowest(styleModule.of(buildTheme("." + baseThemeID, spec, lightDarkIDs)));
     }
   };
-  EditorView.scrollTo = scrollTo;
-  EditorView.centerOn = centerOn;
   EditorView.styleModule = styleModule;
   EditorView.inputHandler = inputHandler;
+  EditorView.perLineTextDirection = perLineTextDirection;
   EditorView.exceptionSink = exceptionSink;
   EditorView.updateListener = updateListener;
   EditorView.editable = editable;
@@ -8234,30 +8546,14 @@
   EditorView.dragMovesSelection = dragMovesSelection$1;
   EditorView.clickAddsSelectionRange = clickAddsSelectionRange;
   EditorView.decorations = decorations;
+  EditorView.atomicRanges = atomicRanges;
+  EditorView.scrollMargins = scrollMargins;
+  EditorView.darkTheme = darkTheme;
   EditorView.contentAttributes = contentAttributes;
   EditorView.editorAttributes = editorAttributes;
   EditorView.lineWrapping = /* @__PURE__ */ EditorView.contentAttributes.of({ "class": "cm-lineWrapping" });
   EditorView.announce = /* @__PURE__ */ StateEffect.define();
   var MaxBidiLine = 4096;
-  function ensureTop(given, view) {
-    return (given == null ? view.contentDOM.getBoundingClientRect().top : given) + view.viewState.paddingTop;
-  }
-  var resizeDebounce = -1;
-  function ensureGlobalHandler() {
-    window.addEventListener("resize", () => {
-      if (resizeDebounce == -1)
-        resizeDebounce = setTimeout(handleResize, 50);
-    });
-  }
-  function handleResize() {
-    resizeDebounce = -1;
-    let found = document.querySelectorAll(".cm-content");
-    for (let i = 0; i < found.length; i++) {
-      let docView = ContentView.get(found[i]);
-      if (docView)
-        docView.editorView.requestMeasure();
-    }
-  }
   var BadMeasure = {};
   var CachedOrder = class {
     constructor(from, to, dir, order) {
@@ -8278,6 +8574,14 @@
       return result;
     }
   };
+  function attrsFromFacet(view, facet, base2) {
+    for (let sources = view.state.facet(facet), i = sources.length - 1; i >= 0; i--) {
+      let source = sources[i], value = typeof source == "function" ? source(view) : source;
+      if (value)
+        combineAttrs(value, base2);
+    }
+    return base2;
+  }
   var currentPlatform = browser.mac ? "mac" : browser.windows ? "win" : browser.linux ? "linux" : "key";
   function normalizeKeyName(name2, platform) {
     const parts = name2.split(/-(?!$)/);
@@ -8341,8 +8645,8 @@
   var storedPrefix = null;
   var PrefixTimeout = 4e3;
   function buildKeymap(bindings, platform = currentPlatform) {
-    let bound = Object.create(null);
-    let isPrefix = Object.create(null);
+    let bound = /* @__PURE__ */ Object.create(null);
+    let isPrefix = /* @__PURE__ */ Object.create(null);
     let checkPrefix = (name2, is) => {
       let current = isPrefix[name2];
       if (current == null)
@@ -8351,7 +8655,7 @@
         throw new Error("Key binding " + name2 + " is used both as a regular binding and as a multi-stroke prefix");
     };
     let add = (scope, key, command, preventDefault) => {
-      let scopeObj = bound[scope] || (bound[scope] = Object.create(null));
+      let scopeObj = bound[scope] || (bound[scope] = /* @__PURE__ */ Object.create(null));
       let parts = key.split(/ (?!$)/).map((k) => normalizeKeyName(k, platform));
       for (let i = 1; i < parts.length; i++) {
         let prefix = parts.slice(0, i).join(" ");
@@ -8430,6 +8734,846 @@
   if (CanHidePrimary)
     themeSpec[".cm-line"].caretColor = "transparent !important";
   var UnicodeRegexpSupport = /x/.unicode != null ? "gu" : "g";
+  var Outside = "-10000px";
+  var TooltipViewManager = class {
+    constructor(view, facet, createTooltipView) {
+      this.facet = facet;
+      this.createTooltipView = createTooltipView;
+      this.input = view.state.facet(facet);
+      this.tooltips = this.input.filter((t2) => t2);
+      this.tooltipViews = this.tooltips.map(createTooltipView);
+    }
+    update(update) {
+      let input = update.state.facet(this.facet);
+      let tooltips = input.filter((x) => x);
+      if (input === this.input) {
+        for (let t2 of this.tooltipViews)
+          if (t2.update)
+            t2.update(update);
+        return false;
+      }
+      let tooltipViews = [];
+      for (let i = 0; i < tooltips.length; i++) {
+        let tip = tooltips[i], known = -1;
+        if (!tip)
+          continue;
+        for (let i2 = 0; i2 < this.tooltips.length; i2++) {
+          let other = this.tooltips[i2];
+          if (other && other.create == tip.create)
+            known = i2;
+        }
+        if (known < 0) {
+          tooltipViews[i] = this.createTooltipView(tip);
+        } else {
+          let tooltipView = tooltipViews[i] = this.tooltipViews[known];
+          if (tooltipView.update)
+            tooltipView.update(update);
+        }
+      }
+      for (let t2 of this.tooltipViews)
+        if (tooltipViews.indexOf(t2) < 0)
+          t2.dom.remove();
+      this.input = input;
+      this.tooltips = tooltips;
+      this.tooltipViews = tooltipViews;
+      return true;
+    }
+  };
+  function windowSpace() {
+    return { top: 0, left: 0, bottom: innerHeight, right: innerWidth };
+  }
+  var tooltipConfig = /* @__PURE__ */ Facet.define({
+    combine: (values) => {
+      var _a2, _b, _c;
+      return {
+        position: browser.ios ? "absolute" : ((_a2 = values.find((conf) => conf.position)) === null || _a2 === void 0 ? void 0 : _a2.position) || "fixed",
+        parent: ((_b = values.find((conf) => conf.parent)) === null || _b === void 0 ? void 0 : _b.parent) || null,
+        tooltipSpace: ((_c = values.find((conf) => conf.tooltipSpace)) === null || _c === void 0 ? void 0 : _c.tooltipSpace) || windowSpace
+      };
+    }
+  });
+  var tooltipPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
+    constructor(view) {
+      var _a2;
+      this.view = view;
+      this.inView = true;
+      this.lastTransaction = 0;
+      this.measureTimeout = -1;
+      let config2 = view.state.facet(tooltipConfig);
+      this.position = config2.position;
+      this.parent = config2.parent;
+      this.classes = view.themeClasses;
+      this.createContainer();
+      this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
+      this.manager = new TooltipViewManager(view, showTooltip, (t2) => this.createTooltip(t2));
+      this.intersectionObserver = typeof IntersectionObserver == "function" ? new IntersectionObserver((entries) => {
+        if (Date.now() > this.lastTransaction - 50 && entries.length > 0 && entries[entries.length - 1].intersectionRatio < 1)
+          this.measureSoon();
+      }, { threshold: [1] }) : null;
+      this.observeIntersection();
+      (_a2 = view.dom.ownerDocument.defaultView) === null || _a2 === void 0 ? void 0 : _a2.addEventListener("resize", this.measureSoon = this.measureSoon.bind(this));
+      this.maybeMeasure();
+    }
+    createContainer() {
+      if (this.parent) {
+        this.container = document.createElement("div");
+        this.container.style.position = "relative";
+        this.container.className = this.view.themeClasses;
+        this.parent.appendChild(this.container);
+      } else {
+        this.container = this.view.dom;
+      }
+    }
+    observeIntersection() {
+      if (this.intersectionObserver) {
+        this.intersectionObserver.disconnect();
+        for (let tooltip of this.manager.tooltipViews)
+          this.intersectionObserver.observe(tooltip.dom);
+      }
+    }
+    measureSoon() {
+      if (this.measureTimeout < 0)
+        this.measureTimeout = setTimeout(() => {
+          this.measureTimeout = -1;
+          this.maybeMeasure();
+        }, 50);
+    }
+    update(update) {
+      if (update.transactions.length)
+        this.lastTransaction = Date.now();
+      let updated = this.manager.update(update);
+      if (updated)
+        this.observeIntersection();
+      let shouldMeasure = updated || update.geometryChanged;
+      let newConfig = update.state.facet(tooltipConfig);
+      if (newConfig.position != this.position) {
+        this.position = newConfig.position;
+        for (let t2 of this.manager.tooltipViews)
+          t2.dom.style.position = this.position;
+        shouldMeasure = true;
+      }
+      if (newConfig.parent != this.parent) {
+        if (this.parent)
+          this.container.remove();
+        this.parent = newConfig.parent;
+        this.createContainer();
+        for (let t2 of this.manager.tooltipViews)
+          this.container.appendChild(t2.dom);
+        shouldMeasure = true;
+      } else if (this.parent && this.view.themeClasses != this.classes) {
+        this.classes = this.container.className = this.view.themeClasses;
+      }
+      if (shouldMeasure)
+        this.maybeMeasure();
+    }
+    createTooltip(tooltip) {
+      let tooltipView = tooltip.create(this.view);
+      tooltipView.dom.classList.add("cm-tooltip");
+      if (tooltip.arrow && !tooltipView.dom.querySelector(".cm-tooltip > .cm-tooltip-arrow")) {
+        let arrow = document.createElement("div");
+        arrow.className = "cm-tooltip-arrow";
+        tooltipView.dom.appendChild(arrow);
+      }
+      tooltipView.dom.style.position = this.position;
+      tooltipView.dom.style.top = Outside;
+      this.container.appendChild(tooltipView.dom);
+      if (tooltipView.mount)
+        tooltipView.mount(this.view);
+      return tooltipView;
+    }
+    destroy() {
+      var _a2, _b;
+      (_a2 = this.view.dom.ownerDocument.defaultView) === null || _a2 === void 0 ? void 0 : _a2.removeEventListener("resize", this.measureSoon);
+      for (let { dom } of this.manager.tooltipViews)
+        dom.remove();
+      (_b = this.intersectionObserver) === null || _b === void 0 ? void 0 : _b.disconnect();
+      clearTimeout(this.measureTimeout);
+    }
+    readMeasure() {
+      let editor2 = this.view.dom.getBoundingClientRect();
+      return {
+        editor: editor2,
+        parent: this.parent ? this.container.getBoundingClientRect() : editor2,
+        pos: this.manager.tooltips.map((t2, i) => {
+          let tv = this.manager.tooltipViews[i];
+          return tv.getCoords ? tv.getCoords(t2.pos) : this.view.coordsAtPos(t2.pos);
+        }),
+        size: this.manager.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
+        space: this.view.state.facet(tooltipConfig).tooltipSpace(this.view)
+      };
+    }
+    writeMeasure(measured) {
+      let { editor: editor2, space } = measured;
+      let others = [];
+      for (let i = 0; i < this.manager.tooltips.length; i++) {
+        let tooltip = this.manager.tooltips[i], tView = this.manager.tooltipViews[i], { dom } = tView;
+        let pos = measured.pos[i], size = measured.size[i];
+        if (!pos || pos.bottom <= Math.max(editor2.top, space.top) || pos.top >= Math.min(editor2.bottom, space.bottom) || pos.right < Math.max(editor2.left, space.left) - 0.1 || pos.left > Math.min(editor2.right, space.right) + 0.1) {
+          dom.style.top = Outside;
+          continue;
+        }
+        let arrow = tooltip.arrow ? tView.dom.querySelector(".cm-tooltip-arrow") : null;
+        let arrowHeight = arrow ? 7 : 0;
+        let width = size.right - size.left, height = size.bottom - size.top;
+        let offset = tView.offset || noOffset, ltr = this.view.textDirection == Direction.LTR;
+        let left = size.width > space.right - space.left ? ltr ? space.left : space.right - size.width : ltr ? Math.min(pos.left - (arrow ? 14 : 0) + offset.x, space.right - width) : Math.max(space.left, pos.left - width + (arrow ? 14 : 0) - offset.x);
+        let above = !!tooltip.above;
+        if (!tooltip.strictSide && (above ? pos.top - (size.bottom - size.top) - offset.y < space.top : pos.bottom + (size.bottom - size.top) + offset.y > space.bottom) && above == space.bottom - pos.bottom > pos.top - space.top)
+          above = !above;
+        let top2 = above ? pos.top - height - arrowHeight - offset.y : pos.bottom + arrowHeight + offset.y;
+        let right = left + width;
+        if (tView.overlap !== true) {
+          for (let r of others)
+            if (r.left < right && r.right > left && r.top < top2 + height && r.bottom > top2)
+              top2 = above ? r.top - height - 2 - arrowHeight : r.bottom + arrowHeight + 2;
+        }
+        if (this.position == "absolute") {
+          dom.style.top = top2 - measured.parent.top + "px";
+          dom.style.left = left - measured.parent.left + "px";
+        } else {
+          dom.style.top = top2 + "px";
+          dom.style.left = left + "px";
+        }
+        if (arrow)
+          arrow.style.left = `${pos.left + (ltr ? offset.x : -offset.x) - (left + 14 - 7)}px`;
+        if (tView.overlap !== true)
+          others.push({ left, top: top2, right, bottom: top2 + height });
+        dom.classList.toggle("cm-tooltip-above", above);
+        dom.classList.toggle("cm-tooltip-below", !above);
+        if (tView.positioned)
+          tView.positioned();
+      }
+    }
+    maybeMeasure() {
+      if (this.manager.tooltips.length) {
+        if (this.view.inView)
+          this.view.requestMeasure(this.measureReq);
+        if (this.inView != this.view.inView) {
+          this.inView = this.view.inView;
+          if (!this.inView)
+            for (let tv of this.manager.tooltipViews)
+              tv.dom.style.top = Outside;
+        }
+      }
+    }
+  }, {
+    eventHandlers: {
+      scroll() {
+        this.maybeMeasure();
+      }
+    }
+  });
+  var baseTheme = /* @__PURE__ */ EditorView.baseTheme({
+    ".cm-tooltip": {
+      zIndex: 100
+    },
+    "&light .cm-tooltip": {
+      border: "1px solid #bbb",
+      backgroundColor: "#f5f5f5"
+    },
+    "&light .cm-tooltip-section:not(:first-child)": {
+      borderTop: "1px solid #bbb"
+    },
+    "&dark .cm-tooltip": {
+      backgroundColor: "#333338",
+      color: "white"
+    },
+    ".cm-tooltip-arrow": {
+      height: `${7}px`,
+      width: `${7 * 2}px`,
+      position: "absolute",
+      zIndex: -1,
+      overflow: "hidden",
+      "&:before, &:after": {
+        content: "''",
+        position: "absolute",
+        width: 0,
+        height: 0,
+        borderLeft: `${7}px solid transparent`,
+        borderRight: `${7}px solid transparent`
+      },
+      ".cm-tooltip-above &": {
+        bottom: `-${7}px`,
+        "&:before": {
+          borderTop: `${7}px solid #bbb`
+        },
+        "&:after": {
+          borderTop: `${7}px solid #f5f5f5`,
+          bottom: "1px"
+        }
+      },
+      ".cm-tooltip-below &": {
+        top: `-${7}px`,
+        "&:before": {
+          borderBottom: `${7}px solid #bbb`
+        },
+        "&:after": {
+          borderBottom: `${7}px solid #f5f5f5`,
+          top: "1px"
+        }
+      }
+    },
+    "&dark .cm-tooltip .cm-tooltip-arrow": {
+      "&:before": {
+        borderTopColor: "#333338",
+        borderBottomColor: "#333338"
+      },
+      "&:after": {
+        borderTopColor: "transparent",
+        borderBottomColor: "transparent"
+      }
+    }
+  });
+  var noOffset = { x: 0, y: 0 };
+  var showTooltip = /* @__PURE__ */ Facet.define({
+    enables: [tooltipPlugin, baseTheme]
+  });
+  var showHoverTooltip = /* @__PURE__ */ Facet.define();
+  var HoverTooltipHost = class {
+    constructor(view) {
+      this.view = view;
+      this.mounted = false;
+      this.dom = document.createElement("div");
+      this.dom.classList.add("cm-tooltip-hover");
+      this.manager = new TooltipViewManager(view, showHoverTooltip, (t2) => this.createHostedView(t2));
+    }
+    static create(view) {
+      return new HoverTooltipHost(view);
+    }
+    createHostedView(tooltip) {
+      let hostedView = tooltip.create(this.view);
+      hostedView.dom.classList.add("cm-tooltip-section");
+      this.dom.appendChild(hostedView.dom);
+      if (this.mounted && hostedView.mount)
+        hostedView.mount(this.view);
+      return hostedView;
+    }
+    mount(view) {
+      for (let hostedView of this.manager.tooltipViews) {
+        if (hostedView.mount)
+          hostedView.mount(view);
+      }
+      this.mounted = true;
+    }
+    positioned() {
+      for (let hostedView of this.manager.tooltipViews) {
+        if (hostedView.positioned)
+          hostedView.positioned();
+      }
+    }
+    update(update) {
+      this.manager.update(update);
+    }
+  };
+  var showHoverTooltipHost = /* @__PURE__ */ showTooltip.compute([showHoverTooltip], (state) => {
+    let tooltips = state.facet(showHoverTooltip).filter((t2) => t2);
+    if (tooltips.length === 0)
+      return null;
+    return {
+      pos: Math.min(...tooltips.map((t2) => t2.pos)),
+      end: Math.max(...tooltips.filter((t2) => t2.end != null).map((t2) => t2.end)),
+      create: HoverTooltipHost.create,
+      above: tooltips[0].above,
+      arrow: tooltips.some((t2) => t2.arrow)
+    };
+  });
+  var HoverPlugin = class {
+    constructor(view, source, field, setHover, hoverTime) {
+      this.view = view;
+      this.source = source;
+      this.field = field;
+      this.setHover = setHover;
+      this.hoverTime = hoverTime;
+      this.hoverTimeout = -1;
+      this.restartTimeout = -1;
+      this.pending = null;
+      this.lastMove = { x: 0, y: 0, target: view.dom, time: 0 };
+      this.checkHover = this.checkHover.bind(this);
+      view.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this));
+      view.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
+    }
+    update() {
+      if (this.pending) {
+        this.pending = null;
+        clearTimeout(this.restartTimeout);
+        this.restartTimeout = setTimeout(() => this.startHover(), 20);
+      }
+    }
+    get active() {
+      return this.view.state.field(this.field);
+    }
+    checkHover() {
+      this.hoverTimeout = -1;
+      if (this.active)
+        return;
+      let hovered = Date.now() - this.lastMove.time;
+      if (hovered < this.hoverTime)
+        this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime - hovered);
+      else
+        this.startHover();
+    }
+    startHover() {
+      var _a2;
+      clearTimeout(this.restartTimeout);
+      let { lastMove } = this;
+      let pos = this.view.contentDOM.contains(lastMove.target) ? this.view.posAtCoords(lastMove) : null;
+      if (pos == null)
+        return;
+      let posCoords = this.view.coordsAtPos(pos);
+      if (posCoords == null || lastMove.y < posCoords.top || lastMove.y > posCoords.bottom || lastMove.x < posCoords.left - this.view.defaultCharacterWidth || lastMove.x > posCoords.right + this.view.defaultCharacterWidth)
+        return;
+      let bidi = this.view.bidiSpans(this.view.state.doc.lineAt(pos)).find((s) => s.from <= pos && s.to >= pos);
+      let rtl = bidi && bidi.dir == Direction.RTL ? -1 : 1;
+      let open = this.source(this.view, pos, lastMove.x < posCoords.left ? -rtl : rtl);
+      if ((_a2 = open) === null || _a2 === void 0 ? void 0 : _a2.then) {
+        let pending = this.pending = { pos };
+        open.then((result) => {
+          if (this.pending == pending) {
+            this.pending = null;
+            if (result)
+              this.view.dispatch({ effects: this.setHover.of(result) });
+          }
+        }, (e) => logException(this.view.state, e, "hover tooltip"));
+      } else if (open) {
+        this.view.dispatch({ effects: this.setHover.of(open) });
+      }
+    }
+    mousemove(event) {
+      var _a2;
+      this.lastMove = { x: event.clientX, y: event.clientY, target: event.target, time: Date.now() };
+      if (this.hoverTimeout < 0)
+        this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime);
+      let tooltip = this.active;
+      if (tooltip && !isInTooltip(this.lastMove.target) || this.pending) {
+        let { pos } = tooltip || this.pending, end = (_a2 = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a2 !== void 0 ? _a2 : pos;
+        if (pos == end ? this.view.posAtCoords(this.lastMove) != pos : !isOverRange(this.view, pos, end, event.clientX, event.clientY, 6)) {
+          this.view.dispatch({ effects: this.setHover.of(null) });
+          this.pending = null;
+        }
+      }
+    }
+    mouseleave() {
+      clearTimeout(this.hoverTimeout);
+      this.hoverTimeout = -1;
+      if (this.active)
+        this.view.dispatch({ effects: this.setHover.of(null) });
+    }
+    destroy() {
+      clearTimeout(this.hoverTimeout);
+      this.view.dom.removeEventListener("mouseleave", this.mouseleave);
+      this.view.dom.removeEventListener("mousemove", this.mousemove);
+    }
+  };
+  function isInTooltip(elt) {
+    for (let cur = elt; cur; cur = cur.parentNode)
+      if (cur.nodeType == 1 && cur.classList.contains("cm-tooltip"))
+        return true;
+    return false;
+  }
+  function isOverRange(view, from, to, x, y, margin) {
+    let range = document.createRange();
+    let fromDOM = view.domAtPos(from), toDOM = view.domAtPos(to);
+    range.setEnd(toDOM.node, toDOM.offset);
+    range.setStart(fromDOM.node, fromDOM.offset);
+    let rects = range.getClientRects();
+    range.detach();
+    for (let i = 0; i < rects.length; i++) {
+      let rect = rects[i];
+      let dist = Math.max(rect.top - y, y - rect.bottom, rect.left - x, x - rect.right);
+      if (dist <= margin)
+        return true;
+    }
+    return false;
+  }
+  function hoverTooltip(source, options = {}) {
+    let setHover = StateEffect.define();
+    let hoverState = StateField.define({
+      create() {
+        return null;
+      },
+      update(value, tr) {
+        if (value && (options.hideOnChange && (tr.docChanged || tr.selection) || options.hideOn && options.hideOn(tr, value)))
+          return null;
+        if (value && tr.docChanged) {
+          let newPos = tr.changes.mapPos(value.pos, -1, MapMode.TrackDel);
+          if (newPos == null)
+            return null;
+          let copy = Object.assign(/* @__PURE__ */ Object.create(null), value);
+          copy.pos = newPos;
+          if (value.end != null)
+            copy.end = tr.changes.mapPos(value.end);
+          value = copy;
+        }
+        for (let effect of tr.effects) {
+          if (effect.is(setHover))
+            value = effect.value;
+          if (effect.is(closeHoverTooltipEffect))
+            value = null;
+        }
+        return value;
+      },
+      provide: (f) => showHoverTooltip.from(f)
+    });
+    return [
+      hoverState,
+      ViewPlugin.define((view) => new HoverPlugin(view, source, hoverState, setHover, options.hoverTime || 300)),
+      showHoverTooltipHost
+    ];
+  }
+  var closeHoverTooltipEffect = /* @__PURE__ */ StateEffect.define();
+  var GutterMarker = class extends RangeValue {
+    compare(other) {
+      return this == other || this.constructor == other.constructor && this.eq(other);
+    }
+    eq(other) {
+      return false;
+    }
+    destroy(dom) {
+    }
+  };
+  GutterMarker.prototype.elementClass = "";
+  GutterMarker.prototype.toDOM = void 0;
+  GutterMarker.prototype.mapMode = MapMode.TrackBefore;
+  GutterMarker.prototype.startSide = GutterMarker.prototype.endSide = -1;
+  GutterMarker.prototype.point = true;
+  var gutterLineClass = /* @__PURE__ */ Facet.define();
+  var activeGutters = /* @__PURE__ */ Facet.define();
+  var unfixGutters = /* @__PURE__ */ Facet.define({
+    combine: (values) => values.some((x) => x)
+  });
+  function gutters(config2) {
+    let result = [
+      gutterView
+    ];
+    if (config2 && config2.fixed === false)
+      result.push(unfixGutters.of(true));
+    return result;
+  }
+  var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
+    constructor(view) {
+      this.view = view;
+      this.prevViewport = view.viewport;
+      this.dom = document.createElement("div");
+      this.dom.className = "cm-gutters";
+      this.dom.setAttribute("aria-hidden", "true");
+      this.dom.style.minHeight = this.view.contentHeight + "px";
+      this.gutters = view.state.facet(activeGutters).map((conf) => new SingleGutterView(view, conf));
+      for (let gutter2 of this.gutters)
+        this.dom.appendChild(gutter2.dom);
+      this.fixed = !view.state.facet(unfixGutters);
+      if (this.fixed) {
+        this.dom.style.position = "sticky";
+      }
+      this.syncGutters(false);
+      view.scrollDOM.insertBefore(this.dom, view.contentDOM);
+    }
+    update(update) {
+      if (this.updateGutters(update)) {
+        let vpA = this.prevViewport, vpB = update.view.viewport;
+        let vpOverlap = Math.min(vpA.to, vpB.to) - Math.max(vpA.from, vpB.from);
+        this.syncGutters(vpOverlap < (vpB.to - vpB.from) * 0.8);
+      }
+      if (update.geometryChanged)
+        this.dom.style.minHeight = this.view.contentHeight + "px";
+      if (this.view.state.facet(unfixGutters) != !this.fixed) {
+        this.fixed = !this.fixed;
+        this.dom.style.position = this.fixed ? "sticky" : "";
+      }
+      this.prevViewport = update.view.viewport;
+    }
+    syncGutters(detach) {
+      let after = this.dom.nextSibling;
+      if (detach)
+        this.dom.remove();
+      let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
+      let classSet = [];
+      let contexts = this.gutters.map((gutter2) => new UpdateContext(gutter2, this.view.viewport, -this.view.documentPadding.top));
+      for (let line2 of this.view.viewportLineBlocks) {
+        let text;
+        if (Array.isArray(line2.type)) {
+          for (let b of line2.type)
+            if (b.type == BlockType.Text) {
+              text = b;
+              break;
+            }
+        } else {
+          text = line2.type == BlockType.Text ? line2 : void 0;
+        }
+        if (!text)
+          continue;
+        if (classSet.length)
+          classSet = [];
+        advanceCursor(lineClasses, classSet, line2.from);
+        for (let cx of contexts)
+          cx.line(this.view, text, classSet);
+      }
+      for (let cx of contexts)
+        cx.finish();
+      if (detach)
+        this.view.scrollDOM.insertBefore(this.dom, after);
+    }
+    updateGutters(update) {
+      let prev = update.startState.facet(activeGutters), cur = update.state.facet(activeGutters);
+      let change = update.docChanged || update.heightChanged || update.viewportChanged || !RangeSet.eq(update.startState.facet(gutterLineClass), update.state.facet(gutterLineClass), update.view.viewport.from, update.view.viewport.to);
+      if (prev == cur) {
+        for (let gutter2 of this.gutters)
+          if (gutter2.update(update))
+            change = true;
+      } else {
+        change = true;
+        let gutters2 = [];
+        for (let conf of cur) {
+          let known = prev.indexOf(conf);
+          if (known < 0) {
+            gutters2.push(new SingleGutterView(this.view, conf));
+          } else {
+            this.gutters[known].update(update);
+            gutters2.push(this.gutters[known]);
+          }
+        }
+        for (let g of this.gutters) {
+          g.dom.remove();
+          if (gutters2.indexOf(g) < 0)
+            g.destroy();
+        }
+        for (let g of gutters2)
+          this.dom.appendChild(g.dom);
+        this.gutters = gutters2;
+      }
+      return change;
+    }
+    destroy() {
+      for (let view of this.gutters)
+        view.destroy();
+      this.dom.remove();
+    }
+  }, {
+    provide: (plugin) => EditorView.scrollMargins.of((view) => {
+      let value = view.plugin(plugin);
+      if (!value || value.gutters.length == 0 || !value.fixed)
+        return null;
+      return view.textDirection == Direction.LTR ? { left: value.dom.offsetWidth } : { right: value.dom.offsetWidth };
+    })
+  });
+  function asArray2(val) {
+    return Array.isArray(val) ? val : [val];
+  }
+  function advanceCursor(cursor, collect, pos) {
+    while (cursor.value && cursor.from <= pos) {
+      if (cursor.from == pos)
+        collect.push(cursor.value);
+      cursor.next();
+    }
+  }
+  var UpdateContext = class {
+    constructor(gutter2, viewport, height) {
+      this.gutter = gutter2;
+      this.height = height;
+      this.localMarkers = [];
+      this.i = 0;
+      this.cursor = RangeSet.iter(gutter2.markers, viewport.from);
+    }
+    line(view, line2, extraMarkers) {
+      if (this.localMarkers.length)
+        this.localMarkers = [];
+      advanceCursor(this.cursor, this.localMarkers, line2.from);
+      let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
+      let forLine = this.gutter.config.lineMarker(view, line2, localMarkers);
+      if (forLine)
+        localMarkers.unshift(forLine);
+      let gutter2 = this.gutter;
+      if (localMarkers.length == 0 && !gutter2.config.renderEmptyElements)
+        return;
+      let above = line2.top - this.height;
+      if (this.i == gutter2.elements.length) {
+        let newElt = new GutterElement(view, line2.height, above, localMarkers);
+        gutter2.elements.push(newElt);
+        gutter2.dom.appendChild(newElt.dom);
+      } else {
+        gutter2.elements[this.i].update(view, line2.height, above, localMarkers);
+      }
+      this.height = line2.bottom;
+      this.i++;
+    }
+    finish() {
+      let gutter2 = this.gutter;
+      while (gutter2.elements.length > this.i) {
+        let last = gutter2.elements.pop();
+        gutter2.dom.removeChild(last.dom);
+        last.destroy();
+      }
+    }
+  };
+  var SingleGutterView = class {
+    constructor(view, config2) {
+      this.view = view;
+      this.config = config2;
+      this.elements = [];
+      this.spacer = null;
+      this.dom = document.createElement("div");
+      this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
+      for (let prop in config2.domEventHandlers) {
+        this.dom.addEventListener(prop, (event) => {
+          let line2 = view.lineBlockAtHeight(event.clientY - view.documentTop);
+          if (config2.domEventHandlers[prop](view, line2, event))
+            event.preventDefault();
+        });
+      }
+      this.markers = asArray2(config2.markers(view));
+      if (config2.initialSpacer) {
+        this.spacer = new GutterElement(view, 0, 0, [config2.initialSpacer(view)]);
+        this.dom.appendChild(this.spacer.dom);
+        this.spacer.dom.style.cssText += "visibility: hidden; pointer-events: none";
+      }
+    }
+    update(update) {
+      let prevMarkers = this.markers;
+      this.markers = asArray2(this.config.markers(update.view));
+      if (this.spacer && this.config.updateSpacer) {
+        let updated = this.config.updateSpacer(this.spacer.markers[0], update);
+        if (updated != this.spacer.markers[0])
+          this.spacer.update(update.view, 0, 0, [updated]);
+      }
+      let vp = update.view.viewport;
+      return !RangeSet.eq(this.markers, prevMarkers, vp.from, vp.to) || (this.config.lineMarkerChange ? this.config.lineMarkerChange(update) : false);
+    }
+    destroy() {
+      for (let elt of this.elements)
+        elt.destroy();
+    }
+  };
+  var GutterElement = class {
+    constructor(view, height, above, markers) {
+      this.height = -1;
+      this.above = 0;
+      this.markers = [];
+      this.dom = document.createElement("div");
+      this.update(view, height, above, markers);
+    }
+    update(view, height, above, markers) {
+      if (this.height != height)
+        this.dom.style.height = (this.height = height) + "px";
+      if (this.above != above)
+        this.dom.style.marginTop = (this.above = above) ? above + "px" : "";
+      if (!sameMarkers(this.markers, markers))
+        this.setMarkers(view, markers);
+    }
+    setMarkers(view, markers) {
+      let cls = "cm-gutterElement", domPos = this.dom.firstChild;
+      for (let iNew = 0, iOld = 0; ; ) {
+        let skipTo = iOld, marker = iNew < markers.length ? markers[iNew++] : null, matched = false;
+        if (marker) {
+          let c = marker.elementClass;
+          if (c)
+            cls += " " + c;
+          for (let i = iOld; i < this.markers.length; i++)
+            if (this.markers[i].compare(marker)) {
+              skipTo = i;
+              matched = true;
+              break;
+            }
+        } else {
+          skipTo = this.markers.length;
+        }
+        while (iOld < skipTo) {
+          let next3 = this.markers[iOld++];
+          if (next3.toDOM) {
+            next3.destroy(domPos);
+            let after = domPos.nextSibling;
+            domPos.remove();
+            domPos = after;
+          }
+        }
+        if (!marker)
+          break;
+        if (marker.toDOM) {
+          if (matched)
+            domPos = domPos.nextSibling;
+          else
+            this.dom.insertBefore(marker.toDOM(view), domPos);
+        }
+        if (matched)
+          iOld++;
+      }
+      this.dom.className = cls;
+      this.markers = markers;
+    }
+    destroy() {
+      this.setMarkers(null, []);
+    }
+  };
+  function sameMarkers(a, b) {
+    if (a.length != b.length)
+      return false;
+    for (let i = 0; i < a.length; i++)
+      if (!a[i].compare(b[i]))
+        return false;
+    return true;
+  }
+  var lineNumberMarkers = /* @__PURE__ */ Facet.define();
+  var lineNumberConfig = /* @__PURE__ */ Facet.define({
+    combine(values) {
+      return combineConfig(values, { formatNumber: String, domEventHandlers: {} }, {
+        domEventHandlers(a, b) {
+          let result = Object.assign({}, a);
+          for (let event in b) {
+            let exists = result[event], add = b[event];
+            result[event] = exists ? (view, line2, event2) => exists(view, line2, event2) || add(view, line2, event2) : add;
+          }
+          return result;
+        }
+      });
+    }
+  });
+  var NumberMarker = class extends GutterMarker {
+    constructor(number3) {
+      super();
+      this.number = number3;
+    }
+    eq(other) {
+      return this.number == other.number;
+    }
+    toDOM() {
+      return document.createTextNode(this.number);
+    }
+  };
+  function formatNumber(view, number3) {
+    return view.state.facet(lineNumberConfig).formatNumber(number3, view.state);
+  }
+  var lineNumberGutter = /* @__PURE__ */ activeGutters.compute([lineNumberConfig], (state) => ({
+    class: "cm-lineNumbers",
+    renderEmptyElements: false,
+    markers(view) {
+      return view.state.facet(lineNumberMarkers);
+    },
+    lineMarker(view, line2, others) {
+      if (others.some((m) => m.toDOM))
+        return null;
+      return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line2.from).number));
+    },
+    lineMarkerChange: (update) => update.startState.facet(lineNumberConfig) != update.state.facet(lineNumberConfig),
+    initialSpacer(view) {
+      return new NumberMarker(formatNumber(view, maxLineNumber(view.state.doc.lines)));
+    },
+    updateSpacer(spacer, update) {
+      let max = formatNumber(update.view, maxLineNumber(update.view.state.doc.lines));
+      return max == spacer.number ? spacer : new NumberMarker(max);
+    },
+    domEventHandlers: state.facet(lineNumberConfig).domEventHandlers
+  }));
+  function lineNumbers(config2 = {}) {
+    return [
+      lineNumberConfig.of(config2),
+      gutters(),
+      lineNumberGutter
+    ];
+  }
+  function maxLineNumber(lines2) {
+    let last = 9;
+    while (last < lines2)
+      last = last * 10 + 9;
+    return last;
+  }
 
   // node_modules/@lezer/common/dist/index.js
   var DefaultBufferLength = 1024;
@@ -8465,7 +9609,7 @@
   NodeProp.contextHash = new NodeProp({ perNode: true });
   NodeProp.lookAhead = new NodeProp({ perNode: true });
   NodeProp.mounted = new NodeProp({ perNode: true });
-  var noProps = Object.create(null);
+  var noProps = /* @__PURE__ */ Object.create(null);
   var NodeType = class {
     constructor(name2, props, id2, flags = 0) {
       this.name = name2;
@@ -8474,7 +9618,7 @@
       this.flags = flags;
     }
     static define(spec) {
-      let props = spec.props && spec.props.length ? Object.create(null) : noProps;
+      let props = spec.props && spec.props.length ? /* @__PURE__ */ Object.create(null) : noProps;
       let flags = (spec.top ? 1 : 0) | (spec.skipped ? 2 : 0) | (spec.error ? 4 : 0) | (spec.name == null ? 8 : 0);
       let type = new NodeType(spec.name || "", props, spec.id, flags);
       if (spec.props)
@@ -8514,7 +9658,7 @@
       return this.id == name2;
     }
     static match(map) {
-      let direct = Object.create(null);
+      let direct = /* @__PURE__ */ Object.create(null);
       for (let prop in map)
         for (let name2 of prop.split(" "))
           direct[name2] = map[prop];
@@ -8527,7 +9671,7 @@
       };
     }
   };
-  NodeType.none = new NodeType("", Object.create(null), 0, 8);
+  NodeType.none = new NodeType("", /* @__PURE__ */ Object.create(null), 0, 8);
   var NodeSet = class {
     constructor(types2) {
       this.types = types2;
@@ -8552,8 +9696,15 @@
       return new NodeSet(newTypes);
     }
   };
-  var CachedNode = new WeakMap();
-  var CachedInnerNode = new WeakMap();
+  var CachedNode = /* @__PURE__ */ new WeakMap();
+  var CachedInnerNode = /* @__PURE__ */ new WeakMap();
+  var IterMode;
+  (function(IterMode2) {
+    IterMode2[IterMode2["ExcludeBuffers"] = 1] = "ExcludeBuffers";
+    IterMode2[IterMode2["IncludeAnonymous"] = 2] = "IncludeAnonymous";
+    IterMode2[IterMode2["IgnoreMounts"] = 4] = "IgnoreMounts";
+    IterMode2[IterMode2["IgnoreOverlays"] = 8] = "IgnoreOverlays";
+  })(IterMode || (IterMode = {}));
   var Tree = class {
     constructor(type, children, positions, length, props) {
       this.type = type;
@@ -8562,7 +9713,7 @@
       this.length = length;
       this.props = null;
       if (props && props.length) {
-        this.props = Object.create(null);
+        this.props = /* @__PURE__ */ Object.create(null);
         for (let [prop, value] of props)
           this.props[typeof prop == "number" ? prop : prop.id] = value;
       }
@@ -8582,17 +9733,15 @@
       }
       return !this.type.name ? children : (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) + (children.length ? "(" + children + ")" : "");
     }
-    cursor(pos, side = 0) {
-      let scope = pos != null && CachedNode.get(this) || this.topNode;
-      let cursor = new TreeCursor(scope);
-      if (pos != null) {
-        cursor.moveTo(pos, side);
-        CachedNode.set(this, cursor._tree);
-      }
-      return cursor;
+    cursor(mode = 0) {
+      return new TreeCursor(this.topNode, mode);
     }
-    fullCursor() {
-      return new TreeCursor(this.topNode, 1);
+    cursorAt(pos, side = 0, mode = 0) {
+      let scope = CachedNode.get(this) || this.topNode;
+      let cursor = new TreeCursor(scope);
+      cursor.moveTo(pos, side);
+      CachedNode.set(this, cursor._tree);
+      return cursor;
     }
     get topNode() {
       return new TreeNode(this, 0, 0, null);
@@ -8609,23 +9758,21 @@
     }
     iterate(spec) {
       let { enter, leave, from = 0, to = this.length } = spec;
-      for (let c = this.cursor(), get = () => c.node; ; ) {
-        let mustLeave = false;
-        if (c.from <= to && c.to >= from && (c.type.isAnonymous || enter(c.type, c.from, c.to, get) !== false)) {
+      for (let c = this.cursor((spec.mode || 0) | IterMode.IncludeAnonymous); ; ) {
+        let entered = false;
+        if (c.from <= to && c.to >= from && (c.type.isAnonymous || enter(c) !== false)) {
           if (c.firstChild())
             continue;
-          if (!c.type.isAnonymous)
-            mustLeave = true;
+          entered = true;
         }
         for (; ; ) {
-          if (mustLeave && leave)
-            leave(c.type, c.from, c.to, get);
-          mustLeave = c.type.isAnonymous;
+          if (entered && leave && !c.type.isAnonymous)
+            leave(c);
           if (c.nextSibling())
             break;
           if (!c.parent())
             return;
-          mustLeave = true;
+          entered = true;
         }
       }
     }
@@ -8761,70 +9908,68 @@
     return node;
   }
   function resolveNode(node, pos, side, overlays) {
-    var _a;
+    var _a2;
     while (node.from == node.to || (side < 1 ? node.from >= pos : node.from > pos) || (side > -1 ? node.to <= pos : node.to < pos)) {
       let parent = !overlays && node instanceof TreeNode && node.index < 0 ? null : node.parent;
       if (!parent)
         return node;
       node = parent;
     }
+    let mode = overlays ? 0 : IterMode.IgnoreOverlays;
     if (overlays)
       for (let scan = node, parent = scan.parent; parent; scan = parent, parent = scan.parent) {
-        if (scan instanceof TreeNode && scan.index < 0 && ((_a = parent.enter(pos, side, true)) === null || _a === void 0 ? void 0 : _a.from) != scan.from)
+        if (scan instanceof TreeNode && scan.index < 0 && ((_a2 = parent.enter(pos, side, mode)) === null || _a2 === void 0 ? void 0 : _a2.from) != scan.from)
           node = parent;
       }
     for (; ; ) {
-      let inner = node.enter(pos, side, overlays);
+      let inner = node.enter(pos, side, mode);
       if (!inner)
         return node;
       node = inner;
     }
   }
   var TreeNode = class {
-    constructor(node, _from, index, _parent) {
-      this.node = node;
-      this._from = _from;
+    constructor(_tree, from, index, _parent) {
+      this._tree = _tree;
+      this.from = from;
       this.index = index;
       this._parent = _parent;
     }
     get type() {
-      return this.node.type;
+      return this._tree.type;
     }
     get name() {
-      return this.node.type.name;
-    }
-    get from() {
-      return this._from;
+      return this._tree.type.name;
     }
     get to() {
-      return this._from + this.node.length;
+      return this.from + this._tree.length;
     }
     nextChild(i, dir, pos, side, mode = 0) {
       for (let parent = this; ; ) {
-        for (let { children, positions } = parent.node, e = dir > 0 ? children.length : -1; i != e; i += dir) {
-          let next3 = children[i], start = positions[i] + parent._from;
+        for (let { children, positions } = parent._tree, e = dir > 0 ? children.length : -1; i != e; i += dir) {
+          let next3 = children[i], start = positions[i] + parent.from;
           if (!checkSide(side, pos, start, start + next3.length))
             continue;
           if (next3 instanceof TreeBuffer) {
-            if (mode & 2)
+            if (mode & IterMode.ExcludeBuffers)
               continue;
             let index = next3.findChild(0, next3.buffer.length, dir, pos - start, side);
             if (index > -1)
               return new BufferNode(new BufferContext(parent, next3, i, start), null, index);
-          } else if (mode & 1 || (!next3.type.isAnonymous || hasChild(next3))) {
+          } else if (mode & IterMode.IncludeAnonymous || (!next3.type.isAnonymous || hasChild(next3))) {
             let mounted;
-            if (!(mode & 1) && next3.props && (mounted = next3.prop(NodeProp.mounted)) && !mounted.overlay)
+            if (!(mode & IterMode.IgnoreMounts) && next3.props && (mounted = next3.prop(NodeProp.mounted)) && !mounted.overlay)
               return new TreeNode(mounted.tree, start, i, parent);
             let inner = new TreeNode(next3, start, i, parent);
-            return mode & 1 || !inner.type.isAnonymous ? inner : inner.nextChild(dir < 0 ? next3.children.length - 1 : 0, dir, pos, side);
+            return mode & IterMode.IncludeAnonymous || !inner.type.isAnonymous ? inner : inner.nextChild(dir < 0 ? next3.children.length - 1 : 0, dir, pos, side);
           }
         }
-        if (mode & 1 || !parent.type.isAnonymous)
+        if (mode & IterMode.IncludeAnonymous || !parent.type.isAnonymous)
           return null;
         if (parent.index >= 0)
           i = parent.index + dir;
         else
-          i = dir < 0 ? -1 : parent._parent.node.children.length;
+          i = dir < 0 ? -1 : parent._parent._tree.children.length;
         parent = parent._parent;
         if (!parent)
           return null;
@@ -8834,24 +9979,24 @@
       return this.nextChild(0, 1, 0, 4);
     }
     get lastChild() {
-      return this.nextChild(this.node.children.length - 1, -1, 0, 4);
+      return this.nextChild(this._tree.children.length - 1, -1, 0, 4);
     }
     childAfter(pos) {
       return this.nextChild(0, 1, pos, 2);
     }
     childBefore(pos) {
-      return this.nextChild(this.node.children.length - 1, -1, pos, -2);
+      return this.nextChild(this._tree.children.length - 1, -1, pos, -2);
     }
-    enter(pos, side, overlays = true, buffers = true) {
+    enter(pos, side, mode = 0) {
       let mounted;
-      if (overlays && (mounted = this.node.prop(NodeProp.mounted)) && mounted.overlay) {
+      if (!(mode & IterMode.IgnoreOverlays) && (mounted = this._tree.prop(NodeProp.mounted)) && mounted.overlay) {
         let rPos = pos - this.from;
         for (let { from, to } of mounted.overlay) {
           if ((side > 0 ? from <= rPos : from < rPos) && (side < 0 ? to >= rPos : to > rPos))
             return new TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
         }
       }
-      return this.nextChild(0, 1, pos, side, buffers ? 0 : 2);
+      return this.nextChild(0, 1, pos, side, mode);
     }
     nextSignificantParent() {
       let val = this;
@@ -8868,14 +10013,14 @@
     get prevSibling() {
       return this._parent && this.index >= 0 ? this._parent.nextChild(this.index - 1, -1, 0, 4) : null;
     }
-    get cursor() {
-      return new TreeCursor(this);
+    cursor(mode = 0) {
+      return new TreeCursor(this, mode);
     }
     get tree() {
-      return this.node;
+      return this._tree;
     }
     toTree() {
-      return this.node;
+      return this._tree;
     }
     resolve(pos, side = 0) {
       return resolveNode(this, pos, side, false);
@@ -8894,11 +10039,17 @@
       return getChildren(this, type, before, after);
     }
     toString() {
-      return this.node.toString();
+      return this._tree.toString();
+    }
+    get node() {
+      return this;
+    }
+    matchContext(context) {
+      return matchNodeContext(this, context);
     }
   };
   function getChildren(node, type, before, after) {
-    let cur = node.cursor, result = [];
+    let cur = node.cursor(), result = [];
     if (!cur.firstChild())
       return result;
     if (before != null) {
@@ -8914,6 +10065,18 @@
       if (!cur.nextSibling())
         return after == null ? result : [];
     }
+  }
+  function matchNodeContext(node, context, i = context.length - 1) {
+    for (let p = node.parent; i >= 0; p = p.parent) {
+      if (!p)
+        return false;
+      if (!p.type.isAnonymous) {
+        if (context[i] && context[i] != p.name)
+          return false;
+        i--;
+      }
+    }
+    return true;
   }
   var BufferContext = class {
     constructor(parent, buffer, index, start) {
@@ -8956,8 +10119,8 @@
     childBefore(pos) {
       return this.child(-1, pos, -2);
     }
-    enter(pos, side, overlays, buffers = true) {
-      if (!buffers)
+    enter(pos, side, mode = 0) {
+      if (mode & IterMode.ExcludeBuffers)
         return null;
       let { buffer } = this.context;
       let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
@@ -8983,8 +10146,8 @@
         return this.externalSibling(-1);
       return new BufferNode(this.context, this._parent, buffer.findChild(parentStart, this.index, -1, 0, 4));
     }
-    get cursor() {
-      return new TreeCursor(this);
+    cursor(mode = 0) {
+      return new TreeCursor(this, mode);
     }
     get tree() {
       return null;
@@ -9018,6 +10181,12 @@
     }
     getChildren(type, before = null, after = null) {
       return getChildren(this, type, before, after);
+    }
+    get node() {
+      return this;
+    }
+    matchContext(context) {
+      return matchNodeContext(this, context);
     }
   };
   var TreeCursor = class {
@@ -9073,7 +10242,7 @@
     }
     enterChild(dir, pos, side) {
       if (!this.buffer)
-        return this.yield(this._tree.nextChild(dir < 0 ? this._tree.node.children.length - 1 : 0, dir, pos, side, this.mode));
+        return this.yield(this._tree.nextChild(dir < 0 ? this._tree._tree.children.length - 1 : 0, dir, pos, side, this.mode));
       let { buffer } = this.buffer;
       let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.buffer.start, side);
       if (index < 0)
@@ -9093,17 +10262,17 @@
     childBefore(pos) {
       return this.enterChild(-1, pos, -2);
     }
-    enter(pos, side, overlays = true, buffers = true) {
+    enter(pos, side, mode = this.mode) {
       if (!this.buffer)
-        return this.yield(this._tree.enter(pos, side, overlays && !(this.mode & 1), buffers));
-      return buffers ? this.enterChild(1, pos, side) : false;
+        return this.yield(this._tree.enter(pos, side, mode));
+      return mode & IterMode.ExcludeBuffers ? false : this.enterChild(1, pos, side);
     }
     parent() {
       if (!this.buffer)
-        return this.yieldNode(this.mode & 1 ? this._tree._parent : this._tree.parent);
+        return this.yieldNode(this.mode & IterMode.IncludeAnonymous ? this._tree._parent : this._tree.parent);
       if (this.stack.length)
         return this.yieldBuf(this.stack.pop());
-      let parent = this.mode & 1 ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
+      let parent = this.mode & IterMode.IncludeAnonymous ? this.buffer.parent : this.buffer.parent.nextSignificantParent();
       this.buffer = null;
       return this.yieldNode(parent);
     }
@@ -9145,9 +10314,9 @@
       }
       for (; parent; { index, _parent: parent } = parent) {
         if (index > -1)
-          for (let i = index + dir, e = dir < 0 ? -1 : parent.node.children.length; i != e; i += dir) {
-            let child = parent.node.children[i];
-            if (this.mode & 1 || child instanceof TreeBuffer || !child.type.isAnonymous || hasChild(child))
+          for (let i = index + dir, e = dir < 0 ? -1 : parent._tree.children.length; i != e; i += dir) {
+            let child = parent._tree.children[i];
+            if (this.mode & IterMode.IncludeAnonymous || child instanceof TreeBuffer || !child.type.isAnonymous || hasChild(child))
               return false;
           }
       }
@@ -9200,14 +10369,55 @@
       return this.bufferNode = new BufferNode(this.buffer, result, this.index);
     }
     get tree() {
-      return this.buffer ? null : this._tree.node;
+      return this.buffer ? null : this._tree._tree;
+    }
+    iterate(enter, leave) {
+      for (let depth = 0; ; ) {
+        let mustLeave = false;
+        if (this.type.isAnonymous || enter(this) !== false) {
+          if (this.firstChild()) {
+            depth++;
+            continue;
+          }
+          if (!this.type.isAnonymous)
+            mustLeave = true;
+        }
+        for (; ; ) {
+          if (mustLeave && leave)
+            leave(this);
+          mustLeave = this.type.isAnonymous;
+          if (this.nextSibling())
+            break;
+          if (!depth)
+            return;
+          this.parent();
+          depth--;
+          mustLeave = true;
+        }
+      }
+    }
+    matchContext(context) {
+      if (!this.buffer)
+        return matchNodeContext(this.node, context);
+      let { buffer } = this.buffer, { types: types2 } = buffer.set;
+      for (let i = context.length - 1, d = this.stack.length - 1; i >= 0; d--) {
+        if (d < 0)
+          return matchNodeContext(this.node, context, i);
+        let type = types2[buffer.buffer[this.stack[d]]];
+        if (!type.isAnonymous) {
+          if (context[i] && context[i] != type.name)
+            return false;
+          i--;
+        }
+      }
+      return true;
     }
   };
   function hasChild(tree) {
     return tree.children.some((ch) => ch instanceof TreeBuffer || !ch.type.isAnonymous || hasChild(ch));
   }
   function buildTree(data) {
-    var _a;
+    var _a2;
     let { buffer, nodeSet, maxBufferLength = DefaultBufferLength, reused = [], minRepeatType = nodeSet.types.length } = data;
     let cursor = Array.isArray(buffer) ? new FlatBufferCursor(buffer, buffer.length) : buffer;
     let types2 = nodeSet.types;
@@ -9373,10 +10583,10 @@
     let children = [], positions = [];
     while (cursor.pos > 0)
       takeNode(data.start || 0, data.bufferStart || 0, children, positions, -1);
-    let length = (_a = data.length) !== null && _a !== void 0 ? _a : children.length ? positions[0] + children[0].length : 0;
+    let length = (_a2 = data.length) !== null && _a2 !== void 0 ? _a2 : children.length ? positions[0] + children[0].length : 0;
     return new Tree(types2[data.topID], children.reverse(), positions.reverse(), length);
   }
-  var nodeSizeCache = new WeakMap();
+  var nodeSizeCache = /* @__PURE__ */ new WeakMap();
   function nodeSize(balanceType, node) {
     if (!balanceType.isAnonymous || node instanceof TreeBuffer || node.type != balanceType)
       return 1;
@@ -9512,7 +10722,389 @@
   };
   var stoppedInner = new NodeProp({ perNode: true });
 
+  // node_modules/@lezer/highlight/dist/index.js
+  var nextTagID = 0;
+  var Tag = class {
+    constructor(set, base2, modified) {
+      this.set = set;
+      this.base = base2;
+      this.modified = modified;
+      this.id = nextTagID++;
+    }
+    static define(parent) {
+      if (parent === null || parent === void 0 ? void 0 : parent.base)
+        throw new Error("Can not derive from a modified tag");
+      let tag = new Tag([], null, []);
+      tag.set.push(tag);
+      if (parent)
+        for (let t2 of parent.set)
+          tag.set.push(t2);
+      return tag;
+    }
+    static defineModifier() {
+      let mod = new Modifier();
+      return (tag) => {
+        if (tag.modified.indexOf(mod) > -1)
+          return tag;
+        return Modifier.get(tag.base || tag, tag.modified.concat(mod).sort((a, b) => a.id - b.id));
+      };
+    }
+  };
+  var nextModifierID = 0;
+  var Modifier = class {
+    constructor() {
+      this.instances = [];
+      this.id = nextModifierID++;
+    }
+    static get(base2, mods) {
+      if (!mods.length)
+        return base2;
+      let exists = mods[0].instances.find((t2) => t2.base == base2 && sameArray2(mods, t2.modified));
+      if (exists)
+        return exists;
+      let set = [], tag = new Tag(set, base2, mods);
+      for (let m of mods)
+        m.instances.push(tag);
+      let configs = permute(mods);
+      for (let parent of base2.set)
+        for (let config2 of configs)
+          set.push(Modifier.get(parent, config2));
+      return tag;
+    }
+  };
+  function sameArray2(a, b) {
+    return a.length == b.length && a.every((x, i) => x == b[i]);
+  }
+  function permute(array) {
+    let result = [array];
+    for (let i = 0; i < array.length; i++) {
+      for (let a of permute(array.slice(0, i).concat(array.slice(i + 1))))
+        result.push(a);
+    }
+    return result;
+  }
+  function styleTags(spec) {
+    let byName = /* @__PURE__ */ Object.create(null);
+    for (let prop in spec) {
+      let tags2 = spec[prop];
+      if (!Array.isArray(tags2))
+        tags2 = [tags2];
+      for (let part of prop.split(" "))
+        if (part) {
+          let pieces = [], mode = 2, rest = part;
+          for (let pos = 0; ; ) {
+            if (rest == "..." && pos > 0 && pos + 3 == part.length) {
+              mode = 1;
+              break;
+            }
+            let m = /^"(?:[^"\\]|\\.)*?"|[^\/!]+/.exec(rest);
+            if (!m)
+              throw new RangeError("Invalid path: " + part);
+            pieces.push(m[0] == "*" ? "" : m[0][0] == '"' ? JSON.parse(m[0]) : m[0]);
+            pos += m[0].length;
+            if (pos == part.length)
+              break;
+            let next3 = part[pos++];
+            if (pos == part.length && next3 == "!") {
+              mode = 0;
+              break;
+            }
+            if (next3 != "/")
+              throw new RangeError("Invalid path: " + part);
+            rest = part.slice(pos);
+          }
+          let last = pieces.length - 1, inner = pieces[last];
+          if (!inner)
+            throw new RangeError("Invalid path: " + part);
+          let rule = new Rule(tags2, mode, last > 0 ? pieces.slice(0, last) : null);
+          byName[inner] = rule.sort(byName[inner]);
+        }
+    }
+    return ruleNodeProp.add(byName);
+  }
+  var ruleNodeProp = new NodeProp();
+  var Rule = class {
+    constructor(tags2, mode, context, next3) {
+      this.tags = tags2;
+      this.mode = mode;
+      this.context = context;
+      this.next = next3;
+    }
+    sort(other) {
+      if (!other || other.depth < this.depth) {
+        this.next = other;
+        return this;
+      }
+      other.next = this.sort(other.next);
+      return other;
+    }
+    get depth() {
+      return this.context ? this.context.length : 0;
+    }
+  };
+  function tagHighlighter(tags2, options) {
+    let map = /* @__PURE__ */ Object.create(null);
+    for (let style of tags2) {
+      if (!Array.isArray(style.tag))
+        map[style.tag.id] = style.class;
+      else
+        for (let tag of style.tag)
+          map[tag.id] = style.class;
+    }
+    let { scope, all = null } = options || {};
+    return {
+      style: (tags3) => {
+        let cls = all;
+        for (let tag of tags3) {
+          for (let sub of tag.set) {
+            let tagClass = map[sub.id];
+            if (tagClass) {
+              cls = cls ? cls + " " + tagClass : tagClass;
+              break;
+            }
+          }
+        }
+        return cls;
+      },
+      scope
+    };
+  }
+  function highlightTags(highlighters, tags2) {
+    let result = null;
+    for (let highlighter of highlighters) {
+      let value = highlighter.style(tags2);
+      if (value)
+        result = result ? result + " " + value : value;
+    }
+    return result;
+  }
+  function highlightTree(tree, highlighter, putStyle, from = 0, to = tree.length) {
+    let builder = new HighlightBuilder(from, Array.isArray(highlighter) ? highlighter : [highlighter], putStyle);
+    builder.highlightRange(tree.cursor(), from, to, "", builder.highlighters);
+    builder.flush(to);
+  }
+  var HighlightBuilder = class {
+    constructor(at, highlighters, span) {
+      this.at = at;
+      this.highlighters = highlighters;
+      this.span = span;
+      this.class = "";
+    }
+    startSpan(at, cls) {
+      if (cls != this.class) {
+        this.flush(at);
+        if (at > this.at)
+          this.at = at;
+        this.class = cls;
+      }
+    }
+    flush(to) {
+      if (to > this.at && this.class)
+        this.span(this.at, to, this.class);
+    }
+    highlightRange(cursor, from, to, inheritedClass, highlighters) {
+      let { type, from: start, to: end } = cursor;
+      if (start >= to || end <= from)
+        return;
+      if (type.isTop)
+        highlighters = this.highlighters.filter((h) => !h.scope || h.scope(type));
+      let cls = inheritedClass;
+      let rule = type.prop(ruleNodeProp), opaque = false;
+      while (rule) {
+        if (!rule.context || cursor.matchContext(rule.context)) {
+          let tagCls = highlightTags(highlighters, rule.tags);
+          if (tagCls) {
+            if (cls)
+              cls += " ";
+            cls += tagCls;
+            if (rule.mode == 1)
+              inheritedClass += (inheritedClass ? " " : "") + tagCls;
+            else if (rule.mode == 0)
+              opaque = true;
+          }
+          break;
+        }
+        rule = rule.next;
+      }
+      this.startSpan(cursor.from, cls);
+      if (opaque)
+        return;
+      let mounted = cursor.tree && cursor.tree.prop(NodeProp.mounted);
+      if (mounted && mounted.overlay) {
+        let inner = cursor.node.enter(mounted.overlay[0].from + start, 1);
+        let innerHighlighters = this.highlighters.filter((h) => !h.scope || h.scope(mounted.tree.type));
+        let hasChild2 = cursor.firstChild();
+        for (let i = 0, pos = start; ; i++) {
+          let next3 = i < mounted.overlay.length ? mounted.overlay[i] : null;
+          let nextPos = next3 ? next3.from + start : end;
+          let rangeFrom = Math.max(from, pos), rangeTo = Math.min(to, nextPos);
+          if (rangeFrom < rangeTo && hasChild2) {
+            while (cursor.from < rangeTo) {
+              this.highlightRange(cursor, rangeFrom, rangeTo, inheritedClass, highlighters);
+              this.startSpan(Math.min(to, cursor.to), cls);
+              if (cursor.to >= nextPos || !cursor.nextSibling())
+                break;
+            }
+          }
+          if (!next3 || nextPos > to)
+            break;
+          pos = next3.to + start;
+          if (pos > from) {
+            this.highlightRange(inner.cursor(), Math.max(from, next3.from + start), Math.min(to, pos), inheritedClass, innerHighlighters);
+            this.startSpan(pos, cls);
+          }
+        }
+        if (hasChild2)
+          cursor.parent();
+      } else if (cursor.firstChild()) {
+        do {
+          if (cursor.to <= from)
+            continue;
+          if (cursor.from >= to)
+            break;
+          this.highlightRange(cursor, from, to, inheritedClass, highlighters);
+          this.startSpan(Math.min(to, cursor.to), cls);
+        } while (cursor.nextSibling());
+        cursor.parent();
+      }
+    }
+  };
+  var t = Tag.define;
+  var comment = t();
+  var name = t();
+  var typeName = t(name);
+  var propertyName = t(name);
+  var literal = t();
+  var string = t(literal);
+  var number = t(literal);
+  var content = t();
+  var heading = t(content);
+  var keyword = t();
+  var operator = t();
+  var punctuation = t();
+  var bracket = t(punctuation);
+  var meta = t();
+  var tags = {
+    comment,
+    lineComment: t(comment),
+    blockComment: t(comment),
+    docComment: t(comment),
+    name,
+    variableName: t(name),
+    typeName,
+    tagName: t(typeName),
+    propertyName,
+    attributeName: t(propertyName),
+    className: t(name),
+    labelName: t(name),
+    namespace: t(name),
+    macroName: t(name),
+    literal,
+    string,
+    docString: t(string),
+    character: t(string),
+    attributeValue: t(string),
+    number,
+    integer: t(number),
+    float: t(number),
+    bool: t(literal),
+    regexp: t(literal),
+    escape: t(literal),
+    color: t(literal),
+    url: t(literal),
+    keyword,
+    self: t(keyword),
+    null: t(keyword),
+    atom: t(keyword),
+    unit: t(keyword),
+    modifier: t(keyword),
+    operatorKeyword: t(keyword),
+    controlKeyword: t(keyword),
+    definitionKeyword: t(keyword),
+    moduleKeyword: t(keyword),
+    operator,
+    derefOperator: t(operator),
+    arithmeticOperator: t(operator),
+    logicOperator: t(operator),
+    bitwiseOperator: t(operator),
+    compareOperator: t(operator),
+    updateOperator: t(operator),
+    definitionOperator: t(operator),
+    typeOperator: t(operator),
+    controlOperator: t(operator),
+    punctuation,
+    separator: t(punctuation),
+    bracket,
+    angleBracket: t(bracket),
+    squareBracket: t(bracket),
+    paren: t(bracket),
+    brace: t(bracket),
+    content,
+    heading,
+    heading1: t(heading),
+    heading2: t(heading),
+    heading3: t(heading),
+    heading4: t(heading),
+    heading5: t(heading),
+    heading6: t(heading),
+    contentSeparator: t(content),
+    list: t(content),
+    quote: t(content),
+    emphasis: t(content),
+    strong: t(content),
+    link: t(content),
+    monospace: t(content),
+    strikethrough: t(content),
+    inserted: t(),
+    deleted: t(),
+    changed: t(),
+    invalid: t(),
+    meta,
+    documentMeta: t(meta),
+    annotation: t(meta),
+    processingInstruction: t(meta),
+    definition: Tag.defineModifier(),
+    constant: Tag.defineModifier(),
+    function: Tag.defineModifier(),
+    standard: Tag.defineModifier(),
+    local: Tag.defineModifier(),
+    special: Tag.defineModifier()
+  };
+  var classHighlighter = tagHighlighter([
+    { tag: tags.link, class: "tok-link" },
+    { tag: tags.heading, class: "tok-heading" },
+    { tag: tags.emphasis, class: "tok-emphasis" },
+    { tag: tags.strong, class: "tok-strong" },
+    { tag: tags.keyword, class: "tok-keyword" },
+    { tag: tags.atom, class: "tok-atom" },
+    { tag: tags.bool, class: "tok-bool" },
+    { tag: tags.url, class: "tok-url" },
+    { tag: tags.labelName, class: "tok-labelName" },
+    { tag: tags.inserted, class: "tok-inserted" },
+    { tag: tags.deleted, class: "tok-deleted" },
+    { tag: tags.literal, class: "tok-literal" },
+    { tag: tags.string, class: "tok-string" },
+    { tag: tags.number, class: "tok-number" },
+    { tag: [tags.regexp, tags.escape, tags.special(tags.string)], class: "tok-string2" },
+    { tag: tags.variableName, class: "tok-variableName" },
+    { tag: tags.local(tags.variableName), class: "tok-variableName tok-local" },
+    { tag: tags.definition(tags.variableName), class: "tok-variableName tok-definition" },
+    { tag: tags.special(tags.variableName), class: "tok-variableName2" },
+    { tag: tags.definition(tags.propertyName), class: "tok-propertyName tok-definition" },
+    { tag: tags.typeName, class: "tok-typeName" },
+    { tag: tags.namespace, class: "tok-namespace" },
+    { tag: tags.className, class: "tok-className" },
+    { tag: tags.macroName, class: "tok-macroName" },
+    { tag: tags.propertyName, class: "tok-propertyName" },
+    { tag: tags.operator, class: "tok-operator" },
+    { tag: tags.comment, class: "tok-comment" },
+    { tag: tags.meta, class: "tok-meta" },
+    { tag: tags.invalid, class: "tok-invalid" },
+    { tag: tags.punctuation, class: "tok-punctuation" }
+  ]);
+
   // node_modules/@codemirror/language/dist/index.js
+  var _a;
   var languageDataProp = /* @__PURE__ */ new NodeProp();
   function defineLanguageFacet(baseData) {
     return Facet.define({
@@ -9520,9 +11112,8 @@
     });
   }
   var Language = class {
-    constructor(data, parser2, topNode, extraExtensions = []) {
+    constructor(data, parser2, extraExtensions = []) {
       this.data = data;
-      this.topNode = topNode;
       if (!EditorState.prototype.hasOwnProperty("tree"))
         Object.defineProperty(EditorState.prototype, "tree", { get() {
           return syntaxTree(this);
@@ -9584,14 +11175,14 @@
       return null;
     let facet = topLang.data;
     if (topLang.allowsNesting) {
-      for (let node = syntaxTree(state).topNode; node; node = node.enter(pos, side, true, false))
+      for (let node = syntaxTree(state).topNode; node; node = node.enter(pos, side, IterMode.ExcludeBuffers))
         facet = node.type.prop(languageDataProp) || facet;
     }
     return facet;
   }
   var LRLanguage = class extends Language {
     constructor(data, parser2) {
-      super(data, parser2, parser2.topNode);
+      super(data, parser2);
       this.parser = parser2;
     }
     static define(spec) {
@@ -9604,7 +11195,7 @@
       return new LRLanguage(this.data, this.parser.configure(options));
     }
     get allowsNesting() {
-      return this.parser.wrappers.length > 0;
+      return this.parser.hasWrappers();
     }
   };
   function syntaxTree(state) {
@@ -9656,7 +11247,7 @@
     startParse() {
       return this.parser.startParse(new DocInput(this.state.doc), this.fragments);
     }
-    work(time, upto) {
+    work(until, upto) {
       if (upto != null && upto >= this.state.doc.length)
         upto = void 0;
       if (this.tree != Tree.empty && this.isDone(upto !== null && upto !== void 0 ? upto : this.state.doc.length)) {
@@ -9664,8 +11255,11 @@
         return true;
       }
       return this.withContext(() => {
-        var _a;
-        let endTime = Date.now() + time;
+        var _a2;
+        if (typeof until == "number") {
+          let endTime = Date.now() + until;
+          until = () => Date.now() > endTime;
+        }
         if (!this.parse)
           this.parse = this.startParse();
         if (upto != null && (this.parse.stoppedAt == null || this.parse.stoppedAt > upto) && upto < this.state.doc.length)
@@ -9674,7 +11268,7 @@
           let done = this.parse.advance();
           if (done) {
             this.fragments = this.withoutTempSkipped(TreeFragment.addTree(done, this.fragments, this.parse.stoppedAt != null));
-            this.treeLen = (_a = this.parse.stoppedAt) !== null && _a !== void 0 ? _a : this.state.doc.length;
+            this.treeLen = (_a2 = this.parse.stoppedAt) !== null && _a2 !== void 0 ? _a2 : this.state.doc.length;
             this.tree = done;
             this.parse = null;
             if (this.treeLen < (upto !== null && upto !== void 0 ? upto : this.state.doc.length))
@@ -9682,7 +11276,7 @@
             else
               return true;
           }
-          if (Date.now() > endTime)
+          if (until())
             return false;
         }
       });
@@ -9789,6 +11383,7 @@
       }();
     }
     isDone(upto) {
+      upto = Math.min(upto, this.state.doc.length);
       let frags = this.fragments;
       return this.treeLen >= upto && frags.length && frags[0].from == 0 && frags[0].to >= upto;
     }
@@ -9805,7 +11400,7 @@
       this.tree = context.tree;
     }
     apply(tr) {
-      if (!tr.docChanged)
+      if (!tr.docChanged && this.tree == this.context.tree)
         return this;
       let newCx = this.context.changes(tr.changes, tr.state);
       let upto = this.context.treeLen == tr.startState.doc.length ? void 0 : Math.max(tr.changes.mapPos(this.context.treeLen), newCx.viewport.to);
@@ -9843,6 +11438,7 @@
       }, 100);
       return () => idle < 0 ? clearTimeout(timeout) : cancelIdleCallback(idle);
     };
+  var isInputPending = typeof navigator != "undefined" && ((_a = navigator.scheduling) === null || _a === void 0 ? void 0 : _a.isInputPending) ? () => navigator.scheduling.isInputPending() : null;
   var parseWorker = /* @__PURE__ */ ViewPlugin.fromClass(class ParseWorker {
     constructor(view) {
       this.view = view;
@@ -9881,11 +11477,13 @@
       if (this.chunkBudget <= 0)
         return;
       let { state, viewport: { to: vpTo } } = this.view, field = state.field(Language.state);
-      if (field.tree == field.context.tree && field.context.treeLen >= vpTo + 1e5)
+      if (field.tree == field.context.tree && field.context.isDone(vpTo + 1e5))
         return;
-      let time = Math.min(this.chunkBudget, 100, deadline ? Math.max(25, deadline.timeRemaining() - 5) : 1e9);
+      let endTime = Date.now() + Math.min(this.chunkBudget, 100, deadline && !isInputPending ? Math.max(25, deadline.timeRemaining() - 5) : 1e9);
       let viewportFirst = field.context.treeLen < vpTo && state.doc.length > vpTo + 1e3;
-      let done = field.context.work(time, vpTo + (viewportFirst ? 0 : 1e5));
+      let done = field.context.work(() => {
+        return isInputPending && isInputPending() || Date.now() > endTime;
+      }, vpTo + (viewportFirst ? 0 : 1e5));
       this.chunkBudget -= Date.now() - now;
       if (done || this.chunkBudget <= 0) {
         field.context.takeTree();
@@ -9907,7 +11505,7 @@
         this.working();
     }
     isWorking() {
-      return this.working || this.workScheduled > 0;
+      return !!(this.working || this.workScheduled > 0);
     }
   }, {
     eventHandlers: { focus() {
@@ -9971,9 +11569,11 @@
     }
     lineAt(pos, bias = 1) {
       let line2 = this.state.doc.lineAt(pos);
-      let { simulateBreak } = this.options;
+      let { simulateBreak, simulateDoubleBreak } = this.options;
       if (simulateBreak != null && simulateBreak >= line2.from && simulateBreak <= line2.to) {
-        if (bias < 0 ? simulateBreak < pos : simulateBreak <= pos)
+        if (simulateDoubleBreak && simulateBreak == pos)
+          return { text: "", from: pos };
+        else if (bias < 0 ? simulateBreak < pos : simulateBreak <= pos)
           return { text: line2.text.slice(simulateBreak - line2.from), from: simulateBreak };
         else
           return { text: line2.text.slice(0, simulateBreak - line2.from), from: line2.from };
@@ -10098,210 +11698,483 @@
       return closed ? context.column(aligned.from) : context.column(aligned.to);
     return context.baseIndent + (closed ? 0 : context.unit * units);
   }
-
-  // node_modules/@codemirror/closebrackets/dist/index.js
-  var defaults = {
-    brackets: ["(", "[", "{", "'", '"'],
-    before: `)]}'":;>`
+  var HighlightStyle = class {
+    constructor(spec, options) {
+      let modSpec;
+      function def(spec2) {
+        let cls = StyleModule.newName();
+        (modSpec || (modSpec = /* @__PURE__ */ Object.create(null)))["." + cls] = spec2;
+        return cls;
+      }
+      const scopeOpt = options.scope;
+      this.scope = scopeOpt instanceof Language ? (type) => type.prop(languageDataProp) == scopeOpt.data : scopeOpt ? (type) => type == scopeOpt : void 0;
+      this.style = tagHighlighter(spec.map((style) => ({
+        tag: style.tag,
+        class: style.class || def(Object.assign({}, style, { tag: null }))
+      })), {
+        all: typeof options.all == "string" ? options.all : options.all ? def(options.all) : void 0
+      }).style;
+      this.module = modSpec ? new StyleModule(modSpec) : null;
+      this.themeType = options.themeType;
+    }
+    static define(specs, options) {
+      return new HighlightStyle(specs, options || {});
+    }
   };
-  var closeBracketEffect = /* @__PURE__ */ StateEffect.define({
-    map(value, mapping) {
-      let mapped = mapping.mapPos(value, -1, MapMode.TrackAfter);
-      return mapped == null ? void 0 : mapped;
+  var highlighterFacet = /* @__PURE__ */ Facet.define();
+  var fallbackHighlighter = /* @__PURE__ */ Facet.define({
+    combine(values) {
+      return values.length ? [values[0]] : null;
     }
   });
-  var skipBracketEffect = /* @__PURE__ */ StateEffect.define({
-    map(value, mapping) {
-      return mapping.mapPos(value);
+  function getHighlighters(state) {
+    let main = state.facet(highlighterFacet);
+    return main.length ? main : state.facet(fallbackHighlighter);
+  }
+  function syntaxHighlighting(highlighter, options) {
+    let ext = [treeHighlighter], themeType;
+    if (highlighter instanceof HighlightStyle) {
+      if (highlighter.module)
+        ext.push(EditorView.styleModule.of(highlighter.module));
+      themeType = highlighter.themeType;
     }
-  });
-  var closedBracket = /* @__PURE__ */ new class extends RangeValue {
-  }();
-  closedBracket.startSide = 1;
-  closedBracket.endSide = -1;
-  var bracketState = /* @__PURE__ */ StateField.define({
-    create() {
-      return RangeSet.empty;
+    if (options === null || options === void 0 ? void 0 : options.fallback)
+      ext.push(fallbackHighlighter.of(highlighter));
+    else if (themeType)
+      ext.push(highlighterFacet.computeN([EditorView.darkTheme], (state) => {
+        return state.facet(EditorView.darkTheme) == (themeType == "dark") ? [highlighter] : [];
+      }));
+    else
+      ext.push(highlighterFacet.of(highlighter));
+    return ext;
+  }
+  var TreeHighlighter = class {
+    constructor(view) {
+      this.markCache = /* @__PURE__ */ Object.create(null);
+      this.tree = syntaxTree(view.state);
+      this.decorations = this.buildDeco(view, getHighlighters(view.state));
+    }
+    update(update) {
+      let tree = syntaxTree(update.state), highlighters = getHighlighters(update.state);
+      let styleChange = highlighters != getHighlighters(update.startState);
+      if (tree.length < update.view.viewport.to && !styleChange && tree.type == this.tree.type) {
+        this.decorations = this.decorations.map(update.changes);
+      } else if (tree != this.tree || update.viewportChanged || styleChange) {
+        this.tree = tree;
+        this.decorations = this.buildDeco(update.view, highlighters);
+      }
+    }
+    buildDeco(view, highlighters) {
+      if (!highlighters || !this.tree.length)
+        return Decoration.none;
+      let builder = new RangeSetBuilder();
+      for (let { from, to } of view.visibleRanges) {
+        highlightTree(this.tree, highlighters, (from2, to2, style) => {
+          builder.add(from2, to2, this.markCache[style] || (this.markCache[style] = Decoration.mark({ class: style })));
+        }, from, to);
+      }
+      return builder.finish();
+    }
+  };
+  var treeHighlighter = /* @__PURE__ */ Prec.high(/* @__PURE__ */ ViewPlugin.fromClass(TreeHighlighter, {
+    decorations: (v) => v.decorations
+  }));
+  var defaultHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
+    {
+      tag: tags.meta,
+      color: "#7a757a"
     },
-    update(value, tr) {
-      if (tr.selection) {
-        let lineStart = tr.state.doc.lineAt(tr.selection.main.head).from;
-        let prevLineStart = tr.startState.doc.lineAt(tr.startState.selection.main.head).from;
-        if (lineStart != tr.changes.mapPos(prevLineStart, -1))
-          value = RangeSet.empty;
-      }
-      value = value.map(tr.changes);
-      for (let effect of tr.effects) {
-        if (effect.is(closeBracketEffect))
-          value = value.update({ add: [closedBracket.range(effect.value, effect.value + 1)] });
-        else if (effect.is(skipBracketEffect))
-          value = value.update({ filter: (from) => from != effect.value });
-      }
-      return value;
+    {
+      tag: tags.link,
+      textDecoration: "underline"
+    },
+    {
+      tag: tags.heading,
+      textDecoration: "underline",
+      fontWeight: "bold"
+    },
+    {
+      tag: tags.emphasis,
+      fontStyle: "italic"
+    },
+    {
+      tag: tags.strong,
+      fontWeight: "bold"
+    },
+    {
+      tag: tags.strikethrough,
+      textDecoration: "line-through"
+    },
+    {
+      tag: tags.keyword,
+      color: "#708"
+    },
+    {
+      tag: [tags.atom, tags.bool, tags.url, tags.contentSeparator, tags.labelName],
+      color: "#219"
+    },
+    {
+      tag: [tags.literal, tags.inserted],
+      color: "#164"
+    },
+    {
+      tag: [tags.string, tags.deleted],
+      color: "#a11"
+    },
+    {
+      tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)],
+      color: "#e40"
+    },
+    {
+      tag: /* @__PURE__ */ tags.definition(tags.variableName),
+      color: "#00f"
+    },
+    {
+      tag: /* @__PURE__ */ tags.local(tags.variableName),
+      color: "#30a"
+    },
+    {
+      tag: [tags.typeName, tags.namespace],
+      color: "#085"
+    },
+    {
+      tag: tags.className,
+      color: "#167"
+    },
+    {
+      tag: [/* @__PURE__ */ tags.special(tags.variableName), tags.macroName],
+      color: "#256"
+    },
+    {
+      tag: /* @__PURE__ */ tags.definition(tags.propertyName),
+      color: "#00c"
+    },
+    {
+      tag: tags.comment,
+      color: "#940"
+    },
+    {
+      tag: tags.invalid,
+      color: "#f00"
     }
-  });
-  function closeBrackets() {
-    return [EditorView.inputHandler.of(handleInput), bracketState];
+  ]);
+  var noTokens = /* @__PURE__ */ Object.create(null);
+  var typeArray = [NodeType.none];
+  var warned = [];
+  var defaultTable = /* @__PURE__ */ Object.create(null);
+  for (let [legacyName, name2] of [
+    ["variable", "variableName"],
+    ["variable-2", "variableName.special"],
+    ["string-2", "string.special"],
+    ["def", "variableName.definition"],
+    ["tag", "typeName"],
+    ["attribute", "propertyName"],
+    ["type", "typeName"],
+    ["builtin", "variableName.standard"],
+    ["qualifier", "modifier"],
+    ["error", "invalid"],
+    ["header", "heading"],
+    ["property", "propertyName"]
+  ])
+    defaultTable[legacyName] = /* @__PURE__ */ createTokenType(noTokens, name2);
+  function warnForPart(part, msg) {
+    if (warned.indexOf(part) > -1)
+      return;
+    warned.push(part);
+    console.warn(msg);
   }
-  var definedClosing = "()[]{}<>";
-  function closing(ch) {
-    for (let i = 0; i < definedClosing.length; i += 2)
-      if (definedClosing.charCodeAt(i) == ch)
-        return definedClosing.charAt(i + 1);
-    return fromCodePoint(ch < 128 ? ch : ch + 1);
-  }
-  function config(state, pos) {
-    return state.languageDataAt("closeBrackets", pos)[0] || defaults;
-  }
-  function handleInput(view, from, to, insert2) {
-    if (view.composing)
-      return false;
-    let sel = view.state.selection.main;
-    if (insert2.length > 2 || insert2.length == 2 && codePointSize(codePointAt(insert2, 0)) == 1 || from != sel.from || to != sel.to)
-      return false;
-    let tr = insertBracket(view.state, insert2);
-    if (!tr)
-      return false;
-    view.dispatch(tr);
-    return true;
-  }
-  var deleteBracketPair = ({ state, dispatch }) => {
-    let conf = config(state, state.selection.main.head);
-    let tokens = conf.brackets || defaults.brackets;
-    let dont = null, changes = state.changeByRange((range) => {
-      if (range.empty) {
-        let before = prevChar(state.doc, range.head);
-        for (let token2 of tokens) {
-          if (token2 == before && nextChar(state.doc, range.head) == closing(codePointAt(token2, 0)))
-            return {
-              changes: { from: range.head - token2.length, to: range.head + token2.length },
-              range: EditorSelection.cursor(range.head - token2.length),
-              userEvent: "delete.backward"
-            };
-        }
+  function createTokenType(extra, tagStr) {
+    let tag = null;
+    for (let part of tagStr.split(".")) {
+      let value = extra[part] || tags[part];
+      if (!value) {
+        warnForPart(part, `Unknown highlighting tag ${part}`);
+      } else if (typeof value == "function") {
+        if (!tag)
+          warnForPart(part, `Modifier ${part} used at start of tag`);
+        else
+          tag = value(tag);
+      } else {
+        if (tag)
+          warnForPart(part, `Tag ${part} used as modifier`);
+        else
+          tag = value;
       }
-      return { range: dont = range };
-    });
-    if (!dont)
-      dispatch(state.update(changes, { scrollIntoView: true }));
-    return !dont;
-  };
-  var closeBracketsKeymap = [
-    { key: "Backspace", run: deleteBracketPair }
-  ];
-  function insertBracket(state, bracket2) {
-    let conf = config(state, state.selection.main.head);
-    let tokens = conf.brackets || defaults.brackets;
-    for (let tok2 of tokens) {
-      let closed = closing(codePointAt(tok2, 0));
-      if (bracket2 == tok2)
-        return closed == tok2 ? handleSame(state, tok2, tokens.indexOf(tok2 + tok2 + tok2) > -1) : handleOpen(state, tok2, closed, conf.before || defaults.before);
-      if (bracket2 == closed && closedBracketAt(state, state.selection.main.from))
-        return handleClose(state, tok2, closed);
     }
-    return null;
-  }
-  function closedBracketAt(state, pos) {
-    let found = false;
-    state.field(bracketState).between(0, state.doc.length, (from) => {
-      if (from == pos)
-        found = true;
+    if (!tag)
+      return 0;
+    let name2 = tagStr.replace(/ /g, "_"), type = NodeType.define({
+      id: typeArray.length,
+      name: name2,
+      props: [styleTags({ [name2]: tag })]
     });
-    return found;
-  }
-  function nextChar(doc2, pos) {
-    let next3 = doc2.sliceString(pos, pos + 2);
-    return next3.slice(0, codePointSize(codePointAt(next3, 0)));
-  }
-  function prevChar(doc2, pos) {
-    let prev = doc2.sliceString(pos - 2, pos);
-    return codePointSize(codePointAt(prev, 0)) == prev.length ? prev : prev.slice(1);
-  }
-  function handleOpen(state, open, close, closeBefore) {
-    let dont = null, changes = state.changeByRange((range) => {
-      if (!range.empty)
-        return {
-          changes: [{ insert: open, from: range.from }, { insert: close, from: range.to }],
-          effects: closeBracketEffect.of(range.to + open.length),
-          range: EditorSelection.range(range.anchor + open.length, range.head + open.length)
-        };
-      let next3 = nextChar(state.doc, range.head);
-      if (!next3 || /\s/.test(next3) || closeBefore.indexOf(next3) > -1)
-        return {
-          changes: { insert: open + close, from: range.head },
-          effects: closeBracketEffect.of(range.head + open.length),
-          range: EditorSelection.cursor(range.head + open.length)
-        };
-      return { range: dont = range };
-    });
-    return dont ? null : state.update(changes, {
-      scrollIntoView: true,
-      userEvent: "input.type"
-    });
-  }
-  function handleClose(state, _open, close) {
-    let dont = null, moved = state.selection.ranges.map((range) => {
-      if (range.empty && nextChar(state.doc, range.head) == close)
-        return EditorSelection.cursor(range.head + close.length);
-      return dont = range;
-    });
-    return dont ? null : state.update({
-      selection: EditorSelection.create(moved, state.selection.mainIndex),
-      scrollIntoView: true,
-      effects: state.selection.ranges.map(({ from }) => skipBracketEffect.of(from))
-    });
-  }
-  function handleSame(state, token2, allowTriple) {
-    let dont = null, changes = state.changeByRange((range) => {
-      if (!range.empty)
-        return {
-          changes: [{ insert: token2, from: range.from }, { insert: token2, from: range.to }],
-          effects: closeBracketEffect.of(range.to + token2.length),
-          range: EditorSelection.range(range.anchor + token2.length, range.head + token2.length)
-        };
-      let pos = range.head, next3 = nextChar(state.doc, pos);
-      if (next3 == token2) {
-        if (nodeStart(state, pos)) {
-          return {
-            changes: { insert: token2 + token2, from: pos },
-            effects: closeBracketEffect.of(pos + token2.length),
-            range: EditorSelection.cursor(pos + token2.length)
-          };
-        } else if (closedBracketAt(state, pos)) {
-          let isTriple = allowTriple && state.sliceDoc(pos, pos + token2.length * 3) == token2 + token2 + token2;
-          return {
-            range: EditorSelection.cursor(pos + token2.length * (isTriple ? 3 : 1)),
-            effects: skipBracketEffect.of(pos)
-          };
-        }
-      } else if (allowTriple && state.sliceDoc(pos - 2 * token2.length, pos) == token2 + token2 && nodeStart(state, pos - 2 * token2.length)) {
-        return {
-          changes: { insert: token2 + token2 + token2 + token2, from: pos },
-          effects: closeBracketEffect.of(pos + token2.length),
-          range: EditorSelection.cursor(pos + token2.length)
-        };
-      } else if (state.charCategorizer(pos)(next3) != CharCategory.Word) {
-        let prev = state.sliceDoc(pos - 1, pos);
-        if (prev != token2 && state.charCategorizer(pos)(prev) != CharCategory.Word)
-          return {
-            changes: { insert: token2 + token2, from: pos },
-            effects: closeBracketEffect.of(pos + token2.length),
-            range: EditorSelection.cursor(pos + token2.length)
-          };
-      }
-      return { range: dont = range };
-    });
-    return dont ? null : state.update(changes, {
-      scrollIntoView: true,
-      userEvent: "input.type"
-    });
-  }
-  function nodeStart(state, pos) {
-    let tree = syntaxTree(state).resolveInner(pos + 1);
-    return tree.parent && tree.from == pos;
+    typeArray.push(type);
+    return type.id;
   }
 
   // node_modules/@codemirror/commands/dist/index.js
+  var fromHistory = /* @__PURE__ */ Annotation.define();
+  var isolateHistory = /* @__PURE__ */ Annotation.define();
+  var invertedEffects = /* @__PURE__ */ Facet.define();
+  var historyConfig = /* @__PURE__ */ Facet.define({
+    combine(configs) {
+      return combineConfig(configs, {
+        minDepth: 100,
+        newGroupDelay: 500
+      }, { minDepth: Math.max, newGroupDelay: Math.min });
+    }
+  });
+  function changeEnd(changes) {
+    let end = 0;
+    changes.iterChangedRanges((_, to) => end = to);
+    return end;
+  }
+  var historyField_ = /* @__PURE__ */ StateField.define({
+    create() {
+      return HistoryState.empty;
+    },
+    update(state, tr) {
+      let config2 = tr.state.facet(historyConfig);
+      let fromHist = tr.annotation(fromHistory);
+      if (fromHist) {
+        let selection = tr.docChanged ? EditorSelection.single(changeEnd(tr.changes)) : void 0;
+        let item = HistEvent.fromTransaction(tr, selection), from = fromHist.side;
+        let other = from == 0 ? state.undone : state.done;
+        if (item)
+          other = updateBranch(other, other.length, config2.minDepth, item);
+        else
+          other = addSelection(other, tr.startState.selection);
+        return new HistoryState(from == 0 ? fromHist.rest : other, from == 0 ? other : fromHist.rest);
+      }
+      let isolate = tr.annotation(isolateHistory);
+      if (isolate == "full" || isolate == "before")
+        state = state.isolate();
+      if (tr.annotation(Transaction.addToHistory) === false)
+        return !tr.changes.empty ? state.addMapping(tr.changes.desc) : state;
+      let event = HistEvent.fromTransaction(tr);
+      let time = tr.annotation(Transaction.time), userEvent = tr.annotation(Transaction.userEvent);
+      if (event)
+        state = state.addChanges(event, time, userEvent, config2.newGroupDelay, config2.minDepth);
+      else if (tr.selection)
+        state = state.addSelection(tr.startState.selection, time, userEvent, config2.newGroupDelay);
+      if (isolate == "full" || isolate == "after")
+        state = state.isolate();
+      return state;
+    },
+    toJSON(value) {
+      return { done: value.done.map((e) => e.toJSON()), undone: value.undone.map((e) => e.toJSON()) };
+    },
+    fromJSON(json) {
+      return new HistoryState(json.done.map(HistEvent.fromJSON), json.undone.map(HistEvent.fromJSON));
+    }
+  });
+  function history(config2 = {}) {
+    return [
+      historyField_,
+      historyConfig.of(config2),
+      EditorView.domEventHandlers({
+        beforeinput(e, view) {
+          let command = e.inputType == "historyUndo" ? undo : e.inputType == "historyRedo" ? redo : null;
+          if (!command)
+            return false;
+          e.preventDefault();
+          return command(view);
+        }
+      })
+    ];
+  }
+  function cmd(side, selection) {
+    return function({ state, dispatch }) {
+      if (!selection && state.readOnly)
+        return false;
+      let historyState = state.field(historyField_, false);
+      if (!historyState)
+        return false;
+      let tr = historyState.pop(side, state, selection);
+      if (!tr)
+        return false;
+      dispatch(tr);
+      return true;
+    };
+  }
+  var undo = /* @__PURE__ */ cmd(0, false);
+  var redo = /* @__PURE__ */ cmd(1, false);
+  var undoSelection = /* @__PURE__ */ cmd(0, true);
+  var redoSelection = /* @__PURE__ */ cmd(1, true);
+  var HistEvent = class {
+    constructor(changes, effects, mapped, startSelection, selectionsAfter) {
+      this.changes = changes;
+      this.effects = effects;
+      this.mapped = mapped;
+      this.startSelection = startSelection;
+      this.selectionsAfter = selectionsAfter;
+    }
+    setSelAfter(after) {
+      return new HistEvent(this.changes, this.effects, this.mapped, this.startSelection, after);
+    }
+    toJSON() {
+      var _a2, _b, _c;
+      return {
+        changes: (_a2 = this.changes) === null || _a2 === void 0 ? void 0 : _a2.toJSON(),
+        mapped: (_b = this.mapped) === null || _b === void 0 ? void 0 : _b.toJSON(),
+        startSelection: (_c = this.startSelection) === null || _c === void 0 ? void 0 : _c.toJSON(),
+        selectionsAfter: this.selectionsAfter.map((s) => s.toJSON())
+      };
+    }
+    static fromJSON(json) {
+      return new HistEvent(json.changes && ChangeSet.fromJSON(json.changes), [], json.mapped && ChangeDesc.fromJSON(json.mapped), json.startSelection && EditorSelection.fromJSON(json.startSelection), json.selectionsAfter.map(EditorSelection.fromJSON));
+    }
+    static fromTransaction(tr, selection) {
+      let effects = none3;
+      for (let invert of tr.startState.facet(invertedEffects)) {
+        let result = invert(tr);
+        if (result.length)
+          effects = effects.concat(result);
+      }
+      if (!effects.length && tr.changes.empty)
+        return null;
+      return new HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection || tr.startState.selection, none3);
+    }
+    static selection(selections) {
+      return new HistEvent(void 0, none3, void 0, void 0, selections);
+    }
+  };
+  function updateBranch(branch, to, maxLen, newEvent) {
+    let start = to + 1 > maxLen + 20 ? to - maxLen - 1 : 0;
+    let newBranch = branch.slice(start, to);
+    newBranch.push(newEvent);
+    return newBranch;
+  }
+  function isAdjacent(a, b) {
+    let ranges = [], isAdjacent2 = false;
+    a.iterChangedRanges((f, t2) => ranges.push(f, t2));
+    b.iterChangedRanges((_f, _t, f, t2) => {
+      for (let i = 0; i < ranges.length; ) {
+        let from = ranges[i++], to = ranges[i++];
+        if (t2 >= from && f <= to)
+          isAdjacent2 = true;
+      }
+    });
+    return isAdjacent2;
+  }
+  function eqSelectionShape(a, b) {
+    return a.ranges.length == b.ranges.length && a.ranges.filter((r, i) => r.empty != b.ranges[i].empty).length === 0;
+  }
+  function conc(a, b) {
+    return !a.length ? b : !b.length ? a : a.concat(b);
+  }
+  var none3 = [];
+  var MaxSelectionsPerEvent = 200;
+  function addSelection(branch, selection) {
+    if (!branch.length) {
+      return [HistEvent.selection([selection])];
+    } else {
+      let lastEvent = branch[branch.length - 1];
+      let sels = lastEvent.selectionsAfter.slice(Math.max(0, lastEvent.selectionsAfter.length - MaxSelectionsPerEvent));
+      if (sels.length && sels[sels.length - 1].eq(selection))
+        return branch;
+      sels.push(selection);
+      return updateBranch(branch, branch.length - 1, 1e9, lastEvent.setSelAfter(sels));
+    }
+  }
+  function popSelection(branch) {
+    let last = branch[branch.length - 1];
+    let newBranch = branch.slice();
+    newBranch[branch.length - 1] = last.setSelAfter(last.selectionsAfter.slice(0, last.selectionsAfter.length - 1));
+    return newBranch;
+  }
+  function addMappingToBranch(branch, mapping) {
+    if (!branch.length)
+      return branch;
+    let length = branch.length, selections = none3;
+    while (length) {
+      let event = mapEvent(branch[length - 1], mapping, selections);
+      if (event.changes && !event.changes.empty || event.effects.length) {
+        let result = branch.slice(0, length);
+        result[length - 1] = event;
+        return result;
+      } else {
+        mapping = event.mapped;
+        length--;
+        selections = event.selectionsAfter;
+      }
+    }
+    return selections.length ? [HistEvent.selection(selections)] : none3;
+  }
+  function mapEvent(event, mapping, extraSelections) {
+    let selections = conc(event.selectionsAfter.length ? event.selectionsAfter.map((s) => s.map(mapping)) : none3, extraSelections);
+    if (!event.changes)
+      return HistEvent.selection(selections);
+    let mappedChanges = event.changes.map(mapping), before = mapping.mapDesc(event.changes, true);
+    let fullMapping = event.mapped ? event.mapped.composeDesc(before) : before;
+    return new HistEvent(mappedChanges, StateEffect.mapEffects(event.effects, mapping), fullMapping, event.startSelection.map(before), selections);
+  }
+  var joinableUserEvent = /^(input\.type|delete)($|\.)/;
+  var HistoryState = class {
+    constructor(done, undone, prevTime = 0, prevUserEvent = void 0) {
+      this.done = done;
+      this.undone = undone;
+      this.prevTime = prevTime;
+      this.prevUserEvent = prevUserEvent;
+    }
+    isolate() {
+      return this.prevTime ? new HistoryState(this.done, this.undone) : this;
+    }
+    addChanges(event, time, userEvent, newGroupDelay, maxLen) {
+      let done = this.done, lastEvent = done[done.length - 1];
+      if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!userEvent || joinableUserEvent.test(userEvent)) && (!lastEvent.selectionsAfter.length && time - this.prevTime < newGroupDelay && isAdjacent(lastEvent.changes, event.changes) || userEvent == "input.type.compose")) {
+        done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none3));
+      } else {
+        done = updateBranch(done, done.length, maxLen, event);
+      }
+      return new HistoryState(done, none3, time, userEvent);
+    }
+    addSelection(selection, time, userEvent, newGroupDelay) {
+      let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none3;
+      if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection))
+        return this;
+      return new HistoryState(addSelection(this.done, selection), this.undone, time, userEvent);
+    }
+    addMapping(mapping) {
+      return new HistoryState(addMappingToBranch(this.done, mapping), addMappingToBranch(this.undone, mapping), this.prevTime, this.prevUserEvent);
+    }
+    pop(side, state, selection) {
+      let branch = side == 0 ? this.done : this.undone;
+      if (branch.length == 0)
+        return null;
+      let event = branch[branch.length - 1];
+      if (selection && event.selectionsAfter.length) {
+        return state.update({
+          selection: event.selectionsAfter[event.selectionsAfter.length - 1],
+          annotations: fromHistory.of({ side, rest: popSelection(branch) }),
+          userEvent: side == 0 ? "select.undo" : "select.redo",
+          scrollIntoView: true
+        });
+      } else if (!event.changes) {
+        return null;
+      } else {
+        let rest = branch.length == 1 ? none3 : branch.slice(0, branch.length - 1);
+        if (event.mapped)
+          rest = addMappingToBranch(rest, event.mapped);
+        return state.update({
+          changes: event.changes,
+          selection: event.startSelection,
+          effects: event.effects,
+          annotations: fromHistory.of({ side, rest }),
+          filter: false,
+          userEvent: side == 0 ? "undo" : "redo",
+          scrollIntoView: true
+        });
+      }
+    }
+  };
+  HistoryState.empty = /* @__PURE__ */ new HistoryState(none3, none3);
+  var historyKeymap = [
+    { key: "Mod-z", run: undo, preventDefault: true },
+    { key: "Mod-y", mac: "Mod-Shift-z", run: redo, preventDefault: true },
+    { key: "Mod-u", run: undoSelection, preventDefault: true },
+    { key: "Alt-u", mac: "Mod-Shift-u", run: redoSelection, preventDefault: true }
+  ];
   function updateSel(sel, by) {
     return EditorSelection.create(sel.ranges.map(by), sel.mainIndex);
   }
@@ -10321,13 +12194,16 @@
   function cursorByChar(view, forward) {
     return moveSel(view, (range) => range.empty ? view.moveByChar(range, forward) : rangeEnd(range, forward));
   }
-  var cursorCharLeft = (view) => cursorByChar(view, view.textDirection != Direction.LTR);
-  var cursorCharRight = (view) => cursorByChar(view, view.textDirection == Direction.LTR);
+  function ltrAtCursor(view) {
+    return view.textDirectionAt(view.state.selection.main.head) == Direction.LTR;
+  }
+  var cursorCharLeft = (view) => cursorByChar(view, !ltrAtCursor(view));
+  var cursorCharRight = (view) => cursorByChar(view, ltrAtCursor(view));
   function cursorByGroup(view, forward) {
     return moveSel(view, (range) => range.empty ? view.moveByGroup(range, forward) : rangeEnd(range, forward));
   }
-  var cursorGroupLeft = (view) => cursorByGroup(view, view.textDirection != Direction.LTR);
-  var cursorGroupRight = (view) => cursorByGroup(view, view.textDirection == Direction.LTR);
+  var cursorGroupLeft = (view) => cursorByGroup(view, !ltrAtCursor(view));
+  var cursorGroupRight = (view) => cursorByGroup(view, ltrAtCursor(view));
   function cursorByLine(view, forward) {
     return moveSel(view, (range) => {
       if (!range.empty)
@@ -10339,12 +12215,23 @@
   var cursorLineUp = (view) => cursorByLine(view, false);
   var cursorLineDown = (view) => cursorByLine(view, true);
   function cursorByPage(view, forward) {
-    return moveSel(view, (range) => range.empty ? view.moveVertically(range, forward, view.dom.clientHeight) : rangeEnd(range, forward));
+    let { state } = view, selection = updateSel(state.selection, (range) => {
+      return range.empty ? view.moveVertically(range, forward, Math.min(view.dom.clientHeight, innerHeight)) : rangeEnd(range, forward);
+    });
+    if (selection.eq(state.selection))
+      return false;
+    let startPos = view.coordsAtPos(state.selection.main.head);
+    let scrollRect = view.scrollDOM.getBoundingClientRect();
+    let effect;
+    if (startPos && startPos.top > scrollRect.top && startPos.bottom < scrollRect.bottom && startPos.top - scrollRect.top <= view.scrollDOM.scrollHeight - view.scrollDOM.scrollTop - view.scrollDOM.clientHeight)
+      effect = EditorView.scrollIntoView(selection.main.head, { y: "start", yMargin: startPos.top - scrollRect.top });
+    view.dispatch(setSel(state, selection), { effects: effect });
+    return true;
   }
   var cursorPageUp = (view) => cursorByPage(view, false);
   var cursorPageDown = (view) => cursorByPage(view, true);
   function moveByLineBoundary(view, start, forward) {
-    let line2 = view.visualLineAt(start.head), moved = view.moveToLineBoundary(start, forward);
+    let line2 = view.lineBlockAt(start.head), moved = view.moveToLineBoundary(start, forward);
     if (moved.head == start.head && moved.head != (forward ? line2.to : line2.from))
       moved = view.moveToLineBoundary(start, forward, false);
     if (!forward && moved.head == line2.from && line2.length) {
@@ -10356,8 +12243,8 @@
   }
   var cursorLineBoundaryForward = (view) => moveSel(view, (range) => moveByLineBoundary(view, range, true));
   var cursorLineBoundaryBackward = (view) => moveSel(view, (range) => moveByLineBoundary(view, range, false));
-  var cursorLineStart = (view) => moveSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).from, 1));
-  var cursorLineEnd = (view) => moveSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).to, -1));
+  var cursorLineStart = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).from, 1));
+  var cursorLineEnd = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).to, -1));
   function extendSel(view, how) {
     let selection = updateSel(view.state.selection, (range) => {
       let head = how(range);
@@ -10371,27 +12258,27 @@
   function selectByChar(view, forward) {
     return extendSel(view, (range) => view.moveByChar(range, forward));
   }
-  var selectCharLeft = (view) => selectByChar(view, view.textDirection != Direction.LTR);
-  var selectCharRight = (view) => selectByChar(view, view.textDirection == Direction.LTR);
+  var selectCharLeft = (view) => selectByChar(view, !ltrAtCursor(view));
+  var selectCharRight = (view) => selectByChar(view, ltrAtCursor(view));
   function selectByGroup(view, forward) {
     return extendSel(view, (range) => view.moveByGroup(range, forward));
   }
-  var selectGroupLeft = (view) => selectByGroup(view, view.textDirection != Direction.LTR);
-  var selectGroupRight = (view) => selectByGroup(view, view.textDirection == Direction.LTR);
+  var selectGroupLeft = (view) => selectByGroup(view, !ltrAtCursor(view));
+  var selectGroupRight = (view) => selectByGroup(view, ltrAtCursor(view));
   function selectByLine(view, forward) {
     return extendSel(view, (range) => view.moveVertically(range, forward));
   }
   var selectLineUp = (view) => selectByLine(view, false);
   var selectLineDown = (view) => selectByLine(view, true);
   function selectByPage(view, forward) {
-    return extendSel(view, (range) => view.moveVertically(range, forward, view.dom.clientHeight));
+    return extendSel(view, (range) => view.moveVertically(range, forward, Math.min(view.dom.clientHeight, innerHeight)));
   }
   var selectPageUp = (view) => selectByPage(view, false);
   var selectPageDown = (view) => selectByPage(view, true);
   var selectLineBoundaryForward = (view) => extendSel(view, (range) => moveByLineBoundary(view, range, true));
   var selectLineBoundaryBackward = (view) => extendSel(view, (range) => moveByLineBoundary(view, range, false));
-  var selectLineStart = (view) => extendSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).from));
-  var selectLineEnd = (view) => extendSel(view, (range) => EditorSelection.cursor(view.visualLineAt(range.head).to));
+  var selectLineStart = (view) => extendSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).from));
+  var selectLineEnd = (view) => extendSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).to));
   var cursorDocStart = ({ state, dispatch }) => {
     dispatch(setSel(state, { anchor: 0 }));
     return true;
@@ -10436,7 +12323,7 @@
   }
   function skipAtomic(target, pos, forward) {
     if (target instanceof EditorView)
-      for (let ranges of target.pluginField(PluginField.atomicRanges))
+      for (let ranges of target.state.facet(EditorView.atomicRanges).map((f) => f(target)))
         ranges.between(pos, pos, (from, to) => {
           if (from < pos && to > pos)
             pos = forward ? to : from;
@@ -10453,7 +12340,7 @@
         pos--;
       targetPos = pos;
     } else {
-      targetPos = findClusterBreak(line2.text, pos - line2.from, forward) + line2.from;
+      targetPos = findClusterBreak(line2.text, pos - line2.from, forward, forward) + line2.from;
       if (targetPos == pos && line2.number != (forward ? state.doc.lines : 1))
         targetPos += forward ? 1 : -1;
     }
@@ -10484,11 +12371,11 @@
   var deleteGroupBackward = (target) => deleteByGroup(target, false);
   var deleteGroupForward = (target) => deleteByGroup(target, true);
   var deleteToLineEnd = (view) => deleteBy(view, (pos) => {
-    let lineEnd = view.visualLineAt(pos).to;
+    let lineEnd = view.lineBlockAt(pos).to;
     return skipAtomic(view, pos < lineEnd ? lineEnd : Math.min(view.state.doc.length, pos + 1), true);
   });
   var deleteToLineStart = (view) => deleteBy(view, (pos) => {
-    let lineStart = view.visualLineAt(pos).from;
+    let lineStart = view.lineBlockAt(pos).from;
     return skipAtomic(view, pos > lineStart ? lineStart : Math.max(0, pos - 1), false);
   });
   var splitLine = ({ state, dispatch }) => {
@@ -10618,10 +12505,7 @@
     { key: "Ctrl-Alt-h", run: deleteGroupBackward },
     { key: "Ctrl-o", run: splitLine },
     { key: "Ctrl-t", run: transposeChars },
-    { key: "Alt-<", run: cursorDocStart },
-    { key: "Alt->", run: cursorDocEnd },
-    { key: "Ctrl-v", run: cursorPageDown },
-    { key: "Alt-v", run: cursorPageUp }
+    { key: "Ctrl-v", run: cursorPageDown }
   ];
   var standardKeymap = /* @__PURE__ */ [
     { key: "ArrowLeft", run: cursorCharLeft, shift: selectCharLeft, preventDefault: true },
@@ -10638,14 +12522,14 @@
     { mac: "Ctrl-ArrowDown", run: cursorPageDown, shift: selectPageDown },
     { key: "PageUp", run: cursorPageUp, shift: selectPageUp },
     { key: "PageDown", run: cursorPageDown, shift: selectPageDown },
-    { key: "Home", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward },
+    { key: "Home", run: cursorLineBoundaryBackward, shift: selectLineBoundaryBackward, preventDefault: true },
     { key: "Mod-Home", run: cursorDocStart, shift: selectDocStart },
-    { key: "End", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward },
+    { key: "End", run: cursorLineBoundaryForward, shift: selectLineBoundaryForward, preventDefault: true },
     { key: "Mod-End", run: cursorDocEnd, shift: selectDocEnd },
     { key: "Enter", run: insertNewlineAndIndent },
     { key: "Mod-a", run: selectAll },
     { key: "Backspace", run: deleteCharBackward, shift: deleteCharBackward },
-    { key: "Delete", run: deleteCharForward, shift: deleteCharForward },
+    { key: "Delete", run: deleteCharForward },
     { key: "Mod-Backspace", mac: "Alt-Backspace", run: deleteGroupBackward },
     { key: "Mod-Delete", mac: "Alt-Delete", run: deleteGroupForward },
     { mac: "Mod-Backspace", run: deleteToLineStart },
@@ -10653,1157 +12537,222 @@
   ].concat(/* @__PURE__ */ emacsStyleKeymap.map((b) => ({ mac: b.key, run: b.run, shift: b.shift })));
   var indentWithTab = { key: "Tab", run: indentMore, shift: indentLess };
 
-  // node_modules/@codemirror/gutter/dist/index.js
-  var GutterMarker = class extends RangeValue {
-    compare(other) {
-      return this == other || this.constructor == other.constructor && this.eq(other);
-    }
-    eq(other) {
-      return false;
-    }
+  // node_modules/@codemirror/autocomplete/dist/index.js
+  var defaults = {
+    brackets: ["(", "[", "{", "'", '"'],
+    before: ")]}:;>"
   };
-  GutterMarker.prototype.elementClass = "";
-  GutterMarker.prototype.toDOM = void 0;
-  GutterMarker.prototype.mapMode = MapMode.TrackBefore;
-  GutterMarker.prototype.startSide = GutterMarker.prototype.endSide = -1;
-  GutterMarker.prototype.point = true;
-  var gutterLineClass = /* @__PURE__ */ Facet.define();
-  var activeGutters = /* @__PURE__ */ Facet.define();
-  var baseTheme2 = /* @__PURE__ */ EditorView.baseTheme({
-    ".cm-gutters": {
-      display: "flex",
-      height: "100%",
-      boxSizing: "border-box",
-      left: 0,
-      zIndex: 200
-    },
-    "&light .cm-gutters": {
-      backgroundColor: "#f5f5f5",
-      color: "#999",
-      borderRight: "1px solid #ddd"
-    },
-    "&dark .cm-gutters": {
-      backgroundColor: "#333338",
-      color: "#ccc"
-    },
-    ".cm-gutter": {
-      display: "flex !important",
-      flexDirection: "column",
-      flexShrink: 0,
-      boxSizing: "border-box",
-      minHeight: "100%",
-      overflow: "hidden"
-    },
-    ".cm-gutterElement": {
-      boxSizing: "border-box"
-    },
-    ".cm-lineNumbers .cm-gutterElement": {
-      padding: "0 3px 0 5px",
-      minWidth: "20px",
-      textAlign: "right",
-      whiteSpace: "nowrap"
-    },
-    "&light .cm-activeLineGutter": {
-      backgroundColor: "#e2f2ff"
-    },
-    "&dark .cm-activeLineGutter": {
-      backgroundColor: "#222227"
+  var closeBracketEffect = /* @__PURE__ */ StateEffect.define({
+    map(value, mapping) {
+      let mapped = mapping.mapPos(value, -1, MapMode.TrackAfter);
+      return mapped == null ? void 0 : mapped;
     }
   });
-  var unfixGutters = /* @__PURE__ */ Facet.define({
-    combine: (values) => values.some((x) => x)
-  });
-  function gutters(config2) {
-    let result = [
-      gutterView,
-      baseTheme2
-    ];
-    if (config2 && config2.fixed === false)
-      result.push(unfixGutters.of(true));
-    return result;
-  }
-  var gutterView = /* @__PURE__ */ ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.view = view;
-      this.prevViewport = view.viewport;
-      this.dom = document.createElement("div");
-      this.dom.className = "cm-gutters";
-      this.dom.setAttribute("aria-hidden", "true");
-      this.dom.style.minHeight = this.view.contentHeight + "px";
-      this.gutters = view.state.facet(activeGutters).map((conf) => new SingleGutterView(view, conf));
-      for (let gutter of this.gutters)
-        this.dom.appendChild(gutter.dom);
-      this.fixed = !view.state.facet(unfixGutters);
-      if (this.fixed) {
-        this.dom.style.position = "sticky";
-      }
-      this.syncGutters(false);
-      view.scrollDOM.insertBefore(this.dom, view.contentDOM);
-    }
-    update(update) {
-      if (this.updateGutters(update)) {
-        let vpA = this.prevViewport, vpB = update.view.viewport;
-        let vpOverlap = Math.min(vpA.to, vpB.to) - Math.max(vpA.from, vpB.from);
-        this.syncGutters(vpOverlap < (vpB.to - vpB.from) * 0.8);
-      }
-      if (update.geometryChanged)
-        this.dom.style.minHeight = this.view.contentHeight + "px";
-      if (this.view.state.facet(unfixGutters) != !this.fixed) {
-        this.fixed = !this.fixed;
-        this.dom.style.position = this.fixed ? "sticky" : "";
-      }
-      this.prevViewport = update.view.viewport;
-    }
-    syncGutters(detach) {
-      let after = this.dom.nextSibling;
-      if (detach)
-        this.dom.remove();
-      let lineClasses = RangeSet.iter(this.view.state.facet(gutterLineClass), this.view.viewport.from);
-      let classSet = [];
-      let contexts = this.gutters.map((gutter) => new UpdateContext(gutter, this.view.viewport));
-      for (let line2 of this.view.viewportLineBlocks) {
-        let text;
-        if (Array.isArray(line2.type)) {
-          for (let b of line2.type)
-            if (b.type == BlockType.Text) {
-              text = b;
-              break;
-            }
-        } else {
-          text = line2.type == BlockType.Text ? line2 : void 0;
-        }
-        if (!text)
-          return;
-        if (classSet.length)
-          classSet = [];
-        advanceCursor(lineClasses, classSet, line2.from);
-        for (let cx of contexts)
-          cx.line(this.view, text, classSet);
-      }
-      for (let cx of contexts)
-        cx.finish();
-      if (detach)
-        this.view.scrollDOM.insertBefore(this.dom, after);
-    }
-    updateGutters(update) {
-      let prev = update.startState.facet(activeGutters), cur = update.state.facet(activeGutters);
-      let change = update.docChanged || update.heightChanged || update.viewportChanged || !RangeSet.eq(update.startState.facet(gutterLineClass), update.state.facet(gutterLineClass), update.view.viewport.from, update.view.viewport.to);
-      if (prev == cur) {
-        for (let gutter of this.gutters)
-          if (gutter.update(update))
-            change = true;
-      } else {
-        change = true;
-        let gutters2 = [];
-        for (let conf of cur) {
-          let known = prev.indexOf(conf);
-          if (known < 0) {
-            gutters2.push(new SingleGutterView(this.view, conf));
-          } else {
-            this.gutters[known].update(update);
-            gutters2.push(this.gutters[known]);
-          }
-        }
-        for (let g of this.gutters)
-          g.dom.remove();
-        for (let g of gutters2)
-          this.dom.appendChild(g.dom);
-        this.gutters = gutters2;
-      }
-      return change;
-    }
-    destroy() {
-      this.dom.remove();
-    }
-  }, {
-    provide: /* @__PURE__ */ PluginField.scrollMargins.from((value) => {
-      if (value.gutters.length == 0 || !value.fixed)
-        return null;
-      return value.view.textDirection == Direction.LTR ? { left: value.dom.offsetWidth } : { right: value.dom.offsetWidth };
-    })
-  });
-  function asArray2(val) {
-    return Array.isArray(val) ? val : [val];
-  }
-  function advanceCursor(cursor, collect, pos) {
-    while (cursor.value && cursor.from <= pos) {
-      if (cursor.from == pos)
-        collect.push(cursor.value);
-      cursor.next();
-    }
-  }
-  var UpdateContext = class {
-    constructor(gutter, viewport) {
-      this.gutter = gutter;
-      this.localMarkers = [];
-      this.i = 0;
-      this.height = 0;
-      this.cursor = RangeSet.iter(gutter.markers, viewport.from);
-    }
-    line(view, line2, extraMarkers) {
-      if (this.localMarkers.length)
-        this.localMarkers = [];
-      advanceCursor(this.cursor, this.localMarkers, line2.from);
-      let localMarkers = extraMarkers.length ? this.localMarkers.concat(extraMarkers) : this.localMarkers;
-      let forLine = this.gutter.config.lineMarker(view, line2, localMarkers);
-      if (forLine)
-        localMarkers.unshift(forLine);
-      let gutter = this.gutter;
-      if (localMarkers.length == 0 && !gutter.config.renderEmptyElements)
-        return;
-      let above = line2.top - this.height;
-      if (this.i == gutter.elements.length) {
-        let newElt = new GutterElement(view, line2.height, above, localMarkers);
-        gutter.elements.push(newElt);
-        gutter.dom.appendChild(newElt.dom);
-      } else {
-        let elt = gutter.elements[this.i];
-        if (sameMarkers(localMarkers, elt.markers))
-          localMarkers = elt.markers;
-        elt.update(view, line2.height, above, localMarkers);
-      }
-      this.height = line2.bottom;
-      this.i++;
-    }
-    finish() {
-      let gutter = this.gutter;
-      while (gutter.elements.length > this.i)
-        gutter.dom.removeChild(gutter.elements.pop().dom);
-    }
-  };
-  var SingleGutterView = class {
-    constructor(view, config2) {
-      this.view = view;
-      this.config = config2;
-      this.elements = [];
-      this.spacer = null;
-      this.dom = document.createElement("div");
-      this.dom.className = "cm-gutter" + (this.config.class ? " " + this.config.class : "");
-      for (let prop in config2.domEventHandlers) {
-        this.dom.addEventListener(prop, (event) => {
-          let line2 = view.lineBlockAtHeight(event.clientY - view.documentTop);
-          if (config2.domEventHandlers[prop](view, line2, event))
-            event.preventDefault();
-        });
-      }
-      this.markers = asArray2(config2.markers(view));
-      if (config2.initialSpacer) {
-        this.spacer = new GutterElement(view, 0, 0, [config2.initialSpacer(view)]);
-        this.dom.appendChild(this.spacer.dom);
-        this.spacer.dom.style.cssText += "visibility: hidden; pointer-events: none";
-      }
-    }
-    update(update) {
-      let prevMarkers = this.markers;
-      this.markers = asArray2(this.config.markers(update.view));
-      if (this.spacer && this.config.updateSpacer) {
-        let updated = this.config.updateSpacer(this.spacer.markers[0], update);
-        if (updated != this.spacer.markers[0])
-          this.spacer.update(update.view, 0, 0, [updated]);
-      }
-      let vp = update.view.viewport;
-      return !RangeSet.eq(this.markers, prevMarkers, vp.from, vp.to) || (this.config.lineMarkerChange ? this.config.lineMarkerChange(update) : false);
-    }
-  };
-  var GutterElement = class {
-    constructor(view, height, above, markers) {
-      this.height = -1;
-      this.above = 0;
-      this.dom = document.createElement("div");
-      this.update(view, height, above, markers);
-    }
-    update(view, height, above, markers) {
-      if (this.height != height)
-        this.dom.style.height = (this.height = height) + "px";
-      if (this.above != above)
-        this.dom.style.marginTop = (this.above = above) ? above + "px" : "";
-      if (this.markers != markers) {
-        this.markers = markers;
-        for (let ch; ch = this.dom.lastChild; )
-          ch.remove();
-        let cls = "cm-gutterElement";
-        for (let m of markers) {
-          if (m.toDOM)
-            this.dom.appendChild(m.toDOM(view));
-          let c = m.elementClass;
-          if (c)
-            cls += " " + c;
-        }
-        this.dom.className = cls;
-      }
-    }
-  };
-  function sameMarkers(a, b) {
-    if (a.length != b.length)
-      return false;
-    for (let i = 0; i < a.length; i++)
-      if (!a[i].compare(b[i]))
-        return false;
-    return true;
-  }
-  var lineNumberMarkers = /* @__PURE__ */ Facet.define();
-  var lineNumberConfig = /* @__PURE__ */ Facet.define({
-    combine(values) {
-      return combineConfig(values, { formatNumber: String, domEventHandlers: {} }, {
-        domEventHandlers(a, b) {
-          let result = Object.assign({}, a);
-          for (let event in b) {
-            let exists = result[event], add = b[event];
-            result[event] = exists ? (view, line2, event2) => exists(view, line2, event2) || add(view, line2, event2) : add;
-          }
-          return result;
-        }
-      });
+  var skipBracketEffect = /* @__PURE__ */ StateEffect.define({
+    map(value, mapping) {
+      return mapping.mapPos(value);
     }
   });
-  var NumberMarker = class extends GutterMarker {
-    constructor(number3) {
-      super();
-      this.number = number3;
-    }
-    eq(other) {
-      return this.number == other.number;
-    }
-    toDOM() {
-      return document.createTextNode(this.number);
-    }
-  };
-  function formatNumber(view, number3) {
-    return view.state.facet(lineNumberConfig).formatNumber(number3, view.state);
-  }
-  var lineNumberGutter = /* @__PURE__ */ activeGutters.compute([lineNumberConfig], (state) => ({
-    class: "cm-lineNumbers",
-    renderEmptyElements: false,
-    markers(view) {
-      return view.state.facet(lineNumberMarkers);
-    },
-    lineMarker(view, line2, others) {
-      if (others.some((m) => m.toDOM))
-        return null;
-      return new NumberMarker(formatNumber(view, view.state.doc.lineAt(line2.from).number));
-    },
-    lineMarkerChange: (update) => update.startState.facet(lineNumberConfig) != update.state.facet(lineNumberConfig),
-    initialSpacer(view) {
-      return new NumberMarker(formatNumber(view, maxLineNumber(view.state.doc.lines)));
-    },
-    updateSpacer(spacer, update) {
-      let max = formatNumber(update.view, maxLineNumber(update.view.state.doc.lines));
-      return max == spacer.number ? spacer : new NumberMarker(max);
-    },
-    domEventHandlers: state.facet(lineNumberConfig).domEventHandlers
-  }));
-  function lineNumbers(config2 = {}) {
-    return [
-      lineNumberConfig.of(config2),
-      gutters(),
-      lineNumberGutter
-    ];
-  }
-  function maxLineNumber(lines2) {
-    let last = 9;
-    while (last < lines2)
-      last = last * 10 + 9;
-    return last;
-  }
-
-  // node_modules/@codemirror/highlight/dist/index.js
-  var nextTagID = 0;
-  var Tag = class {
-    constructor(set, base2, modified) {
-      this.set = set;
-      this.base = base2;
-      this.modified = modified;
-      this.id = nextTagID++;
-    }
-    static define(parent) {
-      if (parent === null || parent === void 0 ? void 0 : parent.base)
-        throw new Error("Can not derive from a modified tag");
-      let tag = new Tag([], null, []);
-      tag.set.push(tag);
-      if (parent)
-        for (let t2 of parent.set)
-          tag.set.push(t2);
-      return tag;
-    }
-    static defineModifier() {
-      let mod = new Modifier();
-      return (tag) => {
-        if (tag.modified.indexOf(mod) > -1)
-          return tag;
-        return Modifier.get(tag.base || tag, tag.modified.concat(mod).sort((a, b) => a.id - b.id));
-      };
-    }
-  };
-  var nextModifierID = 0;
-  var Modifier = class {
-    constructor() {
-      this.instances = [];
-      this.id = nextModifierID++;
-    }
-    static get(base2, mods) {
-      if (!mods.length)
-        return base2;
-      let exists = mods[0].instances.find((t2) => t2.base == base2 && sameArray2(mods, t2.modified));
-      if (exists)
-        return exists;
-      let set = [], tag = new Tag(set, base2, mods);
-      for (let m of mods)
-        m.instances.push(tag);
-      let configs = permute(mods);
-      for (let parent of base2.set)
-        for (let config2 of configs)
-          set.push(Modifier.get(parent, config2));
-      return tag;
-    }
-  };
-  function sameArray2(a, b) {
-    return a.length == b.length && a.every((x, i) => x == b[i]);
-  }
-  function permute(array) {
-    let result = [array];
-    for (let i = 0; i < array.length; i++) {
-      for (let a of permute(array.slice(0, i).concat(array.slice(i + 1))))
-        result.push(a);
-    }
-    return result;
-  }
-  function styleTags(spec) {
-    let byName = Object.create(null);
-    for (let prop in spec) {
-      let tags2 = spec[prop];
-      if (!Array.isArray(tags2))
-        tags2 = [tags2];
-      for (let part of prop.split(" "))
-        if (part) {
-          let pieces = [], mode = 2, rest = part;
-          for (let pos = 0; ; ) {
-            if (rest == "..." && pos > 0 && pos + 3 == part.length) {
-              mode = 1;
-              break;
-            }
-            let m = /^"(?:[^"\\]|\\.)*?"|[^\/!]+/.exec(rest);
-            if (!m)
-              throw new RangeError("Invalid path: " + part);
-            pieces.push(m[0] == "*" ? null : m[0][0] == '"' ? JSON.parse(m[0]) : m[0]);
-            pos += m[0].length;
-            if (pos == part.length)
-              break;
-            let next3 = part[pos++];
-            if (pos == part.length && next3 == "!") {
-              mode = 0;
-              break;
-            }
-            if (next3 != "/")
-              throw new RangeError("Invalid path: " + part);
-            rest = part.slice(pos);
-          }
-          let last = pieces.length - 1, inner = pieces[last];
-          if (!inner)
-            throw new RangeError("Invalid path: " + part);
-          let rule = new Rule(tags2, mode, last > 0 ? pieces.slice(0, last) : null);
-          byName[inner] = rule.sort(byName[inner]);
-        }
-    }
-    return ruleNodeProp.add(byName);
-  }
-  var ruleNodeProp = /* @__PURE__ */ new NodeProp();
-  var highlightStyle = /* @__PURE__ */ Facet.define({
-    combine(stylings) {
-      return stylings.length ? HighlightStyle.combinedMatch(stylings) : null;
-    }
-  });
-  var fallbackHighlightStyle = /* @__PURE__ */ Facet.define({
-    combine(values) {
-      return values.length ? values[0].match : null;
-    }
-  });
-  function getHighlightStyle(state) {
-    return state.facet(highlightStyle) || state.facet(fallbackHighlightStyle);
-  }
-  var Rule = class {
-    constructor(tags2, mode, context, next3) {
-      this.tags = tags2;
-      this.mode = mode;
-      this.context = context;
-      this.next = next3;
-    }
-    sort(other) {
-      if (!other || other.depth < this.depth) {
-        this.next = other;
-        return this;
-      }
-      other.next = this.sort(other.next);
-      return other;
-    }
-    get depth() {
-      return this.context ? this.context.length : 0;
-    }
-  };
-  var HighlightStyle = class {
-    constructor(spec, options) {
-      this.map = Object.create(null);
-      let modSpec;
-      function def(spec2) {
-        let cls = StyleModule.newName();
-        (modSpec || (modSpec = Object.create(null)))["." + cls] = spec2;
-        return cls;
-      }
-      this.all = typeof options.all == "string" ? options.all : options.all ? def(options.all) : null;
-      for (let style of spec) {
-        let cls = (style.class || def(Object.assign({}, style, { tag: null }))) + (this.all ? " " + this.all : "");
-        let tags2 = style.tag;
-        if (!Array.isArray(tags2))
-          this.map[tags2.id] = cls;
-        else
-          for (let tag of tags2)
-            this.map[tag.id] = cls;
-      }
-      this.module = modSpec ? new StyleModule(modSpec) : null;
-      this.scope = options.scope || null;
-      this.match = this.match.bind(this);
-      let ext = [treeHighlighter];
-      if (this.module)
-        ext.push(EditorView.styleModule.of(this.module));
-      this.extension = ext.concat(highlightStyle.of(this));
-      this.fallback = ext.concat(fallbackHighlightStyle.of(this));
-    }
-    match(tag, scope) {
-      if (this.scope && scope != this.scope)
-        return null;
-      for (let t2 of tag.set) {
-        let match2 = this.map[t2.id];
-        if (match2 !== void 0) {
-          if (t2 != tag)
-            this.map[tag.id] = match2;
-          return match2;
-        }
-      }
-      return this.map[tag.id] = this.all;
-    }
-    static combinedMatch(styles) {
-      if (styles.length == 1)
-        return styles[0].match;
-      let cache = styles.some((s) => s.scope) ? void 0 : Object.create(null);
-      return (tag, scope) => {
-        let cached = cache && cache[tag.id];
-        if (cached !== void 0)
-          return cached;
-        let result = null;
-        for (let style of styles) {
-          let value = style.match(tag, scope);
-          if (value)
-            result = result ? result + " " + value : value;
-        }
-        if (cache)
-          cache[tag.id] = result;
-        return result;
-      };
-    }
-    static define(specs, options) {
-      return new HighlightStyle(specs, options || {});
-    }
-    static get(state, tag, scope) {
-      let style = getHighlightStyle(state);
-      return style && style(tag, scope || NodeType.none);
-    }
-  };
-  var TreeHighlighter = class {
-    constructor(view) {
-      this.markCache = Object.create(null);
-      this.tree = syntaxTree(view.state);
-      this.decorations = this.buildDeco(view, getHighlightStyle(view.state));
-    }
-    update(update) {
-      let tree = syntaxTree(update.state), style = getHighlightStyle(update.state);
-      let styleChange = style != update.startState.facet(highlightStyle);
-      if (tree.length < update.view.viewport.to && !styleChange && tree.type == this.tree.type) {
-        this.decorations = this.decorations.map(update.changes);
-      } else if (tree != this.tree || update.viewportChanged || styleChange) {
-        this.tree = tree;
-        this.decorations = this.buildDeco(update.view, style);
-      }
-    }
-    buildDeco(view, match2) {
-      if (!match2 || !this.tree.length)
-        return Decoration.none;
-      let builder = new RangeSetBuilder();
-      for (let { from, to } of view.visibleRanges) {
-        highlightTreeRange(this.tree, from, to, match2, (from2, to2, style) => {
-          builder.add(from2, to2, this.markCache[style] || (this.markCache[style] = Decoration.mark({ class: style })));
-        });
-      }
-      return builder.finish();
-    }
-  };
-  var treeHighlighter = /* @__PURE__ */ Prec.extend(/* @__PURE__ */ ViewPlugin.fromClass(TreeHighlighter, {
-    decorations: (v) => v.decorations
-  }));
-  var nodeStack = [""];
-  var HighlightBuilder = class {
-    constructor(at, style, span) {
-      this.at = at;
-      this.style = style;
-      this.span = span;
-      this.class = "";
-    }
-    startSpan(at, cls) {
-      if (cls != this.class) {
-        this.flush(at);
-        if (at > this.at)
-          this.at = at;
-        this.class = cls;
-      }
-    }
-    flush(to) {
-      if (to > this.at && this.class)
-        this.span(this.at, to, this.class);
-    }
-    highlightRange(cursor, from, to, inheritedClass, depth, scope) {
-      let { type, from: start, to: end } = cursor;
-      if (start >= to || end <= from)
-        return;
-      nodeStack[depth] = type.name;
-      if (type.isTop)
-        scope = type;
-      let cls = inheritedClass;
-      let rule = type.prop(ruleNodeProp), opaque = false;
-      while (rule) {
-        if (!rule.context || matchContext(rule.context, nodeStack, depth)) {
-          for (let tag of rule.tags) {
-            let st = this.style(tag, scope);
-            if (st) {
-              if (cls)
-                cls += " ";
-              cls += st;
-              if (rule.mode == 1)
-                inheritedClass += (inheritedClass ? " " : "") + st;
-              else if (rule.mode == 0)
-                opaque = true;
-            }
-          }
-          break;
-        }
-        rule = rule.next;
-      }
-      this.startSpan(cursor.from, cls);
-      if (opaque)
-        return;
-      let mounted = cursor.tree && cursor.tree.prop(NodeProp.mounted);
-      if (mounted && mounted.overlay) {
-        let inner = cursor.node.enter(mounted.overlay[0].from + start, 1);
-        let hasChild2 = cursor.firstChild();
-        for (let i = 0, pos = start; ; i++) {
-          let next3 = i < mounted.overlay.length ? mounted.overlay[i] : null;
-          let nextPos = next3 ? next3.from + start : end;
-          let rangeFrom = Math.max(from, pos), rangeTo = Math.min(to, nextPos);
-          if (rangeFrom < rangeTo && hasChild2) {
-            while (cursor.from < rangeTo) {
-              this.highlightRange(cursor, rangeFrom, rangeTo, inheritedClass, depth + 1, scope);
-              this.startSpan(Math.min(to, cursor.to), cls);
-              if (cursor.to >= nextPos || !cursor.nextSibling())
-                break;
-            }
-          }
-          if (!next3 || nextPos > to)
-            break;
-          pos = next3.to + start;
-          if (pos > from) {
-            this.highlightRange(inner.cursor, Math.max(from, next3.from + start), Math.min(to, pos), inheritedClass, depth, mounted.tree.type);
-            this.startSpan(pos, cls);
-          }
-        }
-        if (hasChild2)
-          cursor.parent();
-      } else if (cursor.firstChild()) {
-        do {
-          if (cursor.to <= from)
-            continue;
-          if (cursor.from >= to)
-            break;
-          this.highlightRange(cursor, from, to, inheritedClass, depth + 1, scope);
-          this.startSpan(Math.min(to, cursor.to), cls);
-        } while (cursor.nextSibling());
-        cursor.parent();
-      }
-    }
-  };
-  function highlightTreeRange(tree, from, to, style, span) {
-    let builder = new HighlightBuilder(from, style, span);
-    builder.highlightRange(tree.cursor(), from, to, "", 0, tree.type);
-    builder.flush(to);
-  }
-  function matchContext(context, stack, depth) {
-    if (context.length > depth - 1)
-      return false;
-    for (let d = depth - 1, i = context.length - 1; i >= 0; i--, d--) {
-      let check = context[i];
-      if (check && check != stack[d])
-        return false;
-    }
-    return true;
-  }
-  var t = Tag.define;
-  var comment = /* @__PURE__ */ t();
-  var name = /* @__PURE__ */ t();
-  var typeName = /* @__PURE__ */ t(name);
-  var propertyName = /* @__PURE__ */ t(name);
-  var literal = /* @__PURE__ */ t();
-  var string = /* @__PURE__ */ t(literal);
-  var number = /* @__PURE__ */ t(literal);
-  var content = /* @__PURE__ */ t();
-  var heading = /* @__PURE__ */ t(content);
-  var keyword = /* @__PURE__ */ t();
-  var operator = /* @__PURE__ */ t();
-  var punctuation = /* @__PURE__ */ t();
-  var bracket = /* @__PURE__ */ t(punctuation);
-  var meta = /* @__PURE__ */ t();
-  var tags = {
-    comment,
-    lineComment: /* @__PURE__ */ t(comment),
-    blockComment: /* @__PURE__ */ t(comment),
-    docComment: /* @__PURE__ */ t(comment),
-    name,
-    variableName: /* @__PURE__ */ t(name),
-    typeName,
-    tagName: /* @__PURE__ */ t(typeName),
-    propertyName,
-    attributeName: /* @__PURE__ */ t(propertyName),
-    className: /* @__PURE__ */ t(name),
-    labelName: /* @__PURE__ */ t(name),
-    namespace: /* @__PURE__ */ t(name),
-    macroName: /* @__PURE__ */ t(name),
-    literal,
-    string,
-    docString: /* @__PURE__ */ t(string),
-    character: /* @__PURE__ */ t(string),
-    attributeValue: /* @__PURE__ */ t(string),
-    number,
-    integer: /* @__PURE__ */ t(number),
-    float: /* @__PURE__ */ t(number),
-    bool: /* @__PURE__ */ t(literal),
-    regexp: /* @__PURE__ */ t(literal),
-    escape: /* @__PURE__ */ t(literal),
-    color: /* @__PURE__ */ t(literal),
-    url: /* @__PURE__ */ t(literal),
-    keyword,
-    self: /* @__PURE__ */ t(keyword),
-    null: /* @__PURE__ */ t(keyword),
-    atom: /* @__PURE__ */ t(keyword),
-    unit: /* @__PURE__ */ t(keyword),
-    modifier: /* @__PURE__ */ t(keyword),
-    operatorKeyword: /* @__PURE__ */ t(keyword),
-    controlKeyword: /* @__PURE__ */ t(keyword),
-    definitionKeyword: /* @__PURE__ */ t(keyword),
-    operator,
-    derefOperator: /* @__PURE__ */ t(operator),
-    arithmeticOperator: /* @__PURE__ */ t(operator),
-    logicOperator: /* @__PURE__ */ t(operator),
-    bitwiseOperator: /* @__PURE__ */ t(operator),
-    compareOperator: /* @__PURE__ */ t(operator),
-    updateOperator: /* @__PURE__ */ t(operator),
-    definitionOperator: /* @__PURE__ */ t(operator),
-    typeOperator: /* @__PURE__ */ t(operator),
-    controlOperator: /* @__PURE__ */ t(operator),
-    punctuation,
-    separator: /* @__PURE__ */ t(punctuation),
-    bracket,
-    angleBracket: /* @__PURE__ */ t(bracket),
-    squareBracket: /* @__PURE__ */ t(bracket),
-    paren: /* @__PURE__ */ t(bracket),
-    brace: /* @__PURE__ */ t(bracket),
-    content,
-    heading,
-    heading1: /* @__PURE__ */ t(heading),
-    heading2: /* @__PURE__ */ t(heading),
-    heading3: /* @__PURE__ */ t(heading),
-    heading4: /* @__PURE__ */ t(heading),
-    heading5: /* @__PURE__ */ t(heading),
-    heading6: /* @__PURE__ */ t(heading),
-    contentSeparator: /* @__PURE__ */ t(content),
-    list: /* @__PURE__ */ t(content),
-    quote: /* @__PURE__ */ t(content),
-    emphasis: /* @__PURE__ */ t(content),
-    strong: /* @__PURE__ */ t(content),
-    link: /* @__PURE__ */ t(content),
-    monospace: /* @__PURE__ */ t(content),
-    strikethrough: /* @__PURE__ */ t(content),
-    inserted: /* @__PURE__ */ t(),
-    deleted: /* @__PURE__ */ t(),
-    changed: /* @__PURE__ */ t(),
-    invalid: /* @__PURE__ */ t(),
-    meta,
-    documentMeta: /* @__PURE__ */ t(meta),
-    annotation: /* @__PURE__ */ t(meta),
-    processingInstruction: /* @__PURE__ */ t(meta),
-    definition: /* @__PURE__ */ Tag.defineModifier(),
-    constant: /* @__PURE__ */ Tag.defineModifier(),
-    function: /* @__PURE__ */ Tag.defineModifier(),
-    standard: /* @__PURE__ */ Tag.defineModifier(),
-    local: /* @__PURE__ */ Tag.defineModifier(),
-    special: /* @__PURE__ */ Tag.defineModifier()
-  };
-  var defaultHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
-    {
-      tag: tags.link,
-      textDecoration: "underline"
-    },
-    {
-      tag: tags.heading,
-      textDecoration: "underline",
-      fontWeight: "bold"
-    },
-    {
-      tag: tags.emphasis,
-      fontStyle: "italic"
-    },
-    {
-      tag: tags.strong,
-      fontWeight: "bold"
-    },
-    {
-      tag: tags.strikethrough,
-      textDecoration: "line-through"
-    },
-    {
-      tag: tags.keyword,
-      color: "#708"
-    },
-    {
-      tag: [tags.atom, tags.bool, tags.url, tags.contentSeparator, tags.labelName],
-      color: "#219"
-    },
-    {
-      tag: [tags.literal, tags.inserted],
-      color: "#164"
-    },
-    {
-      tag: [tags.string, tags.deleted],
-      color: "#a11"
-    },
-    {
-      tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)],
-      color: "#e40"
-    },
-    {
-      tag: /* @__PURE__ */ tags.definition(tags.variableName),
-      color: "#00f"
-    },
-    {
-      tag: /* @__PURE__ */ tags.local(tags.variableName),
-      color: "#30a"
-    },
-    {
-      tag: [tags.typeName, tags.namespace],
-      color: "#085"
-    },
-    {
-      tag: tags.className,
-      color: "#167"
-    },
-    {
-      tag: [/* @__PURE__ */ tags.special(tags.variableName), tags.macroName],
-      color: "#256"
-    },
-    {
-      tag: /* @__PURE__ */ tags.definition(tags.propertyName),
-      color: "#00c"
-    },
-    {
-      tag: tags.comment,
-      color: "#940"
-    },
-    {
-      tag: tags.meta,
-      color: "#7a757a"
-    },
-    {
-      tag: tags.invalid,
-      color: "#f00"
-    }
-  ]);
-  var classHighlightStyle = /* @__PURE__ */ HighlightStyle.define([
-    { tag: tags.link, class: "cmt-link" },
-    { tag: tags.heading, class: "cmt-heading" },
-    { tag: tags.emphasis, class: "cmt-emphasis" },
-    { tag: tags.strong, class: "cmt-strong" },
-    { tag: tags.keyword, class: "cmt-keyword" },
-    { tag: tags.atom, class: "cmt-atom" },
-    { tag: tags.bool, class: "cmt-bool" },
-    { tag: tags.url, class: "cmt-url" },
-    { tag: tags.labelName, class: "cmt-labelName" },
-    { tag: tags.inserted, class: "cmt-inserted" },
-    { tag: tags.deleted, class: "cmt-deleted" },
-    { tag: tags.literal, class: "cmt-literal" },
-    { tag: tags.string, class: "cmt-string" },
-    { tag: tags.number, class: "cmt-number" },
-    { tag: [tags.regexp, tags.escape, /* @__PURE__ */ tags.special(tags.string)], class: "cmt-string2" },
-    { tag: tags.variableName, class: "cmt-variableName" },
-    { tag: /* @__PURE__ */ tags.local(tags.variableName), class: "cmt-variableName cmt-local" },
-    { tag: /* @__PURE__ */ tags.definition(tags.variableName), class: "cmt-variableName cmt-definition" },
-    { tag: /* @__PURE__ */ tags.special(tags.variableName), class: "cmt-variableName2" },
-    { tag: tags.typeName, class: "cmt-typeName" },
-    { tag: tags.namespace, class: "cmt-namespace" },
-    { tag: tags.macroName, class: "cmt-macroName" },
-    { tag: tags.propertyName, class: "cmt-propertyName" },
-    { tag: tags.operator, class: "cmt-operator" },
-    { tag: tags.comment, class: "cmt-comment" },
-    { tag: tags.meta, class: "cmt-meta" },
-    { tag: tags.invalid, class: "cmt-invalid" },
-    { tag: tags.punctuation, class: "cmt-punctuation" }
-  ]);
-
-  // node_modules/@codemirror/history/dist/index.js
-  var fromHistory = /* @__PURE__ */ Annotation.define();
-  var isolateHistory = /* @__PURE__ */ Annotation.define();
-  var invertedEffects = /* @__PURE__ */ Facet.define();
-  var historyConfig = /* @__PURE__ */ Facet.define({
-    combine(configs) {
-      return combineConfig(configs, {
-        minDepth: 100,
-        newGroupDelay: 500
-      }, { minDepth: Math.max, newGroupDelay: Math.min });
-    }
-  });
-  var historyField_ = /* @__PURE__ */ StateField.define({
+  var closedBracket = /* @__PURE__ */ new class extends RangeValue {
+  }();
+  closedBracket.startSide = 1;
+  closedBracket.endSide = -1;
+  var bracketState = /* @__PURE__ */ StateField.define({
     create() {
-      return HistoryState.empty;
+      return RangeSet.empty;
     },
-    update(state, tr) {
-      let config2 = tr.state.facet(historyConfig);
-      let fromHist = tr.annotation(fromHistory);
-      if (fromHist) {
-        let item = HistEvent.fromTransaction(tr), from = fromHist.side;
-        let other = from == 0 ? state.undone : state.done;
-        if (item)
-          other = updateBranch(other, other.length, config2.minDepth, item);
-        else
-          other = addSelection(other, tr.startState.selection);
-        return new HistoryState(from == 0 ? fromHist.rest : other, from == 0 ? other : fromHist.rest);
+    update(value, tr) {
+      if (tr.selection) {
+        let lineStart = tr.state.doc.lineAt(tr.selection.main.head).from;
+        let prevLineStart = tr.startState.doc.lineAt(tr.startState.selection.main.head).from;
+        if (lineStart != tr.changes.mapPos(prevLineStart, -1))
+          value = RangeSet.empty;
       }
-      let isolate = tr.annotation(isolateHistory);
-      if (isolate == "full" || isolate == "before")
-        state = state.isolate();
-      if (tr.annotation(Transaction.addToHistory) === false)
-        return !tr.changes.empty ? state.addMapping(tr.changes.desc) : state;
-      let event = HistEvent.fromTransaction(tr);
-      let time = tr.annotation(Transaction.time), userEvent = tr.annotation(Transaction.userEvent);
-      if (event)
-        state = state.addChanges(event, time, userEvent, config2.newGroupDelay, config2.minDepth);
-      else if (tr.selection)
-        state = state.addSelection(tr.startState.selection, time, userEvent, config2.newGroupDelay);
-      if (isolate == "full" || isolate == "after")
-        state = state.isolate();
-      return state;
-    },
-    toJSON(value) {
-      return { done: value.done.map((e) => e.toJSON()), undone: value.undone.map((e) => e.toJSON()) };
-    },
-    fromJSON(json) {
-      return new HistoryState(json.done.map(HistEvent.fromJSON), json.undone.map(HistEvent.fromJSON));
+      value = value.map(tr.changes);
+      for (let effect of tr.effects) {
+        if (effect.is(closeBracketEffect))
+          value = value.update({ add: [closedBracket.range(effect.value, effect.value + 1)] });
+        else if (effect.is(skipBracketEffect))
+          value = value.update({ filter: (from) => from != effect.value });
+      }
+      return value;
     }
   });
-  function history(config2 = {}) {
-    return [
-      historyField_,
-      historyConfig.of(config2),
-      EditorView.domEventHandlers({
-        beforeinput(e, view) {
-          if (e.inputType == "historyUndo")
-            return undo(view);
-          if (e.inputType == "historyRedo")
-            return redo(view);
-          return false;
+  function closeBrackets() {
+    return [inputHandler2, bracketState];
+  }
+  var definedClosing = "()[]{}<>";
+  function closing(ch) {
+    for (let i = 0; i < definedClosing.length; i += 2)
+      if (definedClosing.charCodeAt(i) == ch)
+        return definedClosing.charAt(i + 1);
+    return fromCodePoint(ch < 128 ? ch : ch + 1);
+  }
+  function config(state, pos) {
+    return state.languageDataAt("closeBrackets", pos)[0] || defaults;
+  }
+  var android = typeof navigator == "object" && /* @__PURE__ */ /Android\b/.test(navigator.userAgent);
+  var inputHandler2 = /* @__PURE__ */ EditorView.inputHandler.of((view, from, to, insert2) => {
+    if ((android ? view.composing : view.compositionStarted) || view.state.readOnly)
+      return false;
+    let sel = view.state.selection.main;
+    if (insert2.length > 2 || insert2.length == 2 && codePointSize(codePointAt(insert2, 0)) == 1 || from != sel.from || to != sel.to)
+      return false;
+    let tr = insertBracket(view.state, insert2);
+    if (!tr)
+      return false;
+    view.dispatch(tr);
+    return true;
+  });
+  var deleteBracketPair = ({ state, dispatch }) => {
+    if (state.readOnly)
+      return false;
+    let conf = config(state, state.selection.main.head);
+    let tokens = conf.brackets || defaults.brackets;
+    let dont = null, changes = state.changeByRange((range) => {
+      if (range.empty) {
+        let before = prevChar(state.doc, range.head);
+        for (let token2 of tokens) {
+          if (token2 == before && nextChar(state.doc, range.head) == closing(codePointAt(token2, 0)))
+            return {
+              changes: { from: range.head - token2.length, to: range.head + token2.length },
+              range: EditorSelection.cursor(range.head - token2.length),
+              userEvent: "delete.backward"
+            };
         }
-      })
-    ];
-  }
-  function cmd(side, selection) {
-    return function({ state, dispatch }) {
-      let historyState = state.field(historyField_, false);
-      if (!historyState)
-        return false;
-      let tr = historyState.pop(side, state, selection);
-      if (!tr)
-        return false;
-      dispatch(tr);
-      return true;
-    };
-  }
-  var undo = /* @__PURE__ */ cmd(0, false);
-  var redo = /* @__PURE__ */ cmd(1, false);
-  var undoSelection = /* @__PURE__ */ cmd(0, true);
-  var redoSelection = /* @__PURE__ */ cmd(1, true);
-  var HistEvent = class {
-    constructor(changes, effects, mapped, startSelection, selectionsAfter) {
-      this.changes = changes;
-      this.effects = effects;
-      this.mapped = mapped;
-      this.startSelection = startSelection;
-      this.selectionsAfter = selectionsAfter;
-    }
-    setSelAfter(after) {
-      return new HistEvent(this.changes, this.effects, this.mapped, this.startSelection, after);
-    }
-    toJSON() {
-      var _a, _b, _c;
-      return {
-        changes: (_a = this.changes) === null || _a === void 0 ? void 0 : _a.toJSON(),
-        mapped: (_b = this.mapped) === null || _b === void 0 ? void 0 : _b.toJSON(),
-        startSelection: (_c = this.startSelection) === null || _c === void 0 ? void 0 : _c.toJSON(),
-        selectionsAfter: this.selectionsAfter.map((s) => s.toJSON())
-      };
-    }
-    static fromJSON(json) {
-      return new HistEvent(json.changes && ChangeSet.fromJSON(json.changes), [], json.mapped && ChangeDesc.fromJSON(json.mapped), json.startSelection && EditorSelection.fromJSON(json.startSelection), json.selectionsAfter.map(EditorSelection.fromJSON));
-    }
-    static fromTransaction(tr) {
-      let effects = none3;
-      for (let invert of tr.startState.facet(invertedEffects)) {
-        let result = invert(tr);
-        if (result.length)
-          effects = effects.concat(result);
       }
-      if (!effects.length && tr.changes.empty)
-        return null;
-      return new HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, tr.startState.selection, none3);
-    }
-    static selection(selections) {
-      return new HistEvent(void 0, none3, void 0, void 0, selections);
-    }
-  };
-  function updateBranch(branch, to, maxLen, newEvent) {
-    let start = to + 1 > maxLen + 20 ? to - maxLen - 1 : 0;
-    let newBranch = branch.slice(start, to);
-    newBranch.push(newEvent);
-    return newBranch;
-  }
-  function isAdjacent(a, b) {
-    let ranges = [], isAdjacent2 = false;
-    a.iterChangedRanges((f, t2) => ranges.push(f, t2));
-    b.iterChangedRanges((_f, _t, f, t2) => {
-      for (let i = 0; i < ranges.length; ) {
-        let from = ranges[i++], to = ranges[i++];
-        if (t2 >= from && f <= to)
-          isAdjacent2 = true;
-      }
+      return { range: dont = range };
     });
-    return isAdjacent2;
-  }
-  function eqSelectionShape(a, b) {
-    return a.ranges.length == b.ranges.length && a.ranges.filter((r, i) => r.empty != b.ranges[i].empty).length === 0;
-  }
-  function conc(a, b) {
-    return !a.length ? b : !b.length ? a : a.concat(b);
-  }
-  var none3 = [];
-  var MaxSelectionsPerEvent = 200;
-  function addSelection(branch, selection) {
-    if (!branch.length) {
-      return [HistEvent.selection([selection])];
-    } else {
-      let lastEvent = branch[branch.length - 1];
-      let sels = lastEvent.selectionsAfter.slice(Math.max(0, lastEvent.selectionsAfter.length - MaxSelectionsPerEvent));
-      if (sels.length && sels[sels.length - 1].eq(selection))
-        return branch;
-      sels.push(selection);
-      return updateBranch(branch, branch.length - 1, 1e9, lastEvent.setSelAfter(sels));
-    }
-  }
-  function popSelection(branch) {
-    let last = branch[branch.length - 1];
-    let newBranch = branch.slice();
-    newBranch[branch.length - 1] = last.setSelAfter(last.selectionsAfter.slice(0, last.selectionsAfter.length - 1));
-    return newBranch;
-  }
-  function addMappingToBranch(branch, mapping) {
-    if (!branch.length)
-      return branch;
-    let length = branch.length, selections = none3;
-    while (length) {
-      let event = mapEvent(branch[length - 1], mapping, selections);
-      if (event.changes && !event.changes.empty || event.effects.length) {
-        let result = branch.slice(0, length);
-        result[length - 1] = event;
-        return result;
-      } else {
-        mapping = event.mapped;
-        length--;
-        selections = event.selectionsAfter;
-      }
-    }
-    return selections.length ? [HistEvent.selection(selections)] : none3;
-  }
-  function mapEvent(event, mapping, extraSelections) {
-    let selections = conc(event.selectionsAfter.length ? event.selectionsAfter.map((s) => s.map(mapping)) : none3, extraSelections);
-    if (!event.changes)
-      return HistEvent.selection(selections);
-    let mappedChanges = event.changes.map(mapping), before = mapping.mapDesc(event.changes, true);
-    let fullMapping = event.mapped ? event.mapped.composeDesc(before) : before;
-    return new HistEvent(mappedChanges, StateEffect.mapEffects(event.effects, mapping), fullMapping, event.startSelection.map(before), selections);
-  }
-  var HistoryState = class {
-    constructor(done, undone, prevTime = 0, prevUserEvent = void 0) {
-      this.done = done;
-      this.undone = undone;
-      this.prevTime = prevTime;
-      this.prevUserEvent = prevUserEvent;
-    }
-    isolate() {
-      return this.prevTime ? new HistoryState(this.done, this.undone) : this;
-    }
-    addChanges(event, time, userEvent, newGroupDelay, maxLen) {
-      let done = this.done, lastEvent = done[done.length - 1];
-      if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!lastEvent.selectionsAfter.length && time - this.prevTime < newGroupDelay && isAdjacent(lastEvent.changes, event.changes) || userEvent == "input.type.compose")) {
-        done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none3));
-      } else {
-        done = updateBranch(done, done.length, maxLen, event);
-      }
-      return new HistoryState(done, none3, time, userEvent);
-    }
-    addSelection(selection, time, userEvent, newGroupDelay) {
-      let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none3;
-      if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection))
-        return this;
-      return new HistoryState(addSelection(this.done, selection), this.undone, time, userEvent);
-    }
-    addMapping(mapping) {
-      return new HistoryState(addMappingToBranch(this.done, mapping), addMappingToBranch(this.undone, mapping), this.prevTime, this.prevUserEvent);
-    }
-    pop(side, state, selection) {
-      let branch = side == 0 ? this.done : this.undone;
-      if (branch.length == 0)
-        return null;
-      let event = branch[branch.length - 1];
-      if (selection && event.selectionsAfter.length) {
-        return state.update({
-          selection: event.selectionsAfter[event.selectionsAfter.length - 1],
-          annotations: fromHistory.of({ side, rest: popSelection(branch) }),
-          userEvent: side == 0 ? "select.undo" : "select.redo"
-        });
-      } else if (!event.changes) {
-        return null;
-      } else {
-        let rest = branch.length == 1 ? none3 : branch.slice(0, branch.length - 1);
-        if (event.mapped)
-          rest = addMappingToBranch(rest, event.mapped);
-        return state.update({
-          changes: event.changes,
-          selection: event.startSelection,
-          effects: event.effects,
-          annotations: fromHistory.of({ side, rest }),
-          filter: false,
-          userEvent: side == 0 ? "undo" : "redo"
-        });
-      }
-    }
+    if (!dont)
+      dispatch(state.update(changes, { scrollIntoView: true }));
+    return !dont;
   };
-  HistoryState.empty = /* @__PURE__ */ new HistoryState(none3, none3);
-  var historyKeymap = [
-    { key: "Mod-z", run: undo, preventDefault: true },
-    { key: "Mod-y", mac: "Mod-Shift-z", run: redo, preventDefault: true },
-    { key: "Mod-u", run: undoSelection, preventDefault: true },
-    { key: "Alt-u", mac: "Mod-Shift-u", run: redoSelection, preventDefault: true }
+  var closeBracketsKeymap = [
+    { key: "Backspace", run: deleteBracketPair }
   ];
+  function insertBracket(state, bracket2) {
+    let conf = config(state, state.selection.main.head);
+    let tokens = conf.brackets || defaults.brackets;
+    for (let tok2 of tokens) {
+      let closed = closing(codePointAt(tok2, 0));
+      if (bracket2 == tok2)
+        return closed == tok2 ? handleSame(state, tok2, tokens.indexOf(tok2 + tok2 + tok2) > -1) : handleOpen(state, tok2, closed, conf.before || defaults.before);
+      if (bracket2 == closed && closedBracketAt(state, state.selection.main.from))
+        return handleClose(state, tok2, closed);
+    }
+    return null;
+  }
+  function closedBracketAt(state, pos) {
+    let found = false;
+    state.field(bracketState).between(0, state.doc.length, (from) => {
+      if (from == pos)
+        found = true;
+    });
+    return found;
+  }
+  function nextChar(doc2, pos) {
+    let next3 = doc2.sliceString(pos, pos + 2);
+    return next3.slice(0, codePointSize(codePointAt(next3, 0)));
+  }
+  function prevChar(doc2, pos) {
+    let prev = doc2.sliceString(pos - 2, pos);
+    return codePointSize(codePointAt(prev, 0)) == prev.length ? prev : prev.slice(1);
+  }
+  function handleOpen(state, open, close, closeBefore) {
+    let dont = null, changes = state.changeByRange((range) => {
+      if (!range.empty)
+        return {
+          changes: [{ insert: open, from: range.from }, { insert: close, from: range.to }],
+          effects: closeBracketEffect.of(range.to + open.length),
+          range: EditorSelection.range(range.anchor + open.length, range.head + open.length)
+        };
+      let next3 = nextChar(state.doc, range.head);
+      if (!next3 || /\s/.test(next3) || closeBefore.indexOf(next3) > -1)
+        return {
+          changes: { insert: open + close, from: range.head },
+          effects: closeBracketEffect.of(range.head + open.length),
+          range: EditorSelection.cursor(range.head + open.length)
+        };
+      return { range: dont = range };
+    });
+    return dont ? null : state.update(changes, {
+      scrollIntoView: true,
+      userEvent: "input.type"
+    });
+  }
+  function handleClose(state, _open, close) {
+    let dont = null, moved = state.selection.ranges.map((range) => {
+      if (range.empty && nextChar(state.doc, range.head) == close)
+        return EditorSelection.cursor(range.head + close.length);
+      return dont = range;
+    });
+    return dont ? null : state.update({
+      selection: EditorSelection.create(moved, state.selection.mainIndex),
+      scrollIntoView: true,
+      effects: state.selection.ranges.map(({ from }) => skipBracketEffect.of(from))
+    });
+  }
+  function handleSame(state, token2, allowTriple) {
+    let dont = null, changes = state.changeByRange((range) => {
+      if (!range.empty)
+        return {
+          changes: [{ insert: token2, from: range.from }, { insert: token2, from: range.to }],
+          effects: closeBracketEffect.of(range.to + token2.length),
+          range: EditorSelection.range(range.anchor + token2.length, range.head + token2.length)
+        };
+      let pos = range.head, next3 = nextChar(state.doc, pos);
+      if (next3 == token2) {
+        if (nodeStart(state, pos)) {
+          return {
+            changes: { insert: token2 + token2, from: pos },
+            effects: closeBracketEffect.of(pos + token2.length),
+            range: EditorSelection.cursor(pos + token2.length)
+          };
+        } else if (closedBracketAt(state, pos)) {
+          let isTriple = allowTriple && state.sliceDoc(pos, pos + token2.length * 3) == token2 + token2 + token2;
+          return {
+            range: EditorSelection.cursor(pos + token2.length * (isTriple ? 3 : 1)),
+            effects: skipBracketEffect.of(pos)
+          };
+        }
+      } else if (allowTriple && state.sliceDoc(pos - 2 * token2.length, pos) == token2 + token2 && nodeStart(state, pos - 2 * token2.length)) {
+        return {
+          changes: { insert: token2 + token2 + token2 + token2, from: pos },
+          effects: closeBracketEffect.of(pos + token2.length),
+          range: EditorSelection.cursor(pos + token2.length)
+        };
+      } else if (state.charCategorizer(pos)(next3) != CharCategory.Word) {
+        let prev = state.sliceDoc(pos - 1, pos);
+        if (prev != token2 && state.charCategorizer(pos)(prev) != CharCategory.Word && !probablyInString(state, pos, token2))
+          return {
+            changes: { insert: token2 + token2, from: pos },
+            effects: closeBracketEffect.of(pos + token2.length),
+            range: EditorSelection.cursor(pos + token2.length)
+          };
+      }
+      return { range: dont = range };
+    });
+    return dont ? null : state.update(changes, {
+      scrollIntoView: true,
+      userEvent: "input.type"
+    });
+  }
+  function nodeStart(state, pos) {
+    let tree = syntaxTree(state).resolveInner(pos + 1);
+    return tree.parent && tree.from == pos;
+  }
+  function probablyInString(state, pos, quoteToken) {
+    let node = syntaxTree(state).resolveInner(pos, -1);
+    for (let i = 0; i < 5; i++) {
+      if (state.sliceDoc(node.from, node.from + quoteToken.length) == quoteToken)
+        return true;
+      let parent = node.to == pos && node.parent;
+      if (!parent)
+        break;
+      node = parent;
+    }
+    return false;
+  }
 
   // core/parser.js
   var code;
@@ -14027,7 +14976,7 @@
         correctedSizes[i] = size;
       }
     }
-    let reg = null, rm2 = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
     let extendOp = false, unsigned = false;
     let operand;
     for (i = 0; i < operands.length; i++) {
@@ -14046,7 +14995,7 @@
           relImm = operand;
           instr2.ipRelative = true;
         } else if (catcher.forceRM)
-          rm2 = operand;
+          rm = operand;
         else if (catcher.vexOp) {
           if (catcher.vexOpImm)
             evexImm = BigInt(operand.reg << 4);
@@ -14069,11 +15018,11 @@
       extendOp = reg.reg > 7;
       reg = null;
     } else if (this.extension != REG_MOD) {
-      if (rm2 === null) {
+      if (rm === null) {
         if (this.modExtension === null)
-          rm2 = reg;
+          rm = reg;
         else
-          rm2 = { type: OPT.MEM, reg: this.modExtension, value: null };
+          rm = { type: OPT.MEM, reg: this.modExtension, value: null };
       }
       reg = { reg: this.extension };
     }
@@ -14107,7 +15056,7 @@
           vex |= 32768;
         if (reg.reg >= 16)
           vex |= 16, reg.reg &= 15;
-        if (rm2.reg2 >= 16)
+        if (rm.reg2 >= 16)
           vex |= 524288;
       } else if (overallSize == 256)
         vex |= 1024;
@@ -14130,7 +15079,7 @@
       prefix: vexInfo.needed ? null : this.allVectors && overallSize > 64 ? 102 : this.prefix,
       extendOp,
       reg,
-      rm: rm2,
+      rm,
       vex: vexInfo.needed ? vex : null,
       evexImm,
       relImm,
@@ -16214,33 +17163,33 @@ g nle`.split("\n");
         for (const imm of op.imms)
           this.genValue(imm.value, imm.size, !op.unsigned);
     }
-    makeModRM(rm2, r) {
+    makeModRM(rm, r) {
       let modrm = 0, rex = 0;
-      let rmReg = rm2.reg, rmReg2 = rm2.reg2, rReg = r.reg;
+      let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
       if (rReg >= 8) {
         rex |= 4;
         rReg &= 7;
       }
       modrm |= rReg << 3;
-      if (rm2.ripRelative) {
-        rm2.value.addend = rm2.value.addend || 0n;
+      if (rm.ripRelative) {
+        rm.value.addend = rm.value.addend || 0n;
         return [rex, modrm | 5, null];
       }
-      if (rm2.type !== OPT.MEM && rm2.type !== OPT.VMEM)
+      if (rm.type !== OPT.MEM && rm.type !== OPT.VMEM)
         modrm |= 192;
       else if (rmReg >= 0) {
-        if (rm2.value.addend != null) {
-          if (!rm2.value.isRelocatable() && inferImmSize(rm2.value) == 8 && (rm2.dispSize == 8 || rm2.sizeAvailable(SHORT_DISP))) {
-            rm2.dispSize = 8;
+        if (rm.value.addend != null) {
+          if (!rm.value.isRelocatable() && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP))) {
+            rm.dispSize = 8;
             modrm |= 64;
-            rm2.recordSizeUse(SHORT_DISP);
-          } else if (!rm2.value.isRelocatable() && rm2.expression && rm2.expression.hasSymbols && rm2.dispSize != 8 && rm2.sizeAvailable(SHORT_DISP)) {
-            rm2.dispSize = 8;
+            rm.recordSizeUse(SHORT_DISP);
+          } else if (!rm.value.isRelocatable() && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP)) {
+            rm.dispSize = 8;
             modrm |= 64;
-            rm2.recordSizeUse(SHORT_DISP);
+            rm.recordSizeUse(SHORT_DISP);
             queueRecomp(this);
           } else {
-            rm2.dispSize = 32;
+            rm.dispSize = 32;
             modrm |= 128;
           }
         }
@@ -16248,7 +17197,7 @@ g nle`.split("\n");
         rmReg = 5;
         if (rmReg2 < 0)
           rmReg2 = 4;
-        rm2.value.addend = rm2.value.addend || 0n;
+        rm.value.addend = rm.value.addend || 0n;
       }
       rex |= rmReg >> 3;
       rmReg &= 7;
@@ -16257,7 +17206,7 @@ g nle`.split("\n");
           rex |= 2;
           rmReg2 &= 7;
         }
-        return [rex, modrm | 4, rm2.shift << 6 | rmReg2 << 3 | rmReg];
+        return [rex, modrm | 4, rm.shift << 6 | rmReg2 << 3 | rmReg];
       }
       return [rex, modrm | rmReg, null];
     }
@@ -16698,484 +17647,6 @@ g nle`.split("\n");
     }, { decorations: (plugin) => plugin.decorations })
   ];
 
-  // node_modules/@codemirror/tooltip/dist/index.js
-  var ios2 = typeof navigator != "undefined" && !/* @__PURE__ */ /Edge\/(\d+)/.exec(navigator.userAgent) && /* @__PURE__ */ /Apple Computer/.test(navigator.vendor) && (/* @__PURE__ */ /Mobile\/\w+/.test(navigator.userAgent) || navigator.maxTouchPoints > 2);
-  var Outside = "-10000px";
-  var TooltipViewManager = class {
-    constructor(view, facet, createTooltipView) {
-      this.facet = facet;
-      this.createTooltipView = createTooltipView;
-      this.input = view.state.facet(facet);
-      this.tooltips = this.input.filter((t2) => t2);
-      this.tooltipViews = this.tooltips.map(createTooltipView);
-    }
-    update(update) {
-      let input = update.state.facet(this.facet);
-      let tooltips = input.filter((x) => x);
-      if (input === this.input) {
-        for (let t2 of this.tooltipViews)
-          if (t2.update)
-            t2.update(update);
-        return false;
-      }
-      let tooltipViews = [];
-      for (let i = 0; i < tooltips.length; i++) {
-        let tip = tooltips[i], known = -1;
-        if (!tip)
-          continue;
-        for (let i2 = 0; i2 < this.tooltips.length; i2++) {
-          let other = this.tooltips[i2];
-          if (other && other.create == tip.create)
-            known = i2;
-        }
-        if (known < 0) {
-          tooltipViews[i] = this.createTooltipView(tip);
-        } else {
-          let tooltipView = tooltipViews[i] = this.tooltipViews[known];
-          if (tooltipView.update)
-            tooltipView.update(update);
-        }
-      }
-      for (let t2 of this.tooltipViews)
-        if (tooltipViews.indexOf(t2) < 0)
-          t2.dom.remove();
-      this.input = input;
-      this.tooltips = tooltips;
-      this.tooltipViews = tooltipViews;
-      return true;
-    }
-  };
-  function windowSpace() {
-    return { top: 0, left: 0, bottom: innerHeight, right: innerWidth };
-  }
-  var tooltipConfig = /* @__PURE__ */ Facet.define({
-    combine: (values) => {
-      var _a, _b, _c;
-      return {
-        position: ios2 ? "absolute" : ((_a = values.find((conf) => conf.position)) === null || _a === void 0 ? void 0 : _a.position) || "fixed",
-        parent: ((_b = values.find((conf) => conf.parent)) === null || _b === void 0 ? void 0 : _b.parent) || null,
-        tooltipSpace: ((_c = values.find((conf) => conf.tooltipSpace)) === null || _c === void 0 ? void 0 : _c.tooltipSpace) || windowSpace
-      };
-    }
-  });
-  var tooltipPlugin = /* @__PURE__ */ ViewPlugin.fromClass(class {
-    constructor(view) {
-      this.view = view;
-      this.inView = true;
-      this.lastTransaction = 0;
-      this.intersectionTimeout = -1;
-      let config2 = view.state.facet(tooltipConfig);
-      this.position = config2.position;
-      this.parent = config2.parent;
-      this.classes = view.themeClasses;
-      this.createContainer();
-      this.measureReq = { read: this.readMeasure.bind(this), write: this.writeMeasure.bind(this), key: this };
-      this.manager = new TooltipViewManager(view, showTooltip, (t2) => this.createTooltip(t2));
-      this.intersectionObserver = typeof IntersectionObserver == "function" ? new IntersectionObserver((entries) => {
-        if (this.intersectionTimeout < 0 && Date.now() > this.lastTransaction - 50 && entries.length > 0 && entries[entries.length - 1].intersectionRatio < 1)
-          this.intersectionTimeout = setTimeout(() => {
-            this.intersectionTimeout = -1;
-            this.maybeMeasure();
-          }, 50);
-      }, { threshold: [1] }) : null;
-      this.observeIntersection();
-      this.maybeMeasure();
-    }
-    createContainer() {
-      if (this.parent) {
-        this.container = document.createElement("div");
-        this.container.style.position = "relative";
-        this.container.className = this.view.themeClasses;
-        this.parent.appendChild(this.container);
-      } else {
-        this.container = this.view.dom;
-      }
-    }
-    observeIntersection() {
-      if (this.intersectionObserver) {
-        this.intersectionObserver.disconnect();
-        for (let tooltip of this.manager.tooltipViews)
-          this.intersectionObserver.observe(tooltip.dom);
-      }
-    }
-    update(update) {
-      if (update.transactions.length)
-        this.lastTransaction = Date.now();
-      let updated = this.manager.update(update);
-      if (updated)
-        this.observeIntersection();
-      let shouldMeasure = updated || update.geometryChanged;
-      let newConfig = update.state.facet(tooltipConfig);
-      if (newConfig.position != this.position) {
-        this.position = newConfig.position;
-        for (let t2 of this.manager.tooltipViews)
-          t2.dom.style.position = this.position;
-        shouldMeasure = true;
-      }
-      if (newConfig.parent != this.parent) {
-        if (this.parent)
-          this.container.remove();
-        this.parent = newConfig.parent;
-        this.createContainer();
-        for (let t2 of this.manager.tooltipViews)
-          this.container.appendChild(t2.dom);
-        shouldMeasure = true;
-      } else if (this.parent && this.view.themeClasses != this.classes) {
-        this.classes = this.container.className = this.view.themeClasses;
-      }
-      if (shouldMeasure)
-        this.maybeMeasure();
-    }
-    createTooltip(tooltip) {
-      let tooltipView = tooltip.create(this.view);
-      tooltipView.dom.classList.add("cm-tooltip");
-      if (tooltip.arrow && !tooltipView.dom.querySelector("cm-tooltip > cm-tooltip-arrow")) {
-        let arrow = document.createElement("div");
-        arrow.className = "cm-tooltip-arrow";
-        tooltipView.dom.appendChild(arrow);
-      }
-      tooltipView.dom.style.position = this.position;
-      tooltipView.dom.style.top = Outside;
-      this.container.appendChild(tooltipView.dom);
-      if (tooltipView.mount)
-        tooltipView.mount(this.view);
-      return tooltipView;
-    }
-    destroy() {
-      var _a;
-      for (let { dom } of this.manager.tooltipViews)
-        dom.remove();
-      (_a = this.intersectionObserver) === null || _a === void 0 ? void 0 : _a.disconnect();
-      clearTimeout(this.intersectionTimeout);
-    }
-    readMeasure() {
-      let editor2 = this.view.dom.getBoundingClientRect();
-      return {
-        editor: editor2,
-        parent: this.parent ? this.container.getBoundingClientRect() : editor2,
-        pos: this.manager.tooltips.map((t2) => this.view.coordsAtPos(t2.pos)),
-        size: this.manager.tooltipViews.map(({ dom }) => dom.getBoundingClientRect()),
-        space: this.view.state.facet(tooltipConfig).tooltipSpace(this.view)
-      };
-    }
-    writeMeasure(measured) {
-      let { editor: editor2, space } = measured;
-      let others = [];
-      for (let i = 0; i < this.manager.tooltips.length; i++) {
-        let tooltip = this.manager.tooltips[i], tView = this.manager.tooltipViews[i], { dom } = tView;
-        let pos = measured.pos[i], size = measured.size[i];
-        if (!pos || pos.bottom <= Math.max(editor2.top, space.top) || pos.top >= Math.min(editor2.bottom, space.bottom) || pos.right <= Math.max(editor2.left, space.left) || pos.left >= Math.min(editor2.right, space.right)) {
-          dom.style.top = Outside;
-          continue;
-        }
-        let arrow = tooltip.arrow ? tView.dom.querySelector(".cm-tooltip-arrow") : null;
-        let arrowHeight = arrow ? 7 : 0;
-        let width = size.right - size.left, height = size.bottom - size.top;
-        let offset = tView.offset || noOffset, ltr = this.view.textDirection == Direction.LTR;
-        let left = size.width > space.right - space.left ? ltr ? space.left : space.right - size.width : ltr ? Math.min(pos.left - (arrow ? 14 : 0) + offset.x, space.right - width) : Math.max(space.left, pos.left - width + (arrow ? 14 : 0) - offset.x);
-        let above = !!tooltip.above;
-        if (!tooltip.strictSide && (above ? pos.top - (size.bottom - size.top) - offset.y < space.top : pos.bottom + (size.bottom - size.top) + offset.y > space.bottom) && above == space.bottom - pos.bottom > pos.top - space.top)
-          above = !above;
-        let top2 = above ? pos.top - height - arrowHeight - offset.y : pos.bottom + arrowHeight + offset.y;
-        let right = left + width;
-        for (let r of others)
-          if (r.left < right && r.right > left && r.top < top2 + height && r.bottom > top2)
-            top2 = above ? r.top - height - 2 - arrowHeight : r.bottom + arrowHeight + 2;
-        if (this.position == "absolute") {
-          dom.style.top = top2 - measured.parent.top + "px";
-          dom.style.left = left - measured.parent.left + "px";
-        } else {
-          dom.style.top = top2 + "px";
-          dom.style.left = left + "px";
-        }
-        if (arrow)
-          arrow.style.left = `${pos.left + (ltr ? offset.x : -offset.x) - (left + 14 - 7)}px`;
-        others.push({ left, top: top2, right, bottom: top2 + height });
-        dom.classList.toggle("cm-tooltip-above", above);
-        dom.classList.toggle("cm-tooltip-below", !above);
-        if (tView.positioned)
-          tView.positioned();
-      }
-    }
-    maybeMeasure() {
-      if (this.manager.tooltips.length) {
-        if (this.view.inView)
-          this.view.requestMeasure(this.measureReq);
-        if (this.inView != this.view.inView) {
-          this.inView = this.view.inView;
-          if (!this.inView)
-            for (let tv of this.manager.tooltipViews)
-              tv.dom.style.top = Outside;
-        }
-      }
-    }
-  }, {
-    eventHandlers: {
-      scroll() {
-        this.maybeMeasure();
-      }
-    }
-  });
-  var baseTheme3 = /* @__PURE__ */ EditorView.baseTheme({
-    ".cm-tooltip": {
-      zIndex: 100
-    },
-    "&light .cm-tooltip": {
-      border: "1px solid #bbb",
-      backgroundColor: "#f5f5f5"
-    },
-    "&light .cm-tooltip-section:not(:first-child)": {
-      borderTop: "1px solid #bbb"
-    },
-    "&dark .cm-tooltip": {
-      backgroundColor: "#333338",
-      color: "white"
-    },
-    ".cm-tooltip-arrow": {
-      height: `${7}px`,
-      width: `${7 * 2}px`,
-      position: "absolute",
-      zIndex: -1,
-      overflow: "hidden",
-      "&:before, &:after": {
-        content: "''",
-        position: "absolute",
-        width: 0,
-        height: 0,
-        borderLeft: `${7}px solid transparent`,
-        borderRight: `${7}px solid transparent`
-      },
-      ".cm-tooltip-above &": {
-        bottom: `-${7}px`,
-        "&:before": {
-          borderTop: `${7}px solid #bbb`
-        },
-        "&:after": {
-          borderTop: `${7}px solid #f5f5f5`,
-          bottom: "1px"
-        }
-      },
-      ".cm-tooltip-below &": {
-        top: `-${7}px`,
-        "&:before": {
-          borderBottom: `${7}px solid #bbb`
-        },
-        "&:after": {
-          borderBottom: `${7}px solid #f5f5f5`,
-          top: "1px"
-        }
-      }
-    },
-    "&dark .cm-tooltip .cm-tooltip-arrow": {
-      "&:before": {
-        borderTopColor: "#333338",
-        borderBottomColor: "#333338"
-      },
-      "&:after": {
-        borderTopColor: "transparent",
-        borderBottomColor: "transparent"
-      }
-    }
-  });
-  var noOffset = { x: 0, y: 0 };
-  var showTooltip = /* @__PURE__ */ Facet.define({
-    enables: [tooltipPlugin, baseTheme3]
-  });
-  var showHoverTooltip = /* @__PURE__ */ Facet.define();
-  var HoverTooltipHost = class {
-    constructor(view) {
-      this.view = view;
-      this.mounted = false;
-      this.dom = document.createElement("div");
-      this.dom.classList.add("cm-tooltip-hover");
-      this.manager = new TooltipViewManager(view, showHoverTooltip, (t2) => this.createHostedView(t2));
-    }
-    static create(view) {
-      return new HoverTooltipHost(view);
-    }
-    createHostedView(tooltip) {
-      let hostedView = tooltip.create(this.view);
-      hostedView.dom.classList.add("cm-tooltip-section");
-      this.dom.appendChild(hostedView.dom);
-      if (this.mounted && hostedView.mount)
-        hostedView.mount(this.view);
-      return hostedView;
-    }
-    mount(view) {
-      for (let hostedView of this.manager.tooltipViews) {
-        if (hostedView.mount)
-          hostedView.mount(view);
-      }
-      this.mounted = true;
-    }
-    positioned() {
-      for (let hostedView of this.manager.tooltipViews) {
-        if (hostedView.positioned)
-          hostedView.positioned();
-      }
-    }
-    update(update) {
-      this.manager.update(update);
-    }
-  };
-  var showHoverTooltipHost = /* @__PURE__ */ showTooltip.compute([showHoverTooltip], (state) => {
-    let tooltips = state.facet(showHoverTooltip).filter((t2) => t2);
-    if (tooltips.length === 0)
-      return null;
-    return {
-      pos: Math.min(...tooltips.map((t2) => t2.pos)),
-      end: Math.max(...tooltips.filter((t2) => t2.end != null).map((t2) => t2.end)),
-      create: HoverTooltipHost.create,
-      above: tooltips[0].above,
-      arrow: tooltips.some((t2) => t2.arrow)
-    };
-  });
-  var HoverPlugin = class {
-    constructor(view, source, field, setHover, hoverTime) {
-      this.view = view;
-      this.source = source;
-      this.field = field;
-      this.setHover = setHover;
-      this.hoverTime = hoverTime;
-      this.hoverTimeout = -1;
-      this.restartTimeout = -1;
-      this.pending = null;
-      this.lastMove = { x: 0, y: 0, target: view.dom, time: 0 };
-      this.checkHover = this.checkHover.bind(this);
-      view.dom.addEventListener("mouseleave", this.mouseleave = this.mouseleave.bind(this));
-      view.dom.addEventListener("mousemove", this.mousemove = this.mousemove.bind(this));
-    }
-    update() {
-      if (this.pending) {
-        this.pending = null;
-        clearTimeout(this.restartTimeout);
-        this.restartTimeout = setTimeout(() => this.startHover(), 20);
-      }
-    }
-    get active() {
-      return this.view.state.field(this.field);
-    }
-    checkHover() {
-      this.hoverTimeout = -1;
-      if (this.active)
-        return;
-      let hovered = Date.now() - this.lastMove.time;
-      if (hovered < this.hoverTime)
-        this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime - hovered);
-      else
-        this.startHover();
-    }
-    startHover() {
-      var _a;
-      clearTimeout(this.restartTimeout);
-      let { lastMove } = this;
-      let pos = this.view.contentDOM.contains(lastMove.target) ? this.view.posAtCoords(lastMove) : null;
-      if (pos == null)
-        return;
-      let posCoords = this.view.coordsAtPos(pos);
-      if (posCoords == null || lastMove.y < posCoords.top || lastMove.y > posCoords.bottom || lastMove.x < posCoords.left - this.view.defaultCharacterWidth || lastMove.x > posCoords.right + this.view.defaultCharacterWidth)
-        return;
-      let bidi = this.view.bidiSpans(this.view.state.doc.lineAt(pos)).find((s) => s.from <= pos && s.to >= pos);
-      let rtl = bidi && bidi.dir == Direction.RTL ? -1 : 1;
-      let open = this.source(this.view, pos, lastMove.x < posCoords.left ? -rtl : rtl);
-      if ((_a = open) === null || _a === void 0 ? void 0 : _a.then) {
-        let pending = this.pending = { pos };
-        open.then((result) => {
-          if (this.pending == pending) {
-            this.pending = null;
-            if (result)
-              this.view.dispatch({ effects: this.setHover.of(result) });
-          }
-        }, (e) => logException(this.view.state, e, "hover tooltip"));
-      } else if (open) {
-        this.view.dispatch({ effects: this.setHover.of(open) });
-      }
-    }
-    mousemove(event) {
-      var _a;
-      this.lastMove = { x: event.clientX, y: event.clientY, target: event.target, time: Date.now() };
-      if (this.hoverTimeout < 0)
-        this.hoverTimeout = setTimeout(this.checkHover, this.hoverTime);
-      let tooltip = this.active;
-      if (tooltip && !isInTooltip(this.lastMove.target) || this.pending) {
-        let { pos } = tooltip || this.pending, end = (_a = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a !== void 0 ? _a : pos;
-        if (pos == end ? this.view.posAtCoords(this.lastMove) != pos : !isOverRange(this.view, pos, end, event.clientX, event.clientY, 6)) {
-          this.view.dispatch({ effects: this.setHover.of(null) });
-          this.pending = null;
-        }
-      }
-    }
-    mouseleave() {
-      clearTimeout(this.hoverTimeout);
-      this.hoverTimeout = -1;
-      if (this.active)
-        this.view.dispatch({ effects: this.setHover.of(null) });
-    }
-    destroy() {
-      clearTimeout(this.hoverTimeout);
-      this.view.dom.removeEventListener("mouseleave", this.mouseleave);
-      this.view.dom.removeEventListener("mousemove", this.mousemove);
-    }
-  };
-  function isInTooltip(elt) {
-    for (let cur = elt; cur; cur = cur.parentNode)
-      if (cur.nodeType == 1 && cur.classList.contains("cm-tooltip"))
-        return true;
-    return false;
-  }
-  function isOverRange(view, from, to, x, y, margin) {
-    let range = document.createRange();
-    let fromDOM = view.domAtPos(from), toDOM = view.domAtPos(to);
-    range.setEnd(toDOM.node, toDOM.offset);
-    range.setStart(fromDOM.node, fromDOM.offset);
-    let rects = range.getClientRects();
-    range.detach();
-    for (let i = 0; i < rects.length; i++) {
-      let rect = rects[i];
-      let dist = Math.max(rect.top - y, y - rect.bottom, rect.left - x, x - rect.right);
-      if (dist <= margin)
-        return true;
-    }
-    return false;
-  }
-  function hoverTooltip(source, options = {}) {
-    let setHover = StateEffect.define();
-    let hoverState = StateField.define({
-      create() {
-        return null;
-      },
-      update(value, tr) {
-        if (value && (options.hideOnChange && (tr.docChanged || tr.selection)))
-          return null;
-        for (let effect of tr.effects) {
-          if (effect.is(setHover))
-            return effect.value;
-          if (effect.is(closeHoverTooltipEffect))
-            return null;
-        }
-        if (value && tr.docChanged) {
-          let newPos = tr.changes.mapPos(value.pos, -1, MapMode.TrackDel);
-          if (newPos == null)
-            return null;
-          let copy = Object.assign(Object.create(null), value);
-          copy.pos = newPos;
-          if (value.end != null)
-            copy.end = tr.changes.mapPos(value.end);
-          return copy;
-        }
-        return value;
-      },
-      provide: (f) => showHoverTooltip.from(f)
-    });
-    let hoverTime = options.hoverTime || 600;
-    return [
-      hoverState,
-      ViewPlugin.define((view) => new HoverPlugin(view, source, hoverState, setHover, hoverTime)),
-      showHoverTooltipHost
-    ];
-  }
-  var closeHoverTooltipEffect = /* @__PURE__ */ StateEffect.define();
-
   // codemirror/errorPlugin.js
   var EOLError = class extends WidgetType {
     constructor() {
@@ -17300,9 +17771,9 @@ g nle`.split("\n");
       if (dPrec)
         this.score += dPrec;
       if (depth == 0) {
+        this.pushState(parser2.getGoto(this.state, type, true), this.reducePos);
         if (type < parser2.minRepeatTerm)
           this.storeNode(type, this.reducePos, this.reducePos, 4, true);
-        this.pushState(parser2.getGoto(this.state, type, true), this.reducePos);
         this.reduceContext(type, this.reducePos);
         return;
       }
@@ -17324,7 +17795,7 @@ g nle`.split("\n");
       this.reduceContext(type, start);
     }
     storeNode(term, start, end, size = 4, isReduce = false) {
-      if (term == 0) {
+      if (term == 0 && (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
         let cur = this, top2 = this.buffer.length;
         if (top2 == 0 && cur.parent) {
           top2 = cur.bufferBase - cur.parent.bufferBase;
@@ -17452,8 +17923,8 @@ g nle`.split("\n");
         if (s == this.state)
           continue;
         let stack = this.split();
-        stack.storeNode(0, stack.pos, stack.pos, 4, true);
         stack.pushState(s, this.pos);
+        stack.storeNode(0, stack.pos, stack.pos, 4, true);
         stack.shiftContext(nextStates[i], this.pos);
         stack.score -= 200;
         result.push(stack);
@@ -17477,7 +17948,11 @@ g nle`.split("\n");
       return true;
     }
     forceAll() {
-      while (!this.p.parser.stateFlag(this.state, 2) && this.forceReduce()) {
+      while (!this.p.parser.stateFlag(this.state, 2)) {
+        if (!this.forceReduce()) {
+          this.storeNode(0, this.pos, this.pos, 4, true);
+          break;
+        }
       }
       return this;
     }
@@ -17692,8 +18167,8 @@ g nle`.split("\n");
           result = this.chunk2.charCodeAt(0);
         }
       }
-      if (pos > this.token.lookAhead)
-        this.token.lookAhead = pos;
+      if (pos >= this.token.lookAhead)
+        this.token.lookAhead = pos + 1;
       return result;
     }
     acceptToken(token2, endOffset = 0) {
@@ -17739,8 +18214,8 @@ g nle`.split("\n");
         this.pos = this.range.from;
       }
       this.pos += n;
-      if (this.pos > this.token.lookAhead)
-        this.token.lookAhead = this.pos;
+      if (this.pos >= this.token.lookAhead)
+        this.token.lookAhead = this.pos + 1;
       return this.readNext();
     }
     setDone() {
@@ -17752,7 +18227,8 @@ g nle`.split("\n");
     reset(pos, token2) {
       if (token2) {
         this.token = token2;
-        token2.start = token2.lookAhead = pos;
+        token2.start = pos;
+        token2.lookAhead = pos + 1;
         token2.value = token2.extended = -1;
       } else {
         this.token = nullToken;
@@ -17780,6 +18256,8 @@ g nle`.split("\n");
     read(from, to) {
       if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
         return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
+      if (from >= this.chunk2Pos && to <= this.chunk2Pos + this.chunk2.length)
+        return this.chunk2.slice(from - this.chunk2Pos, to - this.chunk2Pos);
       if (from >= this.range.from && to <= this.range.to)
         return this.input.read(from, to);
       let result = "";
@@ -17882,7 +18360,7 @@ g nle`.split("\n");
     Safety2[Safety2["Margin"] = 25] = "Margin";
   })(Safety || (Safety = {}));
   function cutAt(tree, pos, side) {
-    let cursor = tree.fullCursor();
+    let cursor = tree.cursor(IterMode.IncludeAnonymous);
     cursor.moveTo(pos);
     for (; ; ) {
       if (!(side < 0 ? cursor.childBefore(pos) : cursor.childAfter(pos)))
@@ -18077,7 +18555,7 @@ g nle`.split("\n");
               i = pair(data, i + 2);
             } else {
               if (index == 0 && data[i + 1] == 2)
-                index = this.putAction(pair(data, i + 1), token2, end, index);
+                index = this.putAction(pair(data, i + 2), token2, end, index);
               break;
             }
           }
@@ -18092,8 +18570,10 @@ g nle`.split("\n");
   (function(Rec2) {
     Rec2[Rec2["Distance"] = 5] = "Distance";
     Rec2[Rec2["MaxRemainingPerStep"] = 3] = "MaxRemainingPerStep";
-    Rec2[Rec2["MinBufferLengthPrune"] = 200] = "MinBufferLengthPrune";
+    Rec2[Rec2["MinBufferLengthPrune"] = 500] = "MinBufferLengthPrune";
     Rec2[Rec2["ForceReduceLimit"] = 10] = "ForceReduceLimit";
+    Rec2[Rec2["CutDepth"] = 15e3] = "CutDepth";
+    Rec2[Rec2["CutTo"] = 9e3] = "CutTo";
   })(Rec || (Rec = {}));
   var Parse = class {
     constructor(parser2, input, fragments, ranges) {
@@ -18152,7 +18632,7 @@ g nle`.split("\n");
           this.recovering = 5;
       }
       if (this.recovering && stopped) {
-        let finished = this.runRecovery(stopped, stoppedTokens, newStacks);
+        let finished = this.stoppedAt != null && stopped[0].pos > this.stoppedAt ? stopped[0] : this.runRecovery(stopped, stoppedTokens, newStacks);
         if (finished)
           return this.stackToTree(finished.forceAll());
       }
@@ -18171,7 +18651,7 @@ g nle`.split("\n");
             let stack = newStacks[i];
             for (let j = i + 1; j < newStacks.length; j++) {
               let other = newStacks[j];
-              if (stack.sameState(other) || stack.buffer.length > 200 && other.buffer.length > 200) {
+              if (stack.sameState(other) || stack.buffer.length > 500 && other.buffer.length > 500) {
                 if ((stack.score - other.score || stack.buffer.length - other.buffer.length) > 0) {
                   newStacks.splice(j--, 1);
                 } else {
@@ -18223,6 +18703,10 @@ g nle`.split("\n");
         if (verbose)
           console.log(base2 + this.stackID(stack) + ` (via always-reduce ${parser2.getName(defaultReduce & 65535)})`);
         return true;
+      }
+      if (stack.stack.length >= 15e3) {
+        while (stack.stack.length > 9e3 && stack.forceReduce()) {
+        }
       }
       let actions = this.tokens.getActions(stack);
       for (let i = 0; i < actions.length; ) {
@@ -18312,7 +18796,7 @@ g nle`.split("\n");
       });
     }
     stackID(stack) {
-      let id2 = (stackIDs || (stackIDs = new WeakMap())).get(stack);
+      let id2 = (stackIDs || (stackIDs = /* @__PURE__ */ new WeakMap())).get(stack);
       if (!id2)
         stackIDs.set(stack, id2 = String.fromCodePoint(this.nextStackID++));
       return id2 + stack;
@@ -18354,8 +18838,8 @@ g nle`.split("\n");
     constructor(spec) {
       super();
       this.wrappers = [];
-      if (spec.version != 13)
-        throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${13})`);
+      if (spec.version != 14)
+        throw new RangeError(`Parser version (${spec.version}) doesn't match runtime version (${14})`);
       let nodeNames = spec.nodeNames.split(" ");
       this.minRepeatTerm = nodeNames.length;
       for (let i = 0; i < spec.repeatNodeCount; i++)
@@ -18370,6 +18854,8 @@ g nle`.split("\n");
       if (spec.nodeProps)
         for (let propSpec of spec.nodeProps) {
           let prop = propSpec[0];
+          if (typeof prop == "string")
+            prop = NodeProp[prop];
           for (let i = 1; i < propSpec.length; ) {
             let next3 = propSpec[i++];
             if (next3 >= 0) {
@@ -18390,6 +18876,8 @@ g nle`.split("\n");
         error: i == 0,
         skipped: spec.skippedNodes && spec.skippedNodes.indexOf(i) > -1
       })));
+      if (spec.propSources)
+        this.nodeSet = this.nodeSet.extend(...spec.propSources);
       this.strict = false;
       this.bufferLength = DefaultBufferLength;
       let tokenArray = decodeArray(spec.tokenData);
@@ -18522,6 +19010,9 @@ g nle`.split("\n");
       if (config2.bufferLength != null)
         copy.bufferLength = config2.bufferLength;
       return copy;
+    }
+    hasWrappers() {
+      return this.wrappers.length > 0;
     }
     getName(term) {
       return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
@@ -18750,7 +19241,7 @@ g nle`.split("\n");
 
   // codemirror/parser.js
   var parser = LRParser.deserialize({
-    version: 13,
+    version: 14,
     states: "8SOVQROOOzQRO'#ClO#aQRO'#CmO#|QRO'#CmO%_QRO'#CmO%iQRO'#CmO%sQRO'#CuOOQP'#Cx'#CxO'fQRO'#DWOOQO'#DW'#DWQ'vQQOOOOQP,59W,59WO%sQRO,59aO(OQRO,59cOOQP'#Cy'#CyO(aQRO'#CyO(xQRO'#CpO(OQRO'#CnO)ZQTO'#CpO+cQRO'#DYO*eQRO'#DYOOQP,59X,59XO!VQRO,59XO+jQRO'#CpO+{QTO'#CpO-SQRO'#CtO-hQQO'#CtO-mQRO'#DcO(OQRO'#DcO.kQRO'#DcO.uQRO'#CoO0OQTO'#CoO0]QQO'#CqO0sQRO,59XO0zQRO'#CoO1]QTO'#CoO1mQRO'#DhOOQP,59a,59aOOQP-E6v-E6vOOQO,59r,59rOVQRO'#DPQ'vQQOOOOQP1G.{1G.{OOQP1G.}1G.}OOQP,59],59]O2eQQO,59]OOQP-E6w-E6wO2mQTO,59[OOQP,59Y,59YOOQP'#Cz'#CzO2mQTO,59[O3wQRO,59[O4YQRO,59]O4bQRO'#CrO4gQRO'#C|O5gQRO,59tO6_QRO,59tO6iQRO,59tOOQP1G.s1G.sO6pQTO,59[O6pQTO,59[O7wQRO,59[O8YQRO'#DeO8nQSO'#DeO8yQQO,59`O-SQRO,59`O9OQRO'#C}O:RQRO,59}O:yQRO,59}O;TQRO,59}O;[QRO,59}O(OQRO,59}O;fQTO,59ZO;fQTO,59ZO<gQRO,59ZO<xQRO1G.sO=pQTO,59ZO=pQTO,59ZO(OQRO,59ZO>tQRO'#DOO?tQRO,5:SOOQO,59k,59kOOQO-E6}-E6}O@lQRO'#C{O@zQQO1G.wOOQP1G.w1G.wOASQTO1G.vO3wQRO1G.vOOQP-E6x-E6xOOQP1G.v1G.vO@zQQO1G.wOB^QQO,59^OCaQRO,59hOBcQRO,59hOOQP-E6z-E6zOChQRO1G/`OChQRO1G/`OD`QRO1G/`ODgQTO1G.vO7wQRO1G.vOOQP1G.y1G.yOEnQSO,5:POEnQSO,5:PO-SQRO,5:POOQP1G.z1G.zOEyQQO1G.zOFOQRO,59iO(OQRO,59iOF|QRO,59iOOQP-E6{-E6{OGWQRO1G/iOGWQRO1G/iOHOQRO1G/iOHVQRO1G/iOHaQRO1G/iOIcQTO1G.uO<gQRO1G.uOOQP1G.u1G.uOIpQTO1G.uO(OQRO1G.uOOQP,59j,59jOOQP-E6|-E6|OOQO,59g,59gOOQO-E6y-E6yOOQP7+$c7+$cO3wQRO7+$bOOQP7+$b7+$bOJQQQO7+$cOOQP1G.x1G.xOKTQRO1G/SOJYQRO1G/SOK[QRO7+$zOK[QRO7+$zO7wQRO7+$bOOQP7+$e7+$eOLSQSO1G/kO-SQRO1G/kOOQO1G/k1G/kOOQP7+$f7+$fOMYQRO1G/TOL_QRO1G/TOMaQRO1G/TO(OQRO1G/TON_QRO7+%TON_QRO7+%TO! VQRO7+%TO! ^QRO7+%TO<gQRO7+$aOOQP7+$a7+$aO(OQRO7+$aOOQP<<G|<<G|OOQP<<G}<<G}OOQP7+$n7+$nO! hQRO7+$nO!!cQRO<<HfOOQP<<HP<<HPO-SQRO7+%VOOQO7+%V7+%VOOQP7+$o7+$oO!#ZQRO7+$oO!$UQRO7+$oO!$]QRO7+$oO!%ZQRO<<HoO!%ZQRO<<HoO!&RQRO<<HoOOQP<<G{<<G{OOQP<<HY<<HYOOQO<<Hq<<HqOOQP<<HZ<<HZO!&YQRO<<HZO!'TQRO<<HZO!'[QROAN>ZO!'[QROAN>ZOOQPAN=uAN=uO!(SQROAN=uO!(}QROG23uOOQPG23aG23a",
     stateData: "!)u~O^OS~OQUORXOSQOTROUSOVTOWVOZPOtzP!]zP!^zP~OQ[Ov]O{ZO~OPdOubOwbOxaO}^O!O_O!PbOQ|PR|PS|PT|PU|PV|PW|PZ|Pt|P!]|P!^|P~O[fO~P!VOubOwhO}^O!O^O!PhO!WiO~OPkOXmOYlOQ!VPR!VPS!VPT!VPU!VPV!VPW!VPZ!VPt!VP!]!VP!^!VP~P#hOPeOuoOwoO}^O!PoO~O!O_O!ZqO~P$|O!O^O!WiO~P$|O]tOjtOusOwsO}^O!O^O!PsOQ![PR![PS![PT![PU![PV![PW![PZ![Pt![P!]![P!^![P~OQUOSQOTROUSOVTOWVOZPO~ORwOtzX!]zX!^zX~P&}O!]xO!^xO~OusOwsO}^O!O^O!PsO~OP}O!Q|OumXwmX}mX!OmX!PmX~Ou!POw!PO}^O!O^O!P!PO~O!Q!RO!R!TOQdXRdXSdXTdXUdXVdXWdXZdX[dXtdX!OdX!SdX!TdX!]dX!^dX!WdX~O[!YO!S!WO!T!VOQ|XR|XS|XT|XU|XV|XW|XZ|Xt|X!]|X!^|X~O!O!UO~P*eOu!POw!]O}^O!O^O!P!]O~O!Q!RO!R!_OQgXRgXSgXTgXUgXVgXWgXZgX[gXtgX!SgX!TgX!WdX!]gX!^gX~OP!aOu!aOw!aO}^O!O^O!P!aO~O!W!cO~O[!fO!S!dO!T!VOQ!VXR!VXS!VXT!VXU!VXV!VXW!VXZ!VXt!VX!]!VX!^!VX~OP!hOY!iO~P#hOu!jOw!jO}^O!O^O!P!jO~O!Q!ROQcXRcXScXTcXUcXVcXWcXZcXtcX!]cX!^cX~O!R!lO!OdX!WdX~P/WO!O!UO~OubOwbO}^O!O_O!PbO~OP![O~P0bOu!nOw!nO}^O!O^O!P!nO~O!R!pO!ScX[cX!TcX~P/WO!S!qOQ![XR![XS![XT![XU![XV![XW![XZ![Xt![X!]![X!^![X~O!Q!wO!S!uO~O!Q!RO!R!yOQdaRdaSdaTdaUdaVdaWdaZda[datda!Oda!Sda!Tda!]da!^da!Wda~OubOwbO}^O!O^O!PbO~OP!|O!Q!wO~OP!}O~OP#POxaOQpXRpXSpXTpXUpXVpXWpXZpXtpX!SpX!]pX!^pX~P0bO!S!WOQ|aR|aS|aT|aU|aV|aW|aZ|at|a!]|a!^|a~O[#SO!T!VO~P5gO[#SO~P5gO!Q!RO!R#VOQgaRgaSgaTgaUgaVgaWgaZga[gatga!Sga!Tga!Wda!]ga!^ga~OubOwhO}^O!O^O!PhO~OP#XOu#XOw#XO}^O!O^O!P#XO~O!Q!RO!R#ZO!Y!XX~O!Y#[O~OP#^OX#`OY#_OQqXRqXSqXTqXUqXVqXWqXZqXtqX!SqX!]qX!^qX~P#hO!S!dOQ!VaR!VaS!VaT!VaU!VaV!VaW!VaZ!Vat!Va!]!Va!^!Va~O[#cO!T!VO~P:RO[#cO~P:RO[#eO!T!VO~P:RO!Q!RO!R#hOQcaRcaScaTcaUcaVcaWcaZcatca!Oda!]ca!^ca!Wda~OuoOwoO}^O!O^O!PoO~O!O!UOQaiRaiSaiTaiUaiVaiWaiZaitai!]ai!^ai~O!Q!RO!R#kOQcaRcaScaTcaUcaVcaWcaZcatca!Sca!]ca!^ca[ca!Tca~O]#lOj#lOQrXRrXSrXTrXUrXVrXWrXZrXtrX!SrX!]rX!^rX~P(OO!S!qOQ![aR![aS![aT![aU![aV![aW![aZ![at![a!]![a!^![a~OP#nOw#nO!QoX!SoX~O!Q#pO!S!uO~O!Q!RO!R#qOQdiRdiSdiTdiUdiVdiWdiZdi[ditdi!Odi!Sdi!Tdi!]di!^di!Wdi~O!U#tO~O[#uO!T!VOQpaRpaSpaTpaUpaVpaWpaZpatpa!Spa!]pa!^pa~O!O!UO~PBcO!S!WOQ|iR|iS|iT|iU|iV|iW|iZ|it|i!]|i!^|i~O[#xO~PChO!Q!RO!R#yOQgiRgiSgiTgiUgiVgiWgiZgi[gitgi!Sgi!Tgi!Wdi!]gi!^gi~O!Q!RO!R#|O!Y!Xa~O!Y$OO~O[$PO!T!VOQqaRqaSqaTqaUqaVqaWqaZqatqa!Sqa!]qa!^qa~OP$ROY$SO~P#hO!S!dOQ!ViR!ViS!ViT!ViU!ViV!ViW!ViZ!Vit!Vi!]!Vi!^!Vi~O[$UO~PGWO[$UO!T!VO~PGWO[$WO!T!VO~PGWO!Q!ROQciRciSciTciUciVciWciZcitci!]ci!^ci~O!R$XO!Odi!Wdi~PHkO!R$ZO!Sci[ci!Tci~PHkO!Q$]O!S!uO~O[$^OQpiRpiSpiTpiUpiVpiWpiZpitpi!Spi!]pi!^pi~O!T!VO~PJYO!S!WOQ|qR|qS|qT|qU|qV|qW|qZ|qt|q!]|q!^|q~O!Q!RO!R$bO!Y!Xi~O[$dOQqiRqiSqiTqiUqiVqiWqiZqitqi!Sqi!]qi!^qi~O!T!VO~PL_O[$fO!T!VOQqiRqiSqiTqiUqiVqiWqiZqitqi!Sqi!]qi!^qi~O!S!dOQ!VqR!VqS!VqT!VqU!VqV!VqW!VqZ!Vqt!Vq!]!Vq!^!Vq~O[$iO~PN_O[$iO!T!VO~PN_O[$lOQpqRpqSpqTpqUpqVpqWpqZpqtpq!Spq!]pq!^pq~O!S!WOQ|yR|yS|yT|yU|yV|yW|yZ|yt|y!]|y!^|y~O[$nOQqqRqqSqqTqqUqqVqqWqqZqqtqq!Sqq!]qq!^qq~O!T!VO~P!#ZO[$pO!T!VOQqqRqqSqqTqqUqqVqqWqqZqqtqq!Sqq!]qq!^qq~O!S!dOQ!VyR!VyS!VyT!VyU!VyV!VyW!VyZ!Vyt!Vy!]!Vy!^!Vy~O[$rO~P!%ZO[$sOQqyRqySqyTqyUqyVqyWqyZqytqy!Sqy!]qy!^qy~O!T!VO~P!&YO!S!dOQ!V!RR!V!RS!V!RT!V!RU!V!RV!V!RW!V!RZ!V!Rt!V!R!]!V!R!^!V!R~O[$vOQq!RRq!RSq!RTq!RUq!RVq!RWq!RZq!Rtq!R!Sq!R!]q!R!^q!R~O!S!dOQ!V!ZR!V!ZS!V!ZT!V!ZU!V!ZV!V!ZW!V!ZZ!V!Zt!V!Z!]!V!Z!^!V!Z~O",
     goto: "*x!]PPPPPPPPPPPPPPPP!^!^!c!j#e$Y$g%c%x!^P!^&X&`'g(c(m)S)v)|PPPPPP*SP*YPPPPPPPP*`P*cPP*rVVOWxSdQfR#P!WSeSTStU[Q{]Q!QaQ!hlQ#f!iS#i!l!pQ#l!qQ$R#_S$Y#h#kQ$g$ST$k$X$ZScQfYjRTm!d#`QpSQ!mqU!{!T!_!lQ#O!WU#r!y#V#hV$[#q#y$XSdQfQeSQ![qR#P!WS!ZcdQ!gkQ#T!YS#d!f!hS#v#O#PQ$Q#^S$V#e#fQ$_#uS$e$P$RQ$j$WS$o$f$gR$t$pQkRQ!hmQ#W!_Q#^!dQ#z#VQ$R#`R$a#yQeTQkRQ!hmQ#^!dR$R#`SWOxRvW^`Qfq!T!W!y#q^gRm!_!d#V#`#yYnST!l#h$XhrU[]al!i!p!q#_#k$S$ZY!O`gnr!`Z!`i!c#Z#|$bQ!SbQ!^hQ!koQ!osQ!x!Pd!z!S!^!k!o!x#U#Y#g#j#{Q#U!]Q#Y!aQ#g!jQ#j!nR#{#XQ!v}S#o!v#sR#s!|S!XcdW#Q!X#R#w$`S#R!Y!ZS#w#S#TR$`#xQ!ek[#a!e#b$T$h$q$uU#b!f!g!hW$T#c#d#e#fU$h$U$V$WS$q$i$jR$u$rQ!rtR#m!rQyYR!tyQYOR!sxQeQR![fReRQ!biQ#]!cQ#}#ZQ$c#|R$m$bQuURz[",
@@ -18910,7 +19401,7 @@ g nle`.split("\n");
     state: EditorState.create({
       doc: getLastCode(),
       extensions: [
-        defaultHighlightStyle,
+        syntaxHighlighting(defaultHighlightStyle),
         closeBrackets(),
         history(),
         keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
