@@ -124,7 +124,7 @@ exports.run = async function()
         repne scasb
 
         not ecx
-        mov BYTE [rsi + rcx - 1], '\n'
+        mov BYTE [rsi + rcx * 1 - 1], '\n'
 
         mov edx, ecx
         mov eax, OFFSET SYS_WRITE
@@ -138,7 +138,7 @@ exports.run = async function()
     mov edi, 0
     syscall`, { haltOnError: true });
 
-    if(intelState.head.dump() != attState.head.dump())
+    if(!attState.head.dump().equals(intelState.head.dump()))
         throw `Discrepancy between AT&T and Intel output`;
 }
 

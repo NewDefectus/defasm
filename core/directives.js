@@ -335,7 +335,7 @@ class DataDirective extends Statement
                     {
                         const string = readString(token);
                         this.outline.push(string);
-                        this.append(string);
+                        //this.append(string);
                     }
                     else
                         throw new ASMError("Unexpected string");
@@ -368,8 +368,8 @@ class DataDirective extends Statement
             op = this.outline[i];
             try
             {
-                if(op.strBytes)
-                    this.append(op.strBytes);
+                if(op.bytes)
+                    this.append(op);
                 else
                 {
                     if(op.value === undefined || op.expression.hasSymbols)
