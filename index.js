@@ -4437,7 +4437,6 @@
       return elt.nodeName.toLowerCase() == this.tag;
     }
   };
-  var none2 = [];
   var clickAddsSelectionRange = /* @__PURE__ */ Facet.define();
   var dragMovesSelection$1 = /* @__PURE__ */ Facet.define();
   var mouseSelectionStyle = /* @__PURE__ */ Facet.define();
@@ -4604,7 +4603,7 @@
     }
   };
   var ViewUpdate = class {
-    constructor(view, state, transactions = none2) {
+    constructor(view, state, transactions) {
       this.view = view;
       this.state = state;
       this.transactions = transactions;
@@ -4621,6 +4620,9 @@
         view.inputState.notifiedFocused = focus;
         this.flags |= 1;
       }
+    }
+    static create(view, state, transactions) {
+      return new ViewUpdate(view, state, transactions);
     }
     get viewportChanged() {
       return (this.flags & 4) > 0;
@@ -5363,7 +5365,7 @@
       topView = topView.widget.topView;
     else if (topView)
       topView.parent = null;
-    return Decoration.set(Decoration.replace({ widget: new CompositionWidget(node, textNode, topView) }).range(newFrom, newTo));
+    return Decoration.set(Decoration.replace({ widget: new CompositionWidget(node, textNode, topView), inclusive: true }).range(newFrom, newTo));
   }
   var CompositionWidget = class extends WidgetType {
     constructor(top2, text, topView) {
@@ -6247,11 +6249,16 @@
         userEvent: "delete.cut"
       });
   };
-  handlers.focus = handlers.blur = (view) => {
+  function updateForFocusChange(view) {
     setTimeout(() => {
       if (view.hasFocus != view.inputState.notifiedFocused)
         view.update([]);
     }, 10);
+  }
+  handlers.focus = updateForFocusChange;
+  handlers.blur = (view) => {
+    view.observer.clearSelectionRange();
+    updateForFocusChange(view);
   };
   function forceClearComposition(view, rapid) {
     if (view.docView.compositionDeco.size) {
@@ -7750,6 +7757,9 @@
       this.selectionRange.set(anchor.node, anchor.offset, head.node, head.offset);
       this.selectionChanged = false;
     }
+    clearSelectionRange() {
+      this.selectionRange.set(null, 0, null, 0);
+    }
     listenForScroll() {
       this.parentCheck = -1;
       let i = 0, changed = null;
@@ -7815,6 +7825,7 @@
           let key2 = this.delayedAndroidKey;
           this.delayedAndroidKey = null;
           let startState = this.view.state;
+          this.readSelectionRange();
           if (dispatchKey(this.view.contentDOM, key2.key, key2.keyCode))
             this.processRecords();
           else
@@ -7987,6 +7998,8 @@
         to: sel.to,
         insert: view.state.doc.slice(sel.from, change.from).append(change.insert).append(view.state.doc.slice(change.to, sel.to))
       };
+    else if (browser.mac && change && change.from == change.to && change.from == sel.head - 1 && change.insert.toString() == ".")
+      change = { from: sel.from, to: sel.to, insert: Text.of([" "]) };
     if (change) {
       let startState = view.state;
       if (browser.ios && view.inputState.flushIOSKey(view))
@@ -8178,7 +8191,7 @@
       }
       if (state.facet(EditorState.phrases) != this.state.facet(EditorState.phrases))
         return this.setState(state);
-      update = new ViewUpdate(this, state, transactions);
+      update = ViewUpdate.create(this, state, transactions);
       let scrollTarget = this.viewState.scrollTarget;
       try {
         this.updateState = 2;
@@ -8303,7 +8316,7 @@
               return BadMeasure;
             }
           });
-          let update = new ViewUpdate(this, this.state), redrawn = false, scrolled = false;
+          let update = ViewUpdate.create(this, this.state, []), redrawn = false, scrolled = false;
           update.flags |= changed;
           if (!updated)
             updated = update;
@@ -12025,7 +12038,7 @@
       return new HistEvent(json.changes && ChangeSet.fromJSON(json.changes), [], json.mapped && ChangeDesc.fromJSON(json.mapped), json.startSelection && EditorSelection.fromJSON(json.startSelection), json.selectionsAfter.map(EditorSelection.fromJSON));
     }
     static fromTransaction(tr, selection) {
-      let effects = none3;
+      let effects = none2;
       for (let invert of tr.startState.facet(invertedEffects)) {
         let result = invert(tr);
         if (result.length)
@@ -12033,10 +12046,10 @@
       }
       if (!effects.length && tr.changes.empty)
         return null;
-      return new HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection || tr.startState.selection, none3);
+      return new HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection || tr.startState.selection, none2);
     }
     static selection(selections) {
-      return new HistEvent(void 0, none3, void 0, void 0, selections);
+      return new HistEvent(void 0, none2, void 0, void 0, selections);
     }
   };
   function updateBranch(branch, to, maxLen, newEvent) {
@@ -12063,7 +12076,7 @@
   function conc(a, b) {
     return !a.length ? b : !b.length ? a : a.concat(b);
   }
-  var none3 = [];
+  var none2 = [];
   var MaxSelectionsPerEvent = 200;
   function addSelection(branch, selection) {
     if (!branch.length) {
@@ -12086,7 +12099,7 @@
   function addMappingToBranch(branch, mapping) {
     if (!branch.length)
       return branch;
-    let length = branch.length, selections = none3;
+    let length = branch.length, selections = none2;
     while (length) {
       let event = mapEvent(branch[length - 1], mapping, selections);
       if (event.changes && !event.changes.empty || event.effects.length) {
@@ -12099,10 +12112,10 @@
         selections = event.selectionsAfter;
       }
     }
-    return selections.length ? [HistEvent.selection(selections)] : none3;
+    return selections.length ? [HistEvent.selection(selections)] : none2;
   }
   function mapEvent(event, mapping, extraSelections) {
-    let selections = conc(event.selectionsAfter.length ? event.selectionsAfter.map((s) => s.map(mapping)) : none3, extraSelections);
+    let selections = conc(event.selectionsAfter.length ? event.selectionsAfter.map((s) => s.map(mapping)) : none2, extraSelections);
     if (!event.changes)
       return HistEvent.selection(selections);
     let mappedChanges = event.changes.map(mapping), before = mapping.mapDesc(event.changes, true);
@@ -12123,14 +12136,14 @@
     addChanges(event, time, userEvent, newGroupDelay, maxLen) {
       let done = this.done, lastEvent = done[done.length - 1];
       if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!userEvent || joinableUserEvent.test(userEvent)) && (!lastEvent.selectionsAfter.length && time - this.prevTime < newGroupDelay && isAdjacent(lastEvent.changes, event.changes) || userEvent == "input.type.compose")) {
-        done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none3));
+        done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none2));
       } else {
         done = updateBranch(done, done.length, maxLen, event);
       }
-      return new HistoryState(done, none3, time, userEvent);
+      return new HistoryState(done, none2, time, userEvent);
     }
     addSelection(selection, time, userEvent, newGroupDelay) {
-      let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none3;
+      let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none2;
       if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection))
         return this;
       return new HistoryState(addSelection(this.done, selection), this.undone, time, userEvent);
@@ -12153,7 +12166,7 @@
       } else if (!event.changes) {
         return null;
       } else {
-        let rest = branch.length == 1 ? none3 : branch.slice(0, branch.length - 1);
+        let rest = branch.length == 1 ? none2 : branch.slice(0, branch.length - 1);
         if (event.mapped)
           rest = addMappingToBranch(rest, event.mapped);
         return state.update({
@@ -12168,7 +12181,7 @@
       }
     }
   };
-  HistoryState.empty = /* @__PURE__ */ new HistoryState(none3, none3);
+  HistoryState.empty = /* @__PURE__ */ new HistoryState(none2, none2);
   var historyKeymap = [
     { key: "Mod-z", run: undo, preventDefault: true },
     { key: "Mod-y", mac: "Mod-Shift-z", run: redo, preventDefault: true },
@@ -14419,7 +14432,6 @@
             if (acceptStrings) {
               const string2 = readString(token);
               this.outline.push(string2);
-              this.append(string2);
             } else
               throw new ASMError("Unexpected string");
             next();
@@ -14443,8 +14455,8 @@
       for (let i = 0; i < outlineLength; i++) {
         op = this.outline[i];
         try {
-          if (op.strBytes)
-            this.append(op.strBytes);
+          if (op.bytes)
+            this.append(op);
           else {
             if (op.value === void 0 || op.expression.hasSymbols)
               op.value = op.expression.evaluate(this, true);
@@ -17355,7 +17367,7 @@ g nle`.split("\n");
         } catch (error) {
           while (token != "\n" && token != ";")
             next();
-          if (haltOnError && !doSecondPass)
+          if (haltOnError && !(doSecondPass && error.range))
             throw `Error on line ${line}: ${error.message}`;
           if (!error.range)
             console.error(`Error on line ${line}:
@@ -17461,8 +17473,8 @@ g nle`.split("\n");
             console.error(`Error on line ${line2}:
 `, error);
             error.range = new RelativeRange(instr2.range, instr2.range.start, instr2.range.length);
-          } else
-            reportedErrors.push({ line: line2, error });
+          }
+          reportedErrors.push({ line: line2, error });
         }
       });
       if (haltOnError && reportedErrors.length > 0)
