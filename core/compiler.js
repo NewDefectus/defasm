@@ -169,7 +169,7 @@ export class AssemblyState
                 while(token != '\n' && token != ';')
                     next();
                     
-                if(haltOnError && !doSecondPass)
+                if(haltOnError && !(doSecondPass && error.range))
                     throw `Error on line ${line}: ${error.message}`;
                 if(!error.range)
                     console.error(`Error on line ${line}:\n`, error);
@@ -329,8 +329,7 @@ export class AssemblyState
                     console.error(`Error on line ${line}:\n`, error);
                     error.range = new RelativeRange(instr.range, instr.range.start, instr.range.length);
                 }
-                else
-                    reportedErrors.push({ line, error });
+                reportedErrors.push({ line, error });
             }
         });
 
