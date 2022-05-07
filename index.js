@@ -13940,14 +13940,14 @@
       let originValue = this.symbol.value;
       let prevAbs = this.prevAbs;
       this.error = null;
-      let value;
+      let value = void 0;
       try {
         value = this.symbol.value = this.expression.evaluate(this, false);
         this.symbol.statement = this;
+        this.prevAbs = value.absoluteValue();
       } catch (e) {
         this.error = e;
       }
-      this.prevAbs = value.absoluteValue();
       return !(originError && this.error) && value && (originValue.addend !== value.addend || originValue.section !== value.section || prevAbs !== this.prevAbs);
     }
     recompile() {
