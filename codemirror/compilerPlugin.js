@@ -30,10 +30,14 @@ export const ASMStateField = StateField.define({
 
 class AsmDumpWidget extends WidgetType
 {
-    constructor(buffers, offset)
+    /**
+     * @param {Uint8Array} bytes
+     * @param {Number} offset
+     */
+    constructor(bytes, offset)
     {
         super();
-        this.buffers = buffers;
+        this.bytes = bytes;
         this.offset = offset;
     }
 
@@ -44,19 +48,65 @@ class AsmDumpWidget extends WidgetType
         node.className = 'cm-asm-dump';
         node.style.marginLeft = this.offset + 'px';
 
-        for(const buffer of this.buffers)
+        for(const byte of this.bytes)
         {
-            let text = '';
+            let text = byte.toString(16).toUpperCase().padStart(2, '0');
             let span = document.createElement('span');
-            span.setAttribute('section', buffer.section.name);
+            // if(buffer.validUtf8 !== undefined)
+            //     span.setAttribute('utf8', buffer.validUtf8 ? 'valid' : 'invalid')
+            // else
+            //     span.setAttribute('section', buffer.section.name);
 
-            for(const byte of buffer.bytes)
-                text += byte.toString(16).toUpperCase().padStart(2, '0') + ' ';
             span.innerText = text;
             node.appendChild(span);
         }
 
         return node;
+    }
+
+    eq(widget)
+    {
+        if(this.offset != widget.offset || this.bytes.length != widget.bytes.length)
+            return false;
+
+        for(let i = 0; i < this.bytes.length; i++)
+            if(this.bytes[i] != widget.bytes[i])
+                return false;
+
+        return true;
+    }
+
+    /** @param {HTMLElement} node */
+    updateDOM(node)
+    {
+        node.style.marginLeft = this.offset + 'px';
+
+        for(let i = 0; i < this.bytes.length; i++)
+        {
+            let byte = this.bytes[i];
+            let text = byte.toString(16).toUpperCase().padStart(2, '0');
+            if(i < node.childElementCount)
+            {
+                let span = node.children.item(i);
+                if(span.innerText != text)
+                    span.innerText = text;
+            }
+            else
+            {
+                let span = document.createElement('span');
+                // if(buffer.validUtf8 !== undefined)
+                //     span.setAttribute('utf8', buffer.validUtf8 ? 'valid' : 'invalid')
+                // else
+                //     span.setAttribute('section', buffer.section.name);
+
+                span.innerText = text;
+                node.appendChild(span);
+            }
+        }
+        while(node.childElementCount > this.bytes.length)
+            node.removeChild(node.lastChild);
+
+        return true;
     }
 }
 
@@ -82,17 +132,16 @@ function expandTabs(text, tabSize)
 
 export const byteDumper = [
     EditorView.baseTheme({
-        '.cm-asm-dump': {
-            fontStyle: "italic"
-        },
+        '.cm-asm-dump'                    : { fontStyle: "italic" },
+        '.cm-asm-dump > span'             : { marginRight: "1ch" },
         '.cm-asm-dump [section]'          : { color: "#A66" },
         '.cm-asm-dump [section=".text"]'  : { color: "#666" },
         '.cm-asm-dump [section=".data"]'  : { color: "#66A" },
         '.cm-asm-dump [section=".bss"]'   : { color: "#6A6" },
         '.cm-asm-dump [section=".rodata"]': { color: "#AA6" },
-        '&dark .cm-asm-dump': {
-            color: "#aaa"
-        }
+        '.cm-asm-dump [utf8="valid"]'     : { color: "#00F" },
+        '.cm-asm-dump [utf8="invalid"]'   : { color: "#F00" },
+        '&dark .cm-asm-dump'              : { color: "#AAA" }
     }),
     ViewPlugin.fromClass(class {
         /** @param {EditorView} view */
@@ -124,7 +173,6 @@ export const byteDumper = [
                 this.makeAsmDecorations(view.state);
                 view.dispatch();
             }, 1);
-            
         }
 
         /** @param {ViewUpdate} update */
@@ -170,7 +218,7 @@ export const byteDumper = [
             state.field(ASMStateField).bytesPerLine((buffers, line) => {
                 if(buffers.length > 0)
                     widgets.push(Decoration.widget({
-                            widget: new AsmDumpWidget(buffers, maxOffset - this.lineWidths[line - 1]),
+                            widget: new AsmDumpWidget(bytes, maxOffset - this.lineWidths[line - 1]),
                             side: 2
                         }).range(doc.line(line).to));
             });

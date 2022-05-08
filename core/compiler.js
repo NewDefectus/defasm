@@ -384,7 +384,7 @@ export class AssemblyState
 
     /**
      * @callback lineCallback
-     * @param {{section: Section, bytes: Uint8Array}[]} buffers
+     * @param {Uint8Array} bytes
      * @param {Number} line
     */
     /** @param {lineCallback} func */
@@ -394,14 +394,22 @@ export class AssemblyState
         let line = 1, nextLine = 0, node = this.head.next;
         while(nextLine != Infinity)
         {
-            let buffers = [];
-            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
-            if(lineQueue.length > 0)
-            {
-                const line = lineQueue.shift();
-                if(line.bytes.length > 0)
-                    buffers.push(line);
+            let bytes = new Uint8Array();
+            let addToBytes = () => {
+                if(lineQueue.length > 0)
+                {
+                    const line = lineQueue.shift();
+                    if(line.length > 0)
+                    {
+                        let newBytes = new Uint8Array(bytes.length + line.length);
+                        newBytes.set(bytes);
+                        newBytes.set(line, bytes.length);
+                        bytes = newBytes;
+                    }
+                }
             }
+            nextLine = this.source.indexOf('\n', nextLine) + 1 || Infinity;
+            addToBytes();
 
             while(node && node.statement.range.start < nextLine)
             {
@@ -409,21 +417,13 @@ export class AssemblyState
                 for(const end of [...instr.lineEnds, instr.length])
                 {
                     if(end <= instr.length)
-                        lineQueue.push({
-                            section: instr.section,
-                            bytes: instr.bytes.subarray(prevEnd, end)
-                        });
+                        lineQueue.push(instr.bytes.subarray(prevEnd, end));
                     prevEnd = end;
                 }
-                if(lineQueue.length > 0)
-                {
-                    const line = lineQueue.shift();
-                    if(line.bytes.length > 0)
-                        buffers.push(line);
-                }
+                addToBytes();
                 node = node.next;
             }
-            func(buffers, line);
+            func(bytes, line);
             line++;
         }
     }
