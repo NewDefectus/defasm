@@ -1,7 +1,8 @@
-import { ASMStateField, byteDumper, ASMColorFacet, sectionColors }    from "./compilerPlugin.js";
-import { errorMarker, errorTooltipper } from "./errorPlugin.js";
-import { parser }                       from "./parser.js";
-import { debugPlugin }                  from "./debugPlugin.js";
+import { ASMStateField, byteDumper, ASMColorFacet, SectionColors }    from "./compilerPlugin.js";
+import { errorMarker, errorTooltipper }    from "./errorPlugin.js";
+import { parser }                          from "./parser.js";
+import { debugPlugin }                     from "./debugPlugin.js";
+import { ShellcodePlugin, ShellcodeField } from "./shellcodePlugin.js";
 import { ctxTracker }                   from "./tokenizer.js";
 import { LRLanguage, LanguageSupport }  from '@codemirror/language';
 import { styleTags, tags }              from '@lezer/highlight';
@@ -60,7 +61,7 @@ export function assembly({
         asm.compile(state.sliceDoc());
         return asm;
     })];
-    if(byteDumps)     plugins.push(sectionColors, byteDumper);
+    if(byteDumps)     plugins.push(SectionColors, byteDumper);
     if(debug)         plugins.push(debugPlugin);
     if(errorMarking)  plugins.push(errorMarker);
     if(errorTooltips) plugins.push(errorTooltipper);
@@ -72,4 +73,4 @@ export function assembly({
     return plugins;
 }
 
-export { ASMStateField, ASMColorFacet, sectionColors };
+export { ASMStateField, ASMColorFacet, ShellcodePlugin, ShellcodeField };

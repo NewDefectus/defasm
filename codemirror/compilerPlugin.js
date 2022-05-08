@@ -1,7 +1,6 @@
-import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
-import { EditorState, StateField, Facet, RangeValue, RangeSet, RangeSetBuilder }       from '@codemirror/state';
-import { AssemblyState, Range }                                       from '@defasm/core';
-import { ShellcodeField } from './shellcodePlugin';
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType }            from '@codemirror/view';
+import { EditorState, StateField, Facet, RangeValue, RangeSet, RangeSetBuilder } from '@codemirror/state';
+import { AssemblyState, Range }                                                  from '@defasm/core';
 
 /** @type {StateField<AssemblyState>} */
 export const ASMStateField = StateField.define({
@@ -29,7 +28,7 @@ export const ASMStateField = StateField.define({
     }
 });
 
-class ASMColor extends RangeValue
+export class ASMColor extends RangeValue
 {
     /** @param {String} color */
     constructor(color)
@@ -46,7 +45,7 @@ class ASMColor extends RangeValue
 /** @type {Facet<RangeSet<ASMColor>>} */
 export const ASMColorFacet = Facet.define();
 
-export const sectionColors = ASMColorFacet.compute(
+export const SectionColors = ASMColorFacet.compute(
     ['doc'],
     state => {
         let assemblyState = state.field(ASMStateField), offset = 0;
@@ -96,7 +95,7 @@ class AsmDumpWidget extends WidgetType
             while(colorCursor.to <= i)
                 colorCursor.next();
 
-            if(colorCursor.value !== null)
+            if(colorCursor.from <= i && i < colorCursor.to)
                 span.style.color = colorCursor.value.color;
 
             span.innerText = text;
@@ -154,8 +153,13 @@ class AsmDumpWidget extends WidgetType
                 let span = node.children.item(i);
                 if(span.innerText !== text)
                     span.innerText = text;
-                if(colorCursor.value !== span.style.color)
-                    span.style.color = colorCursor.value.color;
+                if(colorCursor.from <= i && i < colorCursor.to)
+                {
+                    if(colorCursor.value.color !== span.style.color)
+                        span.style.color = colorCursor.value.color;
+                }
+                else
+                    span.style.color = "";
             }
             else
             {
@@ -286,16 +290,17 @@ export const byteDumper = [
                     RangeSet.spans(asmColors, i, i + bytes.length, {
                         span: (from, to, active) => {
                             if(active.length > 0)
-                                builder.add(from - i, to - i, active[0]);
+                                builder.add(from - i, to - i, active[active.length - 1]);
                         }
                     });
+                    let colors = builder.finish();
                     i += bytes.length;
 
                     widgets.push(Decoration.widget({
                             widget: new AsmDumpWidget(
                                 bytes,
                                 maxOffset - this.lineWidths[line - 1],
-                                builder.finish()
+                                colors
                             ), side: 2
                         }).range(doc.line(line).to));
                 }
