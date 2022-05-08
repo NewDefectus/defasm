@@ -1,11 +1,36 @@
-import { standardKeymap, indentWithTab, history, historyKeymap } from "@codemirror/commands";
-import { closeBrackets, closeBracketsKeymap }                    from "@codemirror/autocomplete";
-import { defaultHighlightStyle, syntaxHighlighting }             from "@codemirror/language";
-import { EditorState }                                           from "@codemirror/state";
-import { EditorView, keymap, lineNumbers }                       from "@codemirror/view";
-import { assembly, ASMStateField }                               from "@defasm/codemirror";
+import { standardKeymap, indentWithTab, history, historyKeymap }    from "@codemirror/commands";
+import { closeBrackets, closeBracketsKeymap }                       from "@codemirror/autocomplete";
+import { defaultHighlightStyle, syntaxHighlighting }                from "@codemirror/language";
+import { EditorState }                                              from "@codemirror/state";
+import { EditorView, keymap, lineNumbers }                          from "@codemirror/view";
+import { assembly, ASMStateField, ShellcodePlugin, ShellcodeField } from "@defasm/codemirror";
 
-const byteCount = document.getElementById("byteCount");
+const byteCount = document.getElementById('byteCount');
+const shellcodeSpan = document.getElementById('shellcode');
+const urlParams = new URLSearchParams(window.location.search);
+const shellcodeEnabled = urlParams.has('shellcode');
+if(shellcodeEnabled)
+{
+    let shellcodeContainer = document.getElementById('shellcodeContainer');
+    shellcodeContainer.style.display = "block";
+    shellcodeContainer.onclick = () => {
+        navigator.clipboard.writeText(shellcodeContainer.innerText);
+    }
+
+
+function byteLength(str) {
+  var s = str.length;
+  for (var i=str.length-1; i>=0; i--) {
+    var code = str.charCodeAt(i);
+    if (code > 0x7f && code <= 0x7ff)
+        s++;
+    else if (code > 0x7ff && code <= 0xffff)
+        s += 2;
+    if (code >= 0xDC00 && code <= 0xDFFF)
+        i--; //trail surrogate
+  }
+  return s;
+}}
 
 /** @type {EditorView} */
 const editor = new EditorView({
@@ -14,6 +39,37 @@ const editor = new EditorView({
         const bytes = editor.state.field(ASMStateField).head.length();
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
         byteCount.innerText = `${bytes} byte${bytes != 1 ? 's' : ''}`;
+        if(shellcodeEnabled)
+        {
+            while(shellcodeSpan.hasChildNodes())
+                shellcodeSpan.removeChild(shellcodeSpan.firstChild);
+
+            let { code } = editor.state.field(ShellcodeField);
+            let i = 0;
+            for(let j = 0; j < code.length; j++)
+            {
+                let codepoint = code.charCodeAt(j), oldI = i;
+                let span = document.createElement('span');
+                span.innerText = code[j];
+                i++;
+
+                if(code[j] == '\\' && /[01234567]{3}/.exec(code.slice(j + 1, j + 4)))
+                {
+                    span.innerText = code.slice(j, j + 4);
+                    j += 3;
+                    span.style.color = "#F00";
+                }
+                else if(codepoint >= 0x80)
+                {
+                    i += 1 + (codepoint >= 0x800);
+                    if(codepoint >= 0xD800 && codepoint < 0xDC00) // surrogate pair
+                        i++, j++, span.innerText += code[j];
+                    span.style.color = "#00F";
+                }
+
+                shellcodeSpan.appendChild(span);
+            }
+        }
         return result;
     },
     parent: document.getElementById("inputAreaContainer"),
@@ -25,7 +81,8 @@ const editor = new EditorView({
             history(),
             keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
             lineNumbers(),
-            assembly({ debug: true })
+            assembly({ debug: true }),
+            ...shellcodeEnabled ? [ShellcodePlugin] : []
         ]
     })
 });
