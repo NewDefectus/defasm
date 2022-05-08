@@ -35,4 +35,14 @@ body {
     font-size: 1.75em;
 }
 
+#shellcodeContainer {
+    font-family: monospace;
+    font-size: 1.5em;
+    padding: 5px;
+    background-color: white;
+    border-top: 3px solid black;
+    min-height: 2.5em;
+    display: none;
+}
+
 .cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }

@@ -17513,31 +17513,31 @@ g nle`.split("\n");
       let lineQueue = [];
       let line2 = 1, nextLine = 0, node = this.head.next;
       while (nextLine != Infinity) {
-        let buffers = [];
+        let bytes = new Uint8Array();
+        let addToBytes = () => {
+          if (lineQueue.length > 0) {
+            const line3 = lineQueue.shift();
+            if (line3.length > 0) {
+              let newBytes = new Uint8Array(bytes.length + line3.length);
+              newBytes.set(bytes);
+              newBytes.set(line3, bytes.length);
+              bytes = newBytes;
+            }
+          }
+        };
         nextLine = this.source.indexOf("\n", nextLine) + 1 || Infinity;
-        if (lineQueue.length > 0) {
-          const line3 = lineQueue.shift();
-          if (line3.bytes.length > 0)
-            buffers.push(line3);
-        }
+        addToBytes();
         while (node && node.statement.range.start < nextLine) {
           let instr2 = node.statement, prevEnd = 0;
           for (const end of [...instr2.lineEnds, instr2.length]) {
             if (end <= instr2.length)
-              lineQueue.push({
-                section: instr2.section,
-                bytes: instr2.bytes.subarray(prevEnd, end)
-              });
+              lineQueue.push(instr2.bytes.subarray(prevEnd, end));
             prevEnd = end;
           }
-          if (lineQueue.length > 0) {
-            const line3 = lineQueue.shift();
-            if (line3.bytes.length > 0)
-              buffers.push(line3);
-          }
+          addToBytes();
           node = node.next;
         }
-        func(buffers, line2);
+        func(bytes, line2);
         line2++;
       }
     }
@@ -17562,27 +17562,100 @@ g nle`.split("\n");
       return state;
     }
   });
-  var AsmDumpWidget = class extends WidgetType {
-    constructor(buffers, offset) {
+  var ASMColor = class extends RangeValue {
+    constructor(color) {
       super();
-      this.buffers = buffers;
+      this.color = color;
+    }
+    eq(other) {
+      return this.color == other.color;
+    }
+  };
+  var ASMColorFacet = Facet.define();
+  var SectionColors = ASMColorFacet.compute(["doc"], (state) => {
+    let assemblyState = state.field(ASMStateField), offset = 0;
+    let builder = new RangeSetBuilder();
+    assemblyState.iterate((instr2, line2) => {
+      let sectionName = instr2.section.name;
+      let color = sectionName == ".text" ? "#666" : sectionName == ".data" ? "#66A" : sectionName == ".bss" ? "#6A6" : sectionName == ".rodata" ? "#AA6" : "#A66";
+      builder.add(offset, offset += instr2.length, new ASMColor(color));
+    });
+    return builder.finish();
+  });
+  var AsmDumpWidget = class extends WidgetType {
+    constructor(bytes, offset, colors) {
+      super();
+      this.bytes = bytes;
       this.offset = offset;
+      this.colors = colors;
     }
     toDOM() {
       let node = document.createElement("span");
       node.setAttribute("aria-hidden", "true");
       node.className = "cm-asm-dump";
       node.style.marginLeft = this.offset + "px";
-      for (const buffer of this.buffers) {
-        let text = "";
+      let colorCursor = this.colors.iter();
+      for (let i = 0; i < this.bytes.length; i++) {
+        let text = this.bytes[i].toString(16).toUpperCase().padStart(2, "0");
         let span = document.createElement("span");
-        span.setAttribute("section", buffer.section.name);
-        for (const byte of buffer.bytes)
-          text += byte.toString(16).toUpperCase().padStart(2, "0") + " ";
+        while (colorCursor.to <= i)
+          colorCursor.next();
+        if (colorCursor.from <= i && i < colorCursor.to)
+          span.style.color = colorCursor.value.color;
         span.innerText = text;
         node.appendChild(span);
       }
       return node;
+    }
+    eq(widget) {
+      if (this.offset != widget.offset || this.bytes.length != widget.bytes.length)
+        return false;
+      for (let i = 0; i < this.bytes.length; i++)
+        if (this.bytes[i] != widget.bytes[i])
+          return false;
+      let oldCursor = widget.colors.iter(), newCursor = this.colors.iter();
+      while (true) {
+        if (newCursor.value === null) {
+          if (oldCursor.value === null)
+            break;
+          return false;
+        }
+        if (!newCursor.value.eq(oldCursor.value) || newCursor.from !== oldCursor.from || newCursor.to !== oldCursor.to)
+          return false;
+        oldCursor.next();
+        newCursor.next();
+      }
+      return true;
+    }
+    updateDOM(node) {
+      node.style.marginLeft = this.offset + "px";
+      let colorCursor = this.colors.iter();
+      for (let i = 0; i < this.bytes.length; i++) {
+        while (colorCursor.to <= i)
+          colorCursor.next();
+        let text = this.bytes[i].toString(16).toUpperCase().padStart(2, "0");
+        if (i < node.childElementCount) {
+          let span = node.children.item(i);
+          if (span.innerText !== text)
+            span.innerText = text;
+          if (colorCursor.from <= i && i < colorCursor.to) {
+            if (colorCursor.value.color !== span.style.color)
+              span.style.color = colorCursor.value.color;
+          } else
+            span.style.color = "";
+        } else {
+          let span = document.createElement("span");
+          if (colorCursor.value !== null)
+            span.style.color = colorCursor.value.color;
+          span.innerText = text;
+          node.appendChild(span);
+        }
+        while (colorCursor.to < i)
+          colorCursor.next();
+      }
+      while (node.childElementCount > this.bytes.length)
+        node.removeChild(node.lastChild);
+      return true;
     }
   };
   function expandTabs(text, tabSize) {
@@ -17600,17 +17673,9 @@ g nle`.split("\n");
   }
   var byteDumper = [
     EditorView.baseTheme({
-      ".cm-asm-dump": {
-        fontStyle: "italic"
-      },
-      ".cm-asm-dump [section]": { color: "#A66" },
-      '.cm-asm-dump [section=".text"]': { color: "#666" },
-      '.cm-asm-dump [section=".data"]': { color: "#66A" },
-      '.cm-asm-dump [section=".bss"]': { color: "#6A6" },
-      '.cm-asm-dump [section=".rodata"]': { color: "#AA6" },
-      "&dark .cm-asm-dump": {
-        color: "#aaa"
-      }
+      ".cm-asm-dump": { fontStyle: "italic" },
+      ".cm-asm-dump > span": { marginRight: "1ch" },
+      "&dark .cm-asm-dump": { color: "#AAA" }
     }),
     ViewPlugin.fromClass(class {
       constructor(view) {
@@ -17647,12 +17712,25 @@ g nle`.split("\n");
         let doc2 = state.doc;
         let maxOffset2 = Math.max(...this.lineWidths) + 50;
         let widgets = [];
-        state.field(ASMStateField).bytesPerLine((buffers, line2) => {
-          if (buffers.length > 0)
+        let asmColors = state.facet(ASMColorFacet);
+        let assemblyState = state.field(ASMStateField);
+        let i = 0;
+        assemblyState.bytesPerLine((bytes, line2) => {
+          if (bytes.length > 0) {
+            let builder = new RangeSetBuilder();
+            RangeSet.spans(asmColors, i, i + bytes.length, {
+              span: (from, to, active) => {
+                if (active.length > 0)
+                  builder.add(from - i, to - i, active[active.length - 1]);
+              }
+            });
+            let colors = builder.finish();
+            i += bytes.length;
             widgets.push(Decoration.widget({
-              widget: new AsmDumpWidget(buffers, maxOffset2 - this.lineWidths[line2 - 1]),
+              widget: new AsmDumpWidget(bytes, maxOffset2 - this.lineWidths[line2 - 1], colors),
               side: 2
             }).range(doc2.line(line2).to));
+          }
         });
         this.decorations = Decoration.set(widgets);
       }
@@ -19341,6 +19419,74 @@ g nle`.split("\n");
     }, { decorations: (plugin) => plugin.decorations })
   ];
 
+  // codemirror/shellcodePlugin.js
+  function getShellcode(bytes) {
+    let uniSeqLen = 0, uniSeqStart = -1;
+    let code2 = "";
+    let builder = new RangeSetBuilder();
+    for (let i = 0; true; i++) {
+      let byte = bytes[i] ?? 0;
+      try {
+        if (byte < 128) {
+          if (uniSeqStart >= 0)
+            throw [uniSeqStart, i];
+        } else if (byte < 192) {
+          if (uniSeqStart < 0)
+            throw [i, i + 1];
+          if (i - uniSeqStart == uniSeqLen) {
+            try {
+              let uriSeq = "";
+              for (let j = uniSeqStart; j <= i; j++)
+                uriSeq += "%" + bytes[j].toString(16);
+              code2 += decodeURIComponent(uriSeq);
+            } catch (e) {
+              throw [uniSeqStart, i + 1];
+            }
+            builder.add(uniSeqStart, i + 1, new ASMColor("#00F"));
+            uniSeqStart = -1;
+          }
+        } else {
+          if (uniSeqStart >= 0)
+            throw [uniSeqStart, i];
+        }
+      } catch ([from, to]) {
+        builder.add(from, to, new ASMColor("#F00"));
+        for (let i2 = from; i2 < to; i2++)
+          code2 += "\\" + bytes[i2].toString(8);
+        uniSeqStart = -1;
+      }
+      if (i == bytes.length)
+        break;
+      if (byte < 128) {
+        let char;
+        if (byte == 0)
+          char = "\\0";
+        else {
+          char = String.fromCharCode(byte);
+          if (char == "\\" || char == '"')
+            char = "\\" + char;
+        }
+        code2 += char;
+      } else if (byte >= 192) {
+        uniSeqStart = i;
+        uniSeqLen = byte < 224 ? 1 : byte < 240 ? 2 : 3;
+      }
+    }
+    return { code: code2, colors: builder.finish() };
+  }
+  var ShellcodeField = StateField.define({
+    create: (state) => {
+      return getShellcode(state.field(ASMStateField).head.dump());
+    },
+    update: (state, transaction) => {
+      if (!transaction.docChanged)
+        return state;
+      return getShellcode(transaction.state.field(ASMStateField).head.dump());
+    }
+  });
+  var ShellcodeColors = ASMColorFacet.compute([ShellcodeField], (state) => state.field(ShellcodeField).colors);
+  var ShellcodePlugin = [ShellcodeField.extension, ShellcodeColors];
+
   // codemirror/assembly.js
   var assemblyLang = LRLanguage.define({
     parser: parser.configure({
@@ -19385,7 +19531,7 @@ g nle`.split("\n");
       return asm;
     })];
     if (byteDumps)
-      plugins.push(byteDumper);
+      plugins.push(SectionColors, byteDumper);
     if (debug)
       plugins.push(debugPlugin);
     if (errorMarking)
@@ -19401,12 +19547,50 @@ g nle`.split("\n");
 
   // gh-pages/editor.js
   var byteCount = document.getElementById("byteCount");
+  var shellcodeSpan = document.getElementById("shellcode");
+  var urlParams = new URLSearchParams(window.location.search);
+  var shellcodeEnabled = urlParams.has("shellcode");
+  if (shellcodeEnabled) {
+    let shellcodeContainer = document.getElementById("shellcodeContainer");
+    shellcodeContainer.style.display = "block";
+    shellcodeContainer.onclick = () => {
+      let range = document.createRange();
+      range.setStart(shellcodeContainer, 0);
+      range.setEnd(shellcodeContainer, shellcodeContainer.childNodes.length);
+      document.getSelection().removeAllRanges();
+      document.getSelection().addRange(range);
+      document.execCommand("copy");
+    };
+  }
   var editor = new EditorView({
     dispatch: (tr) => {
       const result = editor.update([tr]);
       const bytes = editor.state.field(ASMStateField).head.length();
       document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
       byteCount.innerText = `${bytes} byte${bytes != 1 ? "s" : ""}`;
+      if (shellcodeEnabled) {
+        while (shellcodeSpan.hasChildNodes())
+          shellcodeSpan.removeChild(shellcodeSpan.firstChild);
+        let { code: code2 } = editor.state.field(ShellcodeField);
+        let i = 0;
+        for (let j = 0; j < code2.length; j++) {
+          let codepoint = code2.charCodeAt(j), oldI = i;
+          let span = document.createElement("span");
+          span.innerText = code2[j];
+          i++;
+          if (code2[j] == "\\" && /[01234567]{3}/.exec(code2.slice(j + 1, j + 4))) {
+            span.innerText = code2.slice(j, j + 4);
+            j += 3;
+            span.style.color = "#F00";
+          } else if (codepoint >= 128) {
+            i += 1 + (codepoint >= 2048);
+            if (codepoint >= 55296 && codepoint < 56320)
+              i++, j++, span.innerText += code2[j];
+            span.style.color = "#00F";
+          }
+          shellcodeSpan.appendChild(span);
+        }
+      }
       return result;
     },
     parent: document.getElementById("inputAreaContainer"),
@@ -19418,7 +19602,8 @@ g nle`.split("\n");
         history(),
         keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
         lineNumbers(),
-        assembly({ debug: true })
+        assembly({ debug: true }),
+        ...shellcodeEnabled ? [ShellcodePlugin] : []
       ]
     })
   });
