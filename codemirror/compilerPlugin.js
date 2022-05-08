@@ -1,6 +1,7 @@
 import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
-import { EditorState, StateField }                                    from '@codemirror/state';
+import { EditorState, StateField, Facet, RangeValue, RangeSet, RangeSetBuilder }       from '@codemirror/state';
 import { AssemblyState, Range }                                       from '@defasm/core';
+import { ShellcodeField } from './shellcodePlugin';
 
 /** @type {StateField<AssemblyState>} */
 export const ASMStateField = StateField.define({
@@ -28,17 +29,55 @@ export const ASMStateField = StateField.define({
     }
 });
 
+class ASMColor extends RangeValue
+{
+    /** @param {String} color */
+    constructor(color)
+    {
+        super();
+        this.color = color;
+    }
+    eq(other)
+    {
+        return this.color == other.color;
+    }
+}
+
+/** @type {Facet<RangeSet<ASMColor>>} */
+export const ASMColorFacet = Facet.define();
+
+export const sectionColors = ASMColorFacet.compute(
+    ['doc'],
+    state => {
+        let assemblyState = state.field(ASMStateField), offset = 0;
+        /** @type {RangeSetBuilder<ASMColor>} */
+        let builder = new RangeSetBuilder();
+        assemblyState.iterate((instr, line) => {
+            let sectionName = instr.section.name;
+            let color = sectionName == ".text"   ? "#666" :
+                        sectionName == ".data"   ? "#66A" :
+                        sectionName == ".bss"    ? "#6A6" :
+                        sectionName == ".rodata" ? "#AA6" :
+                                                   "#A66";
+            builder.add(offset, offset += instr.length, new ASMColor(color));
+        });
+        return builder.finish();
+    }
+);
+
 class AsmDumpWidget extends WidgetType
 {
     /**
      * @param {Uint8Array} bytes
      * @param {Number} offset
+     * @param {RangeSet<ASMColor>} colors
      */
-    constructor(bytes, offset)
+    constructor(bytes, offset, colors)
     {
         super();
         this.bytes = bytes;
         this.offset = offset;
+        this.colors = colors;
     }
 
     toDOM()
@@ -47,15 +86,18 @@ class AsmDumpWidget extends WidgetType
         node.setAttribute('aria-hidden', 'true');
         node.className = 'cm-asm-dump';
         node.style.marginLeft = this.offset + 'px';
+        let colorCursor = this.colors.iter();
 
-        for(const byte of this.bytes)
+        for(let i = 0; i < this.bytes.length; i++)
         {
-            let text = byte.toString(16).toUpperCase().padStart(2, '0');
+            let text = this.bytes[i].toString(16).toUpperCase().padStart(2, '0');
             let span = document.createElement('span');
-            // if(buffer.validUtf8 !== undefined)
-            //     span.setAttribute('utf8', buffer.validUtf8 ? 'valid' : 'invalid')
-            // else
-            //     span.setAttribute('section', buffer.section.name);
+
+            while(colorCursor.to <= i)
+                colorCursor.next();
+
+            if(colorCursor.value !== null)
+                span.style.color = colorCursor.value.color;
 
             span.innerText = text;
             node.appendChild(span);
@@ -73,6 +115,25 @@ class AsmDumpWidget extends WidgetType
             if(this.bytes[i] != widget.bytes[i])
                 return false;
 
+        // RangeSet.eq doesn't work for some reason
+        let oldCursor = widget.colors.iter(), newCursor = this.colors.iter();
+        while(true)
+        {
+            if(newCursor.value === null)
+            {
+                if(oldCursor.value === null)
+                    break;
+                return false;
+            }
+
+            if(!newCursor.value.eq(oldCursor.value) ||
+                newCursor.from !== oldCursor.from ||
+                newCursor.to !== oldCursor.to)
+                return false;
+
+            oldCursor.next(); newCursor.next();
+        }
+
         return true;
     }
 
@@ -80,28 +141,33 @@ class AsmDumpWidget extends WidgetType
     updateDOM(node)
     {
         node.style.marginLeft = this.offset + 'px';
+        let colorCursor = this.colors.iter();
 
         for(let i = 0; i < this.bytes.length; i++)
         {
-            let byte = this.bytes[i];
-            let text = byte.toString(16).toUpperCase().padStart(2, '0');
+            while(colorCursor.to <= i)
+                colorCursor.next();
+
+            let text = this.bytes[i].toString(16).toUpperCase().padStart(2, '0');
             if(i < node.childElementCount)
             {
                 let span = node.children.item(i);
-                if(span.innerText != text)
+                if(span.innerText !== text)
                     span.innerText = text;
+                if(colorCursor.value !== span.style.color)
+                    span.style.color = colorCursor.value.color;
             }
             else
             {
                 let span = document.createElement('span');
-                // if(buffer.validUtf8 !== undefined)
-                //     span.setAttribute('utf8', buffer.validUtf8 ? 'valid' : 'invalid')
-                // else
-                //     span.setAttribute('section', buffer.section.name);
+                if(colorCursor.value !== null)
+                    span.style.color = colorCursor.value.color;
 
                 span.innerText = text;
                 node.appendChild(span);
             }
+            while(colorCursor.to < i)
+                colorCursor.next();
         }
         while(node.childElementCount > this.bytes.length)
             node.removeChild(node.lastChild);
@@ -132,16 +198,9 @@ function expandTabs(text, tabSize)
 
 export const byteDumper = [
     EditorView.baseTheme({
-        '.cm-asm-dump'                    : { fontStyle: "italic" },
-        '.cm-asm-dump > span'             : { marginRight: "1ch" },
-        '.cm-asm-dump [section]'          : { color: "#A66" },
-        '.cm-asm-dump [section=".text"]'  : { color: "#666" },
-        '.cm-asm-dump [section=".data"]'  : { color: "#66A" },
-        '.cm-asm-dump [section=".bss"]'   : { color: "#6A6" },
-        '.cm-asm-dump [section=".rodata"]': { color: "#AA6" },
-        '.cm-asm-dump [utf8="valid"]'     : { color: "#00F" },
-        '.cm-asm-dump [utf8="invalid"]'   : { color: "#F00" },
-        '&dark .cm-asm-dump'              : { color: "#AAA" }
+        '.cm-asm-dump'       : { fontStyle: "italic" },
+        '.cm-asm-dump > span': { marginRight: "1ch" },
+        '&dark .cm-asm-dump' : { color: "#AAA" }
     }),
     ViewPlugin.fromClass(class {
         /** @param {EditorView} view */
@@ -215,12 +274,31 @@ export const byteDumper = [
             let maxOffset = Math.max(...this.lineWidths) + 50;
             let widgets   = [];
 
-            state.field(ASMStateField).bytesPerLine((buffers, line) => {
-                if(buffers.length > 0)
+            let asmColors = state.facet(ASMColorFacet);
+            let assemblyState = state.field(ASMStateField);
+            let i = 0;
+
+            assemblyState.bytesPerLine((bytes, line) => {
+                if(bytes.length > 0)
+                {
+                    /** @type {RangeSetBuilder<ASMColor>} */
+                    let builder = new RangeSetBuilder();
+                    RangeSet.spans(asmColors, i, i + bytes.length, {
+                        span: (from, to, active) => {
+                            if(active.length > 0)
+                                builder.add(from - i, to - i, active[0]);
+                        }
+                    });
+                    i += bytes.length;
+
                     widgets.push(Decoration.widget({
-                            widget: new AsmDumpWidget(bytes, maxOffset - this.lineWidths[line - 1]),
-                            side: 2
+                            widget: new AsmDumpWidget(
+                                bytes,
+                                maxOffset - this.lineWidths[line - 1],
+                                builder.finish()
+                            ), side: 2
                         }).range(doc.line(line).to));
+                }
             });
 
             this.decorations = Decoration.set(widgets);

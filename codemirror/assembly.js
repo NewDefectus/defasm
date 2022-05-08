@@ -1,4 +1,4 @@
-import { ASMStateField, byteDumper }    from "./compilerPlugin.js";
+import { ASMStateField, byteDumper, ASMColorFacet, sectionColors }    from "./compilerPlugin.js";
 import { errorMarker, errorTooltipper } from "./errorPlugin.js";
 import { parser }                       from "./parser.js";
 import { debugPlugin }                  from "./debugPlugin.js";
@@ -60,7 +60,7 @@ export function assembly({
         asm.compile(state.sliceDoc());
         return asm;
     })];
-    if(byteDumps)     plugins.push(byteDumper);
+    if(byteDumps)     plugins.push(sectionColors, byteDumper);
     if(debug)         plugins.push(debugPlugin);
     if(errorMarking)  plugins.push(errorMarker);
     if(errorTooltips) plugins.push(errorTooltipper);
@@ -72,4 +72,4 @@ export function assembly({
     return plugins;
 }
 
-export { ASMStateField };
+export { ASMStateField, ASMColorFacet, sectionColors };
