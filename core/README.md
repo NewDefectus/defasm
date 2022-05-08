@@ -20,7 +20,7 @@ The class has the following properties:
 * `secondPass()` - performs a second pass on the state, resolving symbol references and reporting errors. You typically won't need to use this (it's called automatically after `compile` unless configured otherwise with `doSecondPass`); it's available in case you wish to make multiple changes at once before executing the second pass, which is more efficient.
 * `line()` - creates a `Range` object that spans a given line (useful for replacing/inserting lines in `compile`)
 * `iterate()` - iterates over the instructions using a given callback, passing the instruction's line as a second parameter (for instructions that span multiple lines, this will be their first line).
-* `bytesPerLine()` - iterate over each line in the program using a given callback, sending a line number and a list of objects that hold a `Uint8Array` and a `Section` (these are used to color different parts of the bytes in `@defasm/codemirror`). Data directives spanning multiple lines may be sent multiple times. Empty instructions and lines are skipped.
+* `bytesPerLine()` - iterate over each line in the program using a given callback, sending a line number and a `Uint8Array`. Data directives spanning multiple lines may be sent multiple times. Empty instructions and lines are skipped.
 
 ## `Section`
 An object corresponding to an [ELF](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format) section. Its properties include:
