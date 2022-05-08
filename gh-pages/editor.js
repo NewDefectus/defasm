@@ -14,23 +14,14 @@ if(shellcodeEnabled)
     let shellcodeContainer = document.getElementById('shellcodeContainer');
     shellcodeContainer.style.display = "block";
     shellcodeContainer.onclick = () => {
-        navigator.clipboard.writeText(shellcodeContainer.innerText);
+        let range = document.createRange();
+        range.setStart(shellcodeContainer, 0);
+        range.setEnd(shellcodeContainer, shellcodeContainer.childNodes.length);
+        document.getSelection().removeAllRanges();
+        document.getSelection().addRange(range);
+        document.execCommand('copy');
     }
-
-
-function byteLength(str) {
-  var s = str.length;
-  for (var i=str.length-1; i>=0; i--) {
-    var code = str.charCodeAt(i);
-    if (code > 0x7f && code <= 0x7ff)
-        s++;
-    else if (code > 0x7ff && code <= 0xffff)
-        s += 2;
-    if (code >= 0xDC00 && code <= 0xDFFF)
-        i--; //trail surrogate
-  }
-  return s;
-}}
+}
 
 /** @type {EditorView} */
 const editor = new EditorView({
