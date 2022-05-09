@@ -45,4 +45,8 @@ body {
     display: none;
 }
 
+#shellcode {
+    white-space: pre;
+}
+
 .cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }

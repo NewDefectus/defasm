@@ -19462,6 +19462,8 @@ g nle`.split("\n");
         let char;
         if (byte == 0)
           char = "\\0";
+        else if (byte == 13)
+          char = "\\15";
         else {
           char = String.fromCharCode(byte);
           if (char == "\\" || char == '"')
