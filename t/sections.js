@@ -5,31 +5,44 @@
 exports.run = async function()
 {
     const { AssemblyState } = await import("@defasm/core");
-    let state = new AssemblyState();
+    let state = new AssemblyState(), checkIndex = 0;
+
+    function checkSection(sectionId, bytes)
+    {
+        checkIndex++;
+        let buffer = Buffer.from(bytes), section = state.sections[sectionId];
+        let sectionData = section.head.dump();
+        if(!sectionData.equals(buffer))
+            throw `[${checkIndex}] ${section.name} has ${sectionData.join('')}, expected ${buffer.join('')}`;
+    }
 
     // Basic section data division check
     state.compile(`\
 .text
-.byte 1
+    .byte 1
+    .byte 2
+    .byte 3
 .data
-.byte 2
+    .byte 4
+    .byte 5
+    .byte 6
 `);
-    if(state.sections[0].head.dump()[0] != 1)
-        throw '.text did not get 1';
-    if(state.sections[1].head.dump()[0] != 2)
-        throw '.data did not get 2';
+    checkSection(0, [1, 2, 3]); // 1
+    checkSection(1, [4, 5, 6]); // 2
     
     // Changing section ranges
     state.compile('.data', { range: state.line(1) });
+    checkSection(0, []); // 3
+    checkSection(1, [1, 2, 3, 4, 5, 6]); // 4
 
-    if(state.sections[0].head.dump().length != 0)
-        throw '.text did not get emptied';
+    state.compile('.text', { range: state.line(1) });
+    checkSection(0, [1, 2, 3]); // 5
+    checkSection(1, [4, 5, 6]); // 6
 
-    if(!state.sections[1].head.dump().equals(Buffer.from([1, 2])))
-        throw '.data did not get 1, 2';
-
-    
-    
+    // Merging sections
+    state.compile('', { range: state.line(5) });
+    checkSection(0, [1, 2, 3, 4, 5, 6]); // 7
+    checkSection(1, []); // 8
 }
 
 if(require.main === module)
