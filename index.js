@@ -17394,9 +17394,10 @@ g nle`.split("\n");
       if (tail && currSection !== tail.statement.section && !tail.statement.switchSection) {
         let tailSection = tail.statement.section;
         let node = tailSection.cursor.tail;
-        currSection.cursor.tail = node;
+        currSection.cursor.prev.next = node;
         while (node && !node.statement.switchSection) {
           node.statement.section = currSection;
+          currSection.cursor.prev = node;
           node = node.next;
         }
         tailSection.cursor.tail = node;
