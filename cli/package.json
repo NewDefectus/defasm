@@ -4,7 +4,7 @@
   "description": "Command-line utility for DefAssembler",
   "main": "main.js",
   "scripts": {
-    "build": "./cli.js -x debug.s -o debug",
+    "build": "node cli.js -x debug.s -o debug",
     "prepare": "npm run build"
   },
   "repository": {

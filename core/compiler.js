@@ -94,7 +94,7 @@ export class AssemblyState
     */
     compile(source, {
         haltOnError = false,
-        range: replacementRange = new Range(),
+        range: replacementRange = new Range(0, this.source.length),
         doSecondPass = true } = {})
     {
         this.source =
