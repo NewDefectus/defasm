@@ -43,6 +43,14 @@ exports.run = async function()
     state.compile('', { range: state.line(5) });
     checkSection(0, [1, 2, 3, 4, 5, 6]); // 7
     checkSection(1, []); // 8
+
+    // Changing section of symbol
+    state.compile(`\
+.text
+start:
+end = . - start
+.data`);
+    state.compile('.data', { range: state.line(1), haltOnError: true });
 }
 
 if(require.main === module)

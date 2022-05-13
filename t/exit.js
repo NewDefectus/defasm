@@ -4,7 +4,7 @@
 
 exports.run = async function()
 {
-    const { AssemblyState, Range } = await import("@defasm/core");;
+    const { AssemblyState, Range } = await import("@defasm/core");
     const { createExecutable, debug } = await import("@defasm/cli");
     let outputFile = "/tmp/asm";
     let state = new AssemblyState();

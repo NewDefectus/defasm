@@ -15,16 +15,15 @@ let exitCode = 0;
 
         try
         {
-            let { run } = await import(testPath + file);
+            let { run } = await import('file://' + testPath + file);
             await run();
             console.log("OK");
         }
         catch(e)
         {
             if(e.range)
-            {
                 e = e.message;
-            }
+
             console.error("Failed: " + e);
             exitCode = 1;
         }
