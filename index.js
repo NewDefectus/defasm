@@ -17317,7 +17317,7 @@ g nle`.split("\n");
     }
     compile(source, {
       haltOnError = false,
-      range: replacementRange = new Range3(),
+      range: replacementRange = new Range3(0, this.source.length),
       doSecondPass = true
     } = {}) {
       this.source = this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
