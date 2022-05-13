@@ -17397,6 +17397,8 @@ g nle`.split("\n");
         currSection.cursor.prev.next = node;
         while (node && !node.statement.switchSection) {
           node.statement.section = currSection;
+          if (node.statement.ipRelative)
+            queueRecomp(node.statement);
           currSection.cursor.prev = node;
           node = node.next;
         }
