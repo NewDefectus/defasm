@@ -208,6 +208,8 @@ export class AssemblyState
             while(node && !node.statement.switchSection)
             {
                 node.statement.section = currSection;
+                if(node.statement.ipRelative)
+                    queueRecomp(node.statement);
                 currSection.cursor.prev = node;
                 node = node.next;
             }
