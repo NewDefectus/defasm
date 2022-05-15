@@ -15,7 +15,8 @@
   VEXRound,
   number,
   immPrefix,
-  SpecialWord
+  SpecialWord,
+  None
 }
 
 @skip {Space}
@@ -35,8 +36,8 @@ statement {
   LabelDefinition |
   InstructionStatement |
   DirectiveStatement |
-  SymbolDefinition
-  )* Comment?
+  SymbolDefinition |
+  None)* Comment?
 }
 
 LabelDefinition { SymbolName ':' }

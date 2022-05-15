@@ -210,7 +210,7 @@ export const tokenizer = new ExternalTokenizer(
         next(input);
         const type = tokenize(stack.context, input);
         if(type !== null || pureString)
-            input.acceptToken(type);
+            input.acceptToken(type ?? Terms.None);
         
     }, {
         contextual: false
