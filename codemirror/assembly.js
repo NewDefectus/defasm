@@ -35,7 +35,10 @@ const assemblyLang = LRLanguage.define({
                 SpecialWord: tags.annotation
             })
         ]
-    })
+    }),
+    languageData: {
+        commentTokens: { line: "#" }
+    }
 });
 
 /** Create a CodeMirror extension utilizing DefAssembler
