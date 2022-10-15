@@ -8951,7 +8951,7 @@
       else if (current != is)
         throw new Error("Key binding " + name2 + " is used both as a regular binding and as a multi-stroke prefix");
     };
-    let add = (scope, key, command, preventDefault) => {
+    let add = (scope, key, command2, preventDefault) => {
       var _a2, _b;
       let scopeObj = bound[scope] || (bound[scope] = /* @__PURE__ */ Object.create(null));
       let parts = key.split(/ (?!$)/).map((k) => normalizeKeyName(k, platform));
@@ -8974,8 +8974,8 @@
       let full = parts.join(" ");
       checkPrefix(full, false);
       let binding = scopeObj[full] || (scopeObj[full] = { preventDefault: false, run: ((_b = (_a2 = scopeObj._any) === null || _a2 === void 0 ? void 0 : _a2.run) === null || _b === void 0 ? void 0 : _b.slice()) || [] });
-      if (command)
-        binding.run.push(command);
+      if (command2)
+        binding.run.push(command2);
       if (preventDefault)
         binding.preventDefault = true;
     };
@@ -12187,6 +12187,81 @@
       color: "#f00"
     }
   ]);
+  var DefaultScanDist = 1e4;
+  var DefaultBrackets = "()[]{}";
+  function matchingNodes(node, dir, brackets) {
+    let byProp = node.prop(dir < 0 ? NodeProp.openedBy : NodeProp.closedBy);
+    if (byProp)
+      return byProp;
+    if (node.name.length == 1) {
+      let index = brackets.indexOf(node.name);
+      if (index > -1 && index % 2 == (dir < 0 ? 1 : 0))
+        return [brackets[index + dir]];
+    }
+    return null;
+  }
+  function matchBrackets(state, pos, dir, config2 = {}) {
+    let maxScanDistance = config2.maxScanDistance || DefaultScanDist, brackets = config2.brackets || DefaultBrackets;
+    let tree = syntaxTree(state), node = tree.resolveInner(pos, dir);
+    for (let cur = node; cur; cur = cur.parent) {
+      let matches = matchingNodes(cur.type, dir, brackets);
+      if (matches && cur.from < cur.to)
+        return matchMarkedBrackets(state, pos, dir, cur, matches, brackets);
+    }
+    return matchPlainBrackets(state, pos, dir, tree, node.type, maxScanDistance, brackets);
+  }
+  function matchMarkedBrackets(_state, _pos, dir, token2, matching, brackets) {
+    let parent = token2.parent, firstToken = { from: token2.from, to: token2.to };
+    let depth = 0, cursor = parent === null || parent === void 0 ? void 0 : parent.cursor();
+    if (cursor && (dir < 0 ? cursor.childBefore(token2.from) : cursor.childAfter(token2.to)))
+      do {
+        if (dir < 0 ? cursor.to <= token2.from : cursor.from >= token2.to) {
+          if (depth == 0 && matching.indexOf(cursor.type.name) > -1 && cursor.from < cursor.to) {
+            return { start: firstToken, end: { from: cursor.from, to: cursor.to }, matched: true };
+          } else if (matchingNodes(cursor.type, dir, brackets)) {
+            depth++;
+          } else if (matchingNodes(cursor.type, -dir, brackets)) {
+            if (depth == 0)
+              return {
+                start: firstToken,
+                end: cursor.from == cursor.to ? void 0 : { from: cursor.from, to: cursor.to },
+                matched: false
+              };
+            depth--;
+          }
+        }
+      } while (dir < 0 ? cursor.prevSibling() : cursor.nextSibling());
+    return { start: firstToken, matched: false };
+  }
+  function matchPlainBrackets(state, pos, dir, tree, tokenType, maxScanDistance, brackets) {
+    let startCh = dir < 0 ? state.sliceDoc(pos - 1, pos) : state.sliceDoc(pos, pos + 1);
+    let bracket2 = brackets.indexOf(startCh);
+    if (bracket2 < 0 || bracket2 % 2 == 0 != dir > 0)
+      return null;
+    let startToken = { from: dir < 0 ? pos - 1 : pos, to: dir > 0 ? pos + 1 : pos };
+    let iter = state.doc.iterRange(pos, dir > 0 ? state.doc.length : 0), depth = 0;
+    for (let distance = 0; !iter.next().done && distance <= maxScanDistance; ) {
+      let text = iter.value;
+      if (dir < 0)
+        distance += text.length;
+      let basePos = pos + distance * dir;
+      for (let pos2 = dir > 0 ? 0 : text.length - 1, end = dir > 0 ? text.length : -1; pos2 != end; pos2 += dir) {
+        let found = brackets.indexOf(text[pos2]);
+        if (found < 0 || tree.resolveInner(basePos + pos2, 1).type != tokenType)
+          continue;
+        if (found % 2 == 0 == dir > 0) {
+          depth++;
+        } else if (depth == 1) {
+          return { start: startToken, end: { from: basePos + pos2, to: basePos + pos2 + 1 }, matched: found >> 1 == bracket2 >> 1 };
+        } else {
+          depth--;
+        }
+      }
+      if (dir > 0)
+        distance += text.length;
+    }
+    return iter.done ? { start: startToken, matched: false } : null;
+  }
   var noTokens = /* @__PURE__ */ Object.create(null);
   var typeArray = [NodeType.none];
   var warned = [];
@@ -12242,6 +12317,147 @@
   }
 
   // node_modules/@codemirror/commands/dist/index.js
+  var toggleComment = (target) => {
+    let config2 = getConfig(target.state);
+    return config2.line ? toggleLineComment(target) : config2.block ? toggleBlockCommentByLine(target) : false;
+  };
+  function command(f, option) {
+    return ({ state, dispatch }) => {
+      if (state.readOnly)
+        return false;
+      let tr = f(option, state);
+      if (!tr)
+        return false;
+      dispatch(state.update(tr));
+      return true;
+    };
+  }
+  var toggleLineComment = /* @__PURE__ */ command(changeLineComment, 0);
+  var toggleBlockComment = /* @__PURE__ */ command(changeBlockComment, 0);
+  var toggleBlockCommentByLine = /* @__PURE__ */ command((o, s) => changeBlockComment(o, s, selectedLineRanges(s)), 0);
+  function getConfig(state, pos = state.selection.main.head) {
+    let data = state.languageDataAt("commentTokens", pos);
+    return data.length ? data[0] : {};
+  }
+  var SearchMargin = 50;
+  function findBlockComment(state, { open, close }, from, to) {
+    let textBefore = state.sliceDoc(from - SearchMargin, from);
+    let textAfter = state.sliceDoc(to, to + SearchMargin);
+    let spaceBefore = /\s*$/.exec(textBefore)[0].length, spaceAfter = /^\s*/.exec(textAfter)[0].length;
+    let beforeOff = textBefore.length - spaceBefore;
+    if (textBefore.slice(beforeOff - open.length, beforeOff) == open && textAfter.slice(spaceAfter, spaceAfter + close.length) == close) {
+      return {
+        open: { pos: from - spaceBefore, margin: spaceBefore && 1 },
+        close: { pos: to + spaceAfter, margin: spaceAfter && 1 }
+      };
+    }
+    let startText, endText;
+    if (to - from <= 2 * SearchMargin) {
+      startText = endText = state.sliceDoc(from, to);
+    } else {
+      startText = state.sliceDoc(from, from + SearchMargin);
+      endText = state.sliceDoc(to - SearchMargin, to);
+    }
+    let startSpace = /^\s*/.exec(startText)[0].length, endSpace = /\s*$/.exec(endText)[0].length;
+    let endOff = endText.length - endSpace - close.length;
+    if (startText.slice(startSpace, startSpace + open.length) == open && endText.slice(endOff, endOff + close.length) == close) {
+      return {
+        open: {
+          pos: from + startSpace + open.length,
+          margin: /\s/.test(startText.charAt(startSpace + open.length)) ? 1 : 0
+        },
+        close: {
+          pos: to - endSpace - close.length,
+          margin: /\s/.test(endText.charAt(endOff - 1)) ? 1 : 0
+        }
+      };
+    }
+    return null;
+  }
+  function selectedLineRanges(state) {
+    let ranges = [];
+    for (let r of state.selection.ranges) {
+      let fromLine = state.doc.lineAt(r.from);
+      let toLine = r.to <= fromLine.to ? fromLine : state.doc.lineAt(r.to);
+      let last = ranges.length - 1;
+      if (last >= 0 && ranges[last].to > fromLine.from)
+        ranges[last].to = toLine.to;
+      else
+        ranges.push({ from: fromLine.from, to: toLine.to });
+    }
+    return ranges;
+  }
+  function changeBlockComment(option, state, ranges = state.selection.ranges) {
+    let tokens = ranges.map((r) => getConfig(state, r.from).block);
+    if (!tokens.every((c) => c))
+      return null;
+    let comments = ranges.map((r, i) => findBlockComment(state, tokens[i], r.from, r.to));
+    if (option != 2 && !comments.every((c) => c)) {
+      return { changes: state.changes(ranges.map((range, i) => {
+        if (comments[i])
+          return [];
+        return [{ from: range.from, insert: tokens[i].open + " " }, { from: range.to, insert: " " + tokens[i].close }];
+      })) };
+    } else if (option != 1 && comments.some((c) => c)) {
+      let changes = [];
+      for (let i = 0, comment3; i < comments.length; i++)
+        if (comment3 = comments[i]) {
+          let token2 = tokens[i], { open, close } = comment3;
+          changes.push({ from: open.pos - token2.open.length, to: open.pos + open.margin }, { from: close.pos - close.margin, to: close.pos + token2.close.length });
+        }
+      return { changes };
+    }
+    return null;
+  }
+  function changeLineComment(option, state, ranges = state.selection.ranges) {
+    let lines2 = [];
+    let prevLine = -1;
+    for (let { from, to } of ranges) {
+      let startI = lines2.length, minIndent = 1e9;
+      for (let pos = from; pos <= to; ) {
+        let line2 = state.doc.lineAt(pos);
+        if (line2.from > prevLine && (from == to || to > line2.from)) {
+          prevLine = line2.from;
+          let token2 = getConfig(state, pos).line;
+          if (!token2)
+            continue;
+          let indent = /^\s*/.exec(line2.text)[0].length;
+          let empty = indent == line2.length;
+          let comment3 = line2.text.slice(indent, indent + token2.length) == token2 ? indent : -1;
+          if (indent < line2.text.length && indent < minIndent)
+            minIndent = indent;
+          lines2.push({ line: line2, comment: comment3, token: token2, indent, empty, single: false });
+        }
+        pos = line2.to + 1;
+      }
+      if (minIndent < 1e9) {
+        for (let i = startI; i < lines2.length; i++)
+          if (lines2[i].indent < lines2[i].line.text.length)
+            lines2[i].indent = minIndent;
+      }
+      if (lines2.length == startI + 1)
+        lines2[startI].single = true;
+    }
+    if (option != 2 && lines2.some((l) => l.comment < 0 && (!l.empty || l.single))) {
+      let changes = [];
+      for (let { line: line2, token: token2, indent, empty, single } of lines2)
+        if (single || !empty)
+          changes.push({ from: line2.from + indent, insert: token2 + " " });
+      let changeSet = state.changes(changes);
+      return { changes: changeSet, selection: state.selection.map(changeSet, 1) };
+    } else if (option != 1 && lines2.some((l) => l.comment >= 0)) {
+      let changes = [];
+      for (let { line: line2, comment: comment3, token: token2 } of lines2)
+        if (comment3 >= 0) {
+          let from = line2.from + comment3, to = from + token2.length;
+          if (line2.text[to - line2.from] == " ")
+            to++;
+          changes.push({ from, to });
+        }
+      return { changes };
+    }
+    return null;
+  }
   var fromHistory = /* @__PURE__ */ Annotation.define();
   var isolateHistory = /* @__PURE__ */ Annotation.define();
   var invertedEffects = /* @__PURE__ */ Facet.define();
@@ -12303,11 +12519,11 @@
       historyConfig.of(config2),
       EditorView.domEventHandlers({
         beforeinput(e, view) {
-          let command = e.inputType == "historyUndo" ? undo : e.inputType == "historyRedo" ? redo : null;
-          if (!command)
+          let command2 = e.inputType == "historyUndo" ? undo : e.inputType == "historyRedo" ? redo : null;
+          if (!command2)
             return false;
           e.preventDefault();
-          return command(view);
+          return command2(view);
         }
       })
     ];
@@ -12534,6 +12750,33 @@
   }
   var cursorGroupLeft = (view) => cursorByGroup(view, !ltrAtCursor(view));
   var cursorGroupRight = (view) => cursorByGroup(view, ltrAtCursor(view));
+  function interestingNode(state, node, bracketProp) {
+    if (node.type.prop(bracketProp))
+      return true;
+    let len = node.to - node.from;
+    return len && (len > 2 || /[^\s,.;:]/.test(state.sliceDoc(node.from, node.to))) || node.firstChild;
+  }
+  function moveBySyntax(state, start, forward) {
+    let pos = syntaxTree(state).resolveInner(start.head);
+    let bracketProp = forward ? NodeProp.closedBy : NodeProp.openedBy;
+    for (let at = start.head; ; ) {
+      let next3 = forward ? pos.childAfter(at) : pos.childBefore(at);
+      if (!next3)
+        break;
+      if (interestingNode(state, next3, bracketProp))
+        pos = next3;
+      else
+        at = forward ? next3.to : next3.from;
+    }
+    let bracket2 = pos.type.prop(bracketProp), match2, newPos;
+    if (bracket2 && (match2 = forward ? matchBrackets(state, pos.from, 1) : matchBrackets(state, pos.to, -1)) && match2.matched)
+      newPos = forward ? match2.end.to : match2.end.from;
+    else
+      newPos = forward ? pos.to : pos.from;
+    return EditorSelection.cursor(newPos, forward ? -1 : 1);
+  }
+  var cursorSyntaxLeft = (view) => moveSel(view, (range) => moveBySyntax(view.state, range, !ltrAtCursor(view)));
+  var cursorSyntaxRight = (view) => moveSel(view, (range) => moveBySyntax(view.state, range, ltrAtCursor(view)));
   function cursorByLine(view, forward) {
     return moveSel(view, (range) => {
       if (!range.empty)
@@ -12580,6 +12823,21 @@
   var cursorLineBoundaryRight = (view) => moveSel(view, (range) => moveByLineBoundary(view, range, ltrAtCursor(view)));
   var cursorLineStart = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).from, 1));
   var cursorLineEnd = (view) => moveSel(view, (range) => EditorSelection.cursor(view.lineBlockAt(range.head).to, -1));
+  function toMatchingBracket(state, dispatch, extend2) {
+    let found = false, selection = updateSel(state.selection, (range) => {
+      let matching = matchBrackets(state, range.head, -1) || matchBrackets(state, range.head, 1) || range.head > 0 && matchBrackets(state, range.head - 1, 1) || range.head < state.doc.length && matchBrackets(state, range.head + 1, -1);
+      if (!matching || !matching.end)
+        return range;
+      found = true;
+      let head = matching.start.from == range.head ? matching.end.to : matching.end.from;
+      return extend2 ? EditorSelection.range(range.anchor, head) : EditorSelection.cursor(head);
+    });
+    if (!found)
+      return false;
+    dispatch(setSel(state, selection));
+    return true;
+  }
+  var cursorMatchingBracket = ({ state, dispatch }) => toMatchingBracket(state, dispatch, false);
   function extendSel(view, how) {
     let selection = updateSel(view.state.selection, (range) => {
       let head = how(range);
@@ -12600,6 +12858,8 @@
   }
   var selectGroupLeft = (view) => selectByGroup(view, !ltrAtCursor(view));
   var selectGroupRight = (view) => selectByGroup(view, ltrAtCursor(view));
+  var selectSyntaxLeft = (view) => extendSel(view, (range) => moveBySyntax(view.state, range, !ltrAtCursor(view)));
+  var selectSyntaxRight = (view) => extendSel(view, (range) => moveBySyntax(view.state, range, ltrAtCursor(view)));
   function selectByLine(view, forward) {
     return extendSel(view, (range) => view.moveVertically(range, forward));
   }
@@ -12634,6 +12894,33 @@
   };
   var selectAll = ({ state, dispatch }) => {
     dispatch(state.update({ selection: { anchor: 0, head: state.doc.length }, userEvent: "select" }));
+    return true;
+  };
+  var selectLine = ({ state, dispatch }) => {
+    let ranges = selectedLineBlocks(state).map(({ from, to }) => EditorSelection.range(from, Math.min(to + 1, state.doc.length)));
+    dispatch(state.update({ selection: EditorSelection.create(ranges), userEvent: "select" }));
+    return true;
+  };
+  var selectParentSyntax = ({ state, dispatch }) => {
+    let selection = updateSel(state.selection, (range) => {
+      var _a2;
+      let context = syntaxTree(state).resolveInner(range.head, 1);
+      while (!(context.from < range.from && context.to >= range.to || context.to > range.to && context.from <= range.from || !((_a2 = context.parent) === null || _a2 === void 0 ? void 0 : _a2.parent)))
+        context = context.parent;
+      return EditorSelection.range(context.to, context.from);
+    });
+    dispatch(setSel(state, selection));
+    return true;
+  };
+  var simplifySelection = ({ state, dispatch }) => {
+    let cur = state.selection, selection = null;
+    if (cur.ranges.length > 1)
+      selection = EditorSelection.create([cur.main]);
+    else if (!cur.main.empty)
+      selection = EditorSelection.create([EditorSelection.cursor(cur.main.head)]);
+    if (!selection)
+      return false;
+    dispatch(setSel(state, selection));
     return true;
   };
   function deleteBy(target, by) {
@@ -12756,6 +13043,83 @@
     dispatch(state.update(changes, { scrollIntoView: true, userEvent: "move.character" }));
     return true;
   };
+  function selectedLineBlocks(state) {
+    let blocks = [], upto = -1;
+    for (let range of state.selection.ranges) {
+      let startLine = state.doc.lineAt(range.from), endLine = state.doc.lineAt(range.to);
+      if (!range.empty && range.to == endLine.from)
+        endLine = state.doc.lineAt(range.to - 1);
+      if (upto >= startLine.number) {
+        let prev = blocks[blocks.length - 1];
+        prev.to = endLine.to;
+        prev.ranges.push(range);
+      } else {
+        blocks.push({ from: startLine.from, to: endLine.to, ranges: [range] });
+      }
+      upto = endLine.number + 1;
+    }
+    return blocks;
+  }
+  function moveLine(state, dispatch, forward) {
+    if (state.readOnly)
+      return false;
+    let changes = [], ranges = [];
+    for (let block of selectedLineBlocks(state)) {
+      if (forward ? block.to == state.doc.length : block.from == 0)
+        continue;
+      let nextLine = state.doc.lineAt(forward ? block.to + 1 : block.from - 1);
+      let size = nextLine.length + 1;
+      if (forward) {
+        changes.push({ from: block.to, to: nextLine.to }, { from: block.from, insert: nextLine.text + state.lineBreak });
+        for (let r of block.ranges)
+          ranges.push(EditorSelection.range(Math.min(state.doc.length, r.anchor + size), Math.min(state.doc.length, r.head + size)));
+      } else {
+        changes.push({ from: nextLine.from, to: block.from }, { from: block.to, insert: state.lineBreak + nextLine.text });
+        for (let r of block.ranges)
+          ranges.push(EditorSelection.range(r.anchor - size, r.head - size));
+      }
+    }
+    if (!changes.length)
+      return false;
+    dispatch(state.update({
+      changes,
+      scrollIntoView: true,
+      selection: EditorSelection.create(ranges, state.selection.mainIndex),
+      userEvent: "move.line"
+    }));
+    return true;
+  }
+  var moveLineUp = ({ state, dispatch }) => moveLine(state, dispatch, false);
+  var moveLineDown = ({ state, dispatch }) => moveLine(state, dispatch, true);
+  function copyLine(state, dispatch, forward) {
+    if (state.readOnly)
+      return false;
+    let changes = [];
+    for (let block of selectedLineBlocks(state)) {
+      if (forward)
+        changes.push({ from: block.from, insert: state.doc.slice(block.from, block.to) + state.lineBreak });
+      else
+        changes.push({ from: block.to, insert: state.lineBreak + state.doc.slice(block.from, block.to) });
+    }
+    dispatch(state.update({ changes, scrollIntoView: true, userEvent: "input.copyline" }));
+    return true;
+  }
+  var copyLineUp = ({ state, dispatch }) => copyLine(state, dispatch, false);
+  var copyLineDown = ({ state, dispatch }) => copyLine(state, dispatch, true);
+  var deleteLine = (view) => {
+    if (view.state.readOnly)
+      return false;
+    let { state } = view, changes = state.changes(selectedLineBlocks(state).map(({ from, to }) => {
+      if (from > 0)
+        from--;
+      else if (to < state.doc.length)
+        to++;
+      return { from, to };
+    }));
+    let selection = updateSel(state.selection, (range) => view.moveVertically(range, true)).map(changes);
+    view.dispatch({ changes, selection, scrollIntoView: true, userEvent: "delete.line" });
+    return true;
+  };
   function isBetweenBrackets(state, pos) {
     if (/\(\)|\[\]|\{\}/.test(state.sliceDoc(pos - 1, pos + 1)))
       return { from: pos, to: pos };
@@ -12766,6 +13130,7 @@
     return null;
   }
   var insertNewlineAndIndent = /* @__PURE__ */ newlineAndIndent(false);
+  var insertBlankLine = /* @__PURE__ */ newlineAndIndent(true);
   function newlineAndIndent(atEof) {
     return ({ state, dispatch }) => {
       if (state.readOnly)
@@ -12816,6 +13181,31 @@
       };
     });
   }
+  var indentSelection = ({ state, dispatch }) => {
+    if (state.readOnly)
+      return false;
+    let updated = /* @__PURE__ */ Object.create(null);
+    let context = new IndentContext(state, { overrideIndentation: (start) => {
+      let found = updated[start];
+      return found == null ? -1 : found;
+    } });
+    let changes = changeBySelectedLine(state, (line2, changes2, range) => {
+      let indent = getIndentation(context, line2.from);
+      if (indent == null)
+        return;
+      if (!/\S/.test(line2.text))
+        indent = 0;
+      let cur = /^\s*/.exec(line2.text)[0];
+      let norm = indentString(state, indent);
+      if (cur != norm || range.from < line2.from + cur.length) {
+        updated[line2.from] = indent;
+        changes2.push({ from: line2.from, to: line2.from + cur.length, insert: norm });
+      }
+    });
+    if (!changes.changes.empty)
+      dispatch(state.update(changes, { userEvent: "indent" }));
+    return true;
+  };
   var indentMore = ({ state, dispatch }) => {
     if (state.readOnly)
       return false;
@@ -12882,6 +13272,25 @@
     { mac: "Mod-Backspace", run: deleteToLineStart },
     { mac: "Mod-Delete", run: deleteToLineEnd }
   ].concat(/* @__PURE__ */ emacsStyleKeymap.map((b) => ({ mac: b.key, run: b.run, shift: b.shift })));
+  var defaultKeymap = /* @__PURE__ */ [
+    { key: "Alt-ArrowLeft", mac: "Ctrl-ArrowLeft", run: cursorSyntaxLeft, shift: selectSyntaxLeft },
+    { key: "Alt-ArrowRight", mac: "Ctrl-ArrowRight", run: cursorSyntaxRight, shift: selectSyntaxRight },
+    { key: "Alt-ArrowUp", run: moveLineUp },
+    { key: "Shift-Alt-ArrowUp", run: copyLineUp },
+    { key: "Alt-ArrowDown", run: moveLineDown },
+    { key: "Shift-Alt-ArrowDown", run: copyLineDown },
+    { key: "Escape", run: simplifySelection },
+    { key: "Mod-Enter", run: insertBlankLine },
+    { key: "Alt-l", mac: "Ctrl-l", run: selectLine },
+    { key: "Mod-i", run: selectParentSyntax, preventDefault: true },
+    { key: "Mod-[", run: indentLess },
+    { key: "Mod-]", run: indentMore },
+    { key: "Mod-Alt-\\", run: indentSelection },
+    { key: "Shift-Mod-k", run: deleteLine },
+    { key: "Shift-Mod-\\", run: cursorMatchingBracket },
+    { key: "Mod-/", run: toggleComment },
+    { key: "Alt-A", run: toggleBlockComment }
+  ].concat(standardKeymap);
   var indentWithTab = { key: "Tab", run: indentMore, shift: indentLess };
 
   // node_modules/@codemirror/autocomplete/dist/index.js
@@ -20044,7 +20453,7 @@ g nle`.split("\n");
         syntaxHighlighting(defaultHighlightStyle),
         closeBrackets(),
         history(),
-        keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
+        keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
         lineNumbers(),
         assembly({ debug: true }),
         ...shellcodeEnabled ? [ShellcodePlugin] : []
