@@ -131,7 +131,8 @@ export class Statement
      * @param {Number} config.maxSize
      * @param {Range} config.range
      * @param {ASMError?} config.error
-     * @param {Section} config.section */
+     * @param {Section} config.section
+     * @param {import("./parser.js").Syntax} config.syntax */
     constructor({ addr = 0, maxSize = 0, range = new Range(), error = null, section = currSection, syntax = currSyntax } = {})
     {
         this.id = totalStatements++; // Each Statement gets a unique ID

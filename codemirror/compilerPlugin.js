@@ -28,6 +28,22 @@ export const ASMStateField = StateField.define({
     }
 });
 
+export const ASMLanguageData = EditorState.languageData.of((state, pos, side) => {
+    pos = state.doc.lineAt(pos).from;
+
+    var asmState = state.field(ASMStateField);
+    var lastInstr = null;
+
+    asmState.iterate(instr => {
+        if(instr.range.start < pos)
+            lastInstr = instr;
+    });
+    return [{
+        commentTokens: { line:
+            (lastInstr ? lastInstr.syntax : asmState.defaultSyntax).intel ? ';' : '#' }
+    }];
+})
+
 export class ASMColor extends RangeValue
 {
     /** @param {String} color */
