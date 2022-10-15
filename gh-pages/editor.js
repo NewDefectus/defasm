@@ -1,4 +1,4 @@
-import { standardKeymap, indentWithTab, history, historyKeymap }    from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, history, historyKeymap }    from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap }                       from "@codemirror/autocomplete";
 import { defaultHighlightStyle, syntaxHighlighting }                from "@codemirror/language";
 import { EditorState }                                              from "@codemirror/state";
@@ -70,7 +70,7 @@ const editor = new EditorView({
             syntaxHighlighting(defaultHighlightStyle),
             closeBrackets(),
             history(),
-            keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...standardKeymap]),
+            keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
             lineNumbers(),
             assembly({ debug: true }),
             ...shellcodeEnabled ? [ShellcodePlugin] : []
