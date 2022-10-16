@@ -1,5 +1,5 @@
 # DefAssembler
-DefAssembler is an incremental x86-64 assembler written in JavaScript. It aims to be relatively lightweight, easy to use, and efficient. For a quick demonstration, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defAsm/). DefAssembler is also the assembler used by [Code Golf](https://code.golf/ng/fizz-buzz#assembly).
+DefAssembler is an incremental x86-64 assembler written in JavaScript. It aims to be relatively lightweight, easy to use, and efficient. For a quick demonstration, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defAsm/). DefAssembler is also the assembler used by [Code Golf](https://code.golf/fizz-buzz#assembly).
 
 DefAssembler is currently available in the following npm packages, all of which are developed under this repository:
 * `@defasm/core` - this is the main package of the assembler; it exports the functionality required to assemble code.
