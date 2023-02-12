@@ -19,7 +19,7 @@ export const prefixes = Object.freeze({
     addr32: 0x67
 });
 
-const SHORT_DISP = 128;
+const SHORT_DISP = 1024;
 
 /* Parse an optional "pseudo-operand" for rounding semantics may appear
 at the start or end of the operand list, depending on the syntax */
