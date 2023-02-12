@@ -614,9 +614,10 @@ movsbl/:0FBE rB Rl
 movsbq/:0FBE rB Rq
 movswl/:0FBF rW Rl
 movswq/:0FBF rW Rq
+movslq/:63 rL Rq
+movsxd/:63 rL Rq
+/movsxd:63 rL Rwlq
 movsx:0FBE rb$w Rwlq
-movslq:63 rL Rwlq
-movsxd:63 rL Rwlq
 
 movupd
 66)0F10 v Vxyz > {kzw
@@ -1570,7 +1571,7 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
                     
                     case 'l':
                         mnemonics[fullName] = [higherOpcode];
-                        intelDifferences[name + 'd'] = fullName;
+                        intelDifferences[name + 'd'] = [higherOpcode];
                         intelInvalids.push(fullName);
                         break;
 
@@ -1590,12 +1591,18 @@ mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
             if(name)
             {
                 if(intelName)
-                    intelDifferences[intelName] = name;
+                    intelDifferences[intelName] = lines;
                 intelInvalids.push(name);
             }
             else
             {
                 name = intelName;
+                if(intelInvalids.includes(name)) // Super special case, but we'll handle it
+                {
+                    intelInvalids.splice(intelInvalids.indexOf(name), 1);
+                    intelDifferences[name] = lines;
+                    return;
+                }
                 attInvalids.push(name);
             }
         }
@@ -1800,9 +1807,9 @@ export function getOperations(opcode, intel)
         {
             // For situations such as cmpsd having two different interpretations in Intel syntax
             if(mnemonics.hasOwnProperty(opcode))
-                return [...getOperations(intelDifferences[opcode], false), ...getOperations(opcode, false)];
-                
-            opcode = intelDifferences[opcode];
+                return [...extractMnemonic(intelDifferences, opcode), ...getOperations(opcode, false)];
+
+            return extractMnemonic(intelDifferences, opcode);
         }
         else if(intelInvalids.includes(opcode))
             return [];
@@ -1811,13 +1818,18 @@ export function getOperations(opcode, intel)
         return [];
     if(!mnemonics.hasOwnProperty(opcode))
         return [];
-    let operations = mnemonics[opcode];
 
+    return extractMnemonic(mnemonics, opcode);
+}
+
+function extractMnemonic(database, opcode)
+{
+    let operations = database[opcode];
     if(typeof operations[0] == "string") // If the mnemonic hasn't been decoded yet, decode it
     {
         if(operations[0][0] == '#') // References other mnemonic
-            return mnemonics[opcode] = getOperations(operations[0].slice(1));
-        return mnemonics[opcode] = operations.map(line => new Operation(line.split(' ')));
+            return database[opcode] = extractMnemonic(database, operations[0].slice(1));
+        return database[opcode] = operations.map(line => new Operation(line.split(' ')));
     }
 
     return operations;
