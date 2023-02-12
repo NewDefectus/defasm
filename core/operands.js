@@ -383,7 +383,7 @@ export class Operand
                             next();
                         }
                     }
-                    else if(this.reg == 4)
+                    else if((this.reg & 7) == 4)
                         this.reg2 = 4;
                     
                     if(token != ')')
