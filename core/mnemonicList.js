@@ -316,7 +316,7 @@ idiv:F6.7 rbwlq
 imul
 F6.5 rbwlq
 0FAF r Rwlq
-6B ib r Rwlq
+6B Ib r Rwlq
 69 iw rw Rw
 69 il r Rlq
 
