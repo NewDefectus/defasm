@@ -184,7 +184,7 @@ export class Instruction extends Statement
 
             if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
                 vexInfo.evex = true;
-            if(operand.type == OPT.MEM || operand.type == OPT.REL)
+            if(operand.type == OPT.MEM || operand.type == OPT.VMEM || operand.type == OPT.REL)
             {
                 memoryOperand = operand;
                 if(enforcedSize)
