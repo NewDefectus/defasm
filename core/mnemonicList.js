@@ -611,8 +611,11 @@ F3)0F11 Vx m > {k
 
 movsbw/:0FBE rB Rw
 movsbl/:0FBE rB Rl
+movsbq/:0FBE rB Rq
 movswl/:0FBF rW Rl
+movswq/:0FBF rW Rq
 movsx:0FBE rb$w Rwlq
+movslq:63 rL Rwlq
 movsxd:63 rL Rwlq
 
 movupd
