@@ -14120,7 +14120,7 @@
                   throw new ASMError("Scale must be 1, 2, 4, or 8");
                 next();
               }
-            } else if (this.reg == 4)
+            } else if ((this.reg & 7) == 4)
               this.reg2 = 4;
             if (token != ")")
               throw new ASMError("Expected ')'");
@@ -16218,7 +16218,7 @@ idiv:F6.7 rbwlq
 imul
 F6.5 rbwlq
 0FAF r Rwlq
-6B ib r Rwlq
+6B Ib r Rwlq
 69 iw rw Rw
 69 il r Rlq
 
@@ -16513,9 +16513,13 @@ F3)0F11 Vx m > {k
 
 movsbw/:0FBE rB Rw
 movsbl/:0FBE rB Rl
+movsbq/:0FBE rB Rq
 movswl/:0FBF rW Rl
+movswq/:0FBF rW Rq
+movslq/:63 rL Rq
+movsxd/:63 rL Rq
+/movsxd:63 rL Rwlq
 movsx:0FBE rb$w Rwlq
-movsxd:63 rL Rwlq
 
 movupd
 66)0F10 v Vxyz > {kzw
@@ -17459,7 +17463,7 @@ xtest:0F01D6
               break;
             case "l":
               mnemonics[fullName] = [higherOpcode];
-              intelDifferences[name2 + "d"] = fullName;
+              intelDifferences[name2 + "d"] = [higherOpcode];
               intelInvalids.push(fullName);
               break;
             case "q":
@@ -17474,10 +17478,15 @@ xtest:0F01D6
         [name2, intelName] = name2.split("/");
         if (name2) {
           if (intelName)
-            intelDifferences[intelName] = name2;
+            intelDifferences[intelName] = lines;
           intelInvalids.push(name2);
         } else {
           name2 = intelName;
+          if (intelInvalids.includes(name2)) {
+            intelInvalids.splice(intelInvalids.indexOf(name2), 1);
+            intelDifferences[name2] = lines;
+            return;
+          }
           attInvalids.push(name2);
         }
       }
@@ -17505,6 +17514,7 @@ xtest:0F01D6
   shiftMnemonics.forEach((name2, i) => {
     if (name2)
       mnemonics[name2] = [
+        "D0." + i + " rbwlq",
         "D0." + i + " i_1B rbwlq",
         "D2." + i + " R_1b rbwlq",
         "C0." + i + " iB rbwlq"
@@ -17611,19 +17621,22 @@ g nle`.split("\n");
     if (intel) {
       if (intelDifferences.hasOwnProperty(opcode)) {
         if (mnemonics.hasOwnProperty(opcode))
-          return [...getOperations(intelDifferences[opcode], false), ...getOperations(opcode, false)];
-        opcode = intelDifferences[opcode];
+          return [...extractMnemonic(intelDifferences, opcode), ...getOperations(opcode, false)];
+        return extractMnemonic(intelDifferences, opcode);
       } else if (intelInvalids.includes(opcode))
         return [];
     } else if (attInvalids.includes(opcode))
       return [];
     if (!mnemonics.hasOwnProperty(opcode))
       return [];
-    let operations = mnemonics[opcode];
+    return extractMnemonic(mnemonics, opcode);
+  }
+  function extractMnemonic(database, opcode) {
+    let operations = database[opcode];
     if (typeof operations[0] == "string") {
       if (operations[0][0] == "#")
-        return mnemonics[opcode] = getOperations(operations[0].slice(1));
-      return mnemonics[opcode] = operations.map((line2) => new Operation(line2.split(" ")));
+        return database[opcode] = extractMnemonic(database, operations[0].slice(1));
+      return database[opcode] = operations.map((line2) => new Operation(line2.split(" ")));
     }
     return operations;
   }
@@ -17640,7 +17653,7 @@ g nle`.split("\n");
     data16: 102,
     addr32: 103
   });
-  var SHORT_DISP = 128;
+  var SHORT_DISP = 1024;
   function parseRoundingMode(vexInfo) {
     let roundingName = "", roundStart = currRange;
     vexInfo.evex = true;
@@ -17752,7 +17765,7 @@ g nle`.split("\n");
         operands.push(operand);
         if (operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
           vexInfo.evex = true;
-        if (operand.type == OPT.MEM || operand.type == OPT.REL) {
+        if (operand.type == OPT.MEM || operand.type == OPT.VMEM || operand.type == OPT.REL) {
           memoryOperand = operand;
           if (enforcedSize)
             operand.size = enforcedSize;
