@@ -14330,9 +14330,11 @@
     }
     absoluteValue() {
       let val = this, total = this.addend;
-      while (val.symbol && val.symbol.value !== val) {
+      let passed = /* @__PURE__ */ new Set([val]);
+      while (val.symbol && !passed.has(val.symbol.value)) {
         val = val.symbol.value;
         total += val.addend;
+        passed.add(val);
       }
       return total;
     }
@@ -14441,7 +14443,7 @@
         });
       const symbol = symbols.get(this.name);
       if (symbol.statement && !symbol.statement.error) {
-        if (instr2.symbol && checkSymbolRecursion(instr2.symbol, symbol))
+        if (instr2.symbol && checkSymbolRecursion(symbol))
           throw new ASMError(`Recursive definition`, this.range);
         let isAbs = symbol.value.section == pseudoSections.ABS;
         return new IdentifierValue({
@@ -14582,9 +14584,7 @@
     }
     evaluate(instr2, allowPCRelative = true, expectAbsolute = false) {
       if (this.stack.length == 0)
-        return new IdentifierValue({
-          section: pseudoSections.ABS
-        });
+        return new IdentifierValue({ section: pseudoSections.ABS });
       let stack = [], len = 0;
       for (const op of this.stack) {
         const func = op.func;
@@ -14630,12 +14630,14 @@
     this.stack = [new SymbolIdentifier(instr2, instr2.syntax.intel ? "$" : ".", currRange)];
   }
   CurrentIP.prototype = Object.create(Expression.prototype);
-  function checkSymbolRecursion(origin, symbol) {
-    if (symbol === origin)
+  function checkSymbolRecursion(symbol, passed = /* @__PURE__ */ new Set()) {
+    if (passed.has(symbol))
       return true;
+    passed.add(symbol);
     for (const use of symbol.uses)
-      if (use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
+      if (checkSymbolRecursion(use, passed))
         return true;
+    passed.delete(symbol);
     return false;
   }
 
@@ -14682,10 +14684,10 @@
       this.removed = false;
       if (symbols.has(name2)) {
         this.symbol = symbols.get(name2);
+        this.symbol.definitions.push(this);
         if (this.symbol.statement) {
           this.error = new ASMError(`This ${isLabel ? "label" : "symbol"} already exists`, opcodeRange);
           this.duplicate = true;
-          this.symbol.definitions.push(this);
           return;
         }
         this.symbol.uses = uses;
@@ -14712,7 +14714,7 @@
       } catch (e) {
         this.error = e;
       }
-      return !(originError && this.error) && value && (originValue.addend !== value.addend || originValue.section !== value.section || prevAbs !== this.prevAbs);
+      return !(originError && this.error) && (!value || originValue.addend !== value.addend || originValue.section !== value.section || prevAbs !== this.prevAbs);
     }
     recompile() {
       if (this.duplicate && this.symbol.statement)
