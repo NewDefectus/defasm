@@ -480,6 +480,8 @@ minss:F3)0F5D v >V Vx {kzs
 monitor:0F01C8
 
 mov
+A0 %m R_0bwlq
+A2 R_0bwlq %m
 88 Rbwlq r
 8A r Rbwlq
 C7.0 Il Rq

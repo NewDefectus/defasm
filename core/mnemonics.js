@@ -98,7 +98,8 @@ function OpCatcher(format)
     this.forceRM = format[0] == '^';
     this.vexOpImm = format[0] == '<';
     this.vexOp = this.vexOpImm || format[0] == '>';
-    if(this.forceRM || this.vexOp)
+    this.moffset = format[0] == '%'; // Only used once in the entire instruction set
+    if(this.forceRM || this.vexOp || this.moffset)
         format = format.slice(1);
     this.carrySizeInference = format[0] != '*';
     if(!this.carrySizeInference)
@@ -440,7 +441,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     // be redundant as we wouldn't know if the operation is encodable at all.
     // In other words, this aids performance.
 
-    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null, moffs = null;
     let extendOp = false, unsigned = false;
 
     let operand;
@@ -465,6 +466,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
                 relImm = operand;
                 instr.ipRelative = true;
             }
+            else if(catcher.moffset)
+                moffs = operand;
             else if(catcher.forceRM)
                 rm = operand;
             else if(catcher.vexOp)
@@ -583,7 +586,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         evexImm,
         relImm,
         imms,
-        unsigned
+        unsigned,
+        moffs
     };
 }
 
@@ -648,7 +652,12 @@ Operation.prototype.matchTypes = function(operands, vexInfo)
             ||
             // In case of implicit operands, check that the values match
             catcher.implicitValue !== null &&
-            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
+            catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg)
+            ||
+            // Super special case: if the operand is of type moffset,
+            // make sure it is only an offset
+            catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0)
+        )
             return false;
     }
     

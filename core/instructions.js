@@ -400,6 +400,20 @@ export class Instruction extends Statement
             throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
         let opcode = op.opcode;
 
+        // Memory-offset special case for MOV instruction
+        if(op.moffs)
+        {
+            let { moffs } = op;
+            if(!moffs.value.isRelocatable() && inferImmSize(moffs.value) < 64 && (moffs.dispSize == 32 || moffs.sizeAvailable(SHORT_DISP)))
+            {
+                moffs.dispSize = 32;
+                moffs.recordSizeUse(SHORT_DISP);
+                prefsToGen |= PREFIX_ADDRSIZE;
+            }
+            else
+                moffs.dispSize = 64;
+        }
+
         // Time to generate!
         if(prefsToGen >= PREFIX_SEG)
             this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
@@ -431,7 +445,7 @@ export class Instruction extends Statement
         if(sib !== null)
             this.genByte(sib);
 
-        // Generating the displacement and immediate
+        // Generating the displacement
         if(op.rm?.value?.addend != null)
         {
             let sizeRelative = false, value = op.rm.value;
@@ -452,6 +466,8 @@ export class Instruction extends Statement
             this.genValue(op.relImm.value, op.relImm.size, false, true, true);
         else if(op.evexImm !== null)
             this.genByte(op.evexImm);
+        else if(op.moffs !== null)
+            this.genValue(op.moffs.value, op.moffs.dispSize, true);
         else for(const imm of op.imms)
             this.genValue(imm.value, imm.size, !op.unsigned);
         
