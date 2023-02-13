@@ -231,10 +231,12 @@ export class IdentifierValue
     absoluteValue()
     {
         let val = this, total = this.addend;
-        while(val.symbol && val.symbol.value !== val)
+        let passed = new Set([val]);
+        while(val.symbol && !passed.has(val.symbol.value))
         {
             val = val.symbol.value;
             total += val.addend;
+            passed.add(val);
         }
         return total;
     }
@@ -398,7 +400,7 @@ class SymbolIdentifier extends Identifier
         const symbol = symbols.get(this.name);
         if(symbol.statement && !symbol.statement.error)
         {
-            if(instr.symbol && checkSymbolRecursion(instr.symbol, symbol))
+            if(instr.symbol && checkSymbolRecursion(symbol))
                 throw new ASMError(`Recursive definition`, this.range);
             let isAbs = symbol.value.section == pseudoSections.ABS;
             return new IdentifierValue({
@@ -603,9 +605,7 @@ export class Expression
     evaluate(instr, allowPCRelative = true, expectAbsolute = false)
     {
         if(this.stack.length == 0)
-            return new IdentifierValue({
-                section: pseudoSections.ABS
-            });
+            return new IdentifierValue({ section: pseudoSections.ABS });
         
         /** @type {IdentifierValue[]} */
         let stack = [], len = 0;
@@ -668,12 +668,21 @@ export function CurrentIP(instr)
 }
 CurrentIP.prototype = Object.create(Expression.prototype);
 
-function checkSymbolRecursion(origin, symbol)
+/** Check if a symbol's definition contains a recursion
+ * @param {import("./symbols.js").Symbol} symbol The checked symbol
+ * @param {Set.<import("./symbols.js").Symbol>} passed The symbols that have been passed
+ * @returns {boolean}
+ */
+function checkSymbolRecursion(symbol, passed = new Set())
 {
-    if(symbol === origin)
+    if(passed.has(symbol))
         return true;
+
+    passed.add(symbol);
     for(const use of symbol.uses)
-        if(use.symbol && !use.symbol.error && checkSymbolRecursion(origin, use))
+        if(checkSymbolRecursion(use, passed))
             return true;
+
+    passed.delete(symbol);
     return false;
 }

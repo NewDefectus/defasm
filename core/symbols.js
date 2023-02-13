@@ -80,11 +80,11 @@ export class SymbolDefinition extends Statement
         if(symbols.has(name))
         {
             this.symbol = symbols.get(name);
+            this.symbol.definitions.push(this);
             if(this.symbol.statement)
             {
                 this.error = new ASMError(`This ${isLabel ? 'label' : 'symbol'} already exists`, opcodeRange);
                 this.duplicate = true;
-                this.symbol.definitions.push(this);
                 return;
             }
             this.symbol.uses = uses;
@@ -121,7 +121,7 @@ export class SymbolDefinition extends Statement
         {
             this.error = e;
         }
-        return !(originError && this.error) && value && (originValue.addend !== value.addend
+        return !(originError && this.error) && (!value || originValue.addend !== value.addend
             || originValue.section !== value.section || prevAbs !== this.prevAbs);
     }
 
