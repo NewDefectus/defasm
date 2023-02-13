@@ -403,15 +403,9 @@ export class Instruction extends Statement
         // Memory-offset special case for MOV instruction
         if(op.moffs)
         {
-            let { moffs } = op;
-            if(!moffs.value.isRelocatable() && inferImmSize(moffs.value) < 64 && (moffs.dispSize == 32 || moffs.sizeAvailable(SHORT_DISP)))
-            {
-                moffs.dispSize = 32;
-                moffs.recordSizeUse(SHORT_DISP);
+            this.determineDispSize(op.moffs, 32, 64);
+            if(op.moffs.dispSize == 32)
                 prefsToGen |= PREFIX_ADDRSIZE;
-            }
-            else
-                moffs.dispSize = 64;
         }
 
         // Time to generate!
@@ -505,25 +499,11 @@ export class Instruction extends Statement
         {
             if(rm.value.addend != null)
             {
-                if(!rm.value.isRelocatable() && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP)))
-                {
-                    rm.dispSize = 8;
+                this.determineDispSize(rm, 8, 32);
+                if(rm.dispSize == 8)
                     modrm |= 0x40; // mod=01
-                    rm.recordSizeUse(SHORT_DISP);
-                }
-                else if(!rm.value.isRelocatable() && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP))
-                {
-                    rm.dispSize = 8;
-                    modrm |= 0x40; // mod=01
-                    rm.recordSizeUse(SHORT_DISP);
-
-                    queueRecomp(this);
-                }
                 else
-                {
                     rm.dispSize = 32;
-                    modrm |= 0x80; // mod=10
-                }
             }
         }
         else // mod = 00
@@ -552,6 +532,28 @@ export class Instruction extends Statement
             return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
         }
         return [rex, modrm | rmReg, null];
+    }
+
+    /** Determine whether to shorten a memory operand's displacement if possible,
+     * and queue for recompilation as necessary
+     * @param {Operand} operand The memory operand to determine
+     * @param {Number} shortSize The possible short size
+     * @param {Number} longSize The default long size */
+    determineDispSize(operand, shortSize, longSize)
+    {
+        if(!operand.value.isRelocatable() && inferImmSize(operand.value) < longSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP)))
+        {
+            operand.dispSize = shortSize;
+            operand.recordSizeUse(SHORT_DISP);
+        }
+        else if(!operand.value.isRelocatable() && operand.expression && operand.expression.hasSymbols && operand.dispSize != shortSize && operand.sizeAvailable(SHORT_DISP))
+        {
+            operand.dispSize = shortSize;
+            operand.recordSizeUse(SHORT_DISP);
+            queueRecomp(this);
+        }
+        else
+            operand.dispSize = longSize;
     }
 
     recompile()

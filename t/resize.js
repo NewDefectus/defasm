@@ -36,6 +36,13 @@ exports.run = async function()
     state.compile("sym = . + 0x7d", { range: state.line(2) }); validate(state);
     state.compile("sym = . + 0x7c", { range: state.line(2) }); validate(state);
 
+    // MOV moffset resizing
+    state.compile("mov %eax, sym - .", { range: state.line(1) });
+    
+    state.compile("sym = . + 0x7ffffff6", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7ffffff7", { range: state.line(2) }); validate(state);
+    state.compile("sym = . + 0x7ffffff6", { range: state.line(2) }); validate(state);
+
     // Unknown symbol resizing
     state.compile(`\
 sym = . - 0x7c
