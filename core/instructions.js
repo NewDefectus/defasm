@@ -246,6 +246,9 @@ export class Instruction extends Statement
         if(memoryOperand && vexInfo.round !== null)
             throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
         
+        if(memoryOperand && (this.prefsToGen & PREFIX_ADDRSIZE))
+            memoryOperand.dispSize = 32;
+        
         // Filter out operations whose types don't match
         /** @type {Mnemonic[]} */
         let matchingMnemonics = [];
@@ -414,10 +417,6 @@ export class Instruction extends Statement
         if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
             throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
         let opcode = op.opcode;
-
-        // Memory-offset special case for MOV instruction
-        if(op.moffs)
-            op.moffs.dispSize = (prefsToGen & PREFIX_ADDRSIZE) ? 32 : 64;
 
         if(op.size == 16)
             prefsToGen |= PREFIX_DATASIZE;

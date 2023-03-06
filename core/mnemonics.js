@@ -162,7 +162,7 @@ export function OpCatcher(format)
 OpCatcher.prototype.catch = function(operand, prevSize, isVex)
 {
     // Check that the sizes match
-    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+    let opSize = this.moffset ? operand.dispSize : this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     let defSize = isVex ? this.defVexSize : this.defSize;
 
@@ -450,8 +450,13 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
     {
         catcher = opCatchers[i], operand = operands[i];
         size = correctedSizes[i];
-        operand.size = size & ~7;
-        operand.recordSizeUse(operand.size, catcher.unsigned);
+        if(catcher.moffset)
+            operand.dispSize = size & ~7;
+        else
+        {
+            operand.size = size & ~7;
+            operand.recordSizeUse(operand.size, catcher.unsigned);
+        }
         if(catcher.unsigned)
             unsigned = true;
 
