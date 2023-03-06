@@ -171,6 +171,8 @@ OpCatcher.prototype.catch = function(operand, prevSize, isVex)
         // For unknown-sized operands, if possible, choose the default size
         if(defSize > 0)
             return defSize;
+        else if(this.moffset)
+            return null;
         else if(this.sizes == -2)
         {
             opSize = (prevSize & ~7) >> 1;
