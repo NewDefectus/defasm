@@ -123,14 +123,17 @@ exports.run = async function()
                 let sizeSuffixOriginal = sizeSuffix;
                 if(type == OPT.MEM && showSuffix && size != (mnemonic.vex ? catcher.defVexSize : catcher.defSize))
                 {
-                    sizeSuffix = (
-                        opcode[0] == 'f' ?
-                            opcode[1] == 'i' ?
-                                floatIntSuffixNames
+                    if(catcher.moffset)
+                        sizeSuffix = 'addr32';
+                    else
+                        sizeSuffix = (
+                            opcode[0] == 'f' ?
+                                opcode[1] == 'i' ?
+                                    floatIntSuffixNames
+                                :
+                                    floatSuffixNames
                             :
-                                floatSuffixNames
-                        :
-                            suffixNames)[size & ~7];
+                                suffixNames)[size & ~7];
                 }
                 if(!mnemonic.vex && size >= 256 || (size & ~7) == 48)
                     continue;
@@ -141,6 +144,11 @@ exports.run = async function()
 
                 if(total + 1 >= opCatchers.length)
                 {
+                    if(sizeSuffix == 'addr32')
+                    {
+                        source += 'addr32 ';
+                        sizeSuffix = '';
+                    }
                     source += opcode + sizeSuffix + ' ' +
                     (mnemonic.relative && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
