@@ -492,7 +492,7 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         }
 
         // Overall size represents the highest non-implicitly encoded size
-        if(overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
+        if(!catcher.moffset && overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
             overallSize = size & ~7;
 
         if(size >= 16)
