@@ -88,7 +88,7 @@ function getSizes(format)
 /** Operand catchers
  * @param {string} format 
  */
-function OpCatcher(format)
+export function OpCatcher(format)
 {
     opCatcherCache[format] = this; // Cache this op catcher
     let i = 1;

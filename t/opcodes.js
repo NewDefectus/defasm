@@ -19,8 +19,13 @@ exports.run = async function()
     const floatIntSuffixNames = reverseObject(floatIntSuffixes);
     const vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
 
-    function makeOperand(type, size, index, value = null)
+    /**
+     * @param {import("@defasm/core/mnemonics.js").OpCatcher} catcher 
+     * @returns {String}
+     */
+    function makeOperand(catcher, size, index, type = catcher.type)
     {
+        let value = catcher.implicitValue;
         let id = value === null ? index : value;
         
         switch(type)
@@ -31,7 +36,7 @@ exports.run = async function()
             case OPT.IMM:  return value === null ? '$' + (1 << (size - 4)) : '$' + value;
             case OPT.MASK: return '%k' + id;
             case OPT.REL:  return '.+' + (1 << (size - 4));
-            case OPT.MEM:  return '(%' + regNames[24 + id] +')';
+            case OPT.MEM:  return catcher.moffset ? '' + (1 << (size - 4)) : '(%' + regNames[24 + id] +')';
             case OPT.ST:   return '%st' + (id ? '(' + id + ')' : '');
             case OPT.SEG:  return '%' + regNames[32 + id];
             case OPT.IP:   return size == 32 ? '%eip' : '%rip';
@@ -83,7 +88,7 @@ exports.run = async function()
                 for(let i = 0; i < opCatchers.length; i++)
                 {
                     if(operands[i] === undefined)
-                        operands[i] = makeOperand(opCatchers[i].type, 32, i + 1, opCatchers[i].implicitValue);
+                        operands[i] = makeOperand(opCatchers[i], 32, i + 1);
                 }
                 source += opcode + ' ' + 
                 (opcode == 'lcall' || opcode == 'ljmp' ? '*' : '')
@@ -132,7 +137,7 @@ exports.run = async function()
                 if(mnemonic.vex && size < 128 && type == OPT.VEC)
                     continue;
                 
-                operands[i] = makeOperand(type, size & ~7, total + 1, catcher.implicitValue);
+                operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
 
                 if(total + 1 >= opCatchers.length)
                 {
