@@ -1,6 +1,8 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, PREFIX_REX, PREFIX_CLASHREX, PREFIX_ADDRSIZE, PREFIX_SEG, regParsePos, sizeHints } from "./operands.js";
+import { Operand, parseRegister, OPT, regParsePos, sizeHints,
+    PREFIX_REX, PREFIX_CLASHREX, PREFIX_LOCK, PREFIX_REPNE,
+    PREFIX_REPE, PREFIX_DATASIZE, PREFIX_ADDRSIZE, PREFIX_SEG } from "./operands.js";
 import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
 import { fetchMnemonic, Mnemonic } from "./mnemonicList.js";
 import { queueRecomp } from "./symbols.js";
@@ -9,14 +11,14 @@ import { pseudoSections } from "./sections.js";
 import { IdentifierValue } from "./shuntingYard.js";
 
 export const prefixes = Object.freeze({
-    lock: 0xF0,
-    repne: 0xF2,
-    repnz: 0xF2,
-    rep: 0xF3,
-    repe: 0xF3,
-    repz: 0xF3,
-    data16: 0x66,
-    addr32: 0x67
+    lock: PREFIX_LOCK,
+    repne: PREFIX_REPNE,
+    repnz: PREFIX_REPNE,
+    rep: PREFIX_REPE,
+    repe: PREFIX_REPE,
+    repz: PREFIX_REPE,
+    data16: PREFIX_DATASIZE,
+    addr32: PREFIX_ADDRSIZE
 });
 
 const SHORT_DISP = 1024;
@@ -116,6 +118,19 @@ export class Instruction extends Statement
 
         /** @type { Operand[] } */
         let operands = [];
+
+        this.prefsToGen = 0;
+        while(prefixes.hasOwnProperty(opcode.toLowerCase())) // Prefix
+        {
+            this.prefsToGen |= prefixes[opcode];
+
+            this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
+            opcode = token;
+            if(opcode === ';' || opcode === '\n')
+                throw new ASMError("Expected opcode", this.opcodeRange);
+            next();
+        }
+        this.opcode = opcode.toLowerCase();
 
         let mnemonics = fetchMnemonic(opcode, this.syntax.intel);
         if(mnemonics.length == 0)
@@ -266,7 +281,7 @@ export class Instruction extends Statement
     compile()
     {
         let { operands, memoryOperand, mnemonics, vexInfo } = this.outline;
-        let prefsToGen = 0;
+        let prefsToGen = this.prefsToGen;
         this.clear();
 
         if(memoryOperand)
@@ -408,13 +423,20 @@ export class Instruction extends Statement
                 prefsToGen |= PREFIX_ADDRSIZE;
         }
 
-        // Time to generate!
-        if(prefsToGen >= PREFIX_SEG)
-            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen >> 3) - 1]);
-        if(prefsToGen & PREFIX_ADDRSIZE)
-            this.genByte(prefixes.addr32);
         if(op.size == 16)
-            this.genByte(prefixes.data16);
+            prefsToGen |= PREFIX_DATASIZE;
+
+        // Time to generate!
+        if(prefsToGen & PREFIX_LOCK)  this.genByte(0xF0);
+        if(prefsToGen & PREFIX_REPNE) this.genByte(0xF2);
+        if(prefsToGen & PREFIX_REPE)  this.genByte(0xF3)
+
+        if(prefsToGen >= PREFIX_SEG)
+            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen / PREFIX_SEG | 0) - 1]);
+
+        if(prefsToGen & PREFIX_DATASIZE) this.genByte(0x66);
+        if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
+
         if(op.prefix !== null)
         {
             if(op.prefix > 0xff)
@@ -594,17 +616,6 @@ function makeVexPrefix(vex, rex, isEvex)
 
     return [0xC4, vex1, vex2];
 }
-
-export class Prefix extends Statement
-{
-    constructor({ name, ...config })
-    {
-        super({ ...config, maxSize: 1 });
-        this.bytes[0] = prefixes[name.toLowerCase()];
-        this.length = 1;
-    }
-}
-
 
 
 /** Infer the size of an immediate from its value

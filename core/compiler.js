@@ -1,6 +1,6 @@
 import { ASMError, token, next, match, loadCode, currRange, currSyntax, setSyntax, prevRange, line, comment, Range, startAbsRange, RelativeRange, ungetToken } from "./parser.js";
 import { isDirective, makeDirective } from "./directives.js";
-import { Instruction, Prefix, prefixes } from "./instructions.js";
+import { Instruction } from "./instructions.js";
 import { SymbolDefinition, recompQueue, queueRecomp, loadSymbols, symbols } from "./symbols.js";
 import { Statement, StatementNode } from "./statement.js";
 import { loadSections, Section, sectionFlags, sections } from "./sections.js";
@@ -114,7 +114,7 @@ export class AssemblyState
         loadCode(this.source, replacementRange.start);
 
         prevNode = head;
-        
+
         while(match)
         {
             let range = startAbsRange();
@@ -147,11 +147,6 @@ export class AssemblyState
                         
                         if(isDir) // Assembler directive
                             addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name : name.slice(1)));
-                        else if(prefixes.hasOwnProperty(name.toLowerCase())) // Prefix
-                        {
-                            ungetToken();
-                            addInstruction(new Prefix({ addr, range, name }), false);
-                        }
                         else if(currSyntax.intel && isDirective(token, true)) // "<label> <directive>"
                         {
                             addInstruction(new SymbolDefinition({ addr, name, range, isLabel: true }), false);
@@ -178,11 +173,11 @@ export class AssemblyState
             }
             if(comment)
                 addInstruction(new Statement({ addr, range: startAbsRange() }), false);
+
             next();
             if(currRange.end > replacementRange.end)
                 break;
         }
-
 
         // Correct the tails' positions, in case more instructions were parsed than initially thought
         for(const section of sections)

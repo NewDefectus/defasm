@@ -71,8 +71,12 @@ export function nameRegister(name, size, syntax)
 export const    PREFIX_REX = 1,
                 PREFIX_NOREX = 2,
                 PREFIX_CLASHREX = 3,
-                PREFIX_ADDRSIZE = 4,
-                PREFIX_SEG = 8;
+                PREFIX_LOCK = 4,
+                PREFIX_REPNE = 8,
+                PREFIX_REPE = 16,
+                PREFIX_DATASIZE = 32,
+                PREFIX_ADDRSIZE = 64,
+                PREFIX_SEG = 128;
 
 export var regParsePos;
 
