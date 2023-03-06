@@ -417,11 +417,7 @@ export class Instruction extends Statement
 
         // Memory-offset special case for MOV instruction
         if(op.moffs)
-        {
-            this.determineDispSize(op.moffs, 32, 64);
-            if(op.moffs.dispSize == 32)
-                prefsToGen |= PREFIX_ADDRSIZE;
-        }
+            op.moffs.dispSize = (prefsToGen & PREFIX_ADDRSIZE) ? 32 : 64;
 
         if(op.size == 16)
             prefsToGen |= PREFIX_DATASIZE;
