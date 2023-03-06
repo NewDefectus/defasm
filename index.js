@@ -15580,12 +15580,14 @@
     }
   }
   OpCatcher.prototype.catch = function(operand, prevSize, isVex) {
-    let opSize = this.unsigned ? operand.unsignedSize : operand.size;
+    let opSize = this.moffset ? operand.dispSize : this.unsigned ? operand.unsignedSize : operand.size;
     let rawSize, size = 0, found = false;
     let defSize = isVex ? this.defVexSize : this.defSize;
     if (isNaN(opSize)) {
       if (defSize > 0)
         return defSize;
+      else if (this.moffset)
+        return null;
       else if (this.sizes == -2) {
         opSize = (prevSize & ~7) >> 1;
         if (opSize < 128)
@@ -15765,8 +15767,12 @@
     for (i = 0; i < operands.length; i++) {
       catcher = opCatchers[i], operand = operands[i];
       size = correctedSizes[i];
-      operand.size = size & ~7;
-      operand.recordSizeUse(operand.size, catcher.unsigned);
+      if (catcher.moffset)
+        operand.dispSize = size & ~7;
+      else {
+        operand.size = size & ~7;
+        operand.recordSizeUse(operand.size, catcher.unsigned);
+      }
       if (catcher.unsigned)
         unsigned = true;
       if (operand.size == 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors)
@@ -15793,7 +15799,7 @@
         if (operand.type == OPT.VEC && operand.size == 64 && vexInfo.needed)
           throw new ASMError("Can't encode MMX with VEX prefix", operand.endPos);
       }
-      if (overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
+      if (!catcher.moffset && overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
         overallSize = size & ~7;
       if (size >= 16)
         adjustByteOp = adjustByteOp || catcher.hasByteSize;
@@ -16392,6 +16398,8 @@ minss:F3)0F5D v >V Vx {kzs
 monitor:0F01C8
 
 mov
+A0 %ml R_0bwlq
+A2 R_0bwlq %ml
 88 Rbwlq r
 8A r Rbwlq
 C7.0 Il Rq
@@ -16408,8 +16416,8 @@ C6.0 i rbwl
 0F23 ^RQ D
 
 movabs/
-A0 %m R_0bwlq
-A2 R_0bwlq %m
+A0 %mlQ R_0bwlq
+A2 R_0bwlq %mlQ
 
 movapd
 66)0F28 v Vxyz > {kzw
@@ -17824,6 +17832,8 @@ g nle`.split("\n");
         operands.reverse();
       if (memoryOperand && vexInfo.round !== null)
         throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
+      if (memoryOperand && this.prefsToGen & PREFIX_ADDRSIZE)
+        memoryOperand.dispSize = 32;
       let matchingMnemonics = [];
       for (const mnemonic of mnemonics2) {
         vexInfo.needed = mnemonic.vex;
@@ -17942,22 +17952,20 @@ g nle`.split("\n");
       if ((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
         throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
       let opcode = op.opcode;
-      if (op.moffs)
-        op.moffs.dispSize = prefsToGen & PREFIX_ADDRSIZE ? 32 : 64;
       if (op.size == 16)
         prefsToGen |= PREFIX_DATASIZE;
+      if (prefsToGen >= PREFIX_SEG)
+        this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen / PREFIX_SEG | 0) - 1]);
+      if (prefsToGen & PREFIX_ADDRSIZE)
+        this.genByte(103);
+      if (prefsToGen & PREFIX_DATASIZE)
+        this.genByte(102);
       if (prefsToGen & PREFIX_LOCK)
         this.genByte(240);
       if (prefsToGen & PREFIX_REPNE)
         this.genByte(242);
       if (prefsToGen & PREFIX_REPE)
         this.genByte(243);
-      if (prefsToGen >= PREFIX_SEG)
-        this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen / PREFIX_SEG | 0) - 1]);
-      if (prefsToGen & PREFIX_DATASIZE)
-        this.genByte(102);
-      if (prefsToGen & PREFIX_ADDRSIZE)
-        this.genByte(103);
       if (op.prefix !== null) {
         if (op.prefix > 255)
           this.genByte(op.prefix >> 8);
