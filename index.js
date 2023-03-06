@@ -13885,8 +13885,12 @@
   var PREFIX_REX = 1;
   var PREFIX_NOREX = 2;
   var PREFIX_CLASHREX = 3;
-  var PREFIX_ADDRSIZE = 4;
-  var PREFIX_SEG = 8;
+  var PREFIX_LOCK = 4;
+  var PREFIX_REPNE = 8;
+  var PREFIX_REPE = 16;
+  var PREFIX_DATASIZE = 32;
+  var PREFIX_ADDRSIZE = 64;
+  var PREFIX_SEG = 128;
   var regParsePos;
   var regSuffixes = {
     b: 8,
@@ -15535,7 +15539,8 @@
     this.forceRM = format[0] == "^";
     this.vexOpImm = format[0] == "<";
     this.vexOp = this.vexOpImm || format[0] == ">";
-    if (this.forceRM || this.vexOp)
+    this.moffset = format[0] == "%";
+    if (this.forceRM || this.vexOp || this.moffset)
       format = format.slice(1);
     this.carrySizeInference = format[0] != "*";
     if (!this.carrySizeInference)
@@ -15754,7 +15759,7 @@
         correctedSizes[i] = size;
       }
     }
-    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null;
+    let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null, moffs = null;
     let extendOp = false, unsigned = false;
     let operand;
     for (i = 0; i < operands.length; i++) {
@@ -15772,7 +15777,9 @@
         else if (catcher.type == OPT.REL) {
           relImm = operand;
           instr2.ipRelative = true;
-        } else if (catcher.forceRM)
+        } else if (catcher.moffset)
+          moffs = operand;
+        else if (catcher.forceRM)
           rm = operand;
         else if (catcher.vexOp) {
           if (catcher.vexOpImm)
@@ -15862,7 +15869,8 @@
       evexImm,
       relImm,
       imms,
-      unsigned
+      unsigned,
+      moffs
     };
   };
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
@@ -15898,7 +15906,7 @@
       return false;
     for (let i = 0; i < operands.length; i++) {
       const catcher = opCatchers[i], operand = operands[i];
-      if (operand.type != catcher.type && !(operand.type == OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg))
+      if (operand.type != catcher.type && !(operand.type == OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg) || catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0))
         return false;
     }
     return true;
@@ -16398,6 +16406,10 @@ C6.0 i rbwl
 0F21 D ^RQ
 0F22 ^RQ C
 0F23 ^RQ D
+
+movabs/
+A0 %m R_0bwlq
+A2 R_0bwlq %m
 
 movapd
 66)0F28 v Vxyz > {kzw
@@ -17646,14 +17658,14 @@ g nle`.split("\n");
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
   var prefixes = Object.freeze({
-    lock: 240,
-    repne: 242,
-    repnz: 242,
-    rep: 243,
-    repe: 243,
-    repz: 243,
-    data16: 102,
-    addr32: 103
+    lock: PREFIX_LOCK,
+    repne: PREFIX_REPNE,
+    repnz: PREFIX_REPNE,
+    rep: PREFIX_REPE,
+    repe: PREFIX_REPE,
+    repz: PREFIX_REPE,
+    data16: PREFIX_DATASIZE,
+    addr32: PREFIX_ADDRSIZE
   });
   var SHORT_DISP = 1024;
   function parseRoundingMode(vexInfo) {
@@ -17718,6 +17730,16 @@ g nle`.split("\n");
       let memoryOperand = null;
       this.needsRecompilation = false;
       let operands = [];
+      this.prefsToGen = 0;
+      while (prefixes.hasOwnProperty(opcode.toLowerCase())) {
+        this.prefsToGen |= prefixes[opcode];
+        this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
+        opcode = token;
+        if (opcode === ";" || opcode === "\n")
+          throw new ASMError("Expected opcode", this.opcodeRange);
+        next();
+      }
+      this.opcode = opcode.toLowerCase();
       let mnemonics2 = fetchMnemonic(opcode, this.syntax.intel);
       if (mnemonics2.length == 0)
         throw new ASMError("Unknown opcode", this.opcodeRange);
@@ -17825,7 +17847,7 @@ g nle`.split("\n");
     }
     compile() {
       let { operands, memoryOperand, mnemonics: mnemonics2, vexInfo } = this.outline;
-      let prefsToGen = 0;
+      let prefsToGen = this.prefsToGen;
       this.clear();
       if (memoryOperand)
         memoryOperand.evaluate(this, this.syntax.intel);
@@ -17920,12 +17942,22 @@ g nle`.split("\n");
       if ((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
         throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
       let opcode = op.opcode;
-      if (prefsToGen >= PREFIX_SEG)
-        this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen >> 3) - 1]);
-      if (prefsToGen & PREFIX_ADDRSIZE)
-        this.genByte(prefixes.addr32);
+      if (op.moffs)
+        op.moffs.dispSize = prefsToGen & PREFIX_ADDRSIZE ? 32 : 64;
       if (op.size == 16)
-        this.genByte(prefixes.data16);
+        prefsToGen |= PREFIX_DATASIZE;
+      if (prefsToGen & PREFIX_LOCK)
+        this.genByte(240);
+      if (prefsToGen & PREFIX_REPNE)
+        this.genByte(242);
+      if (prefsToGen & PREFIX_REPE)
+        this.genByte(243);
+      if (prefsToGen >= PREFIX_SEG)
+        this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen / PREFIX_SEG | 0) - 1]);
+      if (prefsToGen & PREFIX_DATASIZE)
+        this.genByte(102);
+      if (prefsToGen & PREFIX_ADDRSIZE)
+        this.genByte(103);
       if (op.prefix !== null) {
         if (op.prefix > 255)
           this.genByte(op.prefix >> 8);
@@ -17964,6 +17996,8 @@ g nle`.split("\n");
         this.genValue(op.relImm.value, op.relImm.size, false, true, true);
       else if (op.evexImm !== null)
         this.genByte(op.evexImm);
+      else if (op.moffs !== null)
+        this.genValue(op.moffs.value, op.moffs.dispSize, true);
       else
         for (const imm of op.imms)
           this.genValue(imm.value, imm.size, !op.unsigned);
@@ -17984,19 +18018,11 @@ g nle`.split("\n");
         modrm |= 192;
       else if (rmReg >= 0) {
         if (rm.value.addend != null) {
-          if (!rm.value.isRelocatable() && inferImmSize(rm.value) == 8 && (rm.dispSize == 8 || rm.sizeAvailable(SHORT_DISP))) {
-            rm.dispSize = 8;
+          this.determineDispSize(rm, 8, 32);
+          if (rm.dispSize == 8)
             modrm |= 64;
-            rm.recordSizeUse(SHORT_DISP);
-          } else if (!rm.value.isRelocatable() && rm.expression && rm.expression.hasSymbols && rm.dispSize != 8 && rm.sizeAvailable(SHORT_DISP)) {
-            rm.dispSize = 8;
-            modrm |= 64;
-            rm.recordSizeUse(SHORT_DISP);
-            queueRecomp(this);
-          } else {
-            rm.dispSize = 32;
+          else
             modrm |= 128;
-          }
         }
       } else {
         rmReg = 5;
@@ -18014,6 +18040,17 @@ g nle`.split("\n");
         return [rex, modrm | 4, rm.shift << 6 | rmReg2 << 3 | rmReg];
       }
       return [rex, modrm | rmReg, null];
+    }
+    determineDispSize(operand, shortSize, longSize) {
+      if (!operand.value.isRelocatable() && inferImmSize(operand.value) < longSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP))) {
+        operand.dispSize = shortSize;
+        operand.recordSizeUse(SHORT_DISP);
+      } else if (!operand.value.isRelocatable() && operand.expression && operand.expression.hasSymbols && operand.dispSize != shortSize && operand.sizeAvailable(SHORT_DISP)) {
+        operand.dispSize = shortSize;
+        operand.recordSizeUse(SHORT_DISP);
+        queueRecomp(this);
+      } else
+        operand.dispSize = longSize;
     }
     recompile() {
       this.error = null;
@@ -18040,13 +18077,6 @@ g nle`.split("\n");
       return [197, vex2 | vex1 & 128];
     return [196, vex1, vex2];
   }
-  var Prefix = class extends Statement {
-    constructor({ name: name2, ...config2 }) {
-      super({ ...config2, maxSize: 1 });
-      this.bytes[0] = prefixes[name2.toLowerCase()];
-      this.length = 1;
-    }
-  };
   function inferImmSize(value) {
     let num = value.addend;
     if (num < 0n)
@@ -18144,10 +18174,7 @@ g nle`.split("\n");
                 isDir = name2[0] == ".";
               if (isDir)
                 addInstruction(makeDirective({ addr, range }, currSyntax.intel ? name2 : name2.slice(1)));
-              else if (prefixes.hasOwnProperty(name2.toLowerCase())) {
-                ungetToken();
-                addInstruction(new Prefix({ addr, range, name: name2 }), false);
-              } else if (currSyntax.intel && isDirective(token, true)) {
+              else if (currSyntax.intel && isDirective(token, true)) {
                 addInstruction(new SymbolDefinition({ addr, name: name2, range, isLabel: true }), false);
                 name2 = token;
                 range = startAbsRange();
@@ -20017,7 +20044,7 @@ g nle`.split("\n");
   var IOpcode = 5;
   var RelOpcode = 6;
   var IRelOpcode = 7;
-  var Prefix2 = 8;
+  var Prefix = 8;
   var word = 38;
   var Ptr = 9;
   var Offset = 10;
@@ -20123,7 +20150,7 @@ g nle`.split("\n");
       if (intel && tok == "offset")
         return Offset;
       if (prefixes.hasOwnProperty(tok))
-        return Prefix2;
+        return Prefix;
       if (tok == "=" || intel && tok == "equ")
         return symEquals;
       let opcode = tok, mnemonics2 = fetchMnemonic(opcode, intel);
