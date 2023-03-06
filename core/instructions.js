@@ -521,7 +521,7 @@ export class Instruction extends Statement
                 if(rm.dispSize == 8)
                     modrm |= 0x40; // mod=01
                 else
-                    rm.dispSize = 32;
+                    modrm |= 0x80; // mod=10
             }
         }
         else // mod = 00
