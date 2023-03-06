@@ -422,15 +422,15 @@ export class Instruction extends Statement
             prefsToGen |= PREFIX_DATASIZE;
 
         // Time to generate!
-        if(prefsToGen & PREFIX_LOCK)  this.genByte(0xF0);
-        if(prefsToGen & PREFIX_REPNE) this.genByte(0xF2);
-        if(prefsToGen & PREFIX_REPE)  this.genByte(0xF3)
-
         if(prefsToGen >= PREFIX_SEG)
             this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen / PREFIX_SEG | 0) - 1]);
 
-        if(prefsToGen & PREFIX_DATASIZE) this.genByte(0x66);
         if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
+        if(prefsToGen & PREFIX_DATASIZE) this.genByte(0x66);
+
+        if(prefsToGen & PREFIX_LOCK)  this.genByte(0xF0);
+        if(prefsToGen & PREFIX_REPNE) this.genByte(0xF2);
+        if(prefsToGen & PREFIX_REPE)  this.genByte(0xF3)
 
         if(op.prefix !== null)
         {
