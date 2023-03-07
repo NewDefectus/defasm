@@ -1,4 +1,4 @@
-import { Instruction } from "./instructions.js";
+import { inferImmSize, Instruction } from "./instructions.js";
 import { Operand, OPT, suffixes } from "./operands.js";
 import { ASMError } from "./parser.js";
 import { queueRecomp } from "./symbols.js";
@@ -172,7 +172,12 @@ OpCatcher.prototype.catch = function(operand, prevSize, isVex)
         if(defSize > 0)
             return defSize;
         else if(this.moffset)
-            return null;
+        {
+            if(inferImmSize(operand.value) == 64)
+                opSize = 64;
+            else
+                return null;
+        }
         else if(this.sizes == -2)
         {
             opSize = (prevSize & ~7) >> 1;
