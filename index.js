@@ -15586,9 +15586,12 @@
     if (isNaN(opSize)) {
       if (defSize > 0)
         return defSize;
-      else if (this.moffset)
-        return null;
-      else if (this.sizes == -2) {
+      else if (this.moffset) {
+        if (inferImmSize(operand.value) == 64)
+          opSize = 64;
+        else
+          return null;
+      } else if (this.sizes == -2) {
         opSize = (prevSize & ~7) >> 1;
         if (opSize < 128)
           opSize = 128;
@@ -16398,8 +16401,8 @@ minss:F3)0F5D v >V Vx {kzs
 monitor:0F01C8
 
 mov
-A0 %ml R_0bwlq
-A2 R_0bwlq %ml
+A0 %mlq R_0bwlq
+A2 R_0bwlq %mlq
 88 Rbwlq r
 8A r Rbwlq
 C7.0 Il Rq
