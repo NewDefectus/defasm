@@ -1,8 +1,9 @@
-import { defaultKeymap, indentWithTab, history, historyKeymap }    from "@codemirror/commands";
+import { defaultKeymap, indentWithTab, history, historyKeymap }     from "@codemirror/commands";
 import { closeBrackets, closeBracketsKeymap }                       from "@codemirror/autocomplete";
 import { defaultHighlightStyle, syntaxHighlighting }                from "@codemirror/language";
-import { EditorState }                                              from "@codemirror/state";
+import { EditorState, Compartment }                                 from "@codemirror/state";
 import { EditorView, keymap, lineNumbers }                          from "@codemirror/view";
+import { materialDark }                                             from "cm6-theme-material-dark";
 import { assembly, ASMStateField, ShellcodePlugin, ShellcodeField } from "@defasm/codemirror";
 
 const byteCount = document.getElementById('byteCount');
@@ -22,6 +23,14 @@ if(shellcodeEnabled)
         document.execCommand('copy');
     }
 }
+
+var theme = new Compartment();
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+    editor.dispatch({
+        effects: theme.reconfigure(event.matches ? materialDark : syntaxHighlighting(defaultHighlightStyle))
+    });
+});
 
 /** @type {EditorView} */
 const editor = new EditorView({
@@ -67,7 +76,9 @@ const editor = new EditorView({
     state: EditorState.create({
         doc: getLastCode(),
         extensions: [
-            syntaxHighlighting(defaultHighlightStyle),
+            theme.of(
+                window.matchMedia('(prefers-color-scheme: dark)').matches ? materialDark : syntaxHighlighting(defaultHighlightStyle)
+            ),
             closeBrackets(),
             history(),
             keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),

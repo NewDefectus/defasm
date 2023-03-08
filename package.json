@@ -16,6 +16,7 @@
     "@lezer/generator": "",
     "@lezer/highlight": "",
     "@lezer/lr": "",
+    "cm6-theme-material-dark": "^0.2.0",
     "esbuild": ""
   }
 }

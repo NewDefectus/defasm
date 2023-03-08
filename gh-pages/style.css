@@ -7,15 +7,15 @@ main {
 }
 
 header {
-    font-family:monospace;
-    font-weight:normal;
+    font-family: monospace;
+    font-weight: normal;
     font-size: 4.5em;
     margin: 0;
     background-color: #eee;
 }
 
 body {
-    margin :0;
+    margin: 0;
 }
 
 #inputAreaContainer {
@@ -50,3 +50,14 @@ body {
 }
 
 .cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }
+
+@media (prefers-color-scheme: dark) {
+    header {
+        background-color: #222;
+        color: white
+    }
+
+    #byteCount {
+        color: white
+    }
+}
