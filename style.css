@@ -57,7 +57,16 @@ body {
         color: white
     }
 
+    body {
+        background-color: #2e3235
+    }
+
     #byteCount {
         color: white
+    }
+
+    #shellcodeContainer {
+        background-color: #111;
+        color: white;
     }
 }
