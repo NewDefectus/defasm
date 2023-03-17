@@ -195,7 +195,7 @@ OpCatcher.prototype.catch = function(operand, prevSize, isVex)
     {
         rawSize = prevSize & ~7;
         if(opSize == rawSize || (operand.type == OPT.IMM && opSize < rawSize))
-            return prevSize;
+            return Math.max(0, prevSize);
         return null;
     }
 
@@ -462,7 +462,8 @@ Operation.prototype.fit = function(operands, instr, vexInfo)
         else
         {
             operand.size = size & ~7;
-            operand.recordSizeUse(operand.size, catcher.unsigned);
+            if(operand.size != 0)
+                operand.recordSizeUse(operand.size, catcher.unsigned);
         }
         if(catcher.unsigned)
             unsigned = true;

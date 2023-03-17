@@ -21,7 +21,7 @@ export const prefixes = Object.freeze({
     addr32: PREFIX_ADDRSIZE
 });
 
-const SHORT_DISP = 1024;
+const SHORT_DISP = 48;
 
 /* Parse an optional "pseudo-operand" for rounding semantics may appear
 at the start or end of the operand list, depending on the syntax */
@@ -33,7 +33,7 @@ function parseRoundingMode(vexInfo)
     while(next() != '}')
     {
         if(token == '\n')
-            throw new ASMError("Expected '}'")
+            throw new ASMError("Expected '}'");
         roundingName += token;
     }
 
