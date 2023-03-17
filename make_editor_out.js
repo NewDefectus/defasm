@@ -15794,7 +15794,7 @@
     if (this.sizes == -1) {
       rawSize = prevSize & ~7;
       if (opSize == rawSize || operand.type == OPT.IMM && opSize < rawSize)
-        return prevSize;
+        return Math.max(0, prevSize);
       return null;
     }
     if (this.sizes == -2) {
@@ -15966,7 +15966,8 @@
         operand.dispSize = size & ~7;
       else {
         operand.size = size & ~7;
-        operand.recordSizeUse(operand.size, catcher.unsigned);
+        if (operand.size != 0)
+          operand.recordSizeUse(operand.size, catcher.unsigned);
       }
       if (catcher.unsigned)
         unsigned = true;
@@ -17870,7 +17871,7 @@ g nle`.split("\n");
     data16: PREFIX_DATASIZE,
     addr32: PREFIX_ADDRSIZE
   });
-  var SHORT_DISP = 1024;
+  var SHORT_DISP = 48;
   function parseRoundingMode(vexInfo) {
     let roundingName = "", roundStart = currRange;
     vexInfo.evex = true;
