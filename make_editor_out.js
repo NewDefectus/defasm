@@ -18246,7 +18246,7 @@ g nle`.split("\n");
       return [rex, modrm | rmReg, null];
     }
     determineDispSize(operand, shortSize, longSize) {
-      if (!operand.value.isRelocatable() && inferImmSize(operand.value) < longSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP))) {
+      if (!operand.value.isRelocatable() && inferImmSize(operand.value) == shortSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP))) {
         operand.dispSize = shortSize;
         operand.recordSizeUse(SHORT_DISP);
       } else if (!operand.value.isRelocatable() && operand.expression && operand.expression.hasSymbols && operand.dispSize != shortSize && operand.sizeAvailable(SHORT_DISP)) {
