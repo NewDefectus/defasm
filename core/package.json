@@ -5,7 +5,7 @@
   "main": "main.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/NewDefectus/defAsm.git"
+    "url": "git+https://github.com/NewDefectus/defasm.git"
   },
   "keywords": [
     "assembly",
@@ -16,7 +16,7 @@
   "type": "module",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/NewDefectus/defAsm/issues"
+    "url": "https://github.com/NewDefectus/defasm/issues"
   },
-  "homepage": "https://github.com/NewDefectus/defAsm/tree/master/core#readme"
+  "homepage": "https://github.com/NewDefectus/defasm/tree/master/core#readme"
 }

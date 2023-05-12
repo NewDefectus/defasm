@@ -1,7 +1,7 @@
 # DefAssembler - CodeMirror Extension
 A [CodeMirror 6](https://codemirror.net/6/) extension that highlights Assembly code and assembles it incrementally.
 
-This package uses the [DefAssembler core package](https://www.npmjs.com/package/@defasm/core) to generate binary dumps from Assembly code. For a demonstration of the plugin in action, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defAsm/), or alternatively, the [Code Golf editor](https://code.golf/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
+This package uses the [DefAssembler core package](https://www.npmjs.com/package/@defasm/core) to generate binary dumps from Assembly code. For a demonstration of the plugin in action, I recommend checking out the [GitHub Pages site](https://newdefectus.github.io/defasm/), or alternatively, the [Code Golf editor](https://code.golf/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
 
 # Usage
 The package exports the `assembly()` function, which returns an extension that can be added to the editor. The configuration object passed to the function may include the following boolean fields:

@@ -1,7 +1,7 @@
 # DefAssembler - Core
-This package holds the core of [DefAssembler](https://github.com/NewDefectus/defAsm#readme), an incremental x86-64 assembler, for use both in browsers and as a Node.js package.
+This package holds the core of [DefAssembler](https://github.com/NewDefectus/defasm#readme), an incremental x86-64 assembler, for use both in browsers and as a Node.js package.
 
-DefAssembler is built from scratch without the use of any additional libraries, making it relatively lightweight and fast. For a quick demonstration, I recommend checking out the [GitHub Pages site](http://newdefectus.github.io/defAsm) showcasing the [@defasm/codemirror](https://www.npmjs.com/package/@defasm/codemirror) package, which utilizes this assembler. Alternatively, you can try it out with the [Code Golf editor](https://code.golf/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
+DefAssembler is built from scratch without the use of any additional libraries, making it relatively lightweight and fast. For a quick demonstration, I recommend checking out the [GitHub Pages site](http://newdefectus.github.io/defasm) showcasing the [@defasm/codemirror](https://www.npmjs.com/package/@defasm/codemirror) package, which utilizes this assembler. Alternatively, you can try it out with the [Code Golf editor](https://code.golf/fizz-buzz#assembly), where you can also run your programs and submit them to the site.
 
 # JavaScript types
 ## `AssemblyState`
