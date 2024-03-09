@@ -2,7 +2,8 @@ import { isRegister, nameRegister, OPT, parseRegister, regParsePos } from "./ope
 import { ASMError, currRange, next, Range, setToken, token, ungetToken } from "./parser.js";
 import { referenceSymbol, symbols } from "./symbols.js";
 import { Statement } from "./statement.js";
-import { pseudoSections, Section } from "./sections.js";
+import { pseudoSections } from "./sections.js";
+import { inferSize } from "./utils.js";
 
 let unaryTemps = {
     '+': a=>a,
@@ -339,7 +340,14 @@ export class IdentifierValue
             this.addend = operators[func].func(this.addend, op.addend);
         this.pcRelative = this.pcRelative || op.pcRelative;
         this.lineEnds = [...this.lineEnds, ...op.lineEnds].sort((a, b) => a - b);
-     }
+    }
+
+    /** Infer the size of this value
+     * @param {boolean} signed Whether to treat this value as signed or not */
+    inferSize(signed = true)
+    {
+        return inferSize(this.addend, signed);
+    }
 }
 
 class Identifier

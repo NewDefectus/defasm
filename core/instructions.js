@@ -330,12 +330,12 @@ export class Instruction extends Statement
                 }
                 else if(!op.expression.hasSymbols)
                 {
-                    op.size = inferImmSize(op.value);
-                    op.unsignedSize = inferUnsignedImmSize(op.value);
+                    op.size = op.value.inferSize(true);
+                    op.unsignedSize = op.value.inferSize(false);
                 }
                 else
                 {
-                    let max = inferImmSize(op.value);
+                    let max = op.value.inferSize();
                     for(let size = 8; size <= max; size *= 2)
                     {
                         if((size != op.size || op.size == max) && op.sizeAllowed(size))
@@ -350,7 +350,7 @@ export class Instruction extends Statement
                         }
                     }
 
-                    max = inferUnsignedImmSize(op.value);
+                    max = op.value.inferSize(false);
 
                     for(let size = 8; size <= max; size *= 2)
                     {
@@ -561,7 +561,7 @@ export class Instruction extends Statement
      * @param {Number} longSize The default long size */
     determineDispSize(operand, shortSize, longSize)
     {
-        if(!operand.value.isRelocatable() && inferImmSize(operand.value) <= shortSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP)))
+        if(!operand.value.isRelocatable() && operand.value.inferSize() <= shortSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP)))
         {
             operand.dispSize = shortSize;
             operand.recordSizeUse(SHORT_DISP);
@@ -613,31 +613,4 @@ function makeVexPrefix(vex, rex, isEvex)
         return [0xC5, vex2 | (vex1 & 0x80)];
 
     return [0xC4, vex1, vex2];
-}
-
-
-/** Infer the size of an immediate from its value
- * @param {import("./shuntingYard.js").IdentifierValue} value */
-export function inferImmSize(value)
-{
-    let num = value.addend;
-    if(num < 0n) // Correct for negative values
-        num = ~num;
-
-    return num < 0x80n ? 8 :
-            num < 0x8000n ? 16 :
-            num < 0x80000000n ? 32 : 64;
-}
-
-/** Ditto, but for unsigned values
- * @param {import("./shuntingYard.js").IdentifierValue} value */
-function inferUnsignedImmSize(value)
-{
-    let num = value.addend;
-    if(num < 0n) // Technically this doesn't make sense, but we'll allow it
-        num = -2n * num - 1n;
-
-    return num < 0x100n ? 8 :
-            num < 0x10000n ? 16 :
-            num < 0x100000000n ? 32 : 64;
 }
