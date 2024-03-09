@@ -18185,6 +18185,8 @@ g nle`.split("\n");
       if (op.rm?.value?.addend != null) {
         let sizeRelative = false, value = op.rm.value;
         if (op.rm.ripRelative && op.rm.value.section != pseudoSections.ABS && !op.rm.value.pcRelative) {
+          for (let imm of op.imms)
+            value.addend -= BigInt(imm.size >> 3);
           sizeRelative = true;
           value.apply(this, "-", new IdentifierValue({
             addend: BigInt(this.address),
