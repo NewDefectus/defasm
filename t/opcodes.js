@@ -83,7 +83,7 @@ exports.checkAgainstGcc = async function(source)
 }
 
 /**
- * @param {import("@defasm/core/mnemonics.js").OpCatcher} catcher 
+ * @param {import("@defasm/core/operations.js").OpCatcher} catcher 
  * @param {Number} size
  * @param {Number} index
  * @param {Number} type
@@ -117,8 +117,8 @@ function makeOperand(catcher, size, index, type = catcher.type)
 /**
  * 
  * @param {string} opcode 
- * @param {import('@defasm/core/mnemonicList.js').Mnemonic} mnemonic 
- * @param {Operation} operation 
+ * @param {import('@defasm/core/mnemonics.js').Mnemonic} mnemonic 
+ * @param {import('@defasm/core/operations.js').Operation} operation 
  * @param {number} i 
  * @param {string[]} operands 
  * @param {number} prevSize 
@@ -213,11 +213,11 @@ function recurseOperands(opcode, mnemonic, operation, i = 0, operands = [], prev
                     source += 'addr32 ';
                     sizeSuffix = '';
                 }
-                source += opcode + sizeSuffix + ' ' +
-                (mnemonic.relative && type != OPT.REL ? '*' : '')
-                + operands.join(', ') 
-                + (operation.requireMask ? ' {%k1}' : '')
-                + '\n';
+                let instruction = opcode + sizeSuffix + ' ' +
+                    (mnemonic.relative && type != OPT.REL ? '*' : '')
+                    + operands.join(', ') 
+                    + (operation.requireMask ? ' {%k1}' : '')
+                source += instruction + '\n';
             }
             else
                 recurseOperands(opcode, mnemonic, operation, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
@@ -236,13 +236,12 @@ exports.run = async function()
 {
     initGlobals();
 
-    const { fetchMnemonic } = await import("@defasm/core");
-    const { mnemonics } = await import("@defasm/core/mnemonicList.js");
+    const { fetchMnemonic, getMnemonicList } = await import("@defasm/core");
 
     // These are opcodes that defasm assembles correctly, but GAS doesn't, for some reason
     const uncheckedOpcodes = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
 
-    for(const opcode of Object.keys(mnemonics))
+    for(const opcode of getMnemonicList())
     {
         if(uncheckedOpcodes.includes(opcode))
             continue;

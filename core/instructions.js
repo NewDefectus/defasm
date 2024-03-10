@@ -4,7 +4,7 @@ import { Operand, parseRegister, OPT, regParsePos, sizeHints,
     PREFIX_REX, PREFIX_CLASHREX, PREFIX_LOCK, PREFIX_REPNE,
     PREFIX_REPE, PREFIX_DATASIZE, PREFIX_ADDRSIZE, PREFIX_SEG } from "./operands.js";
 import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
-import { fetchMnemonic, Mnemonic } from "./mnemonicList.js";
+import { fetchMnemonic } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { pseudoSections } from "./sections.js";
