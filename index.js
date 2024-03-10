@@ -11822,7 +11822,7 @@
     }
   };
 
-  // core/mnemonics.js
+  // core/operations.js
   var REG_MOD = -1;
   var REG_OP = -2;
   var OPC = {
@@ -12304,8 +12304,7 @@
   };
 
   // core/mnemonicList.js
-  var lines;
-  var mnemonicStrings = `
+  var mnemonicList_default = `
 adcx:66)0F38F6 r Rlq
 
 addpd:66)0F58 v >V Vxyz {kzrBw
@@ -13843,12 +13842,15 @@ xsaves64:0FC7.5 m#q
 xsetbv:0F01D1
 xtest:0F01D6
 `;
+
+  // core/mnemonics.js
+  var lines;
   var relativeMnemonics = [];
   var mnemonics = {};
   var intelDifferences = {};
   var intelInvalids = [];
   var attInvalids = [];
-  mnemonicStrings.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach((x) => {
+  mnemonicList_default.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach((x) => {
     lines = x.split(/[\n:]/);
     let name2 = lines.shift();
     if (name2.includes("{")) {
@@ -13989,20 +13991,22 @@ g nle`.split("\n");
       return !(intel ? intelInvalids : attInvalids).includes(mnemonic);
     return intel && intelDifferences.hasOwnProperty(mnemonic);
   }
-  function Mnemonic(raw, operations, size, isVex) {
-    this.raw = raw;
-    this.operations = operations;
-    this.relative = relativeMnemonics.includes(raw);
-    this.size = size;
-    this.vex = isVex && !operations[0].actuallyNotVex || operations[0].forceVex;
-  }
-  function addMnemonic(list, raw, intel, size, isVex) {
+  var MnemonicInterpretation = class {
+    constructor(raw, operations, size, isVex) {
+      this.raw = raw;
+      this.operations = operations;
+      this.relative = relativeMnemonics.includes(raw);
+      this.size = size;
+      this.vex = isVex && !operations[0].actuallyNotVex || operations[0].forceVex;
+    }
+  };
+  function addMnemonicInterpretation(list, raw, intel, size, isVex) {
     if (!isMnemonic(raw, intel))
       return;
     const operations = getOperations(raw, intel).filter((x) => isVex ? (x.allowVex || x.actuallyNotVex) && !x.forceVex : !x.vexOnly);
     if (operations.length == 0)
       return;
-    list.push(new Mnemonic(raw, operations, size, isVex));
+    list.push(new MnemonicInterpretation(raw, operations, size, isVex));
   }
   function fetchMnemonic(mnemonic, intel, expectSuffix = !intel) {
     mnemonic = mnemonic.toLowerCase();
@@ -14012,9 +14016,9 @@ g nle`.split("\n");
     let possibleOpcodes = isVex ? [mnemonic, mnemonic.slice(1)] : [mnemonic];
     let interps = [];
     for (const raw of possibleOpcodes) {
-      addMnemonic(interps, raw, intel, void 0, isVex);
+      addMnemonicInterpretation(interps, raw, intel, void 0, isVex);
       if (expectSuffix)
-        addMnemonic(
+        addMnemonicInterpretation(
           interps,
           raw.slice(0, -1),
           intel,
