@@ -4,6 +4,7 @@
 // All opcodes test
 
 var OPT, regNames, suffixNames, floatSuffixNames, floatIntSuffixNames, vecNames;
+var fetchMnemonic;
 
 async function initGlobals()
 {
@@ -18,6 +19,8 @@ async function initGlobals()
     floatSuffixNames = reverseObject(floatSuffixes);
     floatIntSuffixNames = reverseObject(floatIntSuffixes);
     vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
+
+    fetchMnemonic = (await import("@defasm/core")).fetchMnemonic;
 }
 
 
@@ -113,10 +116,8 @@ function makeOperand(catcher, size, index, type = catcher.type)
 
 /**
  * @typedef {Object} GenConfig
- * @property {string} config.mnemonic
- * @property {import('@defasm/core/mnemonics.js').MnemonicInterpretation} config.interp 
- * @property {import('@defasm/core/operations.js').Operation} config.operation
- * @property {function(string)} config.callback
+ * @property {import('@defasm/core/mnemonics.js').MnemonicInterpretation} interp 
+ * @property {import('@defasm/core/operations.js').Operation} operation
  * @property {number} config.i
  * @property {string[]} config.operands 
  * @property {number} config.prevSize
@@ -125,26 +126,31 @@ function makeOperand(catcher, size, index, type = catcher.type)
  */
 
 /**
+ * Generate a list of sample instructions for the given mnemonic
+ * @param {string} mnemonic
  * @param {GenConfig} config
- * @returns 
  */
-function recurseOperands(
-    {
-        mnemonic,
-        interp,
-        operation,
-        callback,
-        i = 0,
-        operands = [],
-        prevSize = null,
-        total = 0,
-        sizeSuffix = ""
-    })
+function* generateInstrs(mnemonic, {
+    interp = null,
+    operation = null,
+    i = 0,
+    operands = [],
+    prevSize = null,
+    total = 0,
+    sizeSuffix = ""
+} = {})
 {
+    if (interp === null)
+    {
+        for(const interp of fetchMnemonic(mnemonic, false, false))
+            for(const operation of interp.operations)
+                yield *generateInstrs(mnemonic, {interp, operation});
+        return;
+    }
     let opCatchers = interp.vex ? operation.vexOpCatchers : operation.opCatchers;
     if(opCatchers.length == 0)
     {
-        callback(mnemonic);
+        yield mnemonic;
         return;
     }
 
@@ -167,20 +173,18 @@ function recurseOperands(
                 if(operands[i] === undefined)
                     operands[i] = makeOperand(opCatchers[i], 32, i + 1);
             }
-            callback(
+            let instruction =
                 mnemonic + ' ' + 
                 (mnemonic == 'lcall' || mnemonic == 'ljmp' ? '*' : '') +
-                operands.join(', ')
-            );
+                operands.join(', ');
+            yield instruction;
             return;
         }
         else
         {
-            recurseOperands({
-                mnemonic,
+            yield *generateInstrs(mnemonic, {
                 interp,
                 operation,
-                callback,
                 operands,
                 i: nextI
             });
@@ -239,14 +243,12 @@ function recurseOperands(
                     (interp.relative && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
                     + (operation.requireMask ? ' {%k1}' : '')
-                callback(instruction);
+                yield instruction;
             }
             else
-                recurseOperands({
-                    mnemonic,
+                yield *generateInstrs(mnemonic, {
                     interp,
                     operation,
-                    callback,
                     i: nextI,
                     operands,
                     prevSize: catcher.carrySizeInference ? size : prevSize,
@@ -266,9 +268,9 @@ function recurseOperands(
 
 exports.run = async function()
 {
-    initGlobals();
+    await initGlobals();
 
-    const { fetchMnemonic, getMnemonicList } = await import("@defasm/core");
+    const { getMnemonicList } = await import("@defasm/core");
 
     // These are mnemonics that defasm assembles correctly, but GAS doesn't, for some reason
     const uncheckedMnemonics = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
@@ -282,14 +284,9 @@ exports.run = async function()
         let start = source.length;
 
         for(const mnemonic of [mnemonicBase, 'v' + mnemonicBase])
-            for(const interp of fetchMnemonic(mnemonic, false, false))
-                for(const operation of interp.operations)
-                    recurseOperands({
-                        mnemonic,
-                        interp,
-                        operation,
-                        callback: line => source += line + '\n'
-                    });
+            for(const line of generateInstrs(mnemonic))
+                source += line + '\n';
+                        
         console.assert(source.includes(mnemonicBase, start))
     }
 
