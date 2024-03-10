@@ -4,7 +4,6 @@
 // All opcodes test
 
 var OPT, regNames, suffixNames, floatSuffixNames, floatIntSuffixNames, vecNames;
-var source;
 
 async function initGlobals()
 {
@@ -19,8 +18,6 @@ async function initGlobals()
     floatSuffixNames = reverseObject(floatSuffixes);
     floatIntSuffixNames = reverseObject(floatIntSuffixes);
     vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
-
-    source = "";
 }
 
 
@@ -115,23 +112,39 @@ function makeOperand(catcher, size, index, type = catcher.type)
 }
 
 /**
- * 
- * @param {string} opcode 
- * @param {import('@defasm/core/mnemonics.js').Mnemonic} mnemonic 
- * @param {import('@defasm/core/operations.js').Operation} operation 
- * @param {number} i 
- * @param {string[]} operands 
- * @param {number} prevSize 
- * @param {number} total 
- * @param {string} sizeSuffix 
+ * @typedef {Object} GenConfig
+ * @property {string} config.mnemonic
+ * @property {import('@defasm/core/mnemonics.js').MnemonicInterpretation} config.interp 
+ * @property {import('@defasm/core/operations.js').Operation} config.operation
+ * @property {function(string)} config.callback
+ * @property {number} config.i
+ * @property {string[]} config.operands 
+ * @property {number} config.prevSize
+ * @property {number} config.total 
+ * @property {string} config.sizeSuffix 
+ */
+
+/**
+ * @param {GenConfig} config
  * @returns 
  */
-function recurseOperands(opcode, mnemonic, operation, i = 0, operands = [], prevSize = null, total = 0, sizeSuffix = "")
+function recurseOperands(
+    {
+        mnemonic,
+        interp,
+        operation,
+        callback,
+        i = 0,
+        operands = [],
+        prevSize = null,
+        total = 0,
+        sizeSuffix = ""
+    })
 {
-    let opCatchers = mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers;
+    let opCatchers = interp.vex ? operation.vexOpCatchers : operation.opCatchers;
     if(opCatchers.length == 0)
     {
-        source += opcode + '\n';
+        callback(mnemonic);
         return;
     }
 
@@ -154,15 +167,23 @@ function recurseOperands(opcode, mnemonic, operation, i = 0, operands = [], prev
                 if(operands[i] === undefined)
                     operands[i] = makeOperand(opCatchers[i], 32, i + 1);
             }
-            source += opcode + ' ' + 
-            (opcode == 'lcall' || opcode == 'ljmp' ? '*' : '')
-            +
-            operands.join(', ') + '\n';
+            callback(
+                mnemonic + ' ' + 
+                (mnemonic == 'lcall' || mnemonic == 'ljmp' ? '*' : '') +
+                operands.join(', ')
+            );
             return;
         }
         else
         {
-            recurseOperands(opcode, mnemonic, operation, nextI, operands);
+            recurseOperands({
+                mnemonic,
+                interp,
+                operation,
+                callback,
+                operands,
+                i: nextI
+            });
             return;
         }
     }
@@ -185,42 +206,53 @@ function recurseOperands(opcode, mnemonic, operation, i = 0, operands = [], prev
         {
             let type = forceMemory ? OPT.MEM : catcher.type;
             let sizeSuffixOriginal = sizeSuffix;
-            if(type == OPT.MEM && showSuffix && size != (mnemonic.vex ? catcher.defVexSize : catcher.defSize))
+            if(type == OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize))
             {
                 if(catcher.moffset)
                     sizeSuffix = 'addr32';
                 else
                     sizeSuffix = (
-                        opcode[0] == 'f' ?
-                            opcode[1] == 'i' ?
+                        mnemonic[0] == 'f' ?
+                            mnemonic[1] == 'i' ?
                                 floatIntSuffixNames
                             :
                                 floatSuffixNames
                         :
                             suffixNames)[size & ~7];
             }
-            if(!mnemonic.vex && size >= 256 || (size & ~7) == 48)
+            if(!interp.vex && size >= 256 || (size & ~7) == 48)
                 continue;
-            if(mnemonic.vex && size < 128 && type == OPT.VEC)
+            if(interp.vex && size < 128 && type == OPT.VEC)
                 continue;
             
             operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
 
             if(total + 1 >= opCatchers.length)
             {
+                let instruction = "";
                 if(sizeSuffix == 'addr32')
                 {
-                    source += 'addr32 ';
+                    instruction += 'addr32 ';
                     sizeSuffix = '';
                 }
-                let instruction = opcode + sizeSuffix + ' ' +
-                    (mnemonic.relative && type != OPT.REL ? '*' : '')
+                instruction += mnemonic + sizeSuffix + ' ' +
+                    (interp.relative && type != OPT.REL ? '*' : '')
                     + operands.join(', ') 
                     + (operation.requireMask ? ' {%k1}' : '')
-                source += instruction + '\n';
+                callback(instruction);
             }
             else
-                recurseOperands(opcode, mnemonic, operation, nextI, operands, catcher.carrySizeInference ? size : prevSize, total + 1, sizeSuffix);
+                recurseOperands({
+                    mnemonic,
+                    interp,
+                    operation,
+                    callback,
+                    i: nextI,
+                    operands,
+                    prevSize: catcher.carrySizeInference ? size : prevSize,
+                    total: total + 1,
+                    sizeSuffix
+                });
 
             sizeSuffix = sizeSuffixOriginal;
         }
@@ -238,20 +270,27 @@ exports.run = async function()
 
     const { fetchMnemonic, getMnemonicList } = await import("@defasm/core");
 
-    // These are opcodes that defasm assembles correctly, but GAS doesn't, for some reason
-    const uncheckedOpcodes = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
+    // These are mnemonics that defasm assembles correctly, but GAS doesn't, for some reason
+    const uncheckedMnemonics = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
 
-    for(const opcode of getMnemonicList())
+    let source = "";
+
+    for(const mnemonicBase of getMnemonicList())
     {
-        if(uncheckedOpcodes.includes(opcode))
+        if(uncheckedMnemonics.includes(mnemonicBase))
             continue;
         let start = source.length;
 
-        for(const op of [opcode, 'v' + opcode])
-            for(const mnemonic of fetchMnemonic(op, false, false))
-                for(const operation of mnemonic.operations)
-                    recurseOperands(op, mnemonic, operation);
-        console.assert(source.includes(opcode, start))
+        for(const mnemonic of [mnemonicBase, 'v' + mnemonicBase])
+            for(const interp of fetchMnemonic(mnemonic, false, false))
+                for(const operation of interp.operations)
+                    recurseOperands({
+                        mnemonic,
+                        interp,
+                        operation,
+                        callback: line => source += line + '\n'
+                    });
+        console.assert(source.includes(mnemonicBase, start))
     }
 
     await exports.checkAgainstGcc(source);
