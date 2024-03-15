@@ -1,3 +1,4 @@
+import { createBitfieldClass } from "./bitfield.js";
 import { Instruction } from "./instructions.js";
 import { Operand, OPT, suffixes } from "./operands.js";
 import { ASMError } from "./parser.js";
@@ -26,33 +27,27 @@ const sizers = Object.assign({f: 48}, suffixes);
 var opCatcherCache = {};
 const SIZETYPE_IMPLICITENC = 1;
 
-const EVEXPERM_MASK = 1;
-const EVEXPERM_ZEROING = 2;
-const EVEXPERM_BROADCAST_32 = 4;
-const EVEXPERM_BROADCAST_64 = 8;
-const EVEXPERM_BROADCAST = 12;
-const EVEXPERM_SAE = 16;
-const EVEXPERM_ROUNDING = 32;
-const EVEXPERM_FORCEW = 64;
-const EVEXPERM_FORCE = 128;
-const EVEXPERM_FORCE_MASK = 256;
+export const EvexPermits = createBitfieldClass([
+    "MASK", "ZEROING", "BROADCAST_32", "BROADCAST_64", "SAE",
+    "ROUNDING", "FORCEW", "FORCE", "FORCE_MASK"
+]);
 
 function parseEvexPermits(string)
 {
-    let permits = 0;
+    let permits = new EvexPermits();
     for(let c of string)
     {
         switch(c)
         {
-            case 'k': permits |= EVEXPERM_MASK; break;
-            case 'K': permits |= EVEXPERM_FORCE_MASK | EVEXPERM_MASK; break;
-            case 'z': permits |= EVEXPERM_ZEROING; break;
-            case 'b': permits |= EVEXPERM_BROADCAST_32; break;
-            case 'B': permits |= EVEXPERM_BROADCAST_64; break;
-            case 's': permits |= EVEXPERM_SAE; break;
-            case 'r': permits |= EVEXPERM_ROUNDING; break;
-            case 'w': permits |= EVEXPERM_FORCEW; break;
-            case 'f': permits |= EVEXPERM_FORCE; break
+            case 'k': permits.MASK = true; break;
+            case 'K': permits.FORCE_MASK = permits.MASK = true; break;
+            case 'z': permits.ZEROING = true; break;
+            case 'b': permits.BROADCAST_32 = true; break;
+            case 'B': permits.BROADCAST_64 = true; break;
+            case 's': permits.SAE = true; break;
+            case 'r': permits.ROUNDING = true; break;
+            case 'w': permits.FORCEW = true; break;
+            case 'f': permits.FORCE = true; break
         }
     }
     return permits;
@@ -336,9 +331,9 @@ export class Operation
             if(operand[0] == '{') // EVEX permits
             {
                 this.evexPermits = parseEvexPermits(operand.slice(1));
-                if(this.evexPermits & EVEXPERM_FORCE)
+                if(this.evexPermits.FORCE)
                     this.vexOnly = true;
-                if(this.evexPermits & EVEXPERM_FORCE_MASK)
+                if(this.evexPermits.FORCE_MASK)
                     this.requireMask = true;
                 continue;
             }
@@ -386,20 +381,20 @@ export class Operation
             {
                 if(
                     this.evexPermits === null ||
-                    !(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0 ||
-                    !(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null ||
-                    !(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0 ||
-                    !(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0 ||
-                    !(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing)
+                    !this.evexPermits.MASK && vexInfo.mask > 0 ||
+                    !(this.evexPermits.BROADCAST_32 || this.evexPermits.BROADCAST_64) && vexInfo.broadcast !== null ||
+                    !this.evexPermits.ROUNDING && vexInfo.round > 0 ||
+                    !this.evexPermits.SAE && vexInfo.round === 0 ||
+                    !this.evexPermits.ZEROING && vexInfo.zeroing)
                     return false;
             }
-            else if(this.evexPermits & EVEXPERM_FORCE)
+            else if(this.evexPermits && this.evexPermits.FORCE)
                 vexInfo.evex = true;
         }
-        else if(this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
+        else if(this.vexOnly || (this.evexPermits && this.evexPermits.FORCE))
             return false;
         
-        if((this.evexPermits & EVEXPERM_FORCE_MASK) && vexInfo.mask == 0)
+        if(this.evexPermits && this.evexPermits.FORCE_MASK && vexInfo.mask == 0)
             return false;
         return true;
     }
@@ -576,7 +571,7 @@ export class Operation
 
                     if(vexInfo.broadcast !== null)
                     {
-                        if(this.evexPermits & EVEXPERM_BROADCAST_32)
+                        if(this.evexPermits.BROADCAST_32)
                             sizeId++;
                         if(vexInfo.broadcast !== sizeId)
                             throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
@@ -584,7 +579,7 @@ export class Operation
                     }
                 }
                 vex |= vexInfo.mask << 16; // EVEX.aaa
-                if(this.evexPermits & EVEXPERM_FORCEW)
+                if(this.evexPermits.FORCEW)
                     vex |= 0x8000;
                 if(reg.reg >= 16)
                     vex |= 0x10, reg.reg &= 15; // EVEX.R'

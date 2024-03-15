@@ -1,8 +1,6 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, regParsePos, sizeHints,
-    PREFIX_REX, PREFIX_CLASHREX, PREFIX_LOCK, PREFIX_REPNE,
-    PREFIX_REPE, PREFIX_DATASIZE, PREFIX_ADDRSIZE, PREFIX_SEG } from "./operands.js";
+import { Operand, parseRegister, OPT, regParsePos, sizeHints, PrefixEnum } from "./operands.js";
 import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
 import { fetchMnemonic } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
@@ -11,14 +9,14 @@ import { pseudoSections } from "./sections.js";
 import { IdentifierValue } from "./shuntingYard.js";
 
 export const prefixes = Object.freeze({
-    lock: PREFIX_LOCK,
-    repne: PREFIX_REPNE,
-    repnz: PREFIX_REPNE,
-    rep: PREFIX_REPE,
-    repe: PREFIX_REPE,
-    repz: PREFIX_REPE,
-    data16: PREFIX_DATASIZE,
-    addr32: PREFIX_ADDRSIZE
+    lock: 'LOCK',
+    repne: 'REPNE',
+    repnz: 'REPNE',
+    rep: 'REPE',
+    repe: 'REPE',
+    repz: 'REPE',
+    data16: 'DATASIZE',
+    addr32: 'ADDRSIZE'
 });
 
 const SHORT_DISP = 48;
@@ -81,9 +79,7 @@ function explainNoMatch(mnemonics, operands, vexInfo)
     
     if(vexInfo.mask == 0 && requiresMask)
         return "Must use a mask for this instruction";
-    
-    
-    
+
     return "Wrong operand type" + (operands.length == 1 ? '' : 's');
 }
 
@@ -119,10 +115,10 @@ export class Instruction extends Statement
         /** @type { Operand[] } */
         let operands = [];
 
-        this.prefsToGen = 0;
+        this.prefsToGen = new PrefixEnum();
         while(prefixes.hasOwnProperty(opcode.toLowerCase())) // Prefix
         {
-            this.prefsToGen |= prefixes[opcode];
+            this.prefsToGen[prefixes[opcode]] = true;
 
             this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
             opcode = token;
@@ -246,7 +242,7 @@ export class Instruction extends Statement
         if(memoryOperand && vexInfo.round !== null)
             throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
         
-        if(memoryOperand && (this.prefsToGen & PREFIX_ADDRSIZE))
+        if(memoryOperand && this.prefsToGen.ADDRSIZE)
             memoryOperand.dispSize = 32;
         
         // Filter out operations whose types don't match
@@ -294,7 +290,7 @@ export class Instruction extends Statement
         for(let i = 0; i < operands.length; i++)
         {
             const op = operands[i];
-            prefsToGen |= op.prefs;
+            prefsToGen.add(op.prefs);
             if(op.type == OPT.IMM)
             {
                 if(op.expression.hasSymbols)
@@ -400,37 +396,41 @@ export class Instruction extends Statement
         }
 
         if(op.rexw)
-            rexVal |= 8, prefsToGen |= PREFIX_REX; // REX.W field
+            rexVal |= 8, prefsToGen.REX = true; // REX.W field
         
         let modRM = null, sib = null;
         if(op.extendOp)
-            rexVal |= 1, prefsToGen |= PREFIX_REX;
+            rexVal |= 1, prefsToGen.REX = true;
         else if(op.rm !== null)
         {
             let extraRex;
             [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
             if(extraRex !== 0)
-                rexVal |= extraRex, prefsToGen |= PREFIX_REX;
+                rexVal |= extraRex, prefsToGen.REX = true;
         }
 
         // To encode ah/ch/dh/bh a REX prefix must not be present (otherwise they'll read as spl/bpl/sil/dil)
-        if((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
+        if(prefsToGen.REX && prefsToGen.NOREX)
             throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
         let opcode = op.opcode;
 
         if(op.size == 16)
-            prefsToGen |= PREFIX_DATASIZE;
+            prefsToGen.DATASIZE = true;
 
         // Time to generate!
-        if(prefsToGen >= PREFIX_SEG)
-            this.genByte([0x26, 0x2E, 0x36, 0x3E, 0x64, 0x65][(prefsToGen / PREFIX_SEG | 0) - 1]);
+        if(prefsToGen.SEG0) this.genByte(0x26);
+        if(prefsToGen.SEG1) this.genByte(0x2E);
+        if(prefsToGen.SEG2) this.genByte(0x36);
+        if(prefsToGen.SEG3) this.genByte(0x3E);
+        if(prefsToGen.SEG4) this.genByte(0x64);
+        if(prefsToGen.SEG5) this.genByte(0x65);
 
-        if(prefsToGen & PREFIX_ADDRSIZE) this.genByte(0x67);
-        if(prefsToGen & PREFIX_DATASIZE) this.genByte(0x66);
+        if(prefsToGen.ADDRSIZE) this.genByte(0x67);
+        if(prefsToGen.DATASIZE) this.genByte(0x66);
 
-        if(prefsToGen & PREFIX_LOCK)  this.genByte(0xF0);
-        if(prefsToGen & PREFIX_REPNE) this.genByte(0xF2);
-        if(prefsToGen & PREFIX_REPE)  this.genByte(0xF3)
+        if(prefsToGen.LOCK)  this.genByte(0xF0);
+        if(prefsToGen.REPNE) this.genByte(0xF2);
+        if(prefsToGen.REPE)  this.genByte(0xF3)
 
         if(op.prefix !== null)
         {
@@ -442,7 +442,7 @@ export class Instruction extends Statement
             makeVexPrefix(op.vex, rexVal, vexInfo.evex).map(x => this.genByte(x));
         else
         {
-            if(prefsToGen & PREFIX_REX)
+            if(prefsToGen.REX)
                 this.genByte(rexVal);
             // Generate the upper bytes of the opcode if needed
             if(opcode > 0xffff)

@@ -1,3 +1,4 @@
+import { createBitfieldClass } from "./bitfield.js";
 import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange, setToken } from "./parser.js";
 import { Expression, CurrentIP } from "./shuntingYard.js";
 
@@ -68,15 +69,10 @@ export function nameRegister(name, size, syntax)
     return `${syntax.prefix ? '%' : ''}${size == 32 ? 'e' : 'r'}` + name;
 }
 
-export const    PREFIX_REX = 1,
-                PREFIX_NOREX = 2,
-                PREFIX_CLASHREX = 3,
-                PREFIX_LOCK = 4,
-                PREFIX_REPNE = 8,
-                PREFIX_REPE = 16,
-                PREFIX_DATASIZE = 32,
-                PREFIX_ADDRSIZE = 64,
-                PREFIX_SEG = 128;
+export const PrefixEnum = createBitfieldClass([
+    "REX", "NOREX", "LOCK", "REPNE", "REPE", "DATASIZE", "ADDRSIZE",
+    "SEG0", "SEG1", "SEG2", "SEG3", "SEG4", "SEG5"
+]);
 
 export var regParsePos;
 
@@ -120,7 +116,7 @@ export function isRegister(reg)
  * @property {Number} reg
  * @property {Number} type
  * @property {Number} size
- * @property {Number} prefs
+ * @property {PrefixEnum} prefs
  */
 
 /** @returns {Register} */
@@ -128,13 +124,13 @@ export function parseRegister(expectedType = null)
 {
     let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
     let reg = registers[regToken];
-    let size = 0, type = -1, prefs = 0;
+    let size = 0, type = -1, prefs = new PrefixEnum();
     if(reg >= registers.al && reg <= registers.rdi)
     {
         type = OPT.REG;
         size = 8 << (reg >> 3);
         if(size == 8 && reg >= registers.ah && reg <= registers.bh)
-            prefs |= PREFIX_NOREX;
+            prefs.NOREX = true;
         reg &= 7;
     }
     else if(reg >= registers.es && reg <= registers.gs)
@@ -168,7 +164,7 @@ export function parseRegister(expectedType = null)
     {
         type = OPT.REG;
         size = 8;
-        prefs |= PREFIX_REX;
+        prefs.REX = true;
         reg -= registers.spl - 4;
     }
     else if(regToken[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
@@ -229,7 +225,7 @@ export class Operand
         this.value = null;
         this.type = null;
         this.size = NaN;
-        this.prefs = 0;
+        this.prefs = new PrefixEnum();
         this.attemptedSizes = 0;
         this.attemptedUnsignedSizes = 0;
 
@@ -249,7 +245,7 @@ export class Operand
             this.endPos = regParsePos;
             if(regData.type == OPT.SEG && token == ':')
             {
-                this.prefs |= (regData.reg + 1) << 3;
+                this.prefs[`SEG${regData.reg}`] = true;
                 forceMemory = true;
                 next();
             }
@@ -352,7 +348,7 @@ export class Operand
                         throw new ASMError("Expected register");
                     
                     if(tempReg.size == 32)
-                        this.prefs |= PREFIX_ADDRSIZE;
+                        this.prefs.ADDRSIZE = true;
                     else if(tempReg.size != 64)
                         throw new ASMError("Invalid register size", regParsePos);
                     if(tempReg.type == OPT.IP)
@@ -374,7 +370,7 @@ export class Operand
                             if(this.reg2 == 4)
                                 throw new ASMError("Memory index cannot be RSP", regParsePos);
                             if(tempReg.size == 32)
-                                this.prefs |= PREFIX_ADDRSIZE;
+                                this.prefs.ADDRSIZE = true;
                             else if(tempReg.size != 64)
                                 throw new ASMError("Invalid register size", regParsePos);
                         }
@@ -434,14 +430,14 @@ export class Operand
         this.value = this.expression.evaluate(instr);
         if(intelMemory)
         {
-            this.prefs &= ~PREFIX_ADDRSIZE;
+            this.prefs.ADDRSIZE = false;
             let { regBase = null, regIndex = null, shift = 1 } = this.value.regData ?? {};
             if(regBase)
                 this.reg = regBase.reg;
             if(regIndex)
                 this.reg2 = regIndex.reg;
             if(regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
-                this.prefs |= PREFIX_ADDRSIZE;
+                this.prefs.ADDRSIZE = true;
             this.shift = [1, 2, 4, 8].indexOf(shift);
             if(this.shift < 0)
                 throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
