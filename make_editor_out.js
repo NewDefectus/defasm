@@ -13974,22 +13974,62 @@
     }
   };
 
+  // core/bitfield.js
+  function createBitfieldClass(fieldNames) {
+    let prototype = {};
+    for (let i = 0; i < fieldNames.length; i++) {
+      let fieldValue = 1 << i;
+      Object.defineProperty(prototype, fieldNames[i], {
+        get() {
+          return (this.bits & fieldValue) != 0;
+        },
+        set(value) {
+          if (value)
+            this.bits |= fieldValue;
+          else
+            this.bits &= ~fieldValue;
+          return value;
+        }
+      });
+    }
+    ;
+    prototype.add = function(field) {
+      this.bits |= field.bits;
+    };
+    return class {
+      constructor() {
+        this.bits = 0;
+        Object.setPrototypeOf(this, prototype);
+      }
+    };
+  }
+
   // core/operands.js
-  var OPT = {
-    REG: 1,
-    VEC: 2,
-    VMEM: 3,
-    IMM: 4,
-    MASK: 5,
-    REL: 6,
-    MEM: 7,
-    ST: 8,
-    SEG: 9,
-    IP: 10,
-    BND: 11,
-    CTRL: 12,
-    DBG: 13
+  var OperandType = class {
+    constructor(name2, { hasSize = true, isMemory = false } = {}) {
+      this.name = name2;
+      this.hasSize = hasSize;
+      this.isMemory = isMemory;
+    }
+    toString() {
+      return this.name;
+    }
   };
+  var OPT = Object.freeze({
+    REG: new OperandType("General-purpose register"),
+    VEC: new OperandType("Vector register"),
+    VMEM: new OperandType("Vector memory", { isMemory: true }),
+    IMM: new OperandType("Immediate value"),
+    MASK: new OperandType("Mask register"),
+    REL: new OperandType("Relative address", { isMemory: true }),
+    MEM: new OperandType("Memory operand", { isMemory: true }),
+    ST: new OperandType("Floating-point stack register", { hasSize: false }),
+    SEG: new OperandType("Segment register", { hasSize: false }),
+    IP: new OperandType("Instruction pointer register", { hasSize: false }),
+    BND: new OperandType("Bound register", { hasSize: false }),
+    CTRL: new OperandType("Control register", { hasSize: false }),
+    DBG: new OperandType("Debug register", { hasSize: false })
+  });
   var registers = Object.assign({}, ...[
     "al",
     "cl",
@@ -14074,15 +14114,21 @@
   function nameRegister(name2, size, syntax) {
     return `${syntax.prefix ? "%" : ""}${size == 32 ? "e" : "r"}` + name2;
   }
-  var PREFIX_REX = 1;
-  var PREFIX_NOREX = 2;
-  var PREFIX_CLASHREX = 3;
-  var PREFIX_LOCK = 4;
-  var PREFIX_REPNE = 8;
-  var PREFIX_REPE = 16;
-  var PREFIX_DATASIZE = 32;
-  var PREFIX_ADDRSIZE = 64;
-  var PREFIX_SEG = 128;
+  var PrefixEnum = createBitfieldClass([
+    "REX",
+    "NOREX",
+    "LOCK",
+    "REPNE",
+    "REPE",
+    "DATASIZE",
+    "ADDRSIZE",
+    "SEG0",
+    "SEG1",
+    "SEG2",
+    "SEG3",
+    "SEG4",
+    "SEG5"
+  ]);
   var regParsePos;
   var regSuffixes = {
     b: 8,
@@ -14119,12 +14165,12 @@
   function parseRegister(expectedType = null) {
     let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
     let reg = registers[regToken];
-    let size = 0, type = -1, prefs = 0;
+    let size = 0, type = -1, prefs = new PrefixEnum();
     if (reg >= registers.al && reg <= registers.rdi) {
       type = OPT.REG;
       size = 8 << (reg >> 3);
       if (size == 8 && reg >= registers.ah && reg <= registers.bh)
-        prefs |= PREFIX_NOREX;
+        prefs.NOREX = true;
       reg &= 7;
     } else if (reg >= registers.es && reg <= registers.gs) {
       type = OPT.SEG;
@@ -14140,7 +14186,7 @@
       } else
         ungetToken();
     } else if (reg == registers.rip || reg == registers.eip) {
-      if (expectedType == null || !expectedType.includes(OPT.IP))
+      if (expectedType === null || !expectedType.includes(OPT.IP))
         throw new ASMError(`Can't use ${nameRegister("ip", reg == registers.eip ? 32 : 64, currSyntax)} here`);
       type = OPT.IP;
       size = reg == registers.eip ? 32 : 64;
@@ -14148,7 +14194,7 @@
     } else if (reg >= registers.spl && reg <= registers.dil) {
       type = OPT.REG;
       size = 8;
-      prefs |= PREFIX_REX;
+      prefs.REX = true;
       reg -= registers.spl - 4;
     } else if (regToken[0] == "r") {
       reg = parseInt(regToken.slice(1));
@@ -14201,7 +14247,7 @@
       this.value = null;
       this.type = null;
       this.size = NaN;
-      this.prefs = 0;
+      this.prefs = new PrefixEnum();
       this.attemptedSizes = 0;
       this.attemptedUnsignedSizes = 0;
       this.startPos = currRange;
@@ -14214,8 +14260,8 @@
       if (instr2.syntax.prefix ? token == "%" : isRegister(token)) {
         const regData = parseRegister();
         this.endPos = regParsePos;
-        if (regData.type == OPT.SEG && token == ":") {
-          this.prefs |= regData.reg + 1 << 3;
+        if (regData.type === OPT.SEG && token == ":") {
+          this.prefs[`SEG${regData.reg}`] = true;
           forceMemory = true;
           next();
         } else {
@@ -14287,17 +14333,17 @@
             } else
               throw new ASMError("Expected register");
             if (tempReg.size == 32)
-              this.prefs |= PREFIX_ADDRSIZE;
+              this.prefs.ADDRSIZE = true;
             else if (tempReg.size != 64)
               throw new ASMError("Invalid register size", regParsePos);
-            if (tempReg.type == OPT.IP)
+            if (tempReg.type === OPT.IP)
               this.ripRelative = true;
             else if (token == ",") {
               if (instr2.syntax.prefix ? next() != "%" : !isRegister(next()))
                 throw new ASMError("Expected register");
               tempReg = parseRegister([OPT.REG, OPT.VEC]);
               this.reg2 = tempReg.reg;
-              if (tempReg.type == OPT.VEC) {
+              if (tempReg.type === OPT.VEC) {
                 this.type = OPT.VMEM;
                 this.size = tempReg.size;
                 if (tempReg.size < 128)
@@ -14306,7 +14352,7 @@
                 if (this.reg2 == 4)
                   throw new ASMError("Memory index cannot be RSP", regParsePos);
                 if (tempReg.size == 32)
-                  this.prefs |= PREFIX_ADDRSIZE;
+                  this.prefs.ADDRSIZE = true;
                 else if (tempReg.size != 64)
                   throw new ASMError("Invalid register size", regParsePos);
               }
@@ -14325,7 +14371,7 @@
         }
       }
       if (this.expression) {
-        if (this.type == OPT.REL)
+        if (this.type === OPT.REL)
           this.expression.apply("-", new CurrentIP(instr2));
         if (!this.expression.hasSymbols)
           this.evaluate(instr2);
@@ -14350,14 +14396,14 @@
     evaluate(instr2, intelMemory = false) {
       this.value = this.expression.evaluate(instr2);
       if (intelMemory) {
-        this.prefs &= ~PREFIX_ADDRSIZE;
+        this.prefs.ADDRSIZE = false;
         let { regBase = null, regIndex = null, shift: shift2 = 1 } = this.value.regData ?? {};
         if (regBase)
           this.reg = regBase.reg;
         if (regIndex)
           this.reg2 = regIndex.reg;
         if (regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
-          this.prefs |= PREFIX_ADDRSIZE;
+          this.prefs.ADDRSIZE = true;
         this.shift = [1, 2, 4, 8].indexOf(shift2);
         if (this.shift < 0)
           throw new ASMError("Scale must be 1, 2, 4, or 8", this.value.range);
@@ -14604,7 +14650,7 @@
             const scaled = regOp.regData.regBase;
             if (scaled.reg == 4)
               throw new ASMError(`Can't scale ${nameRegister("sp", scaled.size, instr2.syntax)}`, this.range);
-            if (scaled.type == OPT.IP)
+            if (scaled.type === OPT.IP)
               throw new ASMError(`Can't scale ${nameRegister("ip", scaled.size, instr2.syntax)}`, this.range);
             this.regData.regIndex = scaled;
             this.regData.regBase = null;
@@ -14681,7 +14727,7 @@
       return new IdentifierValue({
         section: pseudoSections.ABS,
         range: this.range,
-        regData: this.register.type == OPT.VEC ? {
+        regData: this.register.type === OPT.VEC ? {
           shift: 1,
           regBase: null,
           regIndex: this.register
@@ -14780,9 +14826,9 @@
         this.stack.push(opStack.pop());
       }
       for (const id2 of this.stack) {
-        if (id2.register && id2.register.type == OPT.VEC)
+        if (id2.register && id2.register.type === OPT.VEC)
           this.vecSize = id2.register.size;
-        else if (id2.register && id2.register.type == OPT.IP)
+        else if (id2.register && id2.register.type === OPT.IP)
           this.ripRelative = true;
         else if (id2.name) {
           if (!id2.isIP) {
@@ -15673,46 +15719,47 @@
   var sizers = Object.assign({ f: 48 }, suffixes);
   var opCatcherCache = {};
   var SIZETYPE_IMPLICITENC = 1;
-  var EVEXPERM_MASK = 1;
-  var EVEXPERM_ZEROING = 2;
-  var EVEXPERM_BROADCAST_32 = 4;
-  var EVEXPERM_BROADCAST_64 = 8;
-  var EVEXPERM_BROADCAST = 12;
-  var EVEXPERM_SAE = 16;
-  var EVEXPERM_ROUNDING = 32;
-  var EVEXPERM_FORCEW = 64;
-  var EVEXPERM_FORCE = 128;
-  var EVEXPERM_FORCE_MASK = 256;
+  var EvexPermits = createBitfieldClass([
+    "MASK",
+    "ZEROING",
+    "BROADCAST_32",
+    "BROADCAST_64",
+    "SAE",
+    "ROUNDING",
+    "FORCEW",
+    "FORCE",
+    "FORCE_MASK"
+  ]);
   function parseEvexPermits(string2) {
-    let permits = 0;
+    let permits = new EvexPermits();
     for (let c of string2) {
       switch (c) {
         case "k":
-          permits |= EVEXPERM_MASK;
+          permits.MASK = true;
           break;
         case "K":
-          permits |= EVEXPERM_FORCE_MASK | EVEXPERM_MASK;
+          permits.FORCE_MASK = permits.MASK = true;
           break;
         case "z":
-          permits |= EVEXPERM_ZEROING;
+          permits.ZEROING = true;
           break;
         case "b":
-          permits |= EVEXPERM_BROADCAST_32;
+          permits.BROADCAST_32 = true;
           break;
         case "B":
-          permits |= EVEXPERM_BROADCAST_64;
+          permits.BROADCAST_64 = true;
           break;
         case "s":
-          permits |= EVEXPERM_SAE;
+          permits.SAE = true;
           break;
         case "r":
-          permits |= EVEXPERM_ROUNDING;
+          permits.ROUNDING = true;
           break;
         case "w":
-          permits |= EVEXPERM_FORCEW;
+          permits.FORCEW = true;
           break;
         case "f":
-          permits |= EVEXPERM_FORCE;
+          permits.FORCE = true;
           break;
       }
     }
@@ -15760,8 +15807,8 @@
       this.acceptsMemory = "rvbkm".includes(opType);
       this.unsigned = opType == "i";
       this.type = OPC[opType.toLowerCase()];
-      this.forceRM = this.forceRM || this.acceptsMemory || this.type == OPT.VMEM;
-      this.carrySizeInference = this.carrySizeInference && this.type != OPT.IMM && this.type != OPT.MEM;
+      this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
+      this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
       this.implicitValue = null;
       if (format[1] == "_") {
         this.implicitValue = parseInt(format[2]);
@@ -15784,7 +15831,7 @@
         this.hasByteSize = this.sizes.some((x) => (x & 8) === 8);
       }
       if (this.sizes.length == 0) {
-        if (this.type > OPT.MEM)
+        if (!this.type.hasSize)
           this.sizes = 0;
         else
           this.sizes = -1;
@@ -15808,11 +15855,11 @@
             opSize = 128;
         } else
           opSize = prevSize & ~7;
-      } else if (this.type == OPT.IMM && defSize > 0 && defSize < opSize)
+      } else if (this.type === OPT.IMM && defSize > 0 && defSize < opSize)
         return defSize;
       if (this.sizes == -1) {
         rawSize = prevSize & ~7;
-        if (opSize == rawSize || operand.type == OPT.IMM && opSize < rawSize)
+        if (opSize == rawSize || operand.type === OPT.IMM && opSize < rawSize)
           return Math.max(0, prevSize);
         return null;
       }
@@ -15827,7 +15874,7 @@
       if (this.sizes !== 0) {
         for (size of this.sizes) {
           rawSize = size & ~7;
-          if (opSize == rawSize || (this.type == OPT.IMM || this.type == OPT.REL) && opSize < rawSize) {
+          if (opSize == rawSize || (this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize) {
             found = true;
             break;
           }
@@ -15895,14 +15942,14 @@
           continue;
         if (operand[0] == "{") {
           this.evexPermits = parseEvexPermits(operand.slice(1));
-          if (this.evexPermits & EVEXPERM_FORCE)
+          if (this.evexPermits.FORCE)
             this.vexOnly = true;
-          if (this.evexPermits & EVEXPERM_FORCE_MASK)
+          if (this.evexPermits.FORCE_MASK)
             this.requireMask = true;
           continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-        if (opCatcher.type == OPT.REL)
+        if (opCatcher.type === OPT.REL)
           this.relativeSizes = opCatcher.sizes;
         if (!opCatcher.vexOp || this.forceVex)
           this.opCatchers.push(opCatcher);
@@ -15929,13 +15976,13 @@
         if (this.actuallyNotVex || !this.allowVex)
           return false;
         if (vexInfo.evex) {
-          if (this.evexPermits === null || !(this.evexPermits & EVEXPERM_MASK) && vexInfo.mask > 0 || !(this.evexPermits & EVEXPERM_BROADCAST) && vexInfo.broadcast !== null || !(this.evexPermits & EVEXPERM_ROUNDING) && vexInfo.round > 0 || !(this.evexPermits & EVEXPERM_SAE) && vexInfo.round === 0 || !(this.evexPermits & EVEXPERM_ZEROING) && vexInfo.zeroing)
+          if (this.evexPermits === null || !this.evexPermits.MASK && vexInfo.mask > 0 || !(this.evexPermits.BROADCAST_32 || this.evexPermits.BROADCAST_64) && vexInfo.broadcast !== null || !this.evexPermits.ROUNDING && vexInfo.round > 0 || !this.evexPermits.SAE && vexInfo.round === 0 || !this.evexPermits.ZEROING && vexInfo.zeroing)
             return false;
-        } else if (this.evexPermits & EVEXPERM_FORCE)
+        } else if (this.evexPermits && this.evexPermits.FORCE)
           vexInfo.evex = true;
-      } else if (this.vexOnly || this.evexPermits & EVEXPERM_FORCE)
+      } else if (this.vexOnly || this.evexPermits && this.evexPermits.FORCE)
         return false;
-      if (this.evexPermits & EVEXPERM_FORCE_MASK && vexInfo.mask == 0)
+      if (this.evexPermits && this.evexPermits.FORCE_MASK && vexInfo.mask == 0)
         return false;
       return true;
     }
@@ -15944,7 +15991,7 @@
         return null;
       let adjustByteOp = false, overallSize = 0, rexw = false;
       if (this.relativeSizes) {
-        if (!(operands.length == 1 && operands[0].type == OPT.REL))
+        if (!(operands.length == 1 && operands[0].type === OPT.REL))
           return null;
         operands[0].size = this.getRelSize(operands[0], instr2);
       }
@@ -15995,9 +16042,9 @@
         if (operand.size == 64 && !(size & SIZETYPE_IMPLICITENC) && !this.allVectors)
           rexw = true;
         if (catcher.implicitValue === null) {
-          if (operand.type == OPT.IMM)
+          if (operand.type === OPT.IMM)
             imms.push(operand);
-          else if (catcher.type == OPT.REL) {
+          else if (catcher.type === OPT.REL) {
             relImm = operand;
             instr2.ipRelative = true;
           } else if (catcher.moffset)
@@ -16013,7 +16060,7 @@
               vex |= 524288;
           } else
             reg = operand;
-          if (operand.type == OPT.VEC && operand.size == 64 && vexInfo.needed)
+          if (operand.type === OPT.VEC && operand.size == 64 && vexInfo.needed)
             throw new ASMError("Can't encode MMX with VEX prefix", operand.endPos);
         }
         if (!catcher.moffset && overallSize < (size & ~7) && !(size & SIZETYPE_IMPLICITENC))
@@ -16052,7 +16099,7 @@
             let sizeId = [128, 256, 512].indexOf(overallSize);
             vex |= sizeId << 21;
             if (vexInfo.broadcast !== null) {
-              if (this.evexPermits & EVEXPERM_BROADCAST_32)
+              if (this.evexPermits.BROADCAST_32)
                 sizeId++;
               if (vexInfo.broadcast !== sizeId)
                 throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
@@ -16060,7 +16107,7 @@
             }
           }
           vex |= vexInfo.mask << 16;
-          if (this.evexPermits & EVEXPERM_FORCEW)
+          if (this.evexPermits.FORCEW)
             vex |= 32768;
           if (reg.reg >= 16)
             vex |= 16, reg.reg &= 15;
@@ -16075,7 +16122,7 @@
               throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg2.endPos);
         }
         for (let reg2 of operands)
-          if (reg2.type == OPT.VEC && reg2.reg >= 16 && reg2.endPos)
+          if (reg2.type === OPT.VEC && reg2.reg >= 16 && reg2.endPos)
             throw new ASMError("Registers with ID >= 16 can't be encoded without EVEX", reg2.endPos);
       }
       if (adjustByteOp)
@@ -16127,7 +16174,7 @@
         return false;
       for (let i = 0; i < operands.length; i++) {
         const catcher = opCatchers[i], operand = operands[i];
-        if (operand.type != catcher.type && !(operand.type == OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg) || catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0))
+        if (operand.type != catcher.type && !(operand.type === OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type === OPT.IMM ? Number(operand.value.addend) : operand.reg) || catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0))
           return false;
       }
       return true;
@@ -17886,14 +17933,14 @@ g nle`.split("\n");
   // core/instructions.js
   var MAX_INSTR_SIZE = 15;
   var prefixes = Object.freeze({
-    lock: PREFIX_LOCK,
-    repne: PREFIX_REPNE,
-    repnz: PREFIX_REPNE,
-    rep: PREFIX_REPE,
-    repe: PREFIX_REPE,
-    repz: PREFIX_REPE,
-    data16: PREFIX_DATASIZE,
-    addr32: PREFIX_ADDRSIZE
+    lock: "LOCK",
+    repne: "REPNE",
+    repnz: "REPNE",
+    rep: "REPE",
+    repe: "REPE",
+    repz: "REPE",
+    data16: "DATASIZE",
+    addr32: "ADDRSIZE"
   });
   var SHORT_DISP = 48;
   function parseRoundingMode(vexInfo) {
@@ -17958,9 +18005,9 @@ g nle`.split("\n");
       let memoryOperand = null;
       this.needsRecompilation = false;
       let operands = [];
-      this.prefsToGen = 0;
+      this.prefsToGen = new PrefixEnum();
       while (prefixes.hasOwnProperty(opcode.toLowerCase())) {
-        this.prefsToGen |= prefixes[opcode];
+        this.prefsToGen[prefixes[opcode]] = true;
         this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
         opcode = token;
         if (opcode === ";" || opcode === "\n")
@@ -18017,7 +18064,7 @@ g nle`.split("\n");
         operands.push(operand);
         if (operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
           vexInfo.evex = true;
-        if (operand.type == OPT.MEM || operand.type == OPT.VMEM || operand.type == OPT.REL) {
+        if (operand.type.isMemory) {
           memoryOperand = operand;
           if (enforcedSize)
             operand.size = enforcedSize;
@@ -18031,7 +18078,7 @@ g nle`.split("\n");
               throw new ASMError(`Can't use ${this.syntax.prefix ? "%" : ""}k0 as writemask`, regParsePos);
           } else if (token == "z")
             vexInfo.zeroing = true, next();
-          else if (operand.type == OPT.MEM) {
+          else if (operand.type === OPT.MEM) {
             vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
             if (vexInfo.broadcast < 0)
               throw new ASMError("Invalid broadcast mode");
@@ -18048,11 +18095,11 @@ g nle`.split("\n");
         next();
       }
       this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodeRange;
-      if (this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
+      if (this.syntax.intel && !(operands.length == 2 && operands[0].type === OPT.IMM && operands[1].type === OPT.IMM))
         operands.reverse();
       if (memoryOperand && vexInfo.round !== null)
         throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
-      if (memoryOperand && this.prefsToGen & PREFIX_ADDRSIZE)
+      if (memoryOperand && this.prefsToGen.ADDRSIZE)
         memoryOperand.dispSize = 32;
       let matchingMnemonics = [];
       for (const mnemonic of mnemonics2) {
@@ -18083,8 +18130,8 @@ g nle`.split("\n");
         memoryOperand.evaluate(this, this.syntax.intel);
       for (let i = 0; i < operands.length; i++) {
         const op2 = operands[i];
-        prefsToGen |= op2.prefs;
-        if (op2.type == OPT.IMM) {
+        prefsToGen.add(op2.prefs);
+        if (op2.type === OPT.IMM) {
           if (op2.expression.hasSymbols)
             op2.evaluate(this);
           if (op2.value.isRelocatable()) {
@@ -18159,32 +18206,42 @@ g nle`.split("\n");
         );
       }
       if (op.rexw)
-        rexVal |= 8, prefsToGen |= PREFIX_REX;
+        rexVal |= 8, prefsToGen.REX = true;
       let modRM = null, sib = null;
       if (op.extendOp)
-        rexVal |= 1, prefsToGen |= PREFIX_REX;
+        rexVal |= 1, prefsToGen.REX = true;
       else if (op.rm !== null) {
         let extraRex;
         [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
         if (extraRex !== 0)
-          rexVal |= extraRex, prefsToGen |= PREFIX_REX;
+          rexVal |= extraRex, prefsToGen.REX = true;
       }
-      if ((prefsToGen & PREFIX_CLASHREX) == PREFIX_CLASHREX)
+      if (prefsToGen.REX && prefsToGen.NOREX)
         throw new ASMError("Can't encode high 8-bit register", operands[0].startPos.until(currRange));
       let opcode = op.opcode;
       if (op.size == 16)
-        prefsToGen |= PREFIX_DATASIZE;
-      if (prefsToGen >= PREFIX_SEG)
-        this.genByte([38, 46, 54, 62, 100, 101][(prefsToGen / PREFIX_SEG | 0) - 1]);
-      if (prefsToGen & PREFIX_ADDRSIZE)
+        prefsToGen.DATASIZE = true;
+      if (prefsToGen.SEG0)
+        this.genByte(38);
+      if (prefsToGen.SEG1)
+        this.genByte(46);
+      if (prefsToGen.SEG2)
+        this.genByte(54);
+      if (prefsToGen.SEG3)
+        this.genByte(62);
+      if (prefsToGen.SEG4)
+        this.genByte(100);
+      if (prefsToGen.SEG5)
+        this.genByte(101);
+      if (prefsToGen.ADDRSIZE)
         this.genByte(103);
-      if (prefsToGen & PREFIX_DATASIZE)
+      if (prefsToGen.DATASIZE)
         this.genByte(102);
-      if (prefsToGen & PREFIX_LOCK)
+      if (prefsToGen.LOCK)
         this.genByte(240);
-      if (prefsToGen & PREFIX_REPNE)
+      if (prefsToGen.REPNE)
         this.genByte(242);
-      if (prefsToGen & PREFIX_REPE)
+      if (prefsToGen.REPE)
         this.genByte(243);
       if (op.prefix !== null) {
         if (op.prefix > 255)
@@ -18194,7 +18251,7 @@ g nle`.split("\n");
       if (op.vex !== null)
         makeVexPrefix(op.vex, rexVal, vexInfo.evex).map((x) => this.genByte(x));
       else {
-        if (prefsToGen & PREFIX_REX)
+        if (prefsToGen.REX)
           this.genByte(rexVal);
         if (opcode > 65535)
           this.genByte(opcode >> 16);
