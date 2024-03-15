@@ -5,6 +5,9 @@ import { ASMError } from "./parser.js";
 import { queueRecomp } from "./symbols.js";
 
 const REG_MOD = -1, REG_OP = -2;
+/**
+ * @type {Object.<string, OperandType>}
+ */
 const OPC = {
     r: OPT.REG,
     v: OPT.VEC,
@@ -122,9 +125,9 @@ export class OpCatcher
         this.acceptsMemory = "rvbkm".includes(opType);
         this.unsigned = opType == 'i';
         this.type = OPC[opType.toLowerCase()];
-        this.forceRM = this.forceRM || this.acceptsMemory || this.type == OPT.VMEM;
+        this.forceRM = this.forceRM || this.acceptsMemory || this.type === OPT.VMEM;
 
-        this.carrySizeInference = this.carrySizeInference && this.type != OPT.IMM && this.type != OPT.MEM;
+        this.carrySizeInference = this.carrySizeInference && this.type !== OPT.IMM && this.type !== OPT.MEM;
         
         // Optional argument: value for implicit operands
         this.implicitValue = null;
@@ -160,7 +163,7 @@ export class OpCatcher
 
         if(this.sizes.length == 0)
         {
-            if(this.type > OPT.MEM)
+            if(!this.type.hasSize)
                 this.sizes = 0; // Meaning, size doesn't matter
             else
                 this.sizes = -1; // Meaning, use the previously parsed size to catch
@@ -201,14 +204,14 @@ export class OpCatcher
             else // If a default size isn't available, use the previous size
                 opSize = prevSize & ~7;
         }
-        else if(this.type == OPT.IMM && defSize > 0 && defSize < opSize) // Allow immediates to be downcast if necessary
+        else if(this.type === OPT.IMM && defSize > 0 && defSize < opSize) // Allow immediates to be downcast if necessary
             return defSize;
 
         // For unknown-sized operand catchers, compare against the previous size
         if(this.sizes == -1)
         {
             rawSize = prevSize & ~7;
-            if(opSize == rawSize || (operand.type == OPT.IMM && opSize < rawSize))
+            if(opSize == rawSize || (operand.type === OPT.IMM && opSize < rawSize))
                 return Math.max(0, prevSize);
             return null;
         }
@@ -228,7 +231,7 @@ export class OpCatcher
             for(size of this.sizes)
             {
                 rawSize = size & ~7;
-                if(opSize == rawSize || ((this.type == OPT.IMM || this.type == OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
+                if(opSize == rawSize || ((this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
                 {
                     found = true;
                     break;
@@ -338,7 +341,7 @@ export class Operation
                 continue;
             }
             opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-            if(opCatcher.type == OPT.REL) this.relativeSizes = opCatcher.sizes;
+            if(opCatcher.type === OPT.REL) this.relativeSizes = opCatcher.sizes;
             if(!opCatcher.vexOp || this.forceVex) this.opCatchers.push(opCatcher);
             if(this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
 
@@ -416,7 +419,7 @@ export class Operation
 
         if(this.relativeSizes)
         {
-            if(!(operands.length == 1 && operands[0].type == OPT.REL))
+            if(!(operands.length == 1 && operands[0].type === OPT.REL))
                 return null;
             operands[0].size = this.getRelSize(operands[0], instr);
         }
@@ -490,9 +493,9 @@ export class Operation
                 rexw = true;
             if(catcher.implicitValue === null)
             {
-                if(operand.type == OPT.IMM)
+                if(operand.type === OPT.IMM)
                     imms.push(operand);
-                else if(catcher.type == OPT.REL)
+                else if(catcher.type === OPT.REL)
                 {
                     relImm = operand;
                     instr.ipRelative = true;
@@ -513,7 +516,7 @@ export class Operation
                 }
                 else
                     reg = operand;
-                if(operand.type == OPT.VEC && operand.size == 64 && vexInfo.needed)
+                if(operand.type === OPT.VEC && operand.size == 64 && vexInfo.needed)
                     throw new ASMError("Can't encode MMX with VEX prefix", operand.endPos);
             }
 
@@ -598,7 +601,7 @@ export class Operation
                         throw new ASMError("YMM/ZMM registers can't be encoded without VEX", reg.endPos);
             }
             for(let reg of operands)
-                if(reg.type == OPT.VEC && reg.reg >= 16 && reg.endPos)
+                if(reg.type === OPT.VEC && reg.reg >= 16 && reg.endPos)
                     throw new ASMError("Registers with ID >= 16 can't be encoded without EVEX", reg.endPos);
         }
 
@@ -680,11 +683,11 @@ export class Operation
             if(
                 // Check that the types match
                 operand.type != catcher.type &&
-                !(operand.type == OPT.MEM && catcher.acceptsMemory)
+                !(operand.type === OPT.MEM && catcher.acceptsMemory)
                 ||
                 // In case of implicit operands, check that the values match
                 catcher.implicitValue !== null &&
-                catcher.implicitValue !== (operand.type == OPT.IMM ? Number(operand.value.addend) : operand.reg)
+                catcher.implicitValue !== (operand.type === OPT.IMM ? Number(operand.value.addend) : operand.reg)
                 ||
                 // Super special case: if the operand is of type moffset,
                 // make sure it is only an offset

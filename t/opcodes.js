@@ -210,7 +210,7 @@ function* generateInstrs(mnemonic, {
         {
             let type = forceMemory ? OPT.MEM : catcher.type;
             let sizeSuffixOriginal = sizeSuffix;
-            if(type == OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize))
+            if(type === OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize))
             {
                 if(catcher.moffset)
                     sizeSuffix = 'addr32';
@@ -226,7 +226,7 @@ function* generateInstrs(mnemonic, {
             }
             if(!interp.vex && size >= 256 || (size & ~7) == 48)
                 continue;
-            if(interp.vex && size < 128 && type == OPT.VEC)
+            if(interp.vex && size < 128 && type === OPT.VEC)
                 continue;
             
             operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
@@ -240,7 +240,7 @@ function* generateInstrs(mnemonic, {
                     sizeSuffix = '';
                 }
                 instruction += mnemonic + sizeSuffix + ' ' +
-                    (interp.relative && type != OPT.REL ? '*' : '')
+                    (interp.relative && type !== OPT.REL ? '*' : '')
                     + operands.join(', ') 
                     + (operation.requireMask ? ' {%k1}' : '')
                 yield instruction;
@@ -259,7 +259,7 @@ function* generateInstrs(mnemonic, {
             sizeSuffix = sizeSuffixOriginal;
         }
 
-        if(!forceMemory && catcher.acceptsMemory && catcher.type != OPT.MEM && catcher.type != OPT.VMEM && catcher.type != OPT.REL)
+        if(!forceMemory && catcher.acceptsMemory && !catcher.type.isMemory)
             forceMemory = true;
         else
             break;

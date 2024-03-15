@@ -62,9 +62,9 @@ exports.run = async function()
                 }_syntax ${
                     syntaxes[i].prefix ? '' : 'no'
                 }prefix) got ${
-                    Object.keys(OPT).find(x => OPT[x] == type)
+                    Object.keys(OPT).find(x => OPT[x] === type)
                 }, expected ${
-                    Object.keys(OPT).find(x => OPT[x] == expectedType)
+                    Object.keys(OPT).find(x => OPT[x] === expectedType)
                 }`;
         }
     }

@@ -2,22 +2,37 @@ import { createBitfieldClass } from "./bitfield.js";
 import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange, setToken } from "./parser.js";
 import { Expression, CurrentIP } from "./shuntingYard.js";
 
+export class OperandType
+{
+    constructor(name, { hasSize = true, isMemory = false } = {})
+    {
+        this.name = name;
+        this.hasSize = hasSize;
+        this.isMemory = isMemory;
+    }
+
+    toString()
+    {
+        return this.name;
+    }
+}
+
 // Operand types
-export const OPT = {
-REG:    1,  // General-purpose register (8/64-bit) - ax, bl, esi, r15, etc.
-VEC:    2,  // Vector register (64/512-bit) - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
-VMEM:   3,  // Vector memory - e.g. (%xmm0)
-IMM:    4,  // Immediate value - e.g. $20
-MASK:   5,  // Mask register (64-bit) - %k0 / %k7
-REL:    6,  // Relative address - memory that consists of only an address (may be converted to MEM)
-MEM:    7,  // Memory operand - e.g. (%rax)
-ST:     8,  // Floating-point stack register (80-bit) - %st(0) / %st(7)
-SEG:    9,  // Segment register (16-bit) - %cs, %ds, %es, %fs, %gs, %ss
-IP:     10, // Instruction pointer register (only used in memory) - %eip or %rip
-BND:    11, // Bound register (128-bit) - %bnd0 / %bnd3
-CTRL:   12, // Control register (64-bit) - %cr0, %cr2, %cr3, %cr4 and %cr8
-DBG:    13  // Debug register (64-bit) - %dr0 / %dr7
-};
+export const OPT = Object.freeze({
+REG:    new OperandType("General-purpose register"),  // 8/64-bit - ax, bl, esi, r15, etc.
+VEC:    new OperandType("Vector register"),  // 64/512-bit - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+VMEM:   new OperandType("Vector memory", { isMemory: true }),  // e.g. (%xmm0)
+IMM:    new OperandType("Immediate value"),  // e.g. $20
+MASK:   new OperandType("Mask register"),  // 64-bit - %k0 / %k7
+REL:    new OperandType("Relative address", { isMemory: true }),  // memory that consists of only an address (may be converted to MEM)
+MEM:    new OperandType("Memory operand", { isMemory: true }),  // e.g. (%rax)
+ST:     new OperandType("Floating-point stack register", { hasSize: false }),  // 80-bit - %st(0) / %st(7)
+SEG:    new OperandType("Segment register", { hasSize: false }),  // 16-bit - %cs, %ds, %es, %fs, %gs, %ss
+IP:     new OperandType("Instruction pointer register", { hasSize: false }), // only used in memory - %eip or %rip
+BND:    new OperandType("Bound register", { hasSize: false }), // 128-bit - %bnd0 / %bnd3
+CTRL:   new OperandType("Control register", { hasSize: false }), // 64-bit - %cr0, %cr2, %cr3, %cr4 and %cr8
+DBG:    new OperandType("Debug register", { hasSize: false })  // 64-bit - %dr0 / %dr7
+});
 
 export const registers = Object.assign({}, ...[
 "al","cl","dl","bl","ah","ch","dh","bh",
@@ -114,7 +129,7 @@ export function isRegister(reg)
 /**
  * @typedef {Object} Register
  * @property {Number} reg
- * @property {Number} type
+ * @property {OperandType} type
  * @property {Number} size
  * @property {PrefixEnum} prefs
  */
@@ -154,7 +169,7 @@ export function parseRegister(expectedType = null)
     }
     else if(reg == registers.rip || reg == registers.eip)
     {
-        if(expectedType == null || !expectedType.includes(OPT.IP))
+        if(expectedType === null || !expectedType.includes(OPT.IP))
             throw new ASMError(`Can't use ${nameRegister('ip', reg == registers.eip ? 32 : 64, currSyntax)} here`);
         type = OPT.IP;
         size = reg == registers.eip ? 32 : 64;
@@ -243,7 +258,7 @@ export class Operand
         {
             const regData = parseRegister();
             this.endPos = regParsePos;
-            if(regData.type == OPT.SEG && token == ':')
+            if(regData.type === OPT.SEG && token == ':')
             {
                 this.prefs[`SEG${regData.reg}`] = true;
                 forceMemory = true;
@@ -351,7 +366,7 @@ export class Operand
                         this.prefs.ADDRSIZE = true;
                     else if(tempReg.size != 64)
                         throw new ASMError("Invalid register size", regParsePos);
-                    if(tempReg.type == OPT.IP)
+                    if(tempReg.type === OPT.IP)
                         this.ripRelative = true;
                     else if(token == ',')
                     {
@@ -359,7 +374,7 @@ export class Operand
                             throw new ASMError("Expected register");
                         tempReg = parseRegister([OPT.REG, OPT.VEC]);
                         this.reg2 = tempReg.reg;
-                        if(tempReg.type == OPT.VEC)
+                        if(tempReg.type === OPT.VEC)
                         {
                             this.type = OPT.VMEM; this.size = tempReg.size;
                             if(tempReg.size < 128)
@@ -394,7 +409,7 @@ export class Operand
         }
         if(this.expression)
         {
-            if(this.type == OPT.REL)
+            if(this.type === OPT.REL)
                 this.expression.apply('-', new CurrentIP(instr));
             if(!this.expression.hasSymbols)
                 this.evaluate(instr);

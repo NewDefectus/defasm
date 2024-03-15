@@ -195,7 +195,7 @@ export class Instruction extends Statement
 
             if(operand.reg >= 16 || operand.reg2 >= 16 || operand.size == 512)
                 vexInfo.evex = true;
-            if(operand.type == OPT.MEM || operand.type == OPT.VMEM || operand.type == OPT.REL)
+            if(operand.type.isMemory)
             {
                 memoryOperand = operand;
                 if(enforcedSize)
@@ -215,7 +215,7 @@ export class Instruction extends Statement
                 }
                 else if(token == 'z')
                     vexInfo.zeroing = true, next(); // Zeroing-masking
-                else if(operand.type == OPT.MEM)
+                else if(operand.type === OPT.MEM)
                 {
                     vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
                     if(vexInfo.broadcast < 0)
@@ -236,7 +236,7 @@ export class Instruction extends Statement
             next();
         }
         this.operandStartPos = operands.length > 0 ? operands[0].startPos : this.opcodeRange;
-        if(this.syntax.intel && !(operands.length == 2 && operands[0].type == OPT.IMM && operands[1].type == OPT.IMM))
+        if(this.syntax.intel && !(operands.length == 2 && operands[0].type === OPT.IMM && operands[1].type === OPT.IMM))
             operands.reverse();
 
         if(memoryOperand && vexInfo.round !== null)
@@ -291,7 +291,7 @@ export class Instruction extends Statement
         {
             const op = operands[i];
             prefsToGen.add(op.prefs);
-            if(op.type == OPT.IMM)
+            if(op.type === OPT.IMM)
             {
                 if(op.expression.hasSymbols)
                     op.evaluate(this);

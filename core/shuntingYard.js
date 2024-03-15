@@ -325,7 +325,7 @@ export class IdentifierValue
                     const scaled = regOp.regData.regBase;
                     if(scaled.reg == 4)
                         throw new ASMError(`Can't scale ${nameRegister('sp', scaled.size, instr.syntax)}`, this.range);
-                    if(scaled.type == OPT.IP)
+                    if(scaled.type === OPT.IP)
                         throw new ASMError(`Can't scale ${nameRegister('ip', scaled.size, instr.syntax)}`, this.range);
                     this.regData.regIndex = scaled;
                     this.regData.regBase = null;
@@ -443,7 +443,7 @@ class RegisterIdentifier extends Identifier
         return new IdentifierValue({
             section: pseudoSections.ABS,
             range: this.range,
-            regData: this.register.type == OPT.VEC 
+            regData: this.register.type === OPT.VEC 
             ?
                 {
                     shift: 1,
@@ -588,9 +588,9 @@ export class Expression
 
         for(const id of this.stack)
         {
-            if(id.register && id.register.type == OPT.VEC)
+            if(id.register && id.register.type === OPT.VEC)
                 this.vecSize = id.register.size;
-            else if(id.register && id.register.type == OPT.IP)
+            else if(id.register && id.register.type === OPT.IP)
                 this.ripRelative = true;
             else if(id.name)
             {
