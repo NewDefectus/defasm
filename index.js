@@ -10175,10 +10175,11 @@
 
   // core/operands.js
   var OperandType = class {
-    constructor(name2, { hasSize = true, isMemory = false } = {}) {
+    constructor(name2, { hasSize = true, isMemory = false, isVector = false } = {}) {
       this.name = name2;
       this.hasSize = hasSize;
       this.isMemory = isMemory;
+      this.isVector = isVector;
     }
     toString() {
       return this.name;
@@ -10186,8 +10187,8 @@
   };
   var OPT = Object.freeze({
     REG: new OperandType("General-purpose register"),
-    VEC: new OperandType("Vector register"),
-    VMEM: new OperandType("Vector memory", { isMemory: true }),
+    VEC: new OperandType("Vector register", { isVector: true }),
+    VMEM: new OperandType("Vector memory", { isMemory: true, isVector: true }),
     IMM: new OperandType("Immediate value"),
     MASK: new OperandType("Mask register"),
     REL: new OperandType("Relative address", { isMemory: true }),
@@ -12020,7 +12021,7 @@
             return null;
         } else if (this.sizes == -2) {
           opSize = (prevSize & ~7) >> 1;
-          if (opSize < 128)
+          if (operand.type.isVector && opSize < 128)
             opSize = 128;
         } else
           opSize = prevSize & ~7;
@@ -12034,10 +12035,10 @@
       }
       if (this.sizes == -2) {
         rawSize = (prevSize & ~7) >> 1;
-        if (rawSize < 128)
+        if (operand.type.isVector && rawSize < 128)
           rawSize = 128;
         if (opSize == rawSize)
-          return prevSize;
+          return opSize | SIZETYPE_IMPLICITENC;
         return null;
       }
       if (this.sizes !== 0) {
@@ -12147,11 +12148,11 @@
         if (vexInfo.evex) {
           if (this.evexPermits === null || !this.evexPermits.MASK && vexInfo.mask > 0 || !(this.evexPermits.BROADCAST_32 || this.evexPermits.BROADCAST_64) && vexInfo.broadcast !== null || !this.evexPermits.ROUNDING && vexInfo.round > 0 || !this.evexPermits.SAE && vexInfo.round === 0 || !this.evexPermits.ZEROING && vexInfo.zeroing)
             return false;
-        } else if (this.evexPermits && this.evexPermits.FORCE)
+        } else if (this.evexPermits?.FORCE)
           vexInfo.evex = true;
-      } else if (this.vexOnly || this.evexPermits && this.evexPermits.FORCE)
+      } else if (this.vexOnly || this.evexPermits?.FORCE)
         return false;
-      if (this.evexPermits && this.evexPermits.FORCE_MASK && vexInfo.mask == 0)
+      if (this.evexPermits?.FORCE_MASK && vexInfo.mask == 0)
         return false;
       return true;
     }
@@ -12268,9 +12269,9 @@
             let sizeId = [128, 256, 512].indexOf(overallSize);
             vex |= sizeId << 21;
             if (vexInfo.broadcast !== null) {
-              if (this.evexPermits.BROADCAST_32)
-                sizeId++;
-              if (vexInfo.broadcast !== sizeId)
+              let intendedSize = vexInfo.broadcastOperand.size;
+              let broadcastSize = (this.evexPermits.BROADCAST_32 ? 32 : 64) << vexInfo.broadcast;
+              if (broadcastSize !== intendedSize)
                 throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
               vex |= 1048576;
             }
@@ -13467,8 +13468,8 @@ vcvtpd2uqq:66)0F79 v Vxyz > {kzBwrf
 vcvtph2ps:66)0F3813 v/ Vxyz > {kzs
 vcvtps2ph:66)0F3A1D ib Vxyz v/ > {kzs
 vcvtps2udq:0F79 v Vxyz > {kzbrf
-vcvtps2qq:66)0F7B v/ Vxyz > {kzBrf
-vcvtps2uqq:66)0F79 v/ Vxyz > {kzBrf
+vcvtps2qq:66)0F7B v/ Vxyz > {kzbrf
+vcvtps2uqq:66)0F79 v/ Vxyz > {kzbrf
 vcvtqq2pd:F3)0FE6 v Vxyz > {kzBrfw
 vcvtqq2ps:0F5B v#xy~z V/ > {kzBrfw
 vcvtsd2usi:F2)0F79 v#x Rlq > {rf
@@ -13477,11 +13478,11 @@ vcvttpd2qq:66)0F7A v Vxyz > {kzBwsf
 vcvttpd2udq:0F78 v#xy~z V/ > {kzBwsf
 vcvttpd2uqq:66)0F78 v Vxyz > {kzBwsf
 vcvttps2udq:0F78 v Vxyz > {kzbsf
-vcvttps2qq:66)0F7A v/ Vxyz > {kzBsf
-vcvttps2uqq:66)0F78 v/ Vxyz > {kzBsf
+vcvttps2qq:66)0F7A v/ Vxyz > {kzbsf
+vcvttps2uqq:66)0F78 v/ Vxyz > {kzbsf
 vcvttsd2usi:F2)0F78 v#x Rlq > {sf
 vcvttss2usi:F3)0F78 v#x Rlq > {sf
-vcvtudq2pd:F3)0F7A v/ Vxyz > {kzBf
+vcvtudq2pd:F3)0F7A v/ Vxyz > {kzbf
 vcvtudq2ps:F2)0F7A v Vxyz > {kzbrf
 vcvtuqq2pd:F3)0F7A v Vxyz > {kzBrfw
 vcvtuqq2ps:F2)0F7A v#xy~z V/ > {kzBfrw
@@ -14125,20 +14126,20 @@ g nle`.split("\n");
     if (vexInfo.round < 0)
       throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
   }
-  function explainNoMatch(mnemonics2, operands, vexInfo) {
+  function explainNoMatch(interps, operands, vexInfo) {
     let minOperandCount = Infinity, maxOperandCount = 0;
     let firstOrderPossible = false, secondOrderPossible = false;
     let requiresMask = false;
-    for (const mnemonic of mnemonics2)
-      for (const operation of mnemonic.operations) {
-        let opCount = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers).length;
+    for (const interp of interps)
+      for (const operation of interp.operations) {
+        let opCount = (interp.vex ? operation.vexOpCatchers : operation.opCatchers).length;
         if (opCount > maxOperandCount)
           maxOperandCount = opCount;
         if (opCount < minOperandCount)
           minOperandCount = opCount;
         if (opCount == operands.length && operation.requireMask)
           requiresMask = true;
-        vexInfo.needed = mnemonic.vex;
+        vexInfo.needed = interp.vex;
         firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
         operands.reverse();
         secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
@@ -14184,16 +14185,16 @@ g nle`.split("\n");
         next();
       }
       this.opcode = opcode.toLowerCase();
-      let mnemonics2 = fetchMnemonic(opcode, this.syntax.intel);
-      if (mnemonics2.length == 0)
+      let interps = fetchMnemonic(opcode, this.syntax.intel);
+      if (interps.length == 0)
         throw new ASMError("Unknown opcode", this.opcodeRange);
-      mnemonics2 = mnemonics2.filter((mnemonic) => mnemonic.size !== null);
-      if (mnemonics2.length == 0)
+      interps = interps.filter((interp) => interp.size !== null);
+      if (interps.length == 0)
         throw new ASMError(
           "Invalid opcode suffix",
           new RelativeRange(this.range, this.opcodeRange.end - 1, 1)
         );
-      const expectRelative = mnemonics2.some((mnemonic) => mnemonic.relative);
+      const expectRelative = interps.some((interp) => interp.relative);
       if (!this.syntax.intel && token == "{") {
         parseRoundingMode(vexInfo);
         if (next() != ",")
@@ -14248,8 +14249,9 @@ g nle`.split("\n");
           } else if (token == "z")
             vexInfo.zeroing = true, next();
           else if (operand.type === OPT.MEM) {
-            vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
-            if (vexInfo.broadcast < 0)
+            vexInfo.broadcastOperand = operand;
+            vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token) + 1;
+            if (vexInfo.broadcast == 0)
               throw new ASMError("Invalid broadcast mode");
             vexInfo.broadcastPos = currRange;
             next();
@@ -14270,16 +14272,16 @@ g nle`.split("\n");
         throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
       if (memoryOperand && this.prefsToGen.ADDRSIZE)
         memoryOperand.dispSize = 32;
-      let matchingMnemonics = [];
-      for (const mnemonic of mnemonics2) {
-        vexInfo.needed = mnemonic.vex;
-        const matchingOps = mnemonic.operations.filter((operation) => operation.matchTypes(operands, vexInfo));
+      let matchingInterps = [];
+      for (const interp of interps) {
+        vexInfo.needed = interp.vex;
+        const matchingOps = interp.operations.filter((operation) => operation.matchTypes(operands, vexInfo));
         if (matchingOps.length > 0)
-          matchingMnemonics.push({ ...mnemonic, operations: matchingOps });
+          matchingInterps.push({ ...interp, operations: matchingOps });
       }
-      if (matchingMnemonics.length == 0)
-        throw new ASMError(explainNoMatch(mnemonics2, operands, vexInfo), this.operandStartPos.until(currRange));
-      this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, vexInfo };
+      if (matchingInterps.length == 0)
+        throw new ASMError(explainNoMatch(interps, operands, vexInfo), this.operandStartPos.until(currRange));
+      this.outline = { operands, memoryOperand, interps: matchingInterps, vexInfo };
       this.endPos = currRange;
       this.removed = false;
       try {
@@ -14292,7 +14294,9 @@ g nle`.split("\n");
         this.outline = void 0;
     }
     compile() {
-      let { operands, memoryOperand, mnemonics: mnemonics2, vexInfo } = this.outline;
+      if (this.outline === void 0)
+        throw ASMError("Critical error: unneeded recompilation");
+      let { operands, memoryOperand, interps, vexInfo } = this.outline;
       let prefsToGen = this.prefsToGen;
       this.clear();
       if (memoryOperand)
@@ -14304,18 +14308,18 @@ g nle`.split("\n");
           if (op2.expression.hasSymbols)
             op2.evaluate(this);
           if (op2.value.isRelocatable()) {
-            const firstMnem = mnemonics2[0];
-            if (firstMnem.operations.length == 1) {
-              let operation = firstMnem.operations[0];
+            const firstInterp = interps[0];
+            if (firstInterp.operations.length == 1) {
+              let operation = firstInterp.operations[0];
               op2.size = Math.max(
-                ...(firstMnem.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
+                ...(firstInterp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
               ) & ~7;
             } else {
               op2.size = 8;
               relocationSizeLoop:
-                for (const mnemonic of mnemonics2)
-                  for (const operation of mnemonic.operations) {
-                    const sizes = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes;
+                for (const interp of interps)
+                  for (const operation of interp.operations) {
+                    const sizes = (interp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes;
                     if (sizes.length != 1 || (sizes[0] & ~7) != 8) {
                       op2.size = operands.length > 2 ? operands[2].size : operands[1].size;
                       if (op2.size > 32)
@@ -14353,16 +14357,16 @@ g nle`.split("\n");
         }
       }
       let op, found = false, rexVal = 64, memOpSize = memoryOperand?.size;
-      mnemonicLoop:
-        for (const mnemonic of mnemonics2) {
+      interpLoop:
+        for (const interp of interps) {
           if (memoryOperand)
-            memoryOperand.size = mnemonic.size || memOpSize;
-          vexInfo.needed = mnemonic.vex;
-          for (const operation of mnemonic.operations) {
+            memoryOperand.size = interp.size || memOpSize;
+          vexInfo.needed = interp.vex;
+          for (const operation of interp.operations) {
             op = operation.fit(operands, this, vexInfo);
             if (op !== null) {
               found = true;
-              break mnemonicLoop;
+              break interpLoop;
             }
           }
         }
@@ -17744,9 +17748,9 @@ g nle`.split("\n");
         return Prefix;
       if (tok == "=" || intel && tok == "equ")
         return symEquals;
-      let opcode = tok, mnemonics2 = fetchMnemonic(opcode, intel);
-      if (mnemonics2.length > 0)
-        return mnemonics2[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
+      let opcode = tok, interps = fetchMnemonic(opcode, intel);
+      if (interps.length > 0)
+        return interps[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
       return null;
     }
     if (ctx & STATE_ALLOW_IMM && tok[0] == "$") {
