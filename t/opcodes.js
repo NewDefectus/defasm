@@ -157,8 +157,6 @@ function* generateInstrs(mnemonic, {
     {
         let interps = fetchMnemonic(mnemonic, false, false);
         let vInterps = fetchMnemonic('v' + mnemonic, false, false);
-        if(interps.length == 0 && vInterps.length == 0)
-            throw Error(`Unknown mnemonic ${mnemonic}`);
 
         for(const interp of interps)
             for(const operation of interp.operations)
@@ -332,12 +330,8 @@ exports.run = async function(mnemonics = [])
     {
         if(uncheckedMnemonics.includes(mnemonic))
             continue;
-        let start = source.length;
-
         for(const line of generateInstrs(mnemonic))
             source += line + '\n';
-                        
-        console.assert(source.includes(mnemonic, start))
     }
 
     await exports.checkAgainstGcc(source);

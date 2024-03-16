@@ -1,12 +1,13 @@
 const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
-import { Operand, parseRegister, OPT, regParsePos, sizeHints, PrefixEnum } from "./operands.js";
+import { Operand, parseRegister, OPT, regParsePos, sizeHints, isSizeHint, PrefixEnum } from "./operands.js";
 import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
 import { fetchMnemonic, MnemonicInterpretation } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { pseudoSections } from "./sections.js";
 import { IdentifierValue } from "./shuntingYard.js";
+import { currBitness } from "./compiler.js";
 
 export const prefixes = Object.freeze({
     lock: 'LOCK',
@@ -171,7 +172,7 @@ export class Instruction extends Statement
                     break;
                 }
                 let sizePtr = token;
-                if(sizeHints.hasOwnProperty(sizePtr.toLowerCase()))
+                if(isSizeHint(sizePtr.toLowerCase()))
                 {
                     let following = next();
                     if(following.toLowerCase() == 'ptr')
@@ -553,9 +554,9 @@ export class Instruction extends Statement
         {
             // These are the respective "none" type registers
             rmReg = 5;
-            if(rmReg2 < 0)
+            if(currBitness == 64 && rmReg2 < 0)
                 rmReg2 = 4;
-            rm.value.addend = rm.value.addend || 0n;
+            rm.value.addend ||= 0n;
         }
         
         // Encoding the "rm" field

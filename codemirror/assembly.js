@@ -48,7 +48,7 @@ const assemblyLang = LRLanguage.define({
  * @param {boolean} config.highlighting Whether to enable syntax highlighting using a [`LanguageSupport`](https://codemirror.net/6/docs/ref/#language.LanguageSupport) object
 */
 export function assembly({
-    assemblyConfig = { syntax: { intel: false, prefix: true }},
+    assemblyConfig = { syntax: { intel: false, prefix: true }, bitness: 64 },
     byteDumps      = true,
     debug          = false,
     errorMarking   = true,
@@ -71,7 +71,7 @@ export function assembly({
 
     if(highlighting)
         return new LanguageSupport(assemblyLang.configure({
-            contextTracker: ctxTracker(assemblyConfig.syntax)
+            contextTracker: ctxTracker(assemblyConfig.syntax, assemblyConfig.bitness)
         }), plugins);
     return plugins;
 }

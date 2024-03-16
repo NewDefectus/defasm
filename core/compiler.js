@@ -7,6 +7,7 @@ import { loadSections, Section, sectionFlags, sections } from "./sections.js";
 
 /** @type {StatementNode} */ var prevNode = null;
 /** @type {Section}       */ export var currSection = null;
+/** @type {32 | 64}       */ export var currBitness;
 
 var addr = 0;
 
@@ -44,6 +45,7 @@ function addInstruction(instr, seekEnd = true)
  * @typedef {Object} AssemblyConfig
  * @property {import('@defasm/core/parser.js').Syntax} config.syntax The initial syntax to use
  * @property {boolean} config.writableText Whether the .text section should be writable
+ * @property {32|64} config.bitness Whether to use the 64- or 32-bit instruction set
  */
 
 export class AssemblyState
@@ -54,10 +56,12 @@ export class AssemblyState
             intel: false,
             prefix: true
         },
-        writableText = false
+        writableText = false,
+        bitness = 64
     } = {})
     {
         this.defaultSyntax = syntax;
+        this.bitness = bitness;
 
         /** @type {Map<string, import("./symbols.js").Symbol>} */
         this.symbols = new Map();
@@ -66,6 +70,7 @@ export class AssemblyState
 
         setSyntax(syntax);
         loadSymbols(this.symbols, this.fileSymbols);
+        currBitness = bitness;
 
         /** @type {Section[]} */
         this.sections = [
@@ -106,6 +111,7 @@ export class AssemblyState
         
         loadSymbols(this.symbols, this.fileSymbols);
         loadSections(this.sections, replacementRange);
+        currBitness = this.bitness;
 
         let { head, tail } = this.head.getAffectedArea(replacementRange, true, source.length);
         

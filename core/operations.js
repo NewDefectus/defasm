@@ -1,4 +1,5 @@
 import { createBitfieldClass } from "./bitfield.js";
+import { currBitness } from "./compiler.js";
 import { Instruction } from "./instructions.js";
 import { Operand, OPT, suffixes } from "./operands.js";
 import { ASMError } from "./parser.js";
@@ -121,7 +122,7 @@ export class OpCatcher
         this.forceRM = format[0] == '^';
         this.vexOpImm = format[0] == '<';
         this.vexOp = this.vexOpImm || format[0] == '>';
-        this.moffset = format[0] == '%'; // Only used once in the entire instruction set
+        this.moffset = format[0] == '%'; // Only used twice in the entire instruction set
         if(this.forceRM || this.vexOp || this.moffset)
             format = format.slice(1);
         this.carrySizeInference = format[0] != '*';
@@ -202,7 +203,8 @@ export class OpCatcher
                 return defSize;
             else if(this.moffset)
             {
-                if(operand.value.inferSize() == 64)
+                // Moffsets are only available in 64-bit mode
+                if(currBitness == 64 && operand.value.inferSize() == 64)
                     opSize = 64;
                 else
                     return null;
@@ -247,6 +249,10 @@ export class OpCatcher
         {
             for(size of this.sizes)
             {
+                // No 64-bit sized R or R/M operands in 32-bit mode
+                if(size == 64 && currBitness == 32 && this.type == OPT.REG)
+                    continue;
+
                 rawSize = size & ~7;
                 if(opSize == rawSize || ((this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize)) // Allow immediates and relatives to be upcast
                 {
@@ -280,17 +286,20 @@ export class Operation
         this.actuallyNotVex = false;
         this.vexOnly = false;
         this.requireMask = false;
+        this.requireBitness = null;
 
         // Interpreting the opcode
         this.forceVex = format[0][0] == 'V';
         this.vexOnly = format[0][0] == 'v';
-        if("vVwl!".includes(format[0][0]))
+        if("vVwl!xX".includes(format[0][0]))
         {
             let specializers = format.shift();
             if(specializers.includes('w')) this.vexBase |= 0x8000;
             if(specializers.includes('l')) this.vexBase |= 0x400;
             if(specializers.includes('!'))
                 this.actuallyNotVex = true; // For non-VEX instructions starting with V
+            if(specializers.includes('x')) this.requireBitness = 32;
+            if(specializers.includes('X')) this.requireBitness = 64;
         }
         let [opcode, extension] = format.shift().split('.');
 

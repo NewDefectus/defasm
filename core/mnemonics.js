@@ -1,6 +1,7 @@
 import { Operation } from "./operations.js"; // For proper JSDoc
 import { floatIntSuffixes, floatSuffixes, suffixes } from "./operands.js";
 import mnemonicList from "./mnemonicList.js";
+import { currBitness } from "./compiler.js";
 
 let lines;
 
@@ -223,11 +224,20 @@ export class MnemonicInterpretation
     }
 }
 
-function addMnemonicInterpretation(list, raw, intel, size, isVex)
+function addMnemonicInterpretation(list, raw, intel, size, isVex, bitness)
 {
     if(!isMnemonic(raw, intel))
         return;
-    const operations = getOperations(raw, intel).filter(x => isVex ? (x.allowVex || x.actuallyNotVex) && !x.forceVex : !x.vexOnly);
+    const operations = getOperations(raw, intel).filter(x =>
+        (isVex ?
+            (x.allowVex || x.actuallyNotVex) && !x.forceVex
+        :
+            !x.vexOnly
+        ) && (
+            x.requireBitness === null ||
+            x.requireBitness === bitness
+        )
+    );
     if(operations.length == 0)
         return;
     list.push(new MnemonicInterpretation(raw, operations, size, isVex));
@@ -245,9 +255,10 @@ function addMnemonicInterpretation(list, raw, intel, size, isVex)
  * @param {string} mnemonic
  * @param {boolean} intel
  * @param {boolean} expectSuffix
+ * @param {32 | 64} bitness
  * @returns {MnemonicInterpretation[]}
  */
-export function fetchMnemonic(mnemonic, intel, expectSuffix = !intel)
+export function fetchMnemonic(mnemonic, intel, expectSuffix = !intel, bitness = currBitness)
 {
     mnemonic = mnemonic.toLowerCase();
     if(mnemonic.startsWith('vv'))
@@ -259,25 +270,33 @@ export function fetchMnemonic(mnemonic, intel, expectSuffix = !intel)
 
     for(const raw of possibleOpcodes)
     {
-        addMnemonicInterpretation(interps, raw, intel, undefined, isVex);
+        addMnemonicInterpretation(interps, raw, intel, undefined, isVex, bitness);
 
         // Size suffix interpretation
         if(expectSuffix)
+        {
+            const suffixArray = (
+                raw[0] == 'f' ?
+                    raw[1] == 'i' ?
+                        floatIntSuffixes
+                    :
+                        floatSuffixes
+                :
+                    suffixes
+            );
+            const suffixLetter = raw[raw.length - 1];
+            let size = suffixArray[suffixLetter];
+            if(bitness == 32 && suffixLetter == 'q')
+                size = null;
             addMnemonicInterpretation(
                 interps,
                 raw.slice(0, -1),
                 intel,
-                (
-                    raw[0] == 'f' ?
-                        raw[1] == 'i' ?
-                            floatIntSuffixes
-                        :
-                            floatSuffixes
-                    :
-                        suffixes
-                )[raw[raw.length - 1]] ?? null,
-                isVex
+                size,
+                isVex,
+                bitness
             );
+        }
     }
 
     return interps;

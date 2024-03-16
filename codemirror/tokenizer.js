@@ -1,5 +1,5 @@
 import {
-    fetchMnemonic, sizeHints, prefixes, isRegister,
+    fetchMnemonic, isSizeHint, prefixes, isRegister,
     isDirective, scanIdentifier
 } from '@defasm/core';
 import { ContextTracker, ExternalTokenizer, InputStream } from '@lezer/lr';
@@ -56,11 +56,15 @@ const
     STATE_SYNTAX_INTEL = 1,
     STATE_SYNTAX_PREFIX = 2,
     STATE_IN_INSTRUCTION = 4,
-    STATE_ALLOW_IMM = 8;
+    STATE_ALLOW_IMM = 8,
+    STATE_SYNTAX_X86 = 16;
 
 /** @param {import('@defasm/core/parser.js').Syntax} initialSyntax */
-export const ctxTracker = initialSyntax => new ContextTracker({
-    start: (initialSyntax.intel * STATE_SYNTAX_INTEL) | (initialSyntax.prefix * STATE_SYNTAX_PREFIX),
+export const ctxTracker = (initialSyntax, bitness) => new ContextTracker({
+    start:
+        (initialSyntax.intel * STATE_SYNTAX_INTEL) |
+        (initialSyntax.prefix * STATE_SYNTAX_PREFIX) |
+        ((bitness == 32) * STATE_SYNTAX_X86),
     shift: (ctx, term, stack, input) => {
         if(term == Terms.Opcode)
             ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
@@ -110,7 +114,9 @@ export const ctxTracker = initialSyntax => new ContextTracker({
 /** @param {InputStream} input */
 function tokenize(ctx, input)
 {
-    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    const intel = ctx & STATE_SYNTAX_INTEL,
+          prefix = ctx & STATE_SYNTAX_PREFIX,
+          bitness = (ctx & STATE_SYNTAX_X86) ? 32 : 64;
     if(tok == (intel ? ';' : '#'))
     {
         while(input.next >= 0 && input.next != '\n'.charCodeAt(0))
@@ -139,7 +145,7 @@ function tokenize(ctx, input)
         if(tok == '=' || intel && tok == 'equ')
             return Terms.symEquals;
 
-        let opcode = tok, interps = fetchMnemonic(opcode, intel);
+        let opcode = tok, interps = fetchMnemonic(opcode, intel, !intel, bitness);
         if(interps.length > 0)
             return interps[0].relative
             ?
@@ -161,18 +167,18 @@ function tokenize(ctx, input)
     }
 
     if(tok == '%' && prefix)
-        return isRegister(next(input)) ? Terms.Register : null;
+        return isRegister(next(input), bitness) ? Terms.Register : null;
     
     if(tok == '{')
     {
-        if((!prefix || next(input) == '%') && isRegister(next(input)))
+        if((!prefix || next(input) == '%') && isRegister(next(input), bitness))
             return null;
         while(tok != '\n' && tok != '}')
             next(input);
         return Terms.VEXRound;
     }
     
-    if(intel && sizeHints.hasOwnProperty(tok))
+    if(intel && isSizeHint(tok))
     {
         let prevEnd = input.pos;
         if(",;\n{:".includes(next(input)))
@@ -195,7 +201,7 @@ function tokenize(ctx, input)
     const idType = scanIdentifier(tok, intel);
     if(idType === null)
         return null;
-    if(!prefix && isRegister(tok))
+    if(!prefix && isRegister(tok, bitness))
         return Terms.Register;
     if(idType == 'symbol')
         return Terms.word;

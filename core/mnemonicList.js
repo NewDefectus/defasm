@@ -1,4 +1,15 @@
 export default `
+aaa:x 37
+aad
+x D50A
+x D5 ib
+
+aam
+x D40A
+x D4 ib
+
+aas:x 3F
+
 adcx:66)0F38F6 r Rlq
 
 addpd:66)0F58 v >V Vxyz {kzrBw
@@ -51,6 +62,9 @@ bndmov
 66)0F1B B b
 
 bndstx:0F1B B m
+
+bound:x 62 m Rwl
+
 bsf:0FBC r Rwlq
 bsr:0FBD r Rwlq
 bswap:0FC8.o Rlq
@@ -150,7 +164,14 @@ cvttss2si:F3)0F2C v#x Rlq > {s
 cqto/cqo:48)99
 cwtd/cwd:66)99
 cwtl/cwde:98
-dec:FE.1 rbwlq
+
+daa:x 27
+das:x 2F
+
+dec
+x 48.o Rwl
+FE.1 rbwlq
+
 div:F6.6 rbwlq
 
 divpd:66)0F5E v >V Vxyz {kzBwr
@@ -320,7 +341,10 @@ in
 E4 ib R_0bwl
 EC R_2W R_0bwl
 
-inc:FE.0 rbwlq
+inc
+x 40.o Rwl
+FE.0 rbwlq
+
 incsspd:F3)0FAE.5 Rl
 incsspq:F3)0FAE.5 Rq
 ins{bwl:6C
@@ -332,6 +356,7 @@ CD ib
 
 int1:F1
 int3:CC
+into:x CE
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -476,26 +501,30 @@ minss:F3)0F5D v >V Vx {kzs
 monitor:0F01C8
 
 mov
-A0 %mlq R_0bwlq
-A2 R_0bwlq %mlq
+X A0 %mlq R_0bwlq
+X A2 R_0bwlq %mlq
 88 Rbwlq r
 8A r Rbwlq
-C7.0 Il Rq
-C7.0 iL mq
+X C7.0 Il Rq
+X C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
 8C s ^RwlQ
 8C s mW
 8E ^RWlQ s
 8E mW s
-0F20 C ^RQ
-0F21 D ^RQ
-0F22 ^RQ C
-0F23 ^RQ D
+X 0F20 C ^RQ
+X 0F21 D ^RQ
+X 0F22 ^RQ C
+X 0F23 ^RQ D
+x 0F20 C ^RL
+x 0F21 D ^RL
+x 0F22 ^RL C
+x 0F23 ^RL D
 
 movabs/
-A0 %mlQ R_0bwlq
-A2 R_0bwlq %mlQ
+X A0 %mlQ R_0bwlq
+X A2 R_0bwlq %mlQ
 
 movapd
 66)0F28 v Vxyz > {kzw
@@ -819,10 +848,15 @@ pmullw:0FD5 v >V Vqxyz {kz
 pmuludq:0FF4 v >V Vqxyz {kzBw
 
 pop
-58.o RwQ
-8F.0 mwQ
+X 58.o RwQ
+x 58.o Rwl
+X 8F.0 mwQ
+x 8F.0 mwL
 0FA1 s_4
 0FA9 s_5
+
+popa:x 61
+popad:#popa
 
 popcnt:F3)0FB8 r Rwlq
 
@@ -936,11 +970,15 @@ punpckldq:0F62 v >V Vqxyz {kzb
 punpcklqdq:66)0F6C v >V Vxyz {kzBw
 
 push
-50.o RwQ
+X 50.o RwQ
+x 50.o Rwl
 6A-2 Ibl
 FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
+
+pusha:x 60
+pushad:#pusha
 
 pushf{wQ}:9C
 pushw:66)6A-2 Ib$w

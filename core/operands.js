@@ -1,6 +1,7 @@
 import { createBitfieldClass } from "./bitfield.js";
 import { ASMError, token, next, ungetToken, currRange, currSyntax, prevRange, setToken } from "./parser.js";
 import { Expression, CurrentIP } from "./shuntingYard.js";
+import { currBitness } from "./compiler.js";
 
 export class OperandType
 {
@@ -80,6 +81,12 @@ export const sizeHints = Object.freeze({
     zmmword: 512
 });
 
+/** @param {string} sizeHint */
+export function isSizeHint(sizeHint)
+{
+    return sizeHints.hasOwnProperty(sizeHint);
+}
+
 export function nameRegister(name, size, syntax)
 {
     return `${syntax.prefix ? '%' : ''}${size == 32 ? 'e' : 'r'}` + name;
@@ -101,12 +108,22 @@ export var regSuffixes = {
 /** Check if a given string corresponds to a register name (ignoring the '%' prefix).
  * @param {string} reg
  */
-export function isRegister(reg)
+export function isRegister(reg, bitness = currBitness)
 {
     reg = reg.toLowerCase();
     if(registers.hasOwnProperty(reg))
-        return true;
-    if(reg[0] === 'r')
+    {
+        if(bitness == 64)
+            return true;
+
+        // Filter out registers not available in 32-bit mode
+        let regIndex = registers[reg];
+        return (
+            regIndex < registers.rax ||
+            (regIndex >= registers.es && regIndex <= registers.st)
+        );
+    }
+    if(bitness == 64 && reg[0] === 'r')
     {
         reg = reg.slice(1);
         if(parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || regSuffixes[reg[reg.length - 1]]))
@@ -116,7 +133,7 @@ export function isRegister(reg)
     {
         let max = 32;
         if(reg.startsWith("mm") || reg.startsWith("dr")) reg = reg.slice(2), max = 8;
-        else if(reg.startsWith("cr")) reg = reg.slice(2), max = 9;
+        else if(reg.startsWith("cr")) reg = reg.slice(2), max = bitness == 64 ? 9 : 8;
         else if(reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
         else if(reg.startsWith("bnd")) reg = reg.slice(3), max = 4;
         else if(reg[0] == 'k') reg = reg.slice(1), max = 8;
@@ -141,7 +158,7 @@ export function parseRegister(expectedType = null)
     let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
     let reg = registers[regToken];
     let size = 0, type = -1, prefs = new PrefixEnum();
-    if(reg >= registers.al && reg <= registers.rdi)
+    if(reg >= registers.al && reg <= (currBitness == 64 ? registers.rdi : registers.edi))
     {
         type = OPT.REG;
         size = 8 << (reg >> 3);
@@ -168,7 +185,8 @@ export function parseRegister(expectedType = null)
         else
             ungetToken();
     }
-    else if(reg == registers.rip || reg == registers.eip)
+    // RIP-relative addressing is only available in 64-bit mode
+    else if(currBitness == 64 && (reg == registers.rip || reg == registers.eip))
     {
         if(expectedType === null || !expectedType.includes(OPT.IP))
             throw new ASMError(`Can't use ${nameRegister('ip', reg == registers.eip ? 32 : 64, currSyntax)} here`);
@@ -176,14 +194,14 @@ export function parseRegister(expectedType = null)
         size = reg == registers.eip ? 32 : 64;
         reg = 0;
     }
-    else if(reg >= registers.spl && reg <= registers.dil)
+    else if(currBitness == 64 && reg >= registers.spl && reg <= registers.dil)
     {
         type = OPT.REG;
         size = 8;
         prefs.REX = true;
         reg -= registers.spl - 4;
     }
-    else if(regToken[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
+    else if(currBitness == 64 && regToken[0] == 'r') // Attempt to parse the register name as a numeric (e.g. r10)
     {
         reg = parseInt(regToken.slice(1));
         if(isNaN(reg) || reg < 0 || reg >= 16)
@@ -206,7 +224,7 @@ export function parseRegister(expectedType = null)
         if(token.startsWith("bnd")) reg = regToken.slice(3), type = OPT.BND, max = 4;
         else if(regToken[0] == 'k') reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
         else if(regToken.startsWith("dr")) reg = regToken.slice(2), type = OPT.DBG, max = 8;
-        else if(regToken.startsWith("cr")) reg = regToken.slice(2), type = OPT.CTRL, max = 9;
+        else if(regToken.startsWith("cr")) reg = regToken.slice(2), type = OPT.CTRL, max = currBitness == 64 ? 9 : 8;
         else
         {
             type = OPT.VEC;
@@ -363,9 +381,9 @@ export class Operand
                     else
                         throw new ASMError("Expected register");
                     
-                    if(tempReg.size == 32)
+                    if(tempReg.size == 32 && currBitness == 64)
                         this.prefs.ADDRSIZE = true;
-                    else if(tempReg.size != 64)
+                    else if(tempReg.size != currBitness)
                         throw new ASMError("Invalid register size", regParsePos);
                     if(tempReg.type === OPT.IP)
                         this.ripRelative = true;
@@ -384,10 +402,10 @@ export class Operand
                         else
                         {
                             if(this.reg2 == 4)
-                                throw new ASMError("Memory index cannot be RSP", regParsePos);
-                            if(tempReg.size == 32)
+                                throw new ASMError(`Memory index cannot be ${currBitness == 64 ? 'R' : 'E'}SP`, regParsePos);
+                            if(tempReg.size == 32 && currBitness == 64)
                                 this.prefs.ADDRSIZE = true;
-                            else if(tempReg.size != 64)
+                            else if(tempReg.size != currBitness)
                                 throw new ASMError("Invalid register size", regParsePos);
                         }
 
@@ -452,7 +470,7 @@ export class Operand
                 this.reg = regBase.reg;
             if(regIndex)
                 this.reg2 = regIndex.reg;
-            if(regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
+            if(currBitness == 64 && (regBase && regBase.size == 32 || regIndex && regIndex.size == 32))
                 this.prefs.ADDRSIZE = true;
             this.shift = [1, 2, 4, 8].indexOf(shift);
             if(this.shift < 0)
