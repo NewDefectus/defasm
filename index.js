@@ -10309,6 +10309,9 @@
     ymmword: 256,
     zmmword: 512
   });
+  function isSizeHint(sizeHint) {
+    return sizeHints.hasOwnProperty(sizeHint);
+  }
   function nameRegister(name2, size, syntax) {
     return `${syntax.prefix ? "%" : ""}${size == 32 ? "e" : "r"}` + name2;
   }
@@ -10334,11 +10337,15 @@
     w: 16,
     d: 32
   };
-  function isRegister(reg) {
+  function isRegister(reg, bitness = currBitness) {
     reg = reg.toLowerCase();
-    if (registers.hasOwnProperty(reg))
-      return true;
-    if (reg[0] === "r") {
+    if (registers.hasOwnProperty(reg)) {
+      if (bitness == 64)
+        return true;
+      let regIndex = registers[reg];
+      return regIndex < registers.rax || regIndex >= registers.es && regIndex <= registers.st;
+    }
+    if (bitness == 64 && reg[0] === "r") {
       reg = reg.slice(1);
       if (parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || regSuffixes[reg[reg.length - 1]]))
         return true;
@@ -10347,7 +10354,7 @@
       if (reg.startsWith("mm") || reg.startsWith("dr"))
         reg = reg.slice(2), max = 8;
       else if (reg.startsWith("cr"))
-        reg = reg.slice(2), max = 9;
+        reg = reg.slice(2), max = bitness == 64 ? 9 : 8;
       else if (reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm"))
         reg = reg.slice(3);
       else if (reg.startsWith("bnd"))
@@ -10365,7 +10372,7 @@
     let regToken = (currSyntax.prefix ? next() : token).toLowerCase();
     let reg = registers[regToken];
     let size = 0, type = -1, prefs = new PrefixEnum();
-    if (reg >= registers.al && reg <= registers.rdi) {
+    if (reg >= registers.al && reg <= (currBitness == 64 ? registers.rdi : registers.edi)) {
       type = OPT.REG;
       size = 8 << (reg >> 3);
       if (size == 8 && reg >= registers.ah && reg <= registers.bh)
@@ -10384,18 +10391,18 @@
           throw new ASMError("Unknown register");
       } else
         ungetToken();
-    } else if (reg == registers.rip || reg == registers.eip) {
+    } else if (currBitness == 64 && (reg == registers.rip || reg == registers.eip)) {
       if (expectedType === null || !expectedType.includes(OPT.IP))
         throw new ASMError(`Can't use ${nameRegister("ip", reg == registers.eip ? 32 : 64, currSyntax)} here`);
       type = OPT.IP;
       size = reg == registers.eip ? 32 : 64;
       reg = 0;
-    } else if (reg >= registers.spl && reg <= registers.dil) {
+    } else if (currBitness == 64 && reg >= registers.spl && reg <= registers.dil) {
       type = OPT.REG;
       size = 8;
       prefs.REX = true;
       reg -= registers.spl - 4;
-    } else if (regToken[0] == "r") {
+    } else if (currBitness == 64 && regToken[0] == "r") {
       reg = parseInt(regToken.slice(1));
       if (isNaN(reg) || reg < 0 || reg >= 16)
         throw new ASMError("Unknown register");
@@ -10416,7 +10423,7 @@
       else if (regToken.startsWith("dr"))
         reg = regToken.slice(2), type = OPT.DBG, max = 8;
       else if (regToken.startsWith("cr"))
-        reg = regToken.slice(2), type = OPT.CTRL, max = 9;
+        reg = regToken.slice(2), type = OPT.CTRL, max = currBitness == 64 ? 9 : 8;
       else {
         type = OPT.VEC;
         if (regToken.startsWith("mm"))
@@ -10531,9 +10538,9 @@
               tempReg = { type: -1, size: 64 };
             } else
               throw new ASMError("Expected register");
-            if (tempReg.size == 32)
+            if (tempReg.size == 32 && currBitness == 64)
               this.prefs.ADDRSIZE = true;
-            else if (tempReg.size != 64)
+            else if (tempReg.size != currBitness)
               throw new ASMError("Invalid register size", regParsePos);
             if (tempReg.type === OPT.IP)
               this.ripRelative = true;
@@ -10549,10 +10556,10 @@
                   throw new ASMError("Invalid register size", regParsePos);
               } else {
                 if (this.reg2 == 4)
-                  throw new ASMError("Memory index cannot be RSP", regParsePos);
-                if (tempReg.size == 32)
+                  throw new ASMError(`Memory index cannot be ${currBitness == 64 ? "R" : "E"}SP`, regParsePos);
+                if (tempReg.size == 32 && currBitness == 64)
                   this.prefs.ADDRSIZE = true;
-                else if (tempReg.size != 64)
+                else if (tempReg.size != currBitness)
                   throw new ASMError("Invalid register size", regParsePos);
               }
               if (token == ",") {
@@ -10601,7 +10608,7 @@
           this.reg = regBase.reg;
         if (regIndex)
           this.reg2 = regIndex.reg;
-        if (regBase && regBase.size == 32 || regIndex && regIndex.size == 32)
+        if (currBitness == 64 && (regBase && regBase.size == 32 || regIndex && regIndex.size == 32))
           this.prefs.ADDRSIZE = true;
         this.shift = [1, 2, 4, 8].indexOf(shift2);
         if (this.shift < 0)
@@ -12041,7 +12048,7 @@
         if (defSize > 0)
           return defSize;
         else if (this.moffset) {
-          if (operand.value.inferSize() == 64)
+          if (currBitness == 64 && operand.value.inferSize() == 64)
             opSize = 64;
           else
             return null;
@@ -12071,6 +12078,8 @@
       }
       if (this.sizes !== 0) {
         for (size of this.sizes) {
+          if (size == 64 && currBitness == 32 && this.type == OPT.REG)
+            continue;
           rawSize = size & ~7;
           if (opSize == rawSize || (this.type === OPT.IMM || this.type === OPT.REL) && opSize < rawSize) {
             found = true;
@@ -12090,9 +12099,10 @@
       this.actuallyNotVex = false;
       this.vexOnly = false;
       this.requireMask = false;
+      this.requireBitness = null;
       this.forceVex = format[0][0] == "V";
       this.vexOnly = format[0][0] == "v";
-      if ("vVwl!".includes(format[0][0])) {
+      if ("vVwl!xX".includes(format[0][0])) {
         let specializers = format.shift();
         if (specializers.includes("w"))
           this.vexBase |= 32768;
@@ -12100,6 +12110,10 @@
           this.vexBase |= 1024;
         if (specializers.includes("!"))
           this.actuallyNotVex = true;
+        if (specializers.includes("x"))
+          this.requireBitness = 32;
+        if (specializers.includes("X"))
+          this.requireBitness = 64;
       }
       let [opcode, extension] = format.shift().split(".");
       let adderSeparator = opcode.indexOf("+");
@@ -12409,6 +12423,17 @@
 
   // core/mnemonicList.js
   var mnemonicList_default = `
+aaa:x 37
+aad
+x D50A
+x D5 ib
+
+aam
+x D40A
+x D4 ib
+
+aas:x 3F
+
 adcx:66)0F38F6 r Rlq
 
 addpd:66)0F58 v >V Vxyz {kzrBw
@@ -12461,6 +12486,9 @@ bndmov
 66)0F1B B b
 
 bndstx:0F1B B m
+
+bound:x 62 m Rwl
+
 bsf:0FBC r Rwlq
 bsr:0FBD r Rwlq
 bswap:0FC8.o Rlq
@@ -12560,7 +12588,14 @@ cvttss2si:F3)0F2C v#x Rlq > {s
 cqto/cqo:48)99
 cwtd/cwd:66)99
 cwtl/cwde:98
-dec:FE.1 rbwlq
+
+daa:x 27
+das:x 2F
+
+dec
+x 48.o Rwl
+FE.1 rbwlq
+
 div:F6.6 rbwlq
 
 divpd:66)0F5E v >V Vxyz {kzBwr
@@ -12730,7 +12765,10 @@ in
 E4 ib R_0bwl
 EC R_2W R_0bwl
 
-inc:FE.0 rbwlq
+inc
+x 40.o Rwl
+FE.0 rbwlq
+
 incsspd:F3)0FAE.5 Rl
 incsspq:F3)0FAE.5 Rq
 ins{bwl:6C
@@ -12742,6 +12780,7 @@ CD ib
 
 int1:F1
 int3:CC
+into:x CE
 invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
@@ -12886,26 +12925,30 @@ minss:F3)0F5D v >V Vx {kzs
 monitor:0F01C8
 
 mov
-A0 %mlq R_0bwlq
-A2 R_0bwlq %mlq
+X A0 %mlq R_0bwlq
+X A2 R_0bwlq %mlq
 88 Rbwlq r
 8A r Rbwlq
-C7.0 Il Rq
-C7.0 iL mq
+X C7.0 Il Rq
+X C7.0 iL mq
 B0+8.o i Rbwlq
 C6.0 i rbwl
 8C s ^RwlQ
 8C s mW
 8E ^RWlQ s
 8E mW s
-0F20 C ^RQ
-0F21 D ^RQ
-0F22 ^RQ C
-0F23 ^RQ D
+X 0F20 C ^RQ
+X 0F21 D ^RQ
+X 0F22 ^RQ C
+X 0F23 ^RQ D
+x 0F20 C ^RL
+x 0F21 D ^RL
+x 0F22 ^RL C
+x 0F23 ^RL D
 
 movabs/
-A0 %mlQ R_0bwlq
-A2 R_0bwlq %mlQ
+X A0 %mlQ R_0bwlq
+X A2 R_0bwlq %mlQ
 
 movapd
 66)0F28 v Vxyz > {kzw
@@ -13229,10 +13272,15 @@ pmullw:0FD5 v >V Vqxyz {kz
 pmuludq:0FF4 v >V Vqxyz {kzBw
 
 pop
-58.o RwQ
-8F.0 mwQ
+X 58.o RwQ
+x 58.o Rwl
+X 8F.0 mwQ
+x 8F.0 mwL
 0FA1 s_4
 0FA9 s_5
+
+popa:x 61
+popad:#popa
 
 popcnt:F3)0FB8 r Rwlq
 
@@ -13346,11 +13394,15 @@ punpckldq:0F62 v >V Vqxyz {kzb
 punpcklqdq:66)0F6C v >V Vxyz {kzBw
 
 push
-50.o RwQ
+X 50.o RwQ
+x 50.o Rwl
 6A-2 Ibl
 FF.6 mwQ
 0FA0 s_4
 0FA8 s_5
+
+pusha:x 60
+pushad:#pusha
 
 pushf{wQ}:9C
 pushw:66)6A-2 Ib$w
@@ -14104,15 +14156,17 @@ g nle`.split("\n");
       this.vex = isVex && !operations[0].actuallyNotVex || operations[0].forceVex;
     }
   };
-  function addMnemonicInterpretation(list, raw, intel, size, isVex) {
+  function addMnemonicInterpretation(list, raw, intel, size, isVex, bitness) {
     if (!isMnemonic(raw, intel))
       return;
-    const operations = getOperations(raw, intel).filter((x) => isVex ? (x.allowVex || x.actuallyNotVex) && !x.forceVex : !x.vexOnly);
+    const operations = getOperations(raw, intel).filter(
+      (x) => (isVex ? (x.allowVex || x.actuallyNotVex) && !x.forceVex : !x.vexOnly) && (x.requireBitness === null || x.requireBitness === bitness)
+    );
     if (operations.length == 0)
       return;
     list.push(new MnemonicInterpretation(raw, operations, size, isVex));
   }
-  function fetchMnemonic(mnemonic, intel, expectSuffix = !intel) {
+  function fetchMnemonic(mnemonic, intel, expectSuffix = !intel, bitness = currBitness) {
     mnemonic = mnemonic.toLowerCase();
     if (mnemonic.startsWith("vv"))
       return [];
@@ -14120,15 +14174,22 @@ g nle`.split("\n");
     let possibleOpcodes = isVex ? [mnemonic, mnemonic.slice(1)] : [mnemonic];
     let interps = [];
     for (const raw of possibleOpcodes) {
-      addMnemonicInterpretation(interps, raw, intel, void 0, isVex);
-      if (expectSuffix)
+      addMnemonicInterpretation(interps, raw, intel, void 0, isVex, bitness);
+      if (expectSuffix) {
+        const suffixArray = raw[0] == "f" ? raw[1] == "i" ? floatIntSuffixes : floatSuffixes : suffixes;
+        const suffixLetter = raw[raw.length - 1];
+        let size = suffixArray[suffixLetter];
+        if (bitness == 32 && suffixLetter == "q")
+          size = null;
         addMnemonicInterpretation(
           interps,
           raw.slice(0, -1),
           intel,
-          (raw[0] == "f" ? raw[1] == "i" ? floatIntSuffixes : floatSuffixes : suffixes)[raw[raw.length - 1]] ?? null,
-          isVex
+          size,
+          isVex,
+          bitness
         );
+      }
     }
     return interps;
   }
@@ -14274,7 +14335,7 @@ g nle`.split("\n");
             break;
           }
           let sizePtr = token;
-          if (sizeHints.hasOwnProperty(sizePtr.toLowerCase())) {
+          if (isSizeHint(sizePtr.toLowerCase())) {
             let following = next();
             if (following.toLowerCase() == "ptr") {
               sizePtrRange = sizePtrRange.until(currRange);
@@ -14557,9 +14618,9 @@ g nle`.split("\n");
         }
       } else {
         rmReg = 5;
-        if (rmReg2 < 0)
+        if (currBitness == 64 && rmReg2 < 0)
           rmReg2 = 4;
-        rm.value.addend = rm.value.addend || 0n;
+        rm.value.addend ||= 0n;
       }
       rex |= rmReg >> 3;
       rmReg &= 7;
@@ -14612,6 +14673,7 @@ g nle`.split("\n");
   // core/compiler.js
   var prevNode = null;
   var currSection = null;
+  var currBitness;
   var addr = 0;
   function setSection(section) {
     currSection = section;
@@ -14638,13 +14700,16 @@ g nle`.split("\n");
         intel: false,
         prefix: true
       },
-      writableText = false
+      writableText = false,
+      bitness = 64
     } = {}) {
       this.defaultSyntax = syntax;
+      this.bitness = bitness;
       this.symbols = /* @__PURE__ */ new Map();
       this.fileSymbols = [];
       setSyntax(syntax);
       loadSymbols(this.symbols, this.fileSymbols);
+      currBitness = bitness;
       this.sections = [
         new Section(".text"),
         new Section(".data"),
@@ -14665,6 +14730,7 @@ g nle`.split("\n");
       this.source = this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
       loadSymbols(this.symbols, this.fileSymbols);
       loadSections(this.sections, replacementRange);
+      currBitness = this.bitness;
       let { head, tail } = this.head.getAffectedArea(replacementRange, true, source.length);
       setSyntax(head.statement ? head.statement.syntax : this.defaultSyntax);
       addr = setSection(head.statement ? head.statement.section : this.sections[0]);
@@ -17760,8 +17826,9 @@ g nle`.split("\n");
   var STATE_SYNTAX_PREFIX = 2;
   var STATE_IN_INSTRUCTION = 4;
   var STATE_ALLOW_IMM = 8;
-  var ctxTracker = (initialSyntax) => new ContextTracker({
-    start: initialSyntax.intel * STATE_SYNTAX_INTEL | initialSyntax.prefix * STATE_SYNTAX_PREFIX,
+  var STATE_SYNTAX_X86 = 16;
+  var ctxTracker = (initialSyntax, bitness) => new ContextTracker({
+    start: initialSyntax.intel * STATE_SYNTAX_INTEL | initialSyntax.prefix * STATE_SYNTAX_PREFIX | (bitness == 32) * STATE_SYNTAX_X86,
     shift: (ctx, term, stack, input) => {
       if (term == Opcode)
         ctx |= STATE_IN_INSTRUCTION | STATE_ALLOW_IMM;
@@ -17799,7 +17866,7 @@ g nle`.split("\n");
     strict: false
   });
   function tokenize(ctx, input) {
-    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX;
+    const intel = ctx & STATE_SYNTAX_INTEL, prefix = ctx & STATE_SYNTAX_PREFIX, bitness = ctx & STATE_SYNTAX_X86 ? 32 : 64;
     if (tok == (intel ? ";" : "#")) {
       while (input.next >= 0 && input.next != "\n".charCodeAt(0))
         input.advance();
@@ -17819,7 +17886,7 @@ g nle`.split("\n");
         return Prefix;
       if (tok == "=" || intel && tok == "equ")
         return symEquals;
-      let opcode = tok, interps = fetchMnemonic(opcode, intel);
+      let opcode = tok, interps = fetchMnemonic(opcode, intel, !intel, bitness);
       if (interps.length > 0)
         return interps[0].relative ? intel ? IRelOpcode : RelOpcode : intel ? IOpcode : Opcode;
       return null;
@@ -17833,15 +17900,15 @@ g nle`.split("\n");
       return SpecialWord;
     }
     if (tok == "%" && prefix)
-      return isRegister(next2(input)) ? Register : null;
+      return isRegister(next2(input), bitness) ? Register : null;
     if (tok == "{") {
-      if ((!prefix || next2(input) == "%") && isRegister(next2(input)))
+      if ((!prefix || next2(input) == "%") && isRegister(next2(input), bitness))
         return null;
       while (tok != "\n" && tok != "}")
         next2(input);
       return VEXRound;
     }
-    if (intel && sizeHints.hasOwnProperty(tok)) {
+    if (intel && isSizeHint(tok)) {
       let prevEnd = input.pos;
       if (",;\n{:".includes(next2(input))) {
         input.pos = prevEnd;
@@ -17858,7 +17925,7 @@ g nle`.split("\n");
     const idType = scanIdentifier(tok, intel);
     if (idType === null)
       return null;
-    if (!prefix && isRegister(tok))
+    if (!prefix && isRegister(tok, bitness))
       return Register;
     if (idType == "symbol")
       return word;
@@ -19353,7 +19420,7 @@ g nle`.split("\n");
     })
   });
   function assembly({
-    assemblyConfig = { syntax: { intel: false, prefix: true } },
+    assemblyConfig = { syntax: { intel: false, prefix: true }, bitness: 64 },
     byteDumps = true,
     debug = false,
     errorMarking = true,
@@ -19378,7 +19445,7 @@ g nle`.split("\n");
       plugins.push(errorTooltipper);
     if (highlighting)
       return new LanguageSupport(assemblyLang.configure({
-        contextTracker: ctxTracker(assemblyConfig.syntax)
+        contextTracker: ctxTracker(assemblyConfig.syntax, assemblyConfig.bitness)
       }), plugins);
     return plugins;
   }
