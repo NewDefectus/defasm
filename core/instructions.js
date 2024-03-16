@@ -16,7 +16,8 @@ export const prefixes = Object.freeze({
     repe: 'REPE',
     repz: 'REPE',
     data16: 'DATASIZE',
-    addr32: 'ADDRSIZE'
+    addr32: 'ADDRSIZE',
+    evex: 'EVEX'
 });
 
 const SHORT_DISP = 48;
@@ -98,7 +99,7 @@ export class Instruction extends Statement
     // Generate Instruction.outline
     interpret()
     {
-        let opcode = this.opcode, operand = null;
+        let opcode = this.opcode, operand = null, evexPrefixRange;
         let vexInfo = {
             needed: false,
             evex: false,
@@ -116,17 +117,20 @@ export class Instruction extends Statement
         let operands = [];
 
         this.prefsToGen = new PrefixEnum();
-        while(prefixes.hasOwnProperty(opcode.toLowerCase())) // Prefix
+
+        while(prefixes.hasOwnProperty(opcode)) // Prefix
         {
             this.prefsToGen[prefixes[opcode]] = true;
+            if(opcode == 'evex')
+                evexPrefixRange = this.opcodeRange;
 
             this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
-            opcode = token;
+            opcode = token.toLowerCase();
             if(opcode === ';' || opcode === '\n')
                 throw new ASMError("Expected opcode", this.opcodeRange);
             next();
         }
-        this.opcode = opcode.toLowerCase();
+        this.opcode = opcode;
 
         let interps = fetchMnemonic(opcode, this.syntax.intel);
         if(interps.length == 0)
@@ -137,6 +141,12 @@ export class Instruction extends Statement
             throw new ASMError("Invalid opcode suffix",
                 new RelativeRange(this.range, this.opcodeRange.end - 1, 1)
             );
+        if(this.prefsToGen.EVEX)
+        {
+            interps = interps.filter(interp => interp.operations.some(op => op.evexPermits !== null));
+            if(interps.length == 0)
+                throw new ASMError("No EVEX encoding exists for this instruction", evexPrefixRange);
+        }
         
         const expectRelative = interps.some(interp => interp.relative);
 
@@ -246,6 +256,9 @@ export class Instruction extends Statement
         if(memoryOperand && this.prefsToGen.ADDRSIZE)
             memoryOperand.dispSize = 32;
         
+        if(this.prefsToGen.EVEX) // User has specified they want the EVEX encoding
+            vexInfo.evex = true;
+
         // Filter out operations whose types don't match
         /** @type {MnemonicInterpretation[]} */
         let matchingInterps = [];
@@ -393,6 +406,7 @@ export class Instruction extends Statement
         {
             if(memoryOperand && isNaN(memoryOperand.size))
                 throw new ASMError("Ambiguous memory size", memoryOperand.startPos.until(memoryOperand.endPos));
+
             throw new ASMError(
                 "Wrong operand size" + (operands.length == 1 ? '' : 's'),
                 this.operandStartPos.until(this.endPos)

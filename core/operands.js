@@ -87,7 +87,7 @@ export function nameRegister(name, size, syntax)
 
 export const PrefixEnum = createBitfieldClass([
     "REX", "NOREX", "LOCK", "REPNE", "REPE", "DATASIZE", "ADDRSIZE",
-    "SEG0", "SEG1", "SEG2", "SEG3", "SEG4", "SEG5"
+    "SEG0", "SEG1", "SEG2", "SEG3", "SEG4", "SEG5", "EVEX"
 ]);
 
 export var regParsePos;
