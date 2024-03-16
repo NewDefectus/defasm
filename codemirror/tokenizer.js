@@ -139,9 +139,9 @@ function tokenize(ctx, input)
         if(tok == '=' || intel && tok == 'equ')
             return Terms.symEquals;
 
-        let opcode = tok, mnemonics = fetchMnemonic(opcode, intel);
-        if(mnemonics.length > 0)
-            return mnemonics[0].relative
+        let opcode = tok, interps = fetchMnemonic(opcode, intel);
+        if(interps.length > 0)
+            return interps[0].relative
             ?
                 intel ? Terms.IRelOpcode : Terms.RelOpcode
             :

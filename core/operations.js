@@ -391,13 +391,13 @@ export class Operation
                     !this.evexPermits.ZEROING && vexInfo.zeroing)
                     return false;
             }
-            else if(this.evexPermits && this.evexPermits.FORCE)
+            else if(this.evexPermits?.FORCE)
                 vexInfo.evex = true;
         }
-        else if(this.vexOnly || (this.evexPermits && this.evexPermits.FORCE))
+        else if(this.vexOnly || this.evexPermits?.FORCE)
             return false;
         
-        if(this.evexPermits && this.evexPermits.FORCE_MASK && vexInfo.mask == 0)
+        if(this.evexPermits?.FORCE_MASK && vexInfo.mask == 0)
             return false;
         return true;
     }

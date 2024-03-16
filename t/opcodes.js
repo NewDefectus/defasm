@@ -4,13 +4,16 @@
 // All opcodes test
 
 var OPT, regNames, suffixNames, floatSuffixNames, floatIntSuffixNames, vecNames;
-var fetchMnemonic;
+var fetchMnemonic, getMnemonicList;
 
 async function initGlobals()
 {
     const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})))
 
-    let imports = await import("@defasm/core/operands.js");
+    let imports = await import("@defasm/core");
+    getMnemonicList = imports.getMnemonicList;
+
+    imports = await import("@defasm/core/operands.js");
     OPT = imports.OPT;
 
     let { registers, suffixes, floatSuffixes, floatIntSuffixes } = imports;
@@ -241,7 +244,7 @@ function* generateInstrs(mnemonic, {
                 }
                 instruction += mnemonic + sizeSuffix + ' ' +
                     (interp.relative && type !== OPT.REL ? '*' : '')
-                    + operands.join(', ') 
+                    + operands.join(', ')
                     + (operation.requireMask ? ' {%k1}' : '')
                 yield instruction;
             }
@@ -269,8 +272,6 @@ function* generateInstrs(mnemonic, {
 exports.run = async function()
 {
     await initGlobals();
-
-    const { getMnemonicList } = await import("@defasm/core");
 
     // These are mnemonics that defasm assembles correctly, but GAS doesn't, for some reason
     const uncheckedMnemonics = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];

@@ -204,7 +204,7 @@ function isMnemonic(mnemonic, intel)
  * This represents a particular interpretation of a
  * mnemonic, containing a list of operations
  */
-class MnemonicInterpretation
+export class MnemonicInterpretation
 {
     /** 
      * Constructor

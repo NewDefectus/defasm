@@ -2,7 +2,7 @@ const MAX_INSTR_SIZE = 15; // Instructions are guaranteed to be at most 15 bytes
 
 import { Operand, parseRegister, OPT, regParsePos, sizeHints, PrefixEnum } from "./operands.js";
 import { ASMError, token, next, ungetToken, setToken, currRange, Range, RelativeRange } from "./parser.js";
-import { fetchMnemonic } from "./mnemonics.js";
+import { fetchMnemonic, MnemonicInterpretation } from "./mnemonics.js";
 import { queueRecomp } from "./symbols.js";
 import { Statement } from "./statement.js";
 import { pseudoSections } from "./sections.js";
@@ -41,19 +41,19 @@ function parseRoundingMode(vexInfo)
         throw new ASMError("Invalid rounding mode", vexInfo.roundingPos);
 }
 
-/** Find the correct error to throw when no mnemonics fit the given operand list
- * @param {Mnemonic[]} mnemonics
+/** Find the correct error to throw when no interpretations fit the given operand list
+ * @param {MnemonicInterpretation[]} interps
  * @param {Operand[]} operands */
-function explainNoMatch(mnemonics, operands, vexInfo)
+function explainNoMatch(interps, operands, vexInfo)
 {
     let minOperandCount = Infinity, maxOperandCount = 0;
     let firstOrderPossible = false, secondOrderPossible = false;
     let requiresMask = false;
 
-    for(const mnemonic of mnemonics)
-        for(const operation of mnemonic.operations)
+    for(const interp of interps)
+        for(const operation of interp.operations)
         {
-            let opCount = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers).length;
+            let opCount = (interp.vex ? operation.vexOpCatchers : operation.opCatchers).length;
             if(opCount > maxOperandCount)
                 maxOperandCount = opCount;
             if(opCount < minOperandCount)
@@ -61,7 +61,7 @@ function explainNoMatch(mnemonics, operands, vexInfo)
             if(opCount == operands.length && operation.requireMask)
                 requiresMask = true;
 
-            vexInfo.needed = mnemonic.vex;
+            vexInfo.needed = interp.vex;
             firstOrderPossible = firstOrderPossible || operation.matchTypes(operands, vexInfo);
             operands.reverse();
             secondOrderPossible = secondOrderPossible || operation.matchTypes(operands, vexInfo);
@@ -128,17 +128,17 @@ export class Instruction extends Statement
         }
         this.opcode = opcode.toLowerCase();
 
-        let mnemonics = fetchMnemonic(opcode, this.syntax.intel);
-        if(mnemonics.length == 0)
+        let interps = fetchMnemonic(opcode, this.syntax.intel);
+        if(interps.length == 0)
             throw new ASMError("Unknown opcode", this.opcodeRange);
         
-        mnemonics = mnemonics.filter(mnemonic => mnemonic.size !== null);
-        if(mnemonics.length == 0)
+        interps = interps.filter(interp => interp.size !== null);
+        if(interps.length == 0)
             throw new ASMError("Invalid opcode suffix",
                 new RelativeRange(this.range, this.opcodeRange.end - 1, 1)
             );
         
-        const expectRelative = mnemonics.some(mnemonic => mnemonic.relative);
+        const expectRelative = interps.some(interp => interp.relative);
 
         if(!this.syntax.intel && token == '{')
         {
@@ -246,20 +246,20 @@ export class Instruction extends Statement
             memoryOperand.dispSize = 32;
         
         // Filter out operations whose types don't match
-        /** @type {Mnemonic[]} */
-        let matchingMnemonics = [];
-        for(const mnemonic of mnemonics)
+        /** @type {MnemonicInterpretation[]} */
+        let matchingInterps = [];
+        for(const interp of interps)
         {
-            vexInfo.needed = mnemonic.vex;
-            const matchingOps = mnemonic.operations.filter(operation => operation.matchTypes(operands, vexInfo));
+            vexInfo.needed = interp.vex;
+            const matchingOps = interp.operations.filter(operation => operation.matchTypes(operands, vexInfo));
             if(matchingOps.length > 0)
-                matchingMnemonics.push({ ...mnemonic, operations: matchingOps })
+                matchingInterps.push({ ...interp, operations: matchingOps })
         }
 
-        if(matchingMnemonics.length == 0) // No operations match; find out why
-            throw new ASMError(explainNoMatch(mnemonics, operands, vexInfo), this.operandStartPos.until(currRange));
+        if(matchingInterps.length == 0) // No operations match; find out why
+            throw new ASMError(explainNoMatch(interps, operands, vexInfo), this.operandStartPos.until(currRange));
 
-        this.outline = { operands, memoryOperand, mnemonics: matchingMnemonics, vexInfo };
+        this.outline = { operands, memoryOperand, interps: matchingInterps, vexInfo };
         this.endPos = currRange;
 
         this.removed = false; // Interpreting was successful, so don't mark as removed
@@ -279,7 +279,10 @@ export class Instruction extends Statement
 
     compile()
     {
-        let { operands, memoryOperand, mnemonics, vexInfo } = this.outline;
+        if(this.outline === undefined)
+            throw ASMError("Critical error: unneeded recompilation");
+
+        let { operands, memoryOperand, interps, vexInfo } = this.outline;
         let prefsToGen = this.prefsToGen;
         this.clear();
 
@@ -298,21 +301,21 @@ export class Instruction extends Statement
                 if(op.value.isRelocatable())
                 {
                     // Get the maximum possible value for this relocatable immediate
-                    const firstMnem = mnemonics[0];
-                    if(firstMnem.operations.length == 1)
+                    const firstInterp = interps[0];
+                    if(firstInterp.operations.length == 1)
                     {
-                        let operation = firstMnem.operations[0];
+                        let operation = firstInterp.operations[0];
                         op.size = Math.max(
-                            ...(firstMnem.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
+                            ...(firstInterp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
                         ) & ~7;
                     }
                     else
                     {
                         op.size = 8;
                         relocationSizeLoop:
-                        for(const mnemonic of mnemonics) for(const operation of mnemonic.operations)
+                        for(const interp of interps) for(const operation of interp.operations)
                         {
-                            const sizes = (mnemonic.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
+                            const sizes = (interp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes
                             if(sizes.length != 1 || (sizes[0] & ~7) != 8)
                             {
                                 op.size = operands.length > 2 ? operands[2].size : operands[1].size;
@@ -367,20 +370,20 @@ export class Instruction extends Statement
         // Now, we'll find the matching operation for this operand list
         let op, found = false, rexVal = 0x40, memOpSize = memoryOperand?.size;
         
-        mnemonicLoop:
-        for(const mnemonic of mnemonics)
+        interpLoop:
+        for(const interp of interps)
         {
             if(memoryOperand)
-                memoryOperand.size = mnemonic.size || memOpSize;
+                memoryOperand.size = interp.size || memOpSize;
 
-            vexInfo.needed = mnemonic.vex;
-            for(const operation of mnemonic.operations)
+            vexInfo.needed = interp.vex;
+            for(const operation of interp.operations)
             {
                 op = operation.fit(operands, this, vexInfo);
                 if(op !== null)
                 {
                     found = true;
-                    break mnemonicLoop;
+                    break interpLoop;
                 }
             }
         }
