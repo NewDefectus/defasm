@@ -374,7 +374,7 @@ class DataDirective extends Statement
                 {
                     if(op.value === undefined || op.expression.hasSymbols)
                         op.value = op.expression.evaluate(this, true);
-                    this.genValue(op.value, this.valSize * 8);
+                    this.genValue(op.value, { size: this.valSize * 8 });
                 }
                 this.address = startAddr + this.length;
             }

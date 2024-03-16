@@ -478,16 +478,21 @@ export class Instruction extends Statement
                 }));
                 this.ipRelative = true;
             }
-            this.genValue(value, op.rm.dispSize || 32, true, sizeRelative);
+            this.genValue(value, {
+                size: op.rm.dispSize || 32,
+                signed: true,
+                sizeRelative,
+                dispMul: op.dispMul
+            });
         }
         if(op.relImm !== null)
-            this.genValue(op.relImm.value, op.relImm.size, false, true, true);
+            this.genValue(op.relImm.value, { size: op.relImm.size, sizeRelative: true, functionAddr: true });
         else if(op.evexImm !== null)
             this.genByte(op.evexImm);
         else if(op.moffs !== null)
-            this.genValue(op.moffs.value, op.moffs.dispSize, true);
+            this.genValue(op.moffs.value, { size: op.moffs.dispSize, signed: true });
         else for(const imm of op.imms)
-            this.genValue(imm.value, imm.size, !op.unsigned);
+            this.genValue(imm.value, { size: imm.size, signed: !op.unsigned });
         
     }
 

@@ -59,22 +59,32 @@ exports.checkAgainstGcc = async function(source)
     {
         let cmpPtr = 0, discrepancies = [];
         state.iterate(instr => {
-            if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0)
+            while(true)
             {
-                const code = instr.range.slice(state.source);
-                const correctOutput = gassemble(code);
+                if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0)
+                {
+                    const code = instr.range.slice(state.source);
+                    const correctOutput = gassemble(code);
+                    if(correctOutput.compare(instr.bytes, 0, instr.length) == 0)
+                    {
+                        // Most likely just a misalignment error - realign and try again
+                        cmpPtr = asOutput.indexOf(instr.bytes.subarray(0, instr.length), cmpPtr);
+                        continue;
+                    }
 
-                discrepancies.push(`- '${
-                    code
-                }' compiles to ${
-                    hex(instr.bytes.subarray(0, instr.length))
-                }, should be ${
-                    hex(correctOutput)
-                }`);
-                cmpPtr += correctOutput.length;
+                    discrepancies.push(`- '${
+                        code
+                    }' compiles to ${
+                        hex(instr.bytes.subarray(0, instr.length))
+                    }, should be ${
+                        hex(correctOutput)
+                    }`);
+                    cmpPtr += correctOutput.length;
+                }
+                else
+                    cmpPtr += instr.length;
+                break;
             }
-            else
-                cmpPtr += instr.length;
         });
 
         throw `Discrepancies detected:\n${
@@ -105,7 +115,7 @@ function makeOperand(catcher, size, index, type = catcher.type)
         case OPT.IMM:  return value === null ? '$' + (1 << (size - 4)) : '$' + value;
         case OPT.MASK: return '%k' + id;
         case OPT.REL:  return '.+' + (1 << (size - 4));
-        case OPT.MEM:  return catcher.moffset ? '' + (1 << (size - 4)) : '(%' + regNames[24 + id] +')';
+        case OPT.MEM:  return catcher.moffset ? '' + (1 << (size - 4)) : '64(%' + regNames[24 + id] +')';
         case OPT.ST:   return '%st' + (id ? '(' + id + ')' : '');
         case OPT.SEG:  return '%' + regNames[32 + id];
         case OPT.IP:   return size == 32 ? '%eip' : '%rip';
@@ -145,9 +155,17 @@ function* generateInstrs(mnemonic, {
 {
     if (interp === null)
     {
-        for(const interp of fetchMnemonic(mnemonic, false, false))
+        let interps = fetchMnemonic(mnemonic, false, false);
+        let vInterps = fetchMnemonic('v' + mnemonic, false, false);
+        if(interps.length == 0 && vInterps.length == 0)
+            throw Error(`Unknown mnemonic ${mnemonic}`);
+
+        for(const interp of interps)
             for(const operation of interp.operations)
                 yield *generateInstrs(mnemonic, {interp, operation});
+        for(const interp of vInterps)
+            for(const operation of interp.operations)
+                yield *generateInstrs('v' + mnemonic, {interp, operation});
         return;
     }
     let opCatchers = interp.vex ? operation.vexOpCatchers : operation.opCatchers;
@@ -201,7 +219,7 @@ function* generateInstrs(mnemonic, {
     let halfMemorySize = false;
     if(sizes == -2)
     {
-        sizes = [(prevSize & ~7) >> 1];
+        sizes = [(prevSize & ~7) / catcher.sizeDivisor];
         if(sizes[0] < 128)
         {
             sizes[0] = 128;
@@ -218,6 +236,8 @@ function* generateInstrs(mnemonic, {
         {
             let type = forceMemory ? OPT.MEM : catcher.type;
             let sizeSuffixOriginal = sizeSuffix;
+            if(type === OPT.MEM && catcher.memorySize)
+                size = catcher.memorySize, showSuffix = false;
             if(type === OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize))
             {
                 if(catcher.moffset)
@@ -238,7 +258,9 @@ function* generateInstrs(mnemonic, {
                 continue;
             
             operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
-            if(interp.vex && type.isMemory)
+            if(interp.vex && type.isMemory && (
+                operation.evexPermits?.BROADCAST_32 || operation.evexPermits?.BROADCAST_64
+            ))
             {
                 if(canTryBroadcast)
                 {
@@ -296,7 +318,7 @@ function* generateInstrs(mnemonic, {
     }
 }
 
-exports.run = async function()
+exports.run = async function(mnemonics = [])
 {
     await initGlobals();
 
@@ -305,17 +327,17 @@ exports.run = async function()
 
     let source = "";
 
-    for(const mnemonicBase of getMnemonicList())
+    let mnemonicList = mnemonics.length > 0 ? mnemonics : getMnemonicList();
+    for(const mnemonic of mnemonicList)
     {
-        if(uncheckedMnemonics.includes(mnemonicBase))
+        if(uncheckedMnemonics.includes(mnemonic))
             continue;
         let start = source.length;
 
-        for(const mnemonic of [mnemonicBase, 'v' + mnemonicBase])
-            for(const line of generateInstrs(mnemonic))
-                source += line + '\n';
+        for(const line of generateInstrs(mnemonic))
+            source += line + '\n';
                         
-        console.assert(source.includes(mnemonicBase, start))
+        console.assert(source.includes(mnemonic, start))
     }
 
     await exports.checkAgainstGcc(source);
@@ -323,5 +345,5 @@ exports.run = async function()
 
 if(require.main === module)
 {
-    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
+    exports.run(process.argv.slice(2)).then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
 }

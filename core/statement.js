@@ -1,6 +1,7 @@
 import { currSection } from "./compiler.js";
 import { ASMError, currSyntax, Range } from "./parser.js";
 import { pseudoSections, Section } from "./sections.js";
+import { inferSize } from "./utils.js";
 
 var totalStatements = 0;
 
@@ -169,13 +170,25 @@ export class Statement
     }
 
     /**
-     * @param {import("./shuntingYard.js").IdentifierValue} value
-     * @param {Number} size
-     * @param {boolean} signed
-     * @param {boolean} sizeRelative
-     * @param {boolean} functionAddr
+     * @typedef {Object} ValueConfig
+     * @property {number} size
+     * @property {boolean} signed
+     * @property {boolean} sizeRelative
+     * @property {boolean} functionAddr
+     * @property {number?} dispMul
      */
-    genValue(value, size, signed = false, sizeRelative = false, functionAddr = false)
+
+    /**
+     * @param {import("./shuntingYard.js").IdentifierValue} value
+     * @param {ValueConfig} config
+     */
+    genValue(value, {
+        size,
+        signed = false,
+        sizeRelative = false,
+        functionAddr = false,
+        dispMul = null
+    } = {})
     {
         let sizeReduction = sizeRelative ? BigInt(this.length + size / 8) : 0n;
         let num = 0n;
@@ -195,7 +208,20 @@ export class Statement
             });
         }
         else
+        {
             num = value.addend - sizeReduction;
+            if(dispMul !== null)
+            {
+                let shrunkValue = num / BigInt(dispMul);
+                if(num % BigInt(dispMul) == 0 && inferSize(shrunkValue) == 8)
+                {
+                    num = shrunkValue;
+                    size = 8;
+                }
+                else
+                    size = 32;
+            }
+        }
 
         for(const lineEnd of value.lineEnds)
             this.lineEnds.push(this.length + Math.min(lineEnd, size / 8));

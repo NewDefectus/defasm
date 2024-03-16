@@ -58,23 +58,28 @@ function parseEvexPermits(string)
 
 function getSizes(format)
 {
-    let sizes = { list: [], def: undefined, defVex: undefined };
+    let sizes = { list: [], def: undefined, defVex: undefined, memory: undefined };
     for(let i = 0; i < format.length; i++)
     {
-        let defaultSize = false, defaultVexSize = false, size = 0, sizeChar = format[i];
+        let defaultSize = false, defaultVexSize = false, memorySize = false, size = 0, sizeChar = format[i];
         if(sizeChar == '$') // $ prefix means this size should be encoded without a prefix
             size |= SIZETYPE_IMPLICITENC, sizeChar = format[++i];
         if(sizeChar == '#') // # prefix means this size should be defaulted to if the operand's size is ambiguous
             defaultSize = true, sizeChar = format[++i];
         if(sizeChar == '~') // ~ prefix means the same as # but for VEX mode only
             defaultVexSize = true, sizeChar = format[++i];
+        if(sizeChar == '|') // | prefix means this size applies if and only if the operand is memory
+            memorySize = true, sizeChar = format[++i];
 
         if(sizeChar < 'a') // Capital letters are shorthand for the combination $# (default and without prefix)
             defaultSize = true, size |= sizers[sizeChar.toLowerCase()] | SIZETYPE_IMPLICITENC;
         else
             size |= sizers[sizeChar];
         
-        sizes.list.push(size);
+        if(memorySize)
+            sizes.memory = size;
+        else
+            sizes.list.push(size);
         if(defaultSize)
             sizes.def = size;
         if(defaultVexSize)
@@ -150,6 +155,7 @@ export class OpCatcher
         {
             this.sizes = -2;
             this.hasByteSize = false;
+            this.sizeDivisor = +(format[i + 1] || 2);
         }
         else
         {
@@ -159,6 +165,8 @@ export class OpCatcher
                 this.defSize = this.defVexSize = sizeData.def;
             if(sizeData.defVex)
                 this.defVexSize = sizeData.defVex;
+            if(sizeData.memory)
+                this.memorySize = sizeData.memory;
             this.hasByteSize = this.sizes.some(x => (x & 8) === 8);
         }
 
@@ -186,6 +194,9 @@ export class OpCatcher
 
         if(isNaN(opSize))
         {
+            if(operand.type === OPT.MEM && this.memorySize)
+                return this.memorySize;
+
             // For unknown-sized operands, if possible, choose the default size
             if(defSize > 0)
                 return defSize;
@@ -198,8 +209,8 @@ export class OpCatcher
             }
             else if(this.sizes == -2)
             {
-                opSize = (prevSize & ~7) >> 1;
-                if(operand.type.isVector && opSize < 128) // XMM register minimum
+                opSize = (prevSize & ~7) / this.sizeDivisor;
+                if(operand.type.isVector && (opSize < 128 || this.sizeDivisor > 2)) // XMM register minimum
                     opSize = 128;
             }
             else // If a default size isn't available, use the previous size
@@ -207,6 +218,11 @@ export class OpCatcher
         }
         else if(this.type === OPT.IMM && defSize > 0 && defSize < opSize) // Allow immediates to be downcast if necessary
             return defSize;
+
+        /* If a memory size has been specified and a memory
+        size is enforced, check that the two match */
+        if(operand.type === OPT.MEM && this.memorySize)
+            return operand.size == this.memorySize ? this.memorySize : null;
 
         // For unknown-sized operand catchers, compare against the previous size
         if(this.sizes == -1)
@@ -219,8 +235,8 @@ export class OpCatcher
 
         if(this.sizes == -2)
         {
-            rawSize = (prevSize & ~7) >> 1;
-            if(operand.type.isVector && rawSize < 128)
+            rawSize = (prevSize & ~7) / this.sizeDivisor;
+            if(operand.type.isVector && (rawSize < 128 || this.sizeDivisor > 2))
                 rawSize = 128;
             if(opSize == rawSize)
                 return opSize | SIZETYPE_IMPLICITENC;
@@ -334,7 +350,16 @@ export class Operation
                 continue;
             if(operand[0] == '{') // EVEX permits
             {
-                this.evexPermits = parseEvexPermits(operand.slice(1));
+                this.fixedDispMul = null;
+                let permitsString = operand.slice(1).replace(/T[0-9R]/g, substr => {
+                    let type = substr[1];
+                    if(type == 'R')
+                        this.fixedDispMul = 'R';
+                    else
+                        this.fixedDispMul = 1 << substr[1];
+                    return '';
+                });
+                this.evexPermits = parseEvexPermits(permitsString);
                 if(this.evexPermits.FORCE)
                     this.vexOnly = true;
                 if(this.evexPermits.FORCE_MASK)
@@ -471,7 +496,7 @@ export class Operation
         // In other words, this aids performance.
 
         let reg = null, rm = null, vex = this.vexBase, imms = [], correctedOpcode = this.code, evexImm = null, relImm = null, moffs = null;
-        let extendOp = false, unsigned = false;
+        let extendOp = false, unsigned = false, dispMul = null;
 
         let operand;
 
@@ -576,11 +601,35 @@ export class Operation
                     if(vexInfo.broadcast !== null)
                     {
                         let intendedSize = vexInfo.broadcastOperand.size;
-                        let broadcastSize = (this.evexPermits.BROADCAST_32 ? 32 : 64) << vexInfo.broadcast;
+                        let baseSize = this.evexPermits.BROADCAST_32 ? 32 : 64;
+                        let broadcastSize = baseSize << vexInfo.broadcast;
                         if(broadcastSize !== intendedSize)
                             throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
                         vex |= 0x100000; // EVEX.b
+                        dispMul = baseSize >> 3;
                     }
+                    else if(this.opCatchers.some(x => x.acceptsMemory && x.sizes == -2)) // "Half" tuple type
+                        dispMul = (overallSize >> 3) / this.opCatchers.find(x => x.sizes == -2).sizeDivisor;
+                    else if(this.opCatchers[0].type == OPT.VEC && !this.opCatchers[0].carrySizeInference) // Mem128 tuple type
+                        dispMul = 16;
+                    else if(this.opCatchers.some(x => x.memorySize)) // "Tuple[x]" tuple type
+                        dispMul = this.opCatchers.find(x => x.memorySize).memorySize >> 3;
+                    else if(this.fixedDispMul !== null) // "Tuple scalar" tuple type
+                    {
+                        if(this.fixedDispMul === 'R')
+                        {
+                            let memory = operands.find(x => x.type === OPT.MEM);
+                            if(memory)
+                                dispMul = memory.size >> 3;
+                        }
+                        else
+                            dispMul = this.fixedDispMul;
+                    }
+                    else // "Full" tuple type
+                        dispMul = overallSize >> 3;
+
+                    if(operands.some(x => x.type === OPT.VMEM)) // Vector-memories don't have displacement compression
+                        dispMul = null;
                 }
                 vex |= vexInfo.mask << 16; // EVEX.aaa
                 if(this.evexPermits.FORCEW)
@@ -622,7 +671,8 @@ export class Operation
             relImm,
             imms,
             unsigned,
-            moffs
+            moffs,
+            dispMul
         };
     }
 
