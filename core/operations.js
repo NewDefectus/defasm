@@ -94,6 +94,7 @@ const absolute = x => x < 0n ? ~x : x;
  * @property {boolean} zeroing
  * @property {number|null} round
  * @property {number|null} broadcast
+ * @property {Operand} broadcastOperand
  */
 
 /** Operand catchers
@@ -198,7 +199,7 @@ export class OpCatcher
             else if(this.sizes == -2)
             {
                 opSize = (prevSize & ~7) >> 1;
-                if(opSize < 128)
+                if(operand.type.isVector && opSize < 128) // XMM register minimum
                     opSize = 128;
             }
             else // If a default size isn't available, use the previous size
@@ -219,10 +220,10 @@ export class OpCatcher
         if(this.sizes == -2)
         {
             rawSize = (prevSize & ~7) >> 1;
-            if(rawSize < 128)
+            if(operand.type.isVector && rawSize < 128)
                 rawSize = 128;
             if(opSize == rawSize)
-                return prevSize;
+                return opSize | SIZETYPE_IMPLICITENC;
             return null;
         }
 
@@ -574,9 +575,9 @@ export class Operation
 
                     if(vexInfo.broadcast !== null)
                     {
-                        if(this.evexPermits.BROADCAST_32)
-                            sizeId++;
-                        if(vexInfo.broadcast !== sizeId)
+                        let intendedSize = vexInfo.broadcastOperand.size;
+                        let broadcastSize = (this.evexPermits.BROADCAST_32 ? 32 : 64) << vexInfo.broadcast;
+                        if(broadcastSize !== intendedSize)
                             throw new ASMError("Invalid broadcast", vexInfo.broadcastPos);
                         vex |= 0x100000; // EVEX.b
                     }

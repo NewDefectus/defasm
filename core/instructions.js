@@ -217,8 +217,9 @@ export class Instruction extends Statement
                     vexInfo.zeroing = true, next(); // Zeroing-masking
                 else if(operand.type === OPT.MEM)
                 {
-                    vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token);
-                    if(vexInfo.broadcast < 0)
+                    vexInfo.broadcastOperand = operand;
+                    vexInfo.broadcast = ["1to2", "1to4", "1to8", "1to16"].indexOf(token) + 1;
+                    if(vexInfo.broadcast == 0)
                         throw new ASMError("Invalid broadcast mode");
                     vexInfo.broadcastPos = currRange;
                     next();

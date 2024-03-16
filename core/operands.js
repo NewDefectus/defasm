@@ -4,11 +4,12 @@ import { Expression, CurrentIP } from "./shuntingYard.js";
 
 export class OperandType
 {
-    constructor(name, { hasSize = true, isMemory = false } = {})
+    constructor(name, { hasSize = true, isMemory = false, isVector = false } = {})
     {
         this.name = name;
         this.hasSize = hasSize;
         this.isMemory = isMemory;
+        this.isVector = isVector;
     }
 
     toString()
@@ -20,8 +21,8 @@ export class OperandType
 // Operand types
 export const OPT = Object.freeze({
 REG:    new OperandType("General-purpose register"),  // 8/64-bit - ax, bl, esi, r15, etc.
-VEC:    new OperandType("Vector register"),  // 64/512-bit - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
-VMEM:   new OperandType("Vector memory", { isMemory: true }),  // e.g. (%xmm0)
+VEC:    new OperandType("Vector register", { isVector: true }),  // 64/512-bit - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
+VMEM:   new OperandType("Vector memory", { isMemory: true, isVector: true }),  // e.g. (%xmm0)
 IMM:    new OperandType("Immediate value"),  // e.g. $20
 MASK:   new OperandType("Mask register"),  // 64-bit - %k0 / %k7
 REL:    new OperandType("Relative address", { isMemory: true }),  // memory that consists of only an address (may be converted to MEM)

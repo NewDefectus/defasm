@@ -198,14 +198,19 @@ function* generateInstrs(mnemonic, {
     if(sizes == -1)
         sizes = [prevSize];
     
+    let halfMemorySize = false;
     if(sizes == -2)
     {
         sizes = [(prevSize & ~7) >> 1];
         if(sizes[0] < 128)
+        {
             sizes[0] = 128;
+            halfMemorySize = true;
+        }
     }
 
     let forceMemory = false;
+    let triedBroadcast = false, canTryBroadcast = false;
     
     while(true)
     {
@@ -233,6 +238,21 @@ function* generateInstrs(mnemonic, {
                 continue;
             
             operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
+            if(interp.vex && type.isMemory)
+            {
+                if(canTryBroadcast)
+                {
+                    if(!triedBroadcast)
+                    {
+                        if(operation.evexPermits?.BROADCAST_32)
+                            operands[i] = operands[i] + ` {1to${(size & ~7) / 32}}`;
+                        if(operation.evexPermits?.BROADCAST_64)
+                            operands[i] = operands[i] + ` {1to${(size & ~7) / 64}}`;
+                        triedBroadcast = true;
+                    }
+                }
+                canTryBroadcast = true;
+            }
 
             if(total + 1 >= opCatchers.length)
             {
@@ -262,10 +282,17 @@ function* generateInstrs(mnemonic, {
             sizeSuffix = sizeSuffixOriginal;
         }
 
+        if(canTryBroadcast && !triedBroadcast)
+            continue;
+
         if(!forceMemory && catcher.acceptsMemory && !catcher.type.isMemory)
+        {
             forceMemory = true;
-        else
-            break;
+            if(halfMemorySize)
+                sizes[0] /= 2;
+            continue;
+        }
+        break;
     }
 }
 
