@@ -10325,7 +10325,8 @@
     "SEG2",
     "SEG3",
     "SEG4",
-    "SEG5"
+    "SEG5",
+    "EVEX"
   ]);
   var regParsePos;
   var regSuffixes = {
@@ -14165,7 +14166,8 @@ g nle`.split("\n");
     repe: "REPE",
     repz: "REPE",
     data16: "DATASIZE",
-    addr32: "ADDRSIZE"
+    addr32: "ADDRSIZE",
+    evex: "EVEX"
   });
   var SHORT_DISP = 48;
   function parseRoundingMode(vexInfo) {
@@ -14218,7 +14220,7 @@ g nle`.split("\n");
       this.interpret();
     }
     interpret() {
-      let opcode = this.opcode, operand = null;
+      let opcode = this.opcode, operand = null, evexPrefixRange;
       let vexInfo = {
         needed: false,
         evex: false,
@@ -14231,15 +14233,17 @@ g nle`.split("\n");
       this.needsRecompilation = false;
       let operands = [];
       this.prefsToGen = new PrefixEnum();
-      while (prefixes.hasOwnProperty(opcode.toLowerCase())) {
+      while (prefixes.hasOwnProperty(opcode)) {
         this.prefsToGen[prefixes[opcode]] = true;
+        if (opcode == "evex")
+          evexPrefixRange = this.opcodeRange;
         this.opcodeRange = new RelativeRange(this.range, currRange.start, currRange.length);
-        opcode = token;
+        opcode = token.toLowerCase();
         if (opcode === ";" || opcode === "\n")
           throw new ASMError("Expected opcode", this.opcodeRange);
         next();
       }
-      this.opcode = opcode.toLowerCase();
+      this.opcode = opcode;
       let interps = fetchMnemonic(opcode, this.syntax.intel);
       if (interps.length == 0)
         throw new ASMError("Unknown opcode", this.opcodeRange);
@@ -14249,6 +14253,11 @@ g nle`.split("\n");
           "Invalid opcode suffix",
           new RelativeRange(this.range, this.opcodeRange.end - 1, 1)
         );
+      if (this.prefsToGen.EVEX) {
+        interps = interps.filter((interp) => interp.operations.some((op) => op.evexPermits !== null));
+        if (interps.length == 0)
+          throw new ASMError("No EVEX encoding exists for this instruction", evexPrefixRange);
+      }
       const expectRelative = interps.some((interp) => interp.relative);
       if (!this.syntax.intel && token == "{") {
         parseRoundingMode(vexInfo);
@@ -14327,6 +14336,8 @@ g nle`.split("\n");
         throw new ASMError("Embedded rounding can only be used on reg-reg", vexInfo.roundingPos);
       if (memoryOperand && this.prefsToGen.ADDRSIZE)
         memoryOperand.dispSize = 32;
+      if (this.prefsToGen.EVEX)
+        vexInfo.evex = true;
       let matchingInterps = [];
       for (const interp of interps) {
         vexInfo.needed = interp.vex;
