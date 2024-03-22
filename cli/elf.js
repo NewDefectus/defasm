@@ -1,6 +1,6 @@
 import { pseudoSections } from '@defasm/core/sections.js';
 
-const relocTypes = {
+const relocTypesAMD64 = {
     NONE      : 0,
     64        : 1,
     PC32      : 2,
@@ -24,16 +24,27 @@ const relocTypes = {
     SIZE64    : 33
 };
 
+const relocTypes386 = {
+    NONE      : 0,
+    32        : 1,
+    PC32      : 2,
+    GOT32     : 3,
+    PLT32     : 4,
+    COPY      : 5,
+    GLOB_DAT  : 6,
+    JUMP_SLOT : 7,
+    RELATIVE  : 8,
+    GOTOFF    : 9,
+    GOTPC     : 10,
+    "32PLT"   : 11
+};
+
 /**
  * @param {T} fields 
  * @template T 
  */
 function header(fields)
 {
-    let length = 0;
-    for(const pairs of Object.values(fields))
-        length = Math.max(length, pairs[0] + pairs[1]);
-
     const result = class
     {
         #fields;
@@ -45,12 +56,15 @@ function header(fields)
             this.#fields = fields;
         }
 
-        dump()
+        dump(wordSize)
         {
-            const data = Buffer.alloc(result.size);
+            const data = Buffer.alloc(result.size(wordSize));
             for(const name of Object.keys(this.#fields))
             {
-                const [offset, size] = fields[name], number = this[name];
+                let [offset, size] = fields[name], number = this[name];
+                if(Array.isArray(offset)) offset = offset[wordSize >> 6];
+                if(Array.isArray(size))   size   = size[wordSize >> 6];
+
                 switch(size)
                 {
                     case 1: data.writeInt8(number, offset); break;
@@ -62,7 +76,17 @@ function header(fields)
             return data;
         }
 
-        static size = length;
+        static size(wordSize)
+        {
+            let length = 0;
+            for(let [offset, size] of Object.values(fields))
+            {
+                if(Array.isArray(offset)) offset = offset[wordSize >> 6];
+                if(Array.isArray(size))   size   = size[wordSize >> 6];
+                length = Math.max(length, offset + size);
+            }
+            return length;
+        }
     };
     return result;
 }
@@ -89,44 +113,44 @@ export const ELFHeader = header({
     /** Set to 1 for the original version of ELF. */
     e_version:     [0x14, 4],
     /** This is the memory address of the entry point from where the process starts executing. */
-    e_entry:       [0x18, 8],
+    e_entry:       [0x18, [4, 8]],
     /** Points to the start of the program header table. */
-    e_phoff:       [0x20, 8],
+    e_phoff:       [[0x1C, 0x20], [4, 8]],
     /** Points to the start of the section header table. */
-    e_shoff:       [0x28, 8],
+    e_shoff:       [[0x20, 0x28], [4, 8]],
     /** Interpretation of this field depends on the target architecture. */
-    e_flags:       [0x30, 4],
+    e_flags:       [[0x24, 0x30], 4],
     /** Contains the size of this header. */
-    e_ehsize:      [0x34, 2],
+    e_ehsize:      [[0x28, 0x34], 2],
     /** Contains the size of a program header table entry. */
-    e_phentsize:   [0x36, 2],
+    e_phentsize:   [[0x2A, 0x36], 2],
     /** Contains the number of entries in the program header table. */
-    e_phnum:       [0x38, 2],
+    e_phnum:       [[0x2C, 0x38], 2],
     /** Contains the size of a section header table entry. */
-    e_shentsize:   [0x3A, 2],
+    e_shentsize:   [[0x2E, 0x3A], 2],
     /** Contains the number of entries in the section header table. */
-    e_shnum:       [0x3C, 2],
+    e_shnum:       [[0x30, 0x3C], 2],
     /** Contains index of the section header table entry that contains the section names. */
-    e_shstrndx:    [0x3E, 2]
+    e_shstrndx:    [[0x32, 0x3E], 2]
 });
 
 export const ProgramHeader = header({
     /** Identifies the type of the segment. */
     p_type:  [0x00, 4],
     /** Segment-dependent flags. */
-    p_flags:  [0x04, 4],
+    p_flags:  [[0x18, 0x04], 4],
     /** Offset of the segment in the file image. */
-    p_offset: [0x08, 8],
+    p_offset: [[0x04, 0x08], [4, 8]],
     /** Virtual address of the segment in memory. */
-    p_vaddr:  [0x10, 8],
+    p_vaddr:  [[0x08, 0x10], [4, 8]],
     /** On systems where physical address is relevant, reserved for segment's physical address. */
-    p_paddr:  [0x18, 8],
+    p_paddr:  [[0x0C, 0x18], [4, 8]],
     /** Size in bytes of the segment in the file image. May be 0. */
-    p_filesz: [0x20, 8],
+    p_filesz: [[0x10, 0x20], [4, 8]],
     /** Size in bytes of the segment in memory. May be 0. */
-    p_memsz:  [0x28, 8],
+    p_memsz:  [[0x14, 0x28], [4, 8]],
     /** 0 and 1 specify no alignment. Otherwise should be a positive, integral power of 2, with p_vaddr equating p_offset modulus p_align. */
-    p_align:  [0x30, 8],
+    p_align:  [[0x1C, 0x30], [4, 8]],
 });
 
 export const SectionHeader = header({
@@ -135,21 +159,21 @@ export const SectionHeader = header({
     /** Identifies the type of this header. */
     sh_type:      [0x04, 4],
     /** Identifies the attributes of the section. */
-    sh_flags:     [0x08, 8],
+    sh_flags:     [0x08, [4, 8]],
     /** Virtual address of the section in memory, for sections that are loaded. */
-    sh_addr:      [0x10, 8],
+    sh_addr:      [[0x0C, 0x10], [4, 8]],
     /** Offset of the section in the file image. */
-    sh_offset:    [0x18, 8],
+    sh_offset:    [[0x10, 0x18], [4, 8]],
     /** Size in bytes of the section in the file image. May be 0. */
-    sh_size:      [0x20, 8],
+    sh_size:      [[0x14, 0x20], [4, 8]],
     /** Contains the section index of an associated section. This field is used for several purposes, depending on the type of section. */
-    sh_link:      [0x28, 4],
+    sh_link:      [[0x18, 0x28], 4],
     /** Contains extra information about the section. This field is used for several purposes, depending on the type of section. */
-    sh_info:      [0x2C, 4],
+    sh_info:      [[0x1C, 0x2C], 4],
     /** Contains the required alignment of the section. This field must be a power of two. */
-    sh_addralign: [0x30, 8],
+    sh_addralign: [[0x20, 0x30], [4, 8]],
     /** Contains the size, in bytes, of each entry, for sections that contain fixed-size entries. Otherwise, this field contains zero. */
-    sh_entsize:   [0x38, 8],
+    sh_entsize:   [[0x24, 0x38], [4, 8]],
 });
 
 export class ELFSection
@@ -163,8 +187,9 @@ export class ELFSection
      * @param {number} config.flags
      * @param {number} config.address
      * @param {number} config.entrySize
+     * @param {32 | 64} config.bitness
      * @param {import('@defasm/core/sections.js').Section} config.section */
-    constructor({ type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0, link = 0, info = 0, align = 1, linkSection = null, infoSection = null, section = null } = {})
+    constructor({ type = 0, buffer = Buffer.alloc(0), flags = 0, address = 0, entrySize = 0, link = 0, info = 0, align = 1, linkSection = null, infoSection = null, section = null, bitness = 64 } = {})
     {
         this.buffer = buffer;
         this.header = new SectionHeader({
@@ -177,9 +202,11 @@ export class ELFSection
             sh_entsize: entrySize,
             sh_info: info,
         });
+        this.entrySize = entrySize;
         this.section = section;
         this.linkSection = linkSection;
         this.infoSection = infoSection;
+        this.bitness = bitness;
     }
 
     add(buffer)
@@ -233,7 +260,7 @@ export class SymbolTable extends ELFSection
      * @param {StringTable} strtab */
     constructor(config, symbols, strtab)
     {
-        super({ ...config, type: 0x2, entrySize: 0x18, info: 1, align: 8 });
+        super({ ...config, type: 0x2, entrySize: config.bitness === 64 ? 0x18 : 0x10, info: 1, align: 8 });
         this.symbolCount = 1;
         this.strtab = strtab;
         this.symbols = symbols.filter(symbol => symbol.value.section != pseudoSections.UND || !symbol.value.symbol);
@@ -241,26 +268,43 @@ export class SymbolTable extends ELFSection
 
     setIndices(sections)
     {
-        this.buffer = Buffer.alloc(0x18 * (this.symbols.length + 1));
-        let index = 0x18, i = 1;
+        this.buffer = Buffer.alloc(this.entrySize * (this.symbols.length + 1));
+        let index = this.entrySize, i = 1;
         for(const symbol of this.symbols)
         {
             const val = symbol.value.flatten();
 
-            this.buffer.writeUInt32LE(this.strtab.getIndex(symbol.name), index + 0x0);
-            this.buffer.writeUInt8((symbol.type ?? 0) | (symbol.bind || (val.section == pseudoSections.UND ? 1 : 0)) << 4, index + 0x4);
-            this.buffer.writeUInt8(symbol.visibility ?? 0, index + 0x5);
+            const st_name = this.strtab.getIndex(symbol.name);
+            const st_info = (symbol.type ?? 0) | (symbol.bind || (val.section == pseudoSections.UND ? 1 : 0)) << 4;
+            const st_other = symbol.visibility ?? 0;
+            const st_shndx = val.section.index;
+            const st_value = val.addend;
+            const st_size = symbol.size ?? 0;
 
-            
-            this.buffer.writeUInt16LE(val.section.index, index + 0x6);
-            this.buffer.writeBigUInt64LE(val.addend, index + 0x8);
-            this.buffer.writeBigUInt64LE(BigInt(symbol.size ?? 0), index + 0x10);
+            if(this.bitness === 32) // Elf32_Sym
+            {
+                this.buffer.writeUInt32LE(st_name, index + 0x0);
+                this.buffer.writeUInt32LE(Number(st_value), index + 0x4);
+                this.buffer.writeUInt32LE(st_size, index + 0x8);
+                this.buffer.writeUInt8(st_info, index + 0xC);
+                this.buffer.writeUInt8(st_other, index + 0xD);
+                this.buffer.writeUInt16LE(st_shndx, index + 0xE);
+            }
+            else // Elf64_Sym
+            {
+                this.buffer.writeUInt32LE(st_name, index + 0x0);
+                this.buffer.writeUInt8(st_info, index + 0x4);
+                this.buffer.writeUInt8(st_other, index + 0x5);
+                this.buffer.writeUInt16LE(st_shndx, index + 0x6);
+                this.buffer.writeBigUInt64LE(st_value, index + 0x8);
+                this.buffer.writeBigUInt64LE(BigInt(st_size), index + 0x10);
+            }
 
             if(!symbol.bind)
                 this.header.sh_info = i + 1;
             
             this.symbolCount++;
-            index += 0x18;
+            index += this.entrySize;
             i++;
         }
         this.buffer = this.buffer.subarray(0, index);
@@ -275,7 +319,8 @@ export class RelocationSection extends ELFSection
      * @param {SymbolTable} symtab */
     constructor(config, relocations, symtab)
     {
-        super({ ...config, type: 0x4, entrySize: 0x18, buffer: Buffer.alloc(0x18 * relocations.length), linkSection: symtab });
+        let entrySize = config.bitness === 64 ? 0x18 : 0xC;
+        super({ ...config, type: 0x4, entrySize, buffer: Buffer.alloc(entrySize * relocations.length), linkSection: symtab });
         this.relocations = relocations;
 
         for(const reloc of relocations)
@@ -286,16 +331,28 @@ export class RelocationSection extends ELFSection
     setIndices(sections)
     {
         let index = 0, symtab = this.linkSection;
+        const relocTypes = this.bitness === 64 ? relocTypesAMD64 : relocTypes386;
         for(const reloc of this.relocations)
         {
             const type = relocTypes[(reloc.pcRelative ? reloc.functionAddr ? 'PLT' : 'PC' : '') + reloc.size + (reloc.signed ? 'S' : '')];
-            this.buffer.writeBigUInt64LE(BigInt(reloc.offset), index);
-            this.buffer.writeBigUInt64LE(BigInt(type) | BigInt(
-                reloc.symbol ? symtab.symbols.indexOf(reloc.symbol) + 1 : 0
-            ) << 32n, index + 0x8);
-            this.buffer.writeBigInt64LE(BigInt(reloc.addend), index + 0x10);
+            const r_offset = reloc.offset;
+            const r_info_sym = reloc.symbol ? symtab.symbols.indexOf(reloc.symbol) + 1 : 0;
+            const r_info_type = type;
+            const r_addend = reloc.addend;
 
-            index += 0x18;
+            if(this.bitness === 32) // Elf32_Rela
+            {
+                this.buffer.writeUint32LE(r_offset, index + 0x00);
+                this.buffer.writeUint32LE((r_info_sym << 8) + r_info_type, index + 0x04);
+                this.buffer.writeInt32LE(Number(r_addend), index + 0x08);
+            }
+            else // Elf64_Rela
+            {
+                this.buffer.writeBigUInt64LE(BigInt(r_offset), index + 0x00);
+                this.buffer.writeBigUInt64LE((BigInt(r_info_sym) << 32n) + BigInt(r_info_type), index + 0x8);
+                this.buffer.writeBigInt64LE(BigInt(r_addend), index + 0x10);
+            }
+            index += this.entrySize;
         }
         super.setIndices(sections);
     }

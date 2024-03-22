@@ -37,7 +37,7 @@ export function createObject(filename, state)
     });
 
     const strtab = new StringTable();
-    let shstrtab = new StringTable(), symtab = new SymbolTable({ linkSection: strtab }, recordedSymbols, strtab);
+    let shstrtab = new StringTable(), symtab = new SymbolTable({ linkSection: strtab, bitness: state.bitness }, recordedSymbols, strtab);
     let sections = [];
     for(const section of state.sections)
     {
@@ -47,13 +47,14 @@ export function createObject(filename, state)
             buffer: section.head.dump(),
             flags: section.flags,
             section,
-            entrySize: section.entrySize
+            entrySize: section.entrySize,
+            bitness: state.bitness
         });
         sections.push(newSection);
         const relocs = section.getRelocations();
         if(relocs.length > 0)
         {
-            const relocSection = new RelocationSection({ infoSection: newSection, flags: 0x40, align: 8 }, relocs, symtab);
+            const relocSection = new RelocationSection({ infoSection: newSection, flags: 0x40, align: 8, bitness: state.bitness }, relocs, symtab);
             relocSection.name('.rela' + section.name, shstrtab);
             sections.push(relocSection);
         }
@@ -71,7 +72,7 @@ export function createObject(filename, state)
 
 
     // Finalizing
-    let fileOffset = ELFHeader.size;
+    let fileOffset = ELFHeader.size(state.bitness);
 
     symtab.symbols.sort((a, b) => (a.bind ?? 0) - (b.bind ?? 0) || (b.type ?? 0) - (a.type ?? 0));
 
@@ -95,31 +96,31 @@ export function createObject(filename, state)
     /* Outputting */
     write(new ELFHeader({
         EI_MAG: 0x46_4C_45_7F,
-        EI_CLASS: 2,
+        EI_CLASS: state.bitness >> 5,
         EI_DATA: 1,
         EI_VERSION: 1,
         EI_OSABI: 0,
 
         e_type: 1, // ET_REL
-        e_machine: 0x3E,
+        e_machine: state.bitness === 64 ? 0x3E : 0x03,
         e_version: 1,
         e_shoff: alignedFileOffset,
-        e_ehsize: ELFHeader.size,
-        e_shentsize: SectionHeader.size,
+        e_ehsize: ELFHeader.size(state.bitness),
+        e_shentsize: SectionHeader.size(state.bitness),
         e_shnum: sections.length + 1,
         e_shstrndx: sections.indexOf(shstrtab) + 1
-    }).dump(), 0);
+    }).dump(state.bitness), 0);
 
     // Writing the section buffers
     for(const section of sections)
         write(section.buffer, section.header.sh_offset);
     
     // Writing the headers
-    let index = alignedFileOffset + SectionHeader.size;
+    let index = alignedFileOffset + SectionHeader.size(state.bitness);
     for(const section of sections)
     {
-        write(section.header.dump(), index);
-        index += SectionHeader.size;
+        write(section.header.dump(state.bitness), index);
+        index += SectionHeader.size(state.bitness);
     }
     fs.closeSync(fd);
 }
@@ -133,7 +134,7 @@ export function createExecutable(filename, state)
     fd = fs.openSync(filename, 'w', 0o755);
 
     let entryPoint = 0, entrySection = state.sections.find(section => section.name == '.text');
-    let programHeaders = [], fileOffset = Math.ceil(ELFHeader.size / 0x1000) * 0x1000, memoryOffset = 0x400000;
+    let programHeaders = [], fileOffset = Math.ceil(ELFHeader.size(state.bitness) / 0x1000) * 0x1000, memoryOffset = 0x400000;
     let sections = [...state.sections];
     /** @type {import("@defasm/core/symbols").Symbol[]} */
     let commonSymbols = [];
@@ -166,7 +167,7 @@ export function createExecutable(filename, state)
             p_paddr: memoryOffset,
             p_filesz: data.length,
             p_memsz: data.length
-        })
+        });
         programHeaders.push(header);
         if(section == entrySection)
             entryPoint += memoryOffset;
@@ -194,26 +195,26 @@ export function createExecutable(filename, state)
     
     write(new ELFHeader({
         EI_MAG: 0x46_4C_45_7F,
-        EI_CLASS: 2,
+        EI_CLASS: state.bitness >> 5,
         EI_DATA: 1,
         EI_VERSION: 1,
         EI_OSABI: 0,
 
         e_type: 2, // ET_EXEC
-        e_machine: 0x3E,
+        e_machine: state.bitness === 64 ? 0x3E : 0x03,
         e_version: 1,
         e_entry: entryPoint,
         e_phoff: fileOffset,
-        e_ehsize: ELFHeader.size,
-        e_phentsize: ProgramHeader.size,
+        e_ehsize: ELFHeader.size(state.bitness),
+        e_phentsize: ProgramHeader.size(state.bitness),
         e_phnum: programHeaders.length
-    }).dump(), 0);
+    }).dump(state.bitness), 0);
 
     // Writing the program headers
     for(const header of programHeaders)
     {
-        write(header.dump(), fileOffset);
-        fileOffset += ProgramHeader.size;
+        write(header.dump(state.bitness), fileOffset);
+        fileOffset += ProgramHeader.size(state.bitness);
     }
 
     // Applying the relocations
