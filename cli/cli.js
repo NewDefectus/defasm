@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import fs from "fs";
+import { arch } from "os";
 
 import { AssemblyState } from "@defasm/core";
 import { createExecutable, createObject, debug } from "./main.js";
@@ -20,6 +21,7 @@ if(args[0] === '-h' || args[0] === '--help')
 `Usage: defasm [options] [file]
 Options:
   -i, --intel               Use Intel syntax when assembling (defaults to AT&T)
+  -m32, -m64                Compile for 32- or 64-bit machines, respectively (defaults to whatever the current machine supports, or 64-bit if irrelevant)
   -o, --output FILE         Set the path to the output file (defaults to 'a.out' in current directory, or /tmp/asm if --run is provided)
   -x, --executable          Generate an executable file from the input file (note that it will not be linked against other files)
   -w, --writable            Make the .text section writable
@@ -28,6 +30,9 @@ Options:
     );
     process.exit();
 }
+
+if(arch() === 'ia32')
+    assemblyConfig.bitness = 32;
 
 try
 {
@@ -60,6 +65,14 @@ try
                 outputFile = args.shift();
                 if(outputFile === undefined)
                     throw "No output file given";
+                break;
+
+            case '-m32':
+                assemblyConfig.bitness = 32;
+                break;
+
+            case '-m64':
+                assemblyConfig.bitness = 64;
                 break;
 
             case '-i':
