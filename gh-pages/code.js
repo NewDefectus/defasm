@@ -1,20 +1,43 @@
-import { ASMStateField, ShellcodeField } from "@defasm/codemirror";
+import { ASMStateField, ShellcodePlugin, ShellcodeField, ASMFlush } from "@defasm/codemirror";
+import { StateEffect, Compartment } from "@codemirror/state"
+import { EditorView } from "@codemirror/view";
 
 const editorContainer = document.querySelector('.defasm-editor');
 
 const byteCount = document.getElementById('byte-count');
 const bytesSpan = document.getElementById('bytes-span');
-const bytesSection = document.getElementById('bytes-section');
-const shellcodeSpan = document.getElementById('shellcode');
+const bytesView = document.getElementById('bytes-view');
 
 var selectedSection = null;
+const unicodeCompartment = new Compartment();
 
-bytesSection.onchange = () => {
-    if(bytesSection.selectedIndex === 0)
-        selectedSection = null;
-    else
-        selectedSection = bytesSection.value;
-    editorContainer.dispatch();
+let unicodeOn = false;
+
+bytesView.onchange = () => {
+    let newUnicodeOn = bytesView.selectedIndex === 1;
+    let tr = null;
+
+    if(newUnicodeOn != unicodeOn)
+    {
+        tr = makeUnicodeTransaction(newUnicodeOn);
+        unicodeOn = newUnicodeOn;
+    }
+
+    selectedSection = bytesView.selectedIndex <= 1 ? null : bytesView.value;
+    editorContainer.dispatch(tr);
+}
+
+function makeUnicodeTransaction(newState) {
+    let extension = newState ? ShellcodePlugin : [];
+    return globalEditor.state.update({
+        effects: [
+            unicodeCompartment.get(globalEditor.state) === undefined ?
+                StateEffect.appendConfig.of(unicodeCompartment.of(extension))
+            :
+                unicodeCompartment.reconfigure(extension),
+            ASMFlush.of()
+        ]
+    });
 }
 
 bytesSpan.onclick = () => {
@@ -26,20 +49,9 @@ bytesSpan.onclick = () => {
     document.execCommand('copy');
 }
 
-
-
-
-
-const urlParams = new URLSearchParams(window.location.search);
-const shellcodeEnabled = urlParams.has('shellcode');
-if(shellcodeEnabled)
-{
-    let shellcodeContainer = document.getElementById('shellcodeContainer');
-    shellcodeContainer.style.display = "block";
-    editorContainer.setAttribute('shellcode', '');
-}
-
+/** @type {EditorView} */
 let globalEditor = null;
+
 editorContainer.dispatch = (tr = null, editor = globalEditor) => {
     if(globalEditor === null)
         globalEditor = editor;
@@ -55,11 +67,16 @@ editorContainer.dispatch = (tr = null, editor = globalEditor) => {
     const shownHead = (selectedSection === null ? state : state.sections.find(x => x.name == selectedSection)).head;
     const bytes = shownHead.length();
     byteCount.innerText = `${bytes} byte${bytes != 1 ? 's' : ''}`;
-    bytesSpan.innerText = [...shownHead.dump()].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-    if(shellcodeEnabled)
+    if (!unicodeOn)
     {
-        while(shellcodeSpan.hasChildNodes())
-            shellcodeSpan.removeChild(shellcodeSpan.firstChild);
+        bytesSpan.innerText = [...shownHead.dump()].map(
+            x => x.toString(16).toUpperCase().padStart(2, '0')
+        ).join(' ');
+    }
+    else
+    {
+        while(bytesSpan.hasChildNodes())
+            bytesSpan.removeChild(bytesSpan.firstChild);
 
         let { code } = editor.state.field(ShellcodeField);
         let i = 0;
@@ -84,7 +101,7 @@ editorContainer.dispatch = (tr = null, editor = globalEditor) => {
                 span.style.color = "#00F";
             }
 
-            shellcodeSpan.appendChild(span);
+            bytesSpan.appendChild(span);
         }
     }
     return result;

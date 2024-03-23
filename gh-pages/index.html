@@ -12,15 +12,16 @@
             <h1>DefAssembler</h1>
             <div id="bytes-container">
                 <div id="bytes-control">
-                    <select id="bytes-format">
-                        <option value="hex">Hex</option>
-                        <option value="unicode">Unicode</option>
-                    </select>
-                    <select id="bytes-section">
-                        <option value="all">All</option>
-                        <option value=".text">.text</option>
-                        <option value=".data">.data</option>
-                        <option value=".bss">.bss</option>
+                    <select id="bytes-view">
+                        <optgroup label="Global">
+                            <option value="hex">Hex</option>
+                            <option value="unicode">Unicode</option>
+                        </optgroup>
+                        <optgroup label="Section">
+                            <option value=".text">.text</option>
+                            <option value=".data">.data</option>
+                            <option value=".bss">.bss</option>
+                        </optgroup>
                     </select>
                     <span id="byte-count"></span>
                 </div>

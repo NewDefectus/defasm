@@ -4,7 +4,7 @@ import { defaultHighlightStyle, syntaxHighlighting }            from "@codemirro
 import { EditorState, Compartment }                             from "@codemirror/state";
 import { EditorView, keymap, lineNumbers }                      from "@codemirror/view";
 import { materialDark }                                         from "cm6-theme-material-dark";
-import { assembly, ShellcodePlugin }                            from "@defasm/codemirror";
+import { assembly }                                             from "@defasm/codemirror";
 
 var theme = new Compartment();
 
@@ -38,8 +38,7 @@ for(let container of document.getElementsByClassName('defasm-editor'))
                 history(),
                 keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
                 lineNumbers(),
-                assembly({ debug: true }),
-                ...container.hasAttribute('shellcode') ? [ShellcodePlugin] : []
+                assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
             ]
         })
     });
