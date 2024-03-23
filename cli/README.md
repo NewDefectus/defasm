@@ -5,6 +5,7 @@ Note that the package does *not* come with an emulator. When executing with `-r`
 
 ## Options
 * `-i`, `--intel` - use Intel syntax when assembling (defaults to AT&T)
+* `-m32`, `-m64` - compile for 32- or 64-bit machines, respectively (defaults to whatever the current machine supports, or 64-bit if irrelevant)
 * `-o FILE`, `--output FILE` - set the path to the output file (defaults to 'a.out' in the current directory, or /tmp/asm.out if `--run` is provided)
 * `-x`, `--executable` - generate an executable file from the input file (note that it will not be linked against other files)
 * `-w`, `--writable` - make the .text section writable

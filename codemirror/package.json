@@ -1,6 +1,6 @@
 {
   "name": "@defasm/codemirror",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "CodeMirror 6 extension utilizing DefAssembler",
   "main": "assembly.js",
   "scripts": {
