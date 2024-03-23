@@ -18949,6 +18949,7 @@ g nle`.split("\n");
     }
     return result;
   }
+  var ASMFlush = StateEffect.define();
   var byteDumper = [
     EditorView.baseTheme({
       ".cm-asm-dump": { fontStyle: "italic" },
@@ -18969,7 +18970,11 @@ g nle`.split("\n");
         }, 1);
       }
       update(update) {
-        if (!update.docChanged)
+        if (!update.docChanged && !update.transactions.some(
+          (tr) => tr.effects.some(
+            (effect) => effect.is(ASMFlush)
+          )
+        ))
           return;
         let state = update.view.state;
         update.changes.iterChangedRanges(
@@ -20907,8 +20912,7 @@ g nle`.split("\n");
           history(),
           keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           lineNumbers(),
-          assembly({ debug: true }),
-          ...container.hasAttribute("shellcode") ? [ShellcodePlugin] : []
+          assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
         ]
       })
     });

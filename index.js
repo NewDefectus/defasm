@@ -15118,6 +15118,7 @@ g nle`.split("\n");
     }
     return result;
   }
+  var ASMFlush = StateEffect.define();
   var byteDumper = [
     EditorView.baseTheme({
       ".cm-asm-dump": { fontStyle: "italic" },
@@ -15138,7 +15139,11 @@ g nle`.split("\n");
         }, 1);
       }
       update(update) {
-        if (!update.docChanged)
+        if (!update.docChanged && !update.transactions.some(
+          (tr) => tr.effects.some(
+            (effect) => effect.is(ASMFlush)
+          )
+        ))
           return;
         let state = update.view.state;
         update.changes.iterChangedRanges(
@@ -19474,31 +19479,59 @@ g nle`.split("\n");
 
   // gh-pages/code.js
   var editorContainer = document.querySelector(".defasm-editor");
-  var byteCount = document.getElementById("byteCount");
-  var shellcodeSpan = document.getElementById("shellcode");
-  var urlParams = new URLSearchParams(window.location.search);
-  var shellcodeEnabled = urlParams.has("shellcode");
-  if (shellcodeEnabled) {
-    let shellcodeContainer = document.getElementById("shellcodeContainer");
-    shellcodeContainer.style.display = "block";
-    shellcodeContainer.onclick = () => {
-      let range = document.createRange();
-      range.setStart(shellcodeContainer, 0);
-      range.setEnd(shellcodeContainer, shellcodeContainer.childNodes.length);
-      document.getSelection().removeAllRanges();
-      document.getSelection().addRange(range);
-      document.execCommand("copy");
-    };
-    editorContainer.setAttribute("shellcode", "");
+  var byteCount = document.getElementById("byte-count");
+  var bytesSpan = document.getElementById("bytes-span");
+  var bytesView = document.getElementById("bytes-view");
+  var selectedSection = null;
+  var unicodeCompartment = new Compartment();
+  var unicodeOn = false;
+  bytesView.onchange = () => {
+    let newUnicodeOn = bytesView.selectedIndex === 1;
+    let tr = null;
+    if (newUnicodeOn != unicodeOn) {
+      tr = makeUnicodeTransaction(newUnicodeOn);
+      unicodeOn = newUnicodeOn;
+    }
+    selectedSection = bytesView.selectedIndex <= 1 ? null : bytesView.value;
+    editorContainer.dispatch(tr);
+  };
+  function makeUnicodeTransaction(newState) {
+    let extension = newState ? ShellcodePlugin : [];
+    return globalEditor.state.update({
+      effects: [
+        unicodeCompartment.get(globalEditor.state) === void 0 ? StateEffect.appendConfig.of(unicodeCompartment.of(extension)) : unicodeCompartment.reconfigure(extension),
+        ASMFlush.of()
+      ]
+    });
   }
-  editorContainer.dispatch = (tr, editor) => {
-    const result = editor.update([tr]);
-    const bytes = editor.state.field(ASMStateField).head.length();
-    document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
+  bytesSpan.onclick = () => {
+    let range = document.createRange();
+    range.setStart(bytesSpan, 0);
+    range.setEnd(bytesSpan, bytesSpan.childNodes.length);
+    document.getSelection().removeAllRanges();
+    document.getSelection().addRange(range);
+    document.execCommand("copy");
+  };
+  var globalEditor = null;
+  editorContainer.dispatch = (tr = null, editor = globalEditor) => {
+    if (globalEditor === null)
+      globalEditor = editor;
+    let result = null;
+    if (tr !== null) {
+      result = editor.update([tr]);
+      document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
+    }
+    const state = editor.state.field(ASMStateField);
+    const shownHead = (selectedSection === null ? state : state.sections.find((x) => x.name == selectedSection)).head;
+    const bytes = shownHead.length();
     byteCount.innerText = `${bytes} byte${bytes != 1 ? "s" : ""}`;
-    if (shellcodeEnabled) {
-      while (shellcodeSpan.hasChildNodes())
-        shellcodeSpan.removeChild(shellcodeSpan.firstChild);
+    if (!unicodeOn) {
+      bytesSpan.innerText = [...shownHead.dump()].map(
+        (x) => x.toString(16).toUpperCase().padStart(2, "0")
+      ).join(" ");
+    } else {
+      while (bytesSpan.hasChildNodes())
+        bytesSpan.removeChild(bytesSpan.firstChild);
       let { code: code2 } = editor.state.field(ShellcodeField);
       let i = 0;
       for (let j = 0; j < code2.length; j++) {
@@ -19516,7 +19549,7 @@ g nle`.split("\n");
             i++, j++, span.innerText += code2[j];
           span.style.color = "#00F";
         }
-        shellcodeSpan.appendChild(span);
+        bytesSpan.appendChild(span);
       }
     }
     return result;
@@ -20960,8 +20993,7 @@ g nle`.split("\n");
           history(),
           keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           lineNumbers(),
-          assembly({ debug: true }),
-          ...container.hasAttribute("shellcode") ? [ShellcodePlugin] : []
+          assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
         ]
       })
     });

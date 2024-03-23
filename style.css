@@ -1,21 +1,26 @@
-main {
+body {
     display: grid;
-    height: 100%;
-    margin: 0;
+    width: 100vw;
+    height: 100vh;
     padding: 0;
-    grid-template-rows: 5em max-content;
+    margin: 0;
+    grid-template-rows: 8em auto;
 }
 
 header {
     font-family: monospace;
-    font-weight: normal;
-    font-size: 4.5em;
-    margin: 0;
     background-color: #eee;
+    width: 100%;
+    display: grid;
+    grid-template-columns: min-content auto;
 }
 
-body {
+h1 {
+    font-size: 4.5em;
+    font-weight: normal;
     margin: 0;
+    float: left;
+    margin-right: 0.5em;
 }
 
 .defasm-editor {
@@ -24,15 +29,50 @@ body {
     margin: 0;
     font-size: 1.5em;
     border-top: 3px solid black;
+    min-width: 0;
+    min-height: 0;
 }
 
-#byteCount {
-    position: absolute;
-    right: 0.5em;
-    top: 2em;
+.cm-editor { height: 100% }
+
+#bytes-container {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    float: right;
+    position: relative;
+    background-color: black;
+    display: grid;
+    grid-template-rows: 2em auto;
+}
+
+#bytes-control {
+    width: 100%;
     font-family: monospace;
     font-weight: bold;
     font-size: 1.75em;
+}
+
+#bytes-control select {
+    height: 100%;
+    display: block;
+    float: left;
+    outline: none;
+    background-color: dimgray;
+    color: white;
+    font-family: inherit;
+}
+
+#byte-count {
+    float: right;
+    display: block;
+}
+
+#bytes-span {
+    font-size: 1.25em;
+    height: 100%;
+    overflow-y: auto;
+    padding: 0.2em 0 0 0.3em;
 }
 
 #shellcodeContainer {
@@ -49,8 +89,6 @@ body {
     white-space: pre;
 }
 
-.cm-content, .cm-gutter { min-height: calc(100vh - 4.3em) }
-
 @media (prefers-color-scheme: dark) {
     header {
         background-color: #222;
@@ -61,7 +99,7 @@ body {
         background-color: #2e3235
     }
 
-    #byteCount {
+    #byte-count {
         color: white
     }
 
