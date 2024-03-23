@@ -1,3 +1,5 @@
 node_modules
 test.js
 cli/debug
+cli/debug32
+gh-pages/index.js*

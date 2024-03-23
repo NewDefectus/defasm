@@ -42,18 +42,19 @@ function findInstruction(state, address)
     return { section: null, instr: null };
  }
 
-function execute(path, args)
+function execute(path, args, bitness)
 {
-    execFileSync(resolve(dirname(fileURLToPath(import.meta.url)), './debug'), [path, ...args], { stdio: 'inherit' });
+    const debuggerName = bitness === 32 ? 'debug32' : 'debug';
+    execFileSync(resolve(dirname(fileURLToPath(import.meta.url)), `./${debuggerName}`), [path, ...args], { stdio: 'inherit' });
     const data = readFileSync('/tmp/asm_trace');
     const signo = data.readUInt32LE(0);
     const status = data.readUInt32LE(4);
-    const errorAddr = data.readBigUInt64LE(8);
+    const errorAddr = bitness === 64 ? data.readBigUInt64LE(8) : data.readUint32LE(8);
     return {
         errorAddr,
         status,
         signal: signalNames[signo] ?? `unknown signal (${signo})`,
-        dump: data.toString('ascii', 16)
+        dump: data.toString('ascii', bitness === 64 ? 16 : 12)
     };
 }
 
@@ -65,7 +66,7 @@ function execute(path, args)
  */
 export function debug(path, args, state)
 {
-    const { signal, status, errorAddr, dump } = execute(path, args);
+    const { signal, status, errorAddr, dump } = execute(path, args, state.bitness);
     if(signal === "EXIT")
         return status;
 
@@ -98,7 +99,9 @@ export function debug(path, args, state)
 
     console.warn(`Signal: ${signal}${
         errLine !== null ? ` ${pos} line ${errLine}` : ''
-    } (%rip was ${errorAddr.toString(16).toUpperCase().padStart(16, '0')})`);
+    } (%${
+        state.bitness === 64 ? 'rip' : 'eip'
+    } was ${errorAddr.toString(16).toUpperCase().padStart(state.bitness >> 2, '0')})`);
     console.warn(dump);
     return 0;
 }
