@@ -1,16 +1,36 @@
-<head>
-    <link rel="stylesheet" href="style.css">
-    <title>DefAssembler</title>
-    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico?">
-</head>
+<!DOCTYPE html>
 
-<body>
-    <main>
-        <header>DefAssembler</header>
-        <span id="byteCount"></span>
-        <div id="shellcodeContainer">
-            main=<span style="color: #666">"<span id="shellcode"></span>"</span>;
-        </div>
+<html>
+    <head>
+        <link rel="stylesheet" href="style.css">
+        <title>DefAssembler</title>
+        <link rel="shortcut icon" type="image/x-icon" href="favicon.ico?">
+    </head>
+
+    <body>
+        <header>
+            <h1>DefAssembler</h1>
+            <div id="bytes-container">
+                <div id="bytes-control">
+                    <select id="bytes-format">
+                        <option value="hex">Hex</option>
+                        <option value="unicode">Unicode</option>
+                    </select>
+                    <select id="bytes-section">
+                        <option value="all">All</option>
+                        <option value=".text">.text</option>
+                        <option value=".data">.data</option>
+                        <option value=".bss">.bss</option>
+                    </select>
+                    <span id="byte-count"></span>
+                </div>
+                <div id="bytes-span"></div>
+            </div>
+            <div id="shellcodeContainer">
+                main=<span style="color: #666">"<span id="shellcode"></span>"</span>;
+            </div> 
+        </header>
+
         <div class="defasm-editor" keep-code>SYS_WRITE = 1
 SYS_EXIT = 60
 STDOUT_FILENO = 1
@@ -73,7 +93,7 @@ endArgLoop:
 mov $SYS_EXIT, %eax
 mov $0, %edi
 syscall</div>
-    </main>
-</body>
+    </body>
 
-<script src="index.js"></script>
+    <script src="index.js"></script>
+</html>
