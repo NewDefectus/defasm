@@ -1,6 +1,7 @@
-import { ASMStateField, ShellcodePlugin, ShellcodeField, ASMFlush } from "@defasm/codemirror";
+import { ASMStateField, ShellcodePlugin, ShellcodeField, ASMFlush, assembly } from "@defasm/codemirror";
 import { StateEffect, Compartment } from "@codemirror/state"
 import { EditorView } from "@codemirror/view";
+import { asmCompartment } from "./compartment";
 
 const editorContainer = document.querySelector('.defasm-editor');
 
@@ -48,6 +49,27 @@ bytesSpan.onclick = () => {
     document.getSelection().addRange(range);
     document.execCommand('copy');
 }
+
+document.querySelectorAll('#bitness-selector span').forEach(button => {
+    let thisBitness = button.innerText == 'x64' ? 64 : 32;
+    button.onclick = () => {
+        const assemblyState = globalEditor.state.field(ASMStateField);
+        if(assemblyState.bitness != thisBitness)
+        {
+            assemblyState.bitness = thisBitness;
+            editorContainer.dispatch(
+                globalEditor.state.update({
+                    changes: { from: 0, to: globalEditor.state.doc.length, insert: globalEditor.state.doc },
+                    effects: asmCompartment.reconfigure(
+                        assembly( { assemblyConfig: { syntax: { intel: false, prefix: true}, bitness: thisBitness } })
+                    )
+                })
+            );
+        }
+        document.querySelector('#bitness-selector span[selected]').removeAttribute('selected')
+        button.setAttribute('selected', '');
+    }
+});
 
 /** @type {EditorView} */
 let globalEditor = null;

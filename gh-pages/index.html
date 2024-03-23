@@ -9,7 +9,13 @@
 
     <body>
         <header>
-            <h1>DefAssembler</h1>
+            <div>
+                <h1>DefAssembler</h1>
+                <div id="bitness-selector">
+                    <span>x86</span>
+                    <span selected>x64</span>
+                </div>
+            </div>
             <div id="bytes-container">
                 <div id="bytes-control">
                     <select id="bytes-view">
@@ -27,9 +33,6 @@
                 </div>
                 <div id="bytes-span"></div>
             </div>
-            <div id="shellcodeContainer">
-                main=<span style="color: #666">"<span id="shellcode"></span>"</span>;
-            </div> 
         </header>
 
         <div class="defasm-editor" keep-code>SYS_WRITE = 1

@@ -5,6 +5,7 @@ import { EditorState, Compartment }                             from "@codemirro
 import { EditorView, keymap, lineNumbers }                      from "@codemirror/view";
 import { materialDark }                                         from "cm6-theme-material-dark";
 import { assembly }                                             from "@defasm/codemirror";
+import { asmCompartment } from "./compartment";
 
 var theme = new Compartment();
 
@@ -38,7 +39,9 @@ for(let container of document.getElementsByClassName('defasm-editor'))
                 history(),
                 keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
                 lineNumbers(),
-                assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
+                asmCompartment.of(
+                    assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
+                )
             ]
         })
     });

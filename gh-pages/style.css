@@ -13,6 +13,7 @@ header {
     width: 100%;
     display: grid;
     grid-template-columns: min-content auto;
+    position: relative;
 }
 
 h1 {
@@ -77,18 +78,20 @@ h1 {
     padding: 0.2em 0 0 0.3em;
 }
 
-#shellcodeContainer {
-    font-family: monospace;
-    font-size: 1.5em;
-    padding: 5px;
-    background-color: white;
-    border-top: 3px solid black;
-    min-height: 2.5em;
-    display: none;
+#bitness-selector {
+    position: absolute;
+    bottom: 0;
+    font-size: 1.75em;
+    margin: 0.1em;
 }
 
-#shellcode {
-    white-space: pre;
+#bitness-selector span[selected] {
+    font-weight: bold;
+}
+
+#bitness-selector span:not([selected]) {
+    cursor: pointer;
+    text-decoration: underline;
 }
 
 @media (prefers-color-scheme: dark) {
