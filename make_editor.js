@@ -5,6 +5,7 @@ import { EditorState, Compartment }                             from "@codemirro
 import { EditorView, keymap, lineNumbers }                      from "@codemirror/view";
 import { materialDark }                                         from "cm6-theme-material-dark";
 import { assembly }                                             from "@defasm/codemirror";
+import { asmCompartment } from "./compartment";
 
 var theme = new Compartment();
 
@@ -20,13 +21,24 @@ const editors = [];
 
 for(let container of document.getElementsByClassName('defasm-editor'))
 {
+    let bitness = parseInt(container.getAttribute('bitness') || "64");
     let editor = new EditorView({
         dispatch: container.dispatch ? (tr => container.dispatch(tr, editor)) : (tr => editor.update([tr])),
         parent: container,
         state: EditorState.create({
             doc: (() => {
-                let prevCode = container.getAttribute('initial-code');
-                prevCode ||= container.innerHTML;
+                let prevCode = container.getAttribute(`initial-code-${bitness}`);
+                if(!prevCode)
+                {
+                    for(const sampleContainer of container.querySelectorAll('code'))
+                    {
+                        let code = sampleContainer.innerHTML.trim();
+                        let sampleBitness = parseInt(sampleContainer.getAttribute('bitness') || bitness);
+                        if(sampleBitness === bitness)
+                            prevCode = code;
+                        container.setAttribute(`initial-code-${sampleBitness}`, code);
+                    }
+                }
                 container.innerHTML = "";
                 return prevCode;
             })(),
@@ -38,7 +50,9 @@ for(let container of document.getElementsByClassName('defasm-editor'))
                 history(),
                 keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
                 lineNumbers(),
-                assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
+                asmCompartment.of(
+                    assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness } })
+                )
             ]
         })
     });

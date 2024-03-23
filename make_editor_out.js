@@ -20884,6 +20884,9 @@ g nle`.split("\n");
     return plugins;
   }
 
+  // gh-pages/compartment.js
+  var asmCompartment = new Compartment();
+
   // gh-pages/make_editor.js
   var theme2 = new Compartment();
   window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (event) => {
@@ -20894,13 +20897,22 @@ g nle`.split("\n");
   });
   var editors = [];
   for (let container of document.getElementsByClassName("defasm-editor")) {
+    let bitness = parseInt(container.getAttribute("bitness") || "64");
     let editor = new EditorView({
       dispatch: container.dispatch ? (tr) => container.dispatch(tr, editor) : (tr) => editor.update([tr]),
       parent: container,
       state: EditorState.create({
         doc: (() => {
-          let prevCode = container.getAttribute("initial-code");
-          prevCode ||= container.innerHTML;
+          let prevCode = container.getAttribute(`initial-code-${bitness}`);
+          if (!prevCode) {
+            for (const sampleContainer of container.querySelectorAll("code")) {
+              let code2 = sampleContainer.innerHTML.trim();
+              let sampleBitness = parseInt(sampleContainer.getAttribute("bitness") || bitness);
+              if (sampleBitness === bitness)
+                prevCode = code2;
+              container.setAttribute(`initial-code-${sampleBitness}`, code2);
+            }
+          }
           container.innerHTML = "";
           return prevCode;
         })(),
@@ -20912,7 +20924,9 @@ g nle`.split("\n");
           history(),
           keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           lineNumbers(),
-          assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
+          asmCompartment.of(
+            assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness } })
+          )
         ]
       })
     });

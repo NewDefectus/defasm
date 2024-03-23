@@ -19477,6 +19477,9 @@ g nle`.split("\n");
     return plugins;
   }
 
+  // gh-pages/compartment.js
+  var asmCompartment = new Compartment();
+
   // gh-pages/code.js
   var editorContainer = document.querySelector(".defasm-editor");
   var byteCount = document.getElementById("byte-count");
@@ -19485,6 +19488,16 @@ g nle`.split("\n");
   var selectedSection = null;
   var unicodeCompartment = new Compartment();
   var unicodeOn = false;
+  var initialBitness = 64;
+  var cookieFields = document.cookie.split("; ");
+  var prevCode = cookieFields.find((row) => row.startsWith("code="));
+  if (prevCode)
+    editorContainer.setAttribute("initial-code", decodeURIComponent(prevCode.slice(5)));
+  var bitnessField = cookieFields.find((row) => row.startsWith("bitness="));
+  if (bitnessField) {
+    initialBitness = parseInt(bitnessField.slice(8));
+    editorContainer.setAttribute("bitness", initialBitness);
+  }
   bytesView.onchange = () => {
     let newUnicodeOn = bytesView.selectedIndex === 1;
     let tr = null;
@@ -19512,6 +19525,31 @@ g nle`.split("\n");
     document.getSelection().addRange(range);
     document.execCommand("copy");
   };
+  document.querySelectorAll("#bitness-selector span").forEach((button) => {
+    let thisBitness = button.innerText == "x64" ? 64 : 32;
+    if (thisBitness === initialBitness)
+      button.setAttribute("selected", "");
+    button.onclick = () => {
+      const assemblyState = globalEditor.state.field(ASMStateField);
+      if (assemblyState.bitness != thisBitness) {
+        let newDoc = globalEditor.state.sliceDoc().replace(
+          editorContainer.getAttribute(`initial-code-${assemblyState.bitness}`),
+          () => editorContainer.getAttribute(`initial-code-${thisBitness}`)
+        );
+        assemblyState.bitness = thisBitness;
+        editorContainer.dispatch(
+          globalEditor.state.update({
+            changes: { from: 0, to: globalEditor.state.doc.length, insert: newDoc },
+            effects: asmCompartment.reconfigure(
+              assembly({ assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: thisBitness } })
+            )
+          })
+        );
+      }
+      document.querySelector("#bitness-selector span[selected]").removeAttribute("selected");
+      button.setAttribute("selected", "");
+    };
+  });
   var globalEditor = null;
   editorContainer.dispatch = (tr = null, editor = globalEditor) => {
     if (globalEditor === null)
@@ -19520,6 +19558,7 @@ g nle`.split("\n");
     if (tr !== null) {
       result = editor.update([tr]);
       document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
+      document.cookie = `bitness=${globalEditor.state.field(ASMStateField).bitness}`;
     }
     const state = editor.state.field(ASMStateField);
     const shownHead = (selectedSection === null ? state : state.sections.find((x) => x.name == selectedSection)).head;
@@ -19554,9 +19593,6 @@ g nle`.split("\n");
     }
     return result;
   };
-  var prevCode = document.cookie.split("; ").find((row) => row.startsWith("code="));
-  if (prevCode)
-    editorContainer.setAttribute("initial-code", decodeURIComponent(prevCode.slice(5)));
 
   // node_modules/@codemirror/commands/dist/index.js
   var toggleComment = (target) => {
@@ -20975,13 +21011,22 @@ g nle`.split("\n");
   });
   var editors = [];
   for (let container of document.getElementsByClassName("defasm-editor")) {
+    let bitness = parseInt(container.getAttribute("bitness") || "64");
     let editor = new EditorView({
       dispatch: container.dispatch ? (tr) => container.dispatch(tr, editor) : (tr) => editor.update([tr]),
       parent: container,
       state: EditorState.create({
         doc: (() => {
-          let prevCode2 = container.getAttribute("initial-code");
-          prevCode2 ||= container.innerHTML;
+          let prevCode2 = container.getAttribute(`initial-code-${bitness}`);
+          if (!prevCode2) {
+            for (const sampleContainer of container.querySelectorAll("code")) {
+              let code2 = sampleContainer.innerHTML.trim();
+              let sampleBitness = parseInt(sampleContainer.getAttribute("bitness") || bitness);
+              if (sampleBitness === bitness)
+                prevCode2 = code2;
+              container.setAttribute(`initial-code-${sampleBitness}`, code2);
+            }
+          }
           container.innerHTML = "";
           return prevCode2;
         })(),
@@ -20993,7 +21038,9 @@ g nle`.split("\n");
           history(),
           keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           lineNumbers(),
-          assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: 64 } })
+          asmCompartment.of(
+            assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness } })
+          )
         ]
       })
     });

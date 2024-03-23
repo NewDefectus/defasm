@@ -1,6 +1,7 @@
-import { ASMStateField, ShellcodePlugin, ShellcodeField, ASMFlush } from "@defasm/codemirror";
+import { ASMStateField, ShellcodePlugin, ShellcodeField, ASMFlush, assembly } from "@defasm/codemirror";
 import { StateEffect, Compartment } from "@codemirror/state"
 import { EditorView } from "@codemirror/view";
+import { asmCompartment } from "./compartment";
 
 const editorContainer = document.querySelector('.defasm-editor');
 
@@ -12,6 +13,18 @@ var selectedSection = null;
 const unicodeCompartment = new Compartment();
 
 let unicodeOn = false;
+var initialBitness = 64;
+
+const cookieFields = document.cookie.split('; ');
+let prevCode = cookieFields.find(row => row.startsWith("code="));
+if(prevCode)
+    editorContainer.setAttribute('initial-code', decodeURIComponent(prevCode.slice(5)));
+let bitnessField = cookieFields.find(row => row.startsWith('bitness='));
+if(bitnessField)
+{
+    initialBitness = parseInt(bitnessField.slice(8));
+    editorContainer.setAttribute('bitness', initialBitness);
+}
 
 bytesView.onchange = () => {
     let newUnicodeOn = bytesView.selectedIndex === 1;
@@ -49,6 +62,34 @@ bytesSpan.onclick = () => {
     document.execCommand('copy');
 }
 
+document.querySelectorAll('#bitness-selector span').forEach(button => {
+    let thisBitness = button.innerText == 'x64' ? 64 : 32;
+    if(thisBitness === initialBitness)
+        button.setAttribute('selected', '');
+
+    button.onclick = () => {
+        const assemblyState = globalEditor.state.field(ASMStateField);
+        if(assemblyState.bitness != thisBitness)
+        {
+            let newDoc = globalEditor.state.sliceDoc().replace(
+                editorContainer.getAttribute(`initial-code-${assemblyState.bitness}`),
+                () => editorContainer.getAttribute(`initial-code-${thisBitness}`)
+            );
+            assemblyState.bitness = thisBitness;
+            editorContainer.dispatch(
+                globalEditor.state.update({
+                    changes: { from: 0, to: globalEditor.state.doc.length, insert: newDoc },
+                    effects: asmCompartment.reconfigure(
+                        assembly( { assemblyConfig: { syntax: { intel: false, prefix: true}, bitness: thisBitness } })
+                    )
+                })
+            );
+        }
+        document.querySelector('#bitness-selector span[selected]').removeAttribute('selected')
+        button.setAttribute('selected', '');
+    }
+});
+
 /** @type {EditorView} */
 let globalEditor = null;
 
@@ -61,6 +102,7 @@ editorContainer.dispatch = (tr = null, editor = globalEditor) => {
     {
         result = editor.update([tr]);
         document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0)); // Save the code
+        document.cookie = `bitness=${globalEditor.state.field(ASMStateField).bitness}`;
     }
 
     const state = editor.state.field(ASMStateField);
@@ -106,7 +148,3 @@ editorContainer.dispatch = (tr = null, editor = globalEditor) => {
     }
     return result;
 };
-
-let prevCode = document.cookie.split('; ').find(row => row.startsWith("code="));
-if(prevCode)
-    editorContainer.setAttribute('initial-code', decodeURIComponent(prevCode.slice(5)));
