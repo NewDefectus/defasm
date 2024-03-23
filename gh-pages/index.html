@@ -13,7 +13,7 @@
                 <h1>DefAssembler</h1>
                 <div id="bitness-selector">
                     <span>x86</span>
-                    <span selected>x64</span>
+                    <span>x64</span>
                 </div>
             </div>
             <div id="bytes-container">
@@ -35,7 +35,9 @@
             </div>
         </header>
 
-        <div class="defasm-editor" keep-code>SYS_WRITE = 1
+        <div class="defasm-editor" keep-code>
+            <code bitness=64>
+SYS_WRITE = 1
 SYS_EXIT = 60
 STDOUT_FILENO = 1
 
@@ -96,7 +98,74 @@ endArgLoop:
 
 mov $SYS_EXIT, %eax
 mov $0, %edi
-syscall</div>
+syscall
+            </code>
+            <code bitness=32>
+SYS_WRITE = 4
+SYS_EXIT = 1
+STDOUT_FILENO = 1
+
+# Printing
+.data
+buffer: .string "Hello, world!\n"
+bufferLen = . - buffer
+
+.text
+mov $SYS_WRITE, %eax
+mov $STDOUT_FILENO, %ebx
+mov $buffer, %ecx
+mov $bufferLen, %edx
+int $0x80
+
+# Looping
+.data
+digit: .byte '0', '\n'
+
+.text
+mov $10, %si
+numberLoop:
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %ebx
+    mov $digit, %ecx
+    mov $2, %edx
+    int $0x80
+
+    incb (%ecx)
+    dec %si
+    jnz numberLoop
+
+# Accessing arguments
+pop %ebp
+pop %eax
+
+argLoop:
+    dec %ebp
+    jz endArgLoop
+
+    pop %esi
+    mov %esi, %edi
+
+    mov $-1, %ecx
+    xor %al, %al
+    repnz scasb
+
+    not %ecx
+    movb $'\n', -1(%esi, %ecx)
+
+    mov %ecx, %edx
+    mov $SYS_WRITE, %eax
+    mov $STDOUT_FILENO, %ebx
+    mov %esi, %ecx
+    int $0x80
+
+    jmp argLoop
+endArgLoop:
+
+mov $SYS_EXIT, %eax
+mov $0, %ebx
+int $0x80
+            </code>
+        </div>
     </body>
 
     <script src="index.js"></script>
