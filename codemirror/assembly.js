@@ -1,4 +1,4 @@
-import { ASMStateField, ASMLanguageData, byteDumper, ASMColorFacet, SectionColors }    from "./compilerPlugin.js";
+import { ASMStateField, ASMLanguageData, byteDumper, ASMColorFacet, SectionColors, ASMFlush }    from "./compilerPlugin.js";
 import { errorMarker, errorTooltipper }    from "./errorPlugin.js";
 import { parser }                          from "./parser.js";
 import { debugPlugin }                     from "./debugPlugin.js";
@@ -76,4 +76,4 @@ export function assembly({
     return plugins;
 }
 
-export { ASMStateField, ASMColorFacet, ShellcodePlugin, ShellcodeField };
+export { ASMStateField, ASMColorFacet, ASMFlush, ShellcodePlugin, ShellcodeField };

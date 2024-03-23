@@ -1,6 +1,6 @@
-import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType }            from '@codemirror/view';
-import { EditorState, StateField, Facet, RangeValue, RangeSet, RangeSetBuilder } from '@codemirror/state';
-import { AssemblyState, Range }                                                  from '@defasm/core';
+import { EditorView, ViewPlugin, ViewUpdate, Decoration, WidgetType } from '@codemirror/view';
+import { EditorState, StateField, Facet, RangeValue, RangeSet, RangeSetBuilder, StateEffect } from '@codemirror/state';
+import { AssemblyState, Range } from '@defasm/core';
 
 /** @type {StateField<AssemblyState>} */
 export const ASMStateField = StateField.define({
@@ -216,6 +216,8 @@ function expandTabs(text, tabSize)
     return result;
 }
 
+export const ASMFlush = StateEffect.define();
+
 export const byteDumper = [
     EditorView.baseTheme({
         '.cm-asm-dump'       : { fontStyle: "italic" },
@@ -257,7 +259,11 @@ export const byteDumper = [
         /** @param {ViewUpdate} update */
         update(update)
         {
-            if(!update.docChanged)
+            if(!update.docChanged && !update.transactions.some(
+                tr => tr.effects.some(
+                    effect => effect.is(ASMFlush)
+                )
+            ))
                 return;
 
             let state = update.view.state;
