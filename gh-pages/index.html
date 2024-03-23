@@ -11,9 +11,13 @@
         <header>
             <div>
                 <h1>DefAssembler</h1>
-                <div id="bitness-selector">
+                <div class="selector" id="bitness-selector">
                     <span>x86</span>
                     <span>x64</span>
+                </div>
+                <div class="selector" id="syntax-selector">
+                    <span>AT&T</span>
+                    <span>Intel</span>
                 </div>
             </div>
             <div id="bytes-container">
@@ -36,7 +40,7 @@
         </header>
 
         <div class="defasm-editor" keep-code>
-            <code bitness=64>
+            <code bitness=64 syntax="att">
 SYS_WRITE = 1
 SYS_EXIT = 60
 STDOUT_FILENO = 1
@@ -100,7 +104,7 @@ mov $SYS_EXIT, %eax
 mov $0, %edi
 syscall
             </code>
-            <code bitness=32>
+            <code bitness=32 syntax="att">
 SYS_WRITE = 4
 SYS_EXIT = 1
 STDOUT_FILENO = 1
@@ -164,6 +168,135 @@ endArgLoop:
 mov $SYS_EXIT, %eax
 mov $0, %ebx
 int $0x80
+            </code>
+            <code bitness=64 syntax="intel">
+SYS_WRITE = 1
+SYS_EXIT = 60
+STDOUT_FILENO = 1
+
+; Printing
+section .data
+buffer db "Hello, world!\n"
+bufferLen = $ - buffer
+
+section .text
+mov eax, OFFSET SYS_WRITE
+mov edi, OFFSET STDOUT_FILENO
+mov esi, OFFSET buffer
+mov edx, OFFSET bufferLen
+syscall
+
+; Looping
+section .data
+digit db '0', '\n'
+
+section .text
+mov bl, 10
+numberLoop:
+    mov eax, OFFSET SYS_WRITE
+    mov edi, OFFSET STDOUT_FILENO
+    mov esi, OFFSET digit
+    mov edx, 2
+    syscall
+
+    inc BYTE [rsi]
+    dec bl
+    jnz numberLoop
+
+; Accessing arguments
+pop rbx
+pop rax
+
+argLoop:
+    dec ebx
+    jz endArgLoop
+
+    pop rsi
+    mov rdi, rsi
+
+    mov ecx, -1
+    xor al, al
+    repnz scasb
+
+    not ecx
+    mov BYTE [rcx + rsi - 1], '\n'
+
+    mov edx, ecx
+    mov eax, OFFSET SYS_WRITE
+    mov edi, OFFSET STDOUT_FILENO
+    syscall
+
+    jmp argLoop
+endArgLoop:
+
+mov eax, OFFSET SYS_EXIT
+mov edi, 0
+syscall
+            </code>
+            <code bitness=32 syntax="intel">
+SYS_WRITE = 4
+SYS_EXIT = 1
+STDOUT_FILENO = 1
+
+; Printing
+section .data
+buffer db "Hello, world!\n"
+bufferLen = $ - buffer
+
+section .text
+mov eax, OFFSET SYS_WRITE
+mov ebx, OFFSET STDOUT_FILENO
+mov ecx, OFFSET buffer
+mov edx, OFFSET bufferLen
+int 80h
+
+; Looping
+section .data
+digit db '0', '\n'
+
+section .text
+mov si, 10
+numberLoop:
+    mov eax, OFFSET SYS_WRITE
+    mov ebx, OFFSET STDOUT_FILENO
+    mov ecx, OFFSET digit
+    mov edx, 2
+    int 80h
+
+    inc BYTE [ecx]
+    dec si
+    jnz numberLoop
+
+; Accessing arguments
+pop ebp
+pop eax
+
+argLoop:
+    dec ebp
+    jz endArgLoop
+
+    pop esi
+    mov edi, esi
+
+    mov ecx, -1
+    xor al, al
+    repnz scasb
+
+    not ecx
+    mov BYTE [ecx + esi - 1], '\n'
+
+    mov edx, ecx
+    mov eax, OFFSET SYS_WRITE
+    mov ebx, OFFSET STDOUT_FILENO
+    mov ecx, esi
+    int 80h
+
+    jmp argLoop
+endArgLoop:
+
+mov eax, OFFSET SYS_EXIT
+mov ebx, 0
+int 80h
             </code>
         </div>
     </body>
