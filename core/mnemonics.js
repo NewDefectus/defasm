@@ -18,7 +18,8 @@ mnemonicList.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
     {
         let suffixes;
         [name, suffixes] = name.split('{');
-        let higherOpcode = (parseInt(lines[0], 16) + (suffixes.includes('b') ? 1 : 0)).toString(16);
+        let opcode = parseInt(lines[0].match(/[0-9a-f]+/i)[0], 16);
+        let higherOpcode = (opcode + (suffixes.includes('b') ? 1 : 0)).toString(16);
         for(let suffix of suffixes)
         {
             let fullName = name + suffix.toLowerCase();
