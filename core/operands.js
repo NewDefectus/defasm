@@ -376,7 +376,7 @@ export class Operand
                     else if(token == ',')
                     {
                         this.reg = -1;
-                        tempReg = { type: -1, size: 64 };
+                        tempReg = { type: -1, size: currBitness };
                     }
                     else
                         throw new ASMError("Expected register");
