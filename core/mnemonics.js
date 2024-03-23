@@ -46,7 +46,7 @@ mnemonicList.match(/.*:.*(?=\n)|.[^]*?(?=\n\n)/g).forEach(x => {
                         break;
 
                     case 'q':
-                        mnemonics[fullName] = ['48)' + higherOpcode];
+                        mnemonics[fullName] = ['X 48)' + higherOpcode];
                         break;
                 }
             }
@@ -136,7 +136,9 @@ conditionals.forEach((names, i) => {
 
     // jxx instructions
     mnemonics['j' + firstName] = [hex(0x70 + i) + "+3856 jbl"];
+    mnemonics['j' + firstName + 'w'] = ['x ' + hex(0x70 + i + 3856) + ' jw'];
     relativeMnemonics.push('j' + firstName);
+    relativeMnemonics.push('j' + firstName + 'w');
 
     // cmovxx instructions
     mnemonics['cmov' + firstName] = [hex(0x0F40 + i) + " r Rwlq"];
@@ -147,7 +149,9 @@ conditionals.forEach((names, i) => {
     // Aliases
     names.forEach(name => {
         mnemonics['j' + name] = ['#j' + firstName];
+        mnemonics['j' + name + 'w'] = ['#j' + firstName + 'w'];
         relativeMnemonics.push('j' + name);
+        relativeMnemonics.push('j' + name + 'w');
         mnemonics['cmov' + name] = ['#cmov' + firstName];
         mnemonics['set' + name] = ["#set" + firstName]
     });

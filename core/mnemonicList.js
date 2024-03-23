@@ -89,12 +89,15 @@ bzhi:V 0F38F5 >Rlq r R
 
 call
 E8 jl
-FF.2 rQ
+x FF.2 rwL
+X FF.2 rQ
 FF.3 mf
+
+callw:x E8 jw
 
 cbtw/cbw:66)98
 cltd/cdq:99
-cltq/cdqe:48)98
+cltq/cdqe:X 48)98
 clac:0F01CA
 clc:F8
 cld:FC
@@ -161,7 +164,7 @@ cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
 cvttss2si:F3)0F2C v#x Rlq > {s
 
-cqto/cqo:48)99
+cqto/cqo:X 48)99
 cwtd/cwd:66)99
 cwtl/cwde:98
 
@@ -309,9 +312,9 @@ D9.1 F
 D9C9
 
 fxrstor:0FAE.1 m
-fxrstor64:0FAE.1 m#q
+fxrstor64:X 0FAE.1 m#q
 fxsave:0FAE.0 m
-fxsave64:0FAE.0 m#q
+fxsave64:X 0FAE.0 m#q
 fxtract:D9F4
 fyl2x:D9F1
 fyl2xp1:D9F9
@@ -361,14 +364,21 @@ invd:0F08
 invlpg:0F01.7 m
 invpcid:66)0F3882 m RQ
 iret{wLq:CF
-jecxz:67)E3 jb
 
 jmp
 EB-2 jbl
-FF.4 rQ
+x FF.4 rwL
+X FF.4 rQ
 FF.5 mf
 
-jrcxz:E3 jb
+jmpw:E9 jw
+
+jcxz:x 67)E3 jb
+jecxz
+x E3 jb
+X 67)E3 jb
+
+jrcxz:X E3 jb
 
 kaddb:Vl 66)0F4A ^K >K K
 kaddw:Vl 0F4A ^K >K K
@@ -852,6 +862,9 @@ X 58.o RwQ
 x 58.o Rwl
 X 8F.0 mwQ
 x 8F.0 mwL
+x 07 s_0
+x 17 s_2
+x 1F s_3
 0FA1 s_4
 0FA9 s_5
 
@@ -974,6 +987,10 @@ X 50.o RwQ
 x 50.o Rwl
 6A-2 Ibl
 FF.6 mwQ
+x 06 s_0
+x 0E s_1
+x 16 s_2
+x 1E s_3
 0FA0 s_4
 0FA8 s_5
 
@@ -1083,11 +1100,11 @@ subps:0F5C v >V Vxyz {kzrb
 subsd:F2)0F5C v >V Vx {kzrw
 subss:F3)0F5C v >V Vx {kzr
 
-swapgs:0F01F8
-syscall:0F05
+swapgs:X 0F01F8
+syscall:X 0F05
 sysenter:0F34
 sysexit{Lq:0F35
-sysret{Lq:0F07
+sysret{Lq:X 0F07
 
 test
 A8 i R_0bwl
@@ -1560,17 +1577,17 @@ xorpd:66)0F57 v >V Vxyz {kzBw
 xorps:0F57 v >V Vxyz {kzb
 
 xrstor:0FAE.5 m
-xrstor64:0FAE.5 m#q
+xrstor64:X 0FAE.5 m#q
 xrstors:0FC7.3 m
-xrstors64:0FC7.3 m#q
+xrstors64:X 0FC7.3 m#q
 xsave:0FAE.4 m
-xsave64:0FAE.4 m#q
+xsave64:X 0FAE.4 m#q
 xsavec:0FC7.4 m
-xsavec64:0FC7.4 m#q
+xsavec64:X 0FC7.4 m#q
 xsaveopt:0FAE.6 m
 xsaveopt64:0FAE.6 m#q
 xsaves:0FC7.5 m
-xsaves64:0FC7.5 m#q
+xsaves64:X 0FC7.5 m#q
 xsetbv:0F01D1
 xtest:0F01D6
 `;
