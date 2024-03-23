@@ -22,22 +22,21 @@ const editors = [];
 for(let container of document.getElementsByClassName('defasm-editor'))
 {
     let bitness = parseInt(container.getAttribute('bitness') || "64");
+    let intel = container.getAttribute('syntax') === 'intel';
     let editor = new EditorView({
         dispatch: container.dispatch ? (tr => container.dispatch(tr, editor)) : (tr => editor.update([tr])),
         parent: container,
         state: EditorState.create({
             doc: (() => {
-                let prevCode = container.getAttribute(`initial-code-${bitness}`);
-                if(!prevCode)
+                let prevCode = container.getAttribute('initial-code');
+                for(const sampleContainer of container.querySelectorAll('code'))
                 {
-                    for(const sampleContainer of container.querySelectorAll('code'))
-                    {
-                        let code = sampleContainer.innerHTML.trim();
-                        let sampleBitness = parseInt(sampleContainer.getAttribute('bitness') || bitness);
-                        if(sampleBitness === bitness)
-                            prevCode = code;
-                        container.setAttribute(`initial-code-${sampleBitness}`, code);
-                    }
+                    let code = sampleContainer.innerHTML.trim();
+                    let sampleBitness = parseInt(sampleContainer.getAttribute('bitness') || bitness);
+                    let sampleIntel = sampleContainer.getAttribute('syntax') === 'intel';
+                    if(sampleBitness === bitness && sampleIntel === intel && !prevCode)
+                        prevCode = code;
+                    container.setAttribute(`initial-code-${sampleBitness}-${sampleIntel ? 'intel' : 'att'}`, code);
                 }
                 container.innerHTML = "";
                 return prevCode;
@@ -51,7 +50,7 @@ for(let container of document.getElementsByClassName('defasm-editor'))
                 keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
                 lineNumbers(),
                 asmCompartment.of(
-                    assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness } })
+                    assembly({ debug: true, assemblyConfig: { syntax: { intel: intel, prefix: !intel }, bitness } })
                 )
             ]
         })

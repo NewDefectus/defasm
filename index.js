@@ -19489,14 +19489,35 @@ g nle`.split("\n");
   var unicodeCompartment = new Compartment();
   var unicodeOn = false;
   var initialBitness = 64;
-  var cookieFields = document.cookie.split("; ");
-  var prevCode = cookieFields.find((row) => row.startsWith("code="));
-  if (prevCode)
-    editorContainer.setAttribute("initial-code", decodeURIComponent(prevCode.slice(5)));
-  var bitnessField = cookieFields.find((row) => row.startsWith("bitness="));
-  if (bitnessField) {
-    initialBitness = parseInt(bitnessField.slice(8));
+  var initialIntel = false;
+  function reloadEditor(newContent) {
+    const assemblyState = globalEditor.state.field(ASMStateField);
+    assemblyState.bitness = initialBitness;
+    assemblyState.defaultSyntax = { intel: initialIntel, prefix: !initialIntel };
+    editorContainer.dispatch(
+      globalEditor.state.update({
+        changes: { from: 0, to: globalEditor.state.doc.length, insert: newContent },
+        effects: asmCompartment.reconfigure(
+          assembly({ assemblyConfig: { syntax: { intel: initialIntel, prefix: !initialIntel }, bitness: initialBitness } })
+        )
+      })
+    );
+  }
+  var cookieData = document.cookie.split("; ").reduce((prev, row) => {
+    const [name2, data] = row.split("=", 2);
+    prev[name2] = data;
+    return prev;
+  }, {});
+  console.log(cookieData);
+  if (cookieData.code)
+    editorContainer.setAttribute("initial-code", decodeURIComponent(cookieData.code));
+  if (cookieData.hasOwnProperty("bitness")) {
+    initialBitness = parseInt(cookieData.bitness);
     editorContainer.setAttribute("bitness", initialBitness);
+  }
+  if (cookieData.hasOwnProperty("intel")) {
+    initialIntel = cookieData.intel === "true";
+    editorContainer.setAttribute("syntax", initialIntel ? "intel" : "att");
   }
   bytesView.onchange = () => {
     let newUnicodeOn = bytesView.selectedIndex === 1;
@@ -19530,23 +19551,32 @@ g nle`.split("\n");
     if (thisBitness === initialBitness)
       button.setAttribute("selected", "");
     button.onclick = () => {
-      const assemblyState = globalEditor.state.field(ASMStateField);
-      if (assemblyState.bitness != thisBitness) {
-        let newDoc = globalEditor.state.sliceDoc().replace(
-          editorContainer.getAttribute(`initial-code-${assemblyState.bitness}`),
-          () => editorContainer.getAttribute(`initial-code-${thisBitness}`)
+      if (initialBitness != thisBitness) {
+        let newContent = globalEditor.state.sliceDoc().replace(
+          editorContainer.getAttribute(`initial-code-${initialBitness}-${initialIntel ? "intel" : "att"}`),
+          () => editorContainer.getAttribute(`initial-code-${thisBitness}-${initialIntel ? "intel" : "att"}`)
         );
-        assemblyState.bitness = thisBitness;
-        editorContainer.dispatch(
-          globalEditor.state.update({
-            changes: { from: 0, to: globalEditor.state.doc.length, insert: newDoc },
-            effects: asmCompartment.reconfigure(
-              assembly({ assemblyConfig: { syntax: { intel: false, prefix: true }, bitness: thisBitness } })
-            )
-          })
-        );
+        initialBitness = thisBitness;
+        reloadEditor(newContent);
       }
       document.querySelector("#bitness-selector span[selected]").removeAttribute("selected");
+      button.setAttribute("selected", "");
+    };
+  });
+  document.querySelectorAll("#syntax-selector span").forEach((button) => {
+    let thisIntel = button.innerText == "Intel";
+    if (thisIntel === initialIntel)
+      button.setAttribute("selected", "");
+    button.onclick = () => {
+      if (initialIntel != thisIntel) {
+        let newContent = globalEditor.state.sliceDoc().replace(
+          editorContainer.getAttribute(`initial-code-${initialBitness}-${initialIntel ? "intel" : "att"}`),
+          () => editorContainer.getAttribute(`initial-code-${initialBitness}-${thisIntel ? "intel" : "att"}`)
+        );
+        initialIntel = thisIntel;
+        reloadEditor(newContent);
+      }
+      document.querySelector("#syntax-selector span[selected]").removeAttribute("selected");
       button.setAttribute("selected", "");
     };
   });
@@ -19557,8 +19587,9 @@ g nle`.split("\n");
     let result = null;
     if (tr !== null) {
       result = editor.update([tr]);
-      document.cookie = "code=" + encodeURIComponent(tr.newDoc.sliceString(0));
-      document.cookie = `bitness=${globalEditor.state.field(ASMStateField).bitness}`;
+      document.cookie = `code=${encodeURIComponent(tr.newDoc.sliceString(0))}`;
+      document.cookie = `bitness=${initialBitness}`;
+      document.cookie = `intel=${initialIntel}`;
     }
     const state = editor.state.field(ASMStateField);
     const shownHead = (selectedSection === null ? state : state.sections.find((x) => x.name == selectedSection)).head;
@@ -21012,23 +21043,23 @@ g nle`.split("\n");
   var editors = [];
   for (let container of document.getElementsByClassName("defasm-editor")) {
     let bitness = parseInt(container.getAttribute("bitness") || "64");
+    let intel = container.getAttribute("syntax") === "intel";
     let editor = new EditorView({
       dispatch: container.dispatch ? (tr) => container.dispatch(tr, editor) : (tr) => editor.update([tr]),
       parent: container,
       state: EditorState.create({
         doc: (() => {
-          let prevCode2 = container.getAttribute(`initial-code-${bitness}`);
-          if (!prevCode2) {
-            for (const sampleContainer of container.querySelectorAll("code")) {
-              let code2 = sampleContainer.innerHTML.trim();
-              let sampleBitness = parseInt(sampleContainer.getAttribute("bitness") || bitness);
-              if (sampleBitness === bitness)
-                prevCode2 = code2;
-              container.setAttribute(`initial-code-${sampleBitness}`, code2);
-            }
+          let prevCode = container.getAttribute("initial-code");
+          for (const sampleContainer of container.querySelectorAll("code")) {
+            let code2 = sampleContainer.innerHTML.trim();
+            let sampleBitness = parseInt(sampleContainer.getAttribute("bitness") || bitness);
+            let sampleIntel = sampleContainer.getAttribute("syntax") === "intel";
+            if (sampleBitness === bitness && sampleIntel === intel && !prevCode)
+              prevCode = code2;
+            container.setAttribute(`initial-code-${sampleBitness}-${sampleIntel ? "intel" : "att"}`, code2);
           }
           container.innerHTML = "";
-          return prevCode2;
+          return prevCode;
         })(),
         extensions: [
           theme2.of(
@@ -21039,7 +21070,7 @@ g nle`.split("\n");
           keymap.of([...closeBracketsKeymap, ...historyKeymap, indentWithTab, ...defaultKeymap]),
           lineNumbers(),
           asmCompartment.of(
-            assembly({ debug: true, assemblyConfig: { syntax: { intel: false, prefix: true }, bitness } })
+            assembly({ debug: true, assemblyConfig: { syntax: { intel, prefix: !intel }, bitness } })
           )
         ]
       })

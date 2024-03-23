@@ -4,7 +4,7 @@ body {
     height: 100vh;
     padding: 0;
     margin: 0;
-    grid-template-rows: 8em auto;
+    grid-template-rows: 6em auto;
 }
 
 header {
@@ -13,6 +13,9 @@ header {
     width: 100%;
     display: grid;
     grid-template-columns: min-content auto;
+}
+
+header div {
     position: relative;
 }
 
@@ -78,18 +81,22 @@ h1 {
     padding: 0.2em 0 0 0.3em;
 }
 
-#bitness-selector {
+.selector {
     position: absolute;
     bottom: 0;
     font-size: 1.75em;
     margin: 0.1em;
 }
 
-#bitness-selector span[selected] {
+#syntax-selector {
+    right: 0;
+}
+
+.selector span[selected] {
     font-weight: bold;
 }
 
-#bitness-selector span:not([selected]) {
+.selector span:not([selected]) {
     cursor: pointer;
     text-decoration: underline;
 }
