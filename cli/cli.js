@@ -77,7 +77,7 @@ try
 
             case '-i':
             case '--intel':
-                assemblyConfig.intel = true;
+                assemblyConfig.syntax = { intel: true, prefix: false };
                 break;
             
             case '-x':
