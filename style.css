@@ -31,6 +31,7 @@ h1 {
     border-top: 3px solid black;
     min-width: 0;
     min-height: 0;
+    z-index: 1;
 }
 
 .cm-editor { height: 100% }
@@ -41,7 +42,7 @@ h1 {
     min-height: 0;
     float: right;
     position: relative;
-    background-color: black;
+    background-color: #ddd;
     display: grid;
     grid-template-rows: 2em auto;
 }
@@ -53,13 +54,14 @@ h1 {
     font-size: 1.75em;
 }
 
-#bytes-control select {
+#bytes-view {
     height: 100%;
     display: block;
     float: left;
     outline: none;
-    background-color: dimgray;
-    color: white;
+    border: none;
+    background-color: #bbb;
+    color: inherit;
     font-family: inherit;
 }
 
@@ -103,8 +105,12 @@ h1 {
         color: white
     }
 
-    #shellcodeContainer {
-        background-color: #111;
+    #bytes-container {
+        background-color: black;
         color: white;
+    }
+
+    #bytes-view {
+        background-color: #333;
     }
 }
