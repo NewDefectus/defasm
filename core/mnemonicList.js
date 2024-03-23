@@ -371,7 +371,7 @@ x FF.4 rwL
 X FF.4 rQ
 FF.5 mf
 
-jmpw:E9 jw
+jmpw:x E9 jw
 
 jcxz:x 67)E3 jb
 jecxz
