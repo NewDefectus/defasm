@@ -131,7 +131,7 @@ export function isRegister(reg, bitness = currBitness)
     }
     else
     {
-        let max = 32;
+        let max = bitness == 64 ? 32 : 8;
         if(reg.startsWith("mm") || reg.startsWith("dr")) reg = reg.slice(2), max = 8;
         else if(reg.startsWith("cr")) reg = reg.slice(2), max = bitness == 64 ? 9 : 8;
         else if(reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
@@ -220,7 +220,7 @@ export function parseRegister(expectedType = null)
     }
     else
     {
-        let max = 32;
+        let max = currBitness == 64 ? 32 : 8;
         if(token.startsWith("bnd")) reg = regToken.slice(3), type = OPT.BND, max = 4;
         else if(regToken[0] == 'k') reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
         else if(regToken.startsWith("dr")) reg = regToken.slice(2), type = OPT.DBG, max = 8;
