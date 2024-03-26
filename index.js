@@ -10350,7 +10350,7 @@
       if (parseInt(reg) >= 0 && parseInt(reg) < 16 && (!isNaN(reg) || regSuffixes[reg[reg.length - 1]]))
         return true;
     } else {
-      let max = 32;
+      let max = bitness == 64 ? 32 : 8;
       if (reg.startsWith("mm") || reg.startsWith("dr"))
         reg = reg.slice(2), max = 8;
       else if (reg.startsWith("cr"))
@@ -10415,7 +10415,7 @@
       } else
         size = 64;
     } else {
-      let max = 32;
+      let max = currBitness == 64 ? 32 : 8;
       if (token.startsWith("bnd"))
         reg = regToken.slice(3), type = OPT.BND, max = 4;
       else if (regToken[0] == "k")
