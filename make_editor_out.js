@@ -16722,6 +16722,13 @@ kxorq:Vlw 0F47 ^K >K K
 lahf:9F
 lar:0F02 rW Rwlq
 lcall/:FF.3 m
+
+lds:x C5 m Rwl
+lss:0FB2 m Rwl
+les:x C4 m Rwl
+lfs:0FB4 m Rwl
+lgs:0FB5 m Rwl
+
 lddqu:F2)0FF0 m Vxy >
 ldmxcsr:0FAE.2 m >
 lea:8D m Rwlq
@@ -16730,8 +16737,6 @@ lfence:0FAEE8
 lgdt:0F01.2 m
 lidt:0F01.3 m
 ljmp/:FF.5 m
-lfs:0FB4 m Rwl
-lgs:0FB5 m Rwl
 lldt:0F00.2 rW
 lmsw:0F01.6 rW
 lods{bwlq:AC
@@ -16744,7 +16749,6 @@ CB
 CA i$w
 
 lsl:0F03 rW Rwlq
-lss:0FB2 m Rwl
 ltr:0F00.3 rW
 lzcnt:F3)0FBD r Rwlq
 
