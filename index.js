@@ -14848,8 +14848,9 @@ g nle`.split("\n");
           let nextSyntaxChange = tail;
           while (nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
             nextSyntaxChange = nextSyntaxChange.next;
-          const recompStart = prevNode.statement.range.end;
-          const recompRange = new Range2(recompStart, nextSyntaxChange.statement.range.end - recompStart);
+          const recompStart = prevNode.statement ? prevNode.statement.range.end : 0;
+          const recompEnd = nextSyntaxChange.statement.range.end;
+          const recompRange = new Range2(recompStart, recompEnd - recompStart);
           this.compile(recompRange.slice(this.source), {
             haltOnError,
             range: recompRange,
@@ -19512,7 +19513,6 @@ g nle`.split("\n");
     prev[name2] = data;
     return prev;
   }, {});
-  console.log(cookieData);
   if (cookieData.code)
     editorContainer.setAttribute("initial-code", decodeURIComponent(cookieData.code));
   if (cookieData.hasOwnProperty("bitness")) {

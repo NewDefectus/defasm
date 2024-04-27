@@ -37,7 +37,6 @@ const cookieData = document.cookie.split('; ').reduce((prev, row) => {
     return prev;
 }, {});
 
-console.log(cookieData);
 if(cookieData.code)
     editorContainer.setAttribute('initial-code', decodeURIComponent(cookieData.code));
 
