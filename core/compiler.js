@@ -245,8 +245,9 @@ export class AssemblyState
                 while(nextSyntaxChange.next && !nextSyntaxChange.next.switchSyntax)
                     nextSyntaxChange = nextSyntaxChange.next;
                 
-                const recompStart = prevNode.statement.range.end;
-                const recompRange = new Range(recompStart, nextSyntaxChange.statement.range.end - recompStart);
+                const recompStart = prevNode.statement ? prevNode.statement.range.end : 0;
+                const recompEnd = nextSyntaxChange.statement.range.end;
+                const recompRange = new Range(recompStart, recompEnd - recompStart);
                 
                 this.compile(recompRange.slice(this.source), {
                     haltOnError,
