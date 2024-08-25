@@ -537,7 +537,7 @@ export class Instruction extends Statement
         }
 
         // Encoding the "mod" (modifier) field
-        if(rm.type !== OPT.MEM && rm.type !== OPT.VMEM)
+        if(!rm.type.isMemory)
             modrm |= 0xC0; // mod=11
         else if(rmReg >= 0)
         {
@@ -567,7 +567,7 @@ export class Instruction extends Statement
         modrm |= rmReg2 < 0 ? rmReg : 4;
 
         // Encoding an SIB byte if necessary
-        if((modrm & 7) == 4) // rm=100 signifies an SIB byte follows
+        if((modrm & 0xC0) != 0xC0 && (modrm & 7) == 4) // mod!=11, rm=100 signifies an SIB byte follows
         {
             if(rmReg2 < 0)
                 rmReg2 = 4; // indicating the "none" index
