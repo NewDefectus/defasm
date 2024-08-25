@@ -516,7 +516,7 @@ export class Instruction extends Statement
      * @param {Operand} r */
     makeModRM(rm, r)
     {
-        let modrm = 0, rex = 0;
+        let modrm = 0, rex = 0, sib = null;
         // rm's and r's values may be edited, however the objects themselves shouldn't be modified
         let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
 
@@ -563,19 +563,23 @@ export class Instruction extends Statement
         rex |= rmReg >> 3; // rex.B extension
         rmReg &= 7;
 
+        // If we have an index register, we need an SIB byte to encode it
+        modrm |= rmReg2 < 0 ? rmReg : 4;
+
         // Encoding an SIB byte if necessary
-        if(rmReg2 >= 0)
+        if((modrm & 7) == 4) // rm=100 signifies an SIB byte follows
         {
-            if(rmReg2 >= 8)
+            if(rmReg2 < 0)
+                rmReg2 = 4; // indicating the "none" index
+            else if(rmReg2 >= 8)
             {
                 rex |= 2; // rex.X extension
                 rmReg2 &= 7;
             }
             
-            // rm=100 signifies an SIB byte
-            return [rex, modrm | 4, (rm.shift << 6) | (rmReg2 << 3) | rmReg];
+            sib = (rm.shift << 6) | (rmReg2 << 3) | rmReg;
         }
-        return [rex, modrm | rmReg, null];
+        return [rex, modrm, sib];
     }
 
     /** Determine whether to shorten a memory operand's displacement if possible,

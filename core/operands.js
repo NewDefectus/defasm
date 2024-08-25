@@ -402,7 +402,7 @@ export class Operand
                         else
                         {
                             if(this.reg2 == 4)
-                                throw new ASMError(`Memory index cannot be ${currBitness == 64 ? 'R' : 'E'}SP`, regParsePos);
+                                throw new ASMError(`Memory index cannot be ${tempReg.size == 64 ? 'R' : 'E'}SP`, regParsePos);
                             if(tempReg.size == 32 && currBitness == 64)
                                 this.prefs.ADDRSIZE = true;
                             else if(tempReg.size != currBitness)
@@ -417,8 +417,6 @@ export class Operand
                             next();
                         }
                     }
-                    else if((this.reg & 7) == 4)
-                        this.reg2 = 4;
                     
                     if(token != ')')
                         throw new ASMError("Expected ')'");
@@ -482,7 +480,5 @@ export class Operand
 
         if((this.reg & 7) == 5)
             this.value.addend = this.value.addend || 0n;
-        if(this.reg == 4 && this.reg2 < 0)
-            this.reg2 = 4;
     }
 }
