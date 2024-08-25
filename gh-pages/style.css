@@ -99,6 +99,7 @@ h1 {
 .selector span:not([selected]) {
     cursor: pointer;
     text-decoration: underline;
+    color: #888;
 }
 
 @media (prefers-color-scheme: dark) {
