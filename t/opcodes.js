@@ -337,6 +337,8 @@ exports.run = async function(mnemonics = [])
     await exports.checkAgainstGcc(source);
 }
 
+exports.linuxOnly = true;
+
 if(require.main === module)
 {
     exports.run(process.argv.slice(2)).then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });

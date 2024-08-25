@@ -15,7 +15,12 @@ let exitCode = 0;
 
         try
         {
-            let { run } = await import('file://' + testPath + file);
+            const { run, linuxOnly } = await import('file://' + testPath + file);
+            if(linuxOnly && process.platform != 'linux')
+            {
+                console.log("Skipped (Linux only)");
+                continue;
+            }
             await run();
             console.log("OK");
         }

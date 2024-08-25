@@ -23,6 +23,8 @@ syscall`);
     }
 }
 
+exports.linuxOnly = true;
+
 if(require.main === module)
 {
     exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
