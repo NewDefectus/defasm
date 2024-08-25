@@ -16791,6 +16791,7 @@ x 0F23 ^RL D
 movabs/
 X A0 %mlQ R_0bwlq
 X A2 R_0bwlq %mlQ
+X B8.o i Rq
 
 movapd
 66)0F28 v Vxyz > {kzw
