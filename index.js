@@ -10556,7 +10556,7 @@
                   throw new ASMError("Invalid register size", regParsePos);
               } else {
                 if (this.reg2 == 4)
-                  throw new ASMError(`Memory index cannot be ${currBitness == 64 ? "R" : "E"}SP`, regParsePos);
+                  throw new ASMError(`Memory index cannot be ${tempReg.size == 64 ? "R" : "E"}SP`, regParsePos);
                 if (tempReg.size == 32 && currBitness == 64)
                   this.prefs.ADDRSIZE = true;
                 else if (tempReg.size != currBitness)
@@ -10568,8 +10568,7 @@
                   throw new ASMError("Scale must be 1, 2, 4, or 8");
                 next();
               }
-            } else if ((this.reg & 7) == 4)
-              this.reg2 = 4;
+            }
             if (token != ")")
               throw new ASMError("Expected ')'");
             next();
@@ -10618,8 +10617,6 @@
       }
       if ((this.reg & 7) == 5)
         this.value.addend = this.value.addend || 0n;
-      if (this.reg == 4 && this.reg2 < 0)
-        this.reg2 = 4;
     }
   };
 
@@ -14621,7 +14618,7 @@ g nle`.split("\n");
           this.genValue(imm.value, { size: imm.size, signed: !op.unsigned });
     }
     makeModRM(rm, r) {
-      let modrm = 0, rex = 0;
+      let modrm = 0, rex = 0, sib = null;
       let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
       if (rReg >= 8) {
         rex |= 4;
@@ -14632,7 +14629,7 @@ g nle`.split("\n");
         rm.value.addend = rm.value.addend || 0n;
         return [rex, modrm | 5, null];
       }
-      if (rm.type !== OPT.MEM && rm.type !== OPT.VMEM)
+      if (!rm.type.isMemory)
         modrm |= 192;
       else if (rmReg >= 0) {
         if (rm.value.addend != null) {
@@ -14650,14 +14647,17 @@ g nle`.split("\n");
       }
       rex |= rmReg >> 3;
       rmReg &= 7;
-      if (rmReg2 >= 0) {
-        if (rmReg2 >= 8) {
+      modrm |= rmReg2 < 0 ? rmReg : 4;
+      if ((modrm & 192) != 192 && (modrm & 7) == 4) {
+        if (rmReg2 < 0)
+          rmReg2 = 4;
+        else if (rmReg2 >= 8) {
           rex |= 2;
           rmReg2 &= 7;
         }
-        return [rex, modrm | 4, rm.shift << 6 | rmReg2 << 3 | rmReg];
+        sib = rm.shift << 6 | rmReg2 << 3 | rmReg;
       }
-      return [rex, modrm | rmReg, null];
+      return [rex, modrm, sib];
     }
     determineDispSize(operand, shortSize, longSize) {
       if (!operand.value.isRelocatable() && operand.value.inferSize() <= shortSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP))) {
