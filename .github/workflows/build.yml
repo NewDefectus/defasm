@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: 22
         
-      - name: Get the latest version of binutils for an up-to-date GAS
+      - name: Get the latest version of binutils and install GAS
         run: |
           LATEST_RELEASE_URL=$(wget -q -O - ftp://ftp.gnu.org/gnu/binutils/ | grep -o "ftp[^\"]*.tar.gz" | sort -V | tail -n 1)
           wget -m ${LATEST_RELEASE_URL} -nd -O binutils-latest.tar.gz
@@ -21,7 +21,7 @@ jobs:
           tar xf binutils-latest.tar.gz -C binutils --strip-components 1
           cd binutils
           ./configure
-          make all-gas install-gas
+          su -c "make all-gas install-gas"
           as --version
 
       - name: Install and Build
