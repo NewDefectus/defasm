@@ -12,6 +12,11 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 22
+
+      - name: Get binutils
+        run: |
+          apt-get update
+          apt-get install binutils -y
         
       - name: Install and Build
         run: |
