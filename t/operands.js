@@ -1,9 +1,12 @@
-#!/usr/bin/env node
-"use strict";
-// Operand parsing test
+import { test } from "node:test";
+import assert from "node:assert";
+
+import { AssemblyState } from "@defasm/core";
+import { loadCode, setSyntax } from "@defasm/core/parser.js";
+import { Operand, OPT } from "@defasm/core/operands.js";
 
 // AT&T prefix | AT&T noprefix | Intel prefix | Intel noprefix | Optype (separated by spaces)
-let opStrings = `%al al %al al REG
+const opStrings = `%al al %al al REG
 %ax ax %ax ax REG
 %eax eax %eax eax REG
 %rax rax %rax rax REG
@@ -32,32 +35,24 @@ $54/7 $54/7 54/7 54/7 IMM
 %fs fs %fs fs SEG
 %cr0 cr0 %cr0 cr0 CTRL
 %dr0 dr0 %dr0 dr0 DBG`;
-let opTests = opStrings.split('\n').map(x => x.split(' '));
-let syntaxes = [
+const opTests = opStrings.split('\n').map(x => x.split(' '));
+const syntaxes = [
     {intel: false,  prefix: true},
     {intel: false,  prefix: false},
     {intel: true,   prefix: true},
     {intel: true,   prefix: false}
 ];
 
+test("Operand parsing test", () => {
+    new AssemblyState();
+    for(const test of opTests) {
+        const expectedType = OPT[test[4]];
 
-exports.run = async function()
-{
-    await import("@defasm/core");
-    const { loadCode, setSyntax } = await import("@defasm/core/parser.js");
-    const { Operand, OPT } = await import("@defasm/core/operands.js");
-
-    for(let test of opTests)
-    {
-        let expectedType = OPT[test[4]];
-
-        for(let i = 0; i < 4; i++)
-        {
+        for(let i = 0; i < 4; i++) {
             setSyntax(syntaxes[i]);
             loadCode(test[i]);
-            let type = new Operand({syntax: syntaxes[i]}).type;
-            if(type !== expectedType)
-                throw `${test[i]} (.${
+            const type = new Operand({syntax: syntaxes[i]}).type;
+            assert.equal(type, expectedType, `${test[i]} (.${
                     syntaxes[i].intel ? 'intel' : 'att'
                 }_syntax ${
                     syntaxes[i].prefix ? '' : 'no'
@@ -65,12 +60,7 @@ exports.run = async function()
                     Object.keys(OPT).find(x => OPT[x] === type)
                 }, expected ${
                     Object.keys(OPT).find(x => OPT[x] === expectedType)
-                }`;
+                }`);
         }
     }
-}
-
-if(require.main === module)
-{
-    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
-}
+});

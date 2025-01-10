@@ -1,23 +1,22 @@
-#!/usr/bin/env node
-"use strict";
-// Section editing
+import { test } from "node:test";
+import assert from "node:assert";
 
-exports.run = async function()
-{
-    const { AssemblyState } = await import("@defasm/core");
-    let state = new AssemblyState(), checkIndex = 0;
+import { AssemblyState } from "@defasm/core";
 
-    function checkSection(sectionId, bytes)
-    {
-        checkIndex++;
-        let buffer = Buffer.from(bytes), section = state.sections[sectionId];
-        let sectionData = section.head.dump();
-        if(!sectionData.equals(buffer))
-            throw `[${checkIndex}] ${section.name} has ${sectionData.join('')}, expected ${buffer.join('')}`;
+test("Section editing", async t => {
+    const state = new AssemblyState();
+
+    function checkSection(sectionId, bytes) {
+        const buffer = Buffer.from(bytes), section = state.sections[sectionId];
+        const sectionData = section.head.dump();
+        assert(
+            sectionData.equals(buffer),
+            `${section.name} has ${sectionData.join('')}, expected ${buffer.join('')}`
+        );
     }
 
-    // Basic section data division check
-    state.compile(`\
+    await t.test("Basic section data division", () => {
+        state.compile(`\
 .text
     .byte 1
     .byte 2
@@ -27,33 +26,32 @@ exports.run = async function()
     .byte 5
     .byte 6
 `);
-    checkSection(0, [1, 2, 3]); // 1
-    checkSection(1, [4, 5, 6]); // 2
+        checkSection(0, [1, 2, 3]);
+        checkSection(1, [4, 5, 6]);
+    });
     
-    // Changing section ranges
-    state.compile('.data', { range: state.line(1) });
-    checkSection(0, []); // 3
-    checkSection(1, [1, 2, 3, 4, 5, 6]); // 4
+    await t.test("Changing section ranges", () => {
+        state.compile('.data', { range: state.line(1) });
+        checkSection(0, []);
+        checkSection(1, [1, 2, 3, 4, 5, 6]);
 
-    state.compile('.text', { range: state.line(1) });
-    checkSection(0, [1, 2, 3]); // 5
-    checkSection(1, [4, 5, 6]); // 6
+        state.compile('.text', { range: state.line(1) });
+        checkSection(0, [1, 2, 3]);
+        checkSection(1, [4, 5, 6]);
+    });
 
-    // Merging sections
-    state.compile('', { range: state.line(5) });
-    checkSection(0, [1, 2, 3, 4, 5, 6]); // 7
-    checkSection(1, []); // 8
+    await t.test("Merging sections", () => {
+        state.compile('', { range: state.line(5) });
+        checkSection(0, [1, 2, 3, 4, 5, 6]);
+        checkSection(1, []);
+    });
 
-    // Changing section of symbol
-    state.compile(`\
+    await t.test("Changing section of symbol", () => {
+        state.compile(`\
 .text
 start:
 end = . - start
 .data`);
-    state.compile('.data', { range: state.line(1), haltOnError: true });
-}
-
-if(require.main === module)
-{
-    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
-}
+        state.compile('.data', { range: state.line(1), haltOnError: true });
+    });
+});

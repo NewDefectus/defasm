@@ -1,99 +1,34 @@
-#!/usr/bin/env node
-"use strict";
+import { test } from "node:test";
 
-// All opcodes test
+import { execSync } from "node:child_process";
+import { readFileSync } from "node:fs";
 
-var OPT, regNames, suffixNames, floatSuffixNames, floatIntSuffixNames, vecNames;
-var fetchMnemonic, getMnemonicList;
+import "@defasm/core";
+import { AssemblyState, getMnemonicList, fetchMnemonic } from "@defasm/core";
+import { OPT, registers, suffixes, floatSuffixes, floatIntSuffixes } from "@defasm/core/operands.js";
 
-async function initGlobals()
-{
-    const reverseObject = obj => Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})))
-
-    let imports = await import("@defasm/core");
-    getMnemonicList = imports.getMnemonicList;
-
-    imports = await import("@defasm/core/operands.js");
-    OPT = imports.OPT;
-
-    let { registers, suffixes, floatSuffixes, floatIntSuffixes } = imports;
-    regNames = reverseObject(registers);
-    suffixNames = reverseObject(suffixes);
-    floatSuffixNames = reverseObject(floatSuffixes);
-    floatIntSuffixNames = reverseObject(floatIntSuffixes);
-    vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
-
-    fetchMnemonic = (await import("@defasm/core")).fetchMnemonic;
+function reverseObject(obj) {
+    return Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})));
 }
 
-
-/**
- * Compile code with defasm, then with gcc, then throw an error if
- * the results don't match.
- * @param {String} source the assembly code to compile
- */
-exports.checkAgainstGcc = async function(source)
-{
-    const { execSync } = require('child_process');
-    const { readFileSync } = require('fs');
-    const { AssemblyState } = await import("@defasm/core");
-
-    function gassemble(source)
-    {
-        execSync("as -W -o /tmp/opcodeTest.o", {
-            input: ".globl _start\n_start:\n" + source
-        });
-
-        execSync("objcopy /tmp/opcodeTest.o --dump-section .text=/tmp/opcodeTest");
-        return readFileSync("/tmp/opcodeTest");
-    }
-
-    const hex = bytes => [...bytes].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
-
-    let state = new AssemblyState();
-
-    state.compile(source, { haltOnError: true });
-
-    let asOutput = gassemble(source);
-    if(!asOutput.equals(state.head.dump()))
-    {
-        let cmpPtr = 0, discrepancies = [];
-        state.iterate(instr => {
-            while(true)
-            {
-                if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0)
-                {
-                    const code = instr.range.slice(state.source);
-                    const correctOutput = gassemble(code);
-                    if(correctOutput.compare(instr.bytes, 0, instr.length) == 0)
-                    {
-                        // Most likely just a misalignment error - realign and try again
-                        cmpPtr = asOutput.indexOf(instr.bytes.subarray(0, instr.length), cmpPtr);
-                        continue;
-                    }
-
-                    discrepancies.push(`- '${
-                        code
-                    }' compiles to ${
-                        hex(instr.bytes.subarray(0, instr.length))
-                    }, should be ${
-                        hex(correctOutput)
-                    }`);
-                    cmpPtr += correctOutput.length;
-                }
-                else
-                    cmpPtr += instr.length;
-                break;
-            }
-        });
-
-        throw `Discrepancies detected:\n${
-            discrepancies.join('\n')
-        }\n\n${
-            execSync('as --version').toString()
-        }`;
-    }
+function hex(bytes) {
+    return [...bytes].map(x => x.toString(16).toUpperCase().padStart(2, '0')).join(' ');
 }
+
+function gassemble(source) {
+    execSync("as -W -o /tmp/opcodeTest.o", {
+        input: ".globl _start\n_start:\n" + source
+    });
+
+    execSync("objcopy /tmp/opcodeTest.o --dump-section .text=/tmp/opcodeTest");
+    return readFileSync("/tmp/opcodeTest");
+}
+
+const regNames = reverseObject(registers);
+const suffixNames = reverseObject(suffixes);
+const floatSuffixNames = reverseObject(floatSuffixes);
+const floatIntSuffixNames = reverseObject(floatIntSuffixes);
+const vecNames = { 64: 'mm', 128: 'xmm', 256: 'ymm', 512: 'zmm' };
 
 /**
  * @param {import("@defasm/core/operations.js").OpCatcher} catcher 
@@ -102,13 +37,11 @@ exports.checkAgainstGcc = async function(source)
  * @param {Number} type
  * @returns {String}
  */
-function makeOperand(catcher, size, index, type = catcher.type)
-{
+function makeOperand(catcher, size, index, type = catcher.type) {
     let value = catcher.implicitValue;
     let id = value === null ? index : value;
     
-    switch(type)
-    {
+    switch(type) {
         case OPT.REG:  return '%' + regNames[Math.log2(size / 8) * 8 + id];
         case OPT.VEC:  return '%' + vecNames[size] + id;
         case OPT.VMEM: return '(,%' + vecNames[size] + id + ')';
@@ -151,10 +84,8 @@ function* generateInstrs(mnemonic, {
     prevSize = null,
     total = 0,
     sizeSuffix = ""
-} = {})
-{
-    if (interp === null)
-    {
+} = {}) {
+    if (interp === null) {
         let interps = fetchMnemonic(mnemonic, false, false);
         let vInterps = fetchMnemonic('v' + mnemonic, false, false);
 
@@ -167,8 +98,7 @@ function* generateInstrs(mnemonic, {
         return;
     }
     let opCatchers = interp.vex ? operation.vexOpCatchers : operation.opCatchers;
-    if(opCatchers.length == 0)
-    {
+    if(opCatchers.length == 0) {
         yield mnemonic;
         return;
     }
@@ -182,13 +112,10 @@ function* generateInstrs(mnemonic, {
     if(sizes == 0) // Size is arbitrary
         sizes = [32];
 
-    if(prevSize === null && !Array.isArray(sizes))
-    {
-        if(nextI == 0) // We've wrapped around without finding a size, so the operation is sizeless
-        {
+    if(prevSize === null && !Array.isArray(sizes)) {
+        if(nextI == 0) { // We've wrapped around without finding a size, so the operation is sizeless
             sizes = [32];
-            for(let i = 0; i < opCatchers.length; i++)
-            {
+            for(let i = 0; i < opCatchers.length; i++) {
                 if(operands[i] === undefined)
                     operands[i] = makeOperand(opCatchers[i], 32, i + 1);
             }
@@ -199,8 +126,7 @@ function* generateInstrs(mnemonic, {
             yield instruction;
             return;
         }
-        else
-        {
+        else {
             yield *generateInstrs(mnemonic, {
                 interp,
                 operation,
@@ -215,8 +141,7 @@ function* generateInstrs(mnemonic, {
         sizes = [prevSize];
     
     let halfMemorySize = false;
-    if(sizes == -2)
-    {
+    if(sizes == -2) {
         sizes = [(prevSize & ~7) / catcher.sizeDivisor];
         if(sizes[0] < 128)
         {
@@ -228,16 +153,13 @@ function* generateInstrs(mnemonic, {
     let forceMemory = false;
     let triedBroadcast = false, canTryBroadcast = false;
     
-    while(true)
-    {
-        for(let size of sizes)
-        {
+    while(true) {
+        for(let size of sizes) {
             let type = forceMemory ? OPT.MEM : catcher.type;
             let sizeSuffixOriginal = sizeSuffix;
             if(type === OPT.MEM && catcher.memorySize)
                 size = catcher.memorySize, showSuffix = false;
-            if(type === OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize))
-            {
+            if(type === OPT.MEM && showSuffix && size != (interp.vex ? catcher.defVexSize : catcher.defSize)) {
                 if(catcher.moffset)
                     sizeSuffix = 'addr32';
                 else
@@ -258,12 +180,9 @@ function* generateInstrs(mnemonic, {
             operands[i] = makeOperand(catcher, size & ~7, total + 1, type);
             if(interp.vex && type.isMemory && (
                 operation.evexPermits?.BROADCAST_32 || operation.evexPermits?.BROADCAST_64
-            ))
-            {
-                if(canTryBroadcast)
-                {
-                    if(!triedBroadcast)
-                    {
+            )) {
+                if(canTryBroadcast) {
+                    if(!triedBroadcast) {
                         if(operation.evexPermits?.BROADCAST_32)
                             operands[i] = operands[i] + ` {1to${(size & ~7) / 32}}`;
                         if(operation.evexPermits?.BROADCAST_64)
@@ -274,8 +193,7 @@ function* generateInstrs(mnemonic, {
                 canTryBroadcast = true;
             }
 
-            if(total + 1 >= opCatchers.length)
-            {
+            if(total + 1 >= opCatchers.length) {
                 let instruction = "";
                 if(sizeSuffix == 'addr32')
                 {
@@ -305,8 +223,7 @@ function* generateInstrs(mnemonic, {
         if(canTryBroadcast && !triedBroadcast)
             continue;
 
-        if(!forceMemory && catcher.acceptsMemory && !catcher.type.isMemory)
-        {
+        if(!forceMemory && catcher.acceptsMemory && !catcher.type.isMemory) {
             forceMemory = true;
             if(halfMemorySize)
                 sizes[0] /= 2;
@@ -316,30 +233,60 @@ function* generateInstrs(mnemonic, {
     }
 }
 
-exports.run = async function(mnemonics = [])
-{
-    await initGlobals();
+test("All opcodes test", { skip: process.platform != 'linux' }, async () => {
+    const mnemonics = process.argv.slice(3);
 
     // These are mnemonics that defasm assembles correctly, but GAS doesn't, for some reason
     const uncheckedMnemonics = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
 
     let source = "";
 
-    let mnemonicList = mnemonics.length > 0 ? mnemonics : getMnemonicList();
-    for(const mnemonic of mnemonicList)
-    {
+    const mnemonicList = mnemonics.length > 0 ? mnemonics : getMnemonicList();
+    for(const mnemonic of mnemonicList) {
         if(uncheckedMnemonics.includes(mnemonic))
             continue;
         for(const line of generateInstrs(mnemonic))
             source += line + '\n';
     }
 
-    await exports.checkAgainstGcc(source);
-}
+    const state = new AssemblyState();
 
-exports.linuxOnly = true;
+    state.compile(source, { haltOnError: true });
 
-if(require.main === module)
-{
-    exports.run(process.argv.slice(2)).then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
-}
+    const asOutput = gassemble(source);
+    if(!asOutput.equals(state.head.dump())) {
+        let cmpPtr = 0, discrepancies = [];
+        state.iterate(instr => {
+            while(cmpPtr < asOutput.length) {
+                if(asOutput.compare(instr.bytes, 0, instr.length, cmpPtr, cmpPtr + instr.length) != 0) {
+                    const code = instr.range.slice(state.source);
+                    const correctOutput = gassemble(code);
+                    if(correctOutput.compare(instr.bytes, 0, instr.length) == 0)
+                    {
+                        // Most likely just a misalignment error - realign and try again
+                        cmpPtr = asOutput.indexOf(instr.bytes.subarray(0, instr.length), cmpPtr);
+                        continue;
+                    }
+
+                    discrepancies.push(`- '${
+                        code
+                    }' compiles to ${
+                        hex(instr.bytes.subarray(0, instr.length))
+                    }, should be ${
+                        hex(correctOutput)
+                    }`);
+                    cmpPtr += correctOutput.length;
+                }
+                else
+                    cmpPtr += instr.length;
+                break;
+            }
+        });
+
+        throw `Discrepancies detected:\n${
+            discrepancies.join('\n')
+        }\n\n${
+            execSync('as --version').toString()
+        }`;
+    }
+});

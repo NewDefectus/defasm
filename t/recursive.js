@@ -1,29 +1,22 @@
-#!/usr/bin/env node
-"use strict";
-// Recursive symbol definition detection
+import { test } from "node:test";
+import assert from "node:assert";
 
-exports.run = async function()
-{
-    setTimeout(() => process.exit(-1), 1000);
-    const { AssemblyState, Range } = await import("@defasm/core");
-    let state = new AssemblyState();
+import { AssemblyState, Range } from "@defasm/core";
+
+test("Recursive symbol definition detection", { timeout: 1000 }, () => {
+    const state = new AssemblyState();
 
     const checkError = () => {
-        if(state.errors.length < 1)
-            throw(`Missing recursive definition error in: ${state.source}`)
-        else if(state.errors[0].message != "Recursive definition")
+        assert(state.errors.length > 0, `Missing recursive definition error in: ${state.source}`);
+        if(state.errors[0].message != "Recursive definition")
             throw state.errors[0];
     }
+    const checkFirstByte = byte => assert.equal(state.head.dump()[0], byte, `Incorrect recursion handling for ${state.source}`);
 
     state.compile('a=a'); checkError();
     state.compile('x=y; y=x'); checkError();
     state.compile('x', { range: new Range(2, 1) }); checkError();
     state.compile('y', { range: new Range(2, 1) }); checkError();
-
-    const checkFirstByte = byte => {
-        if(state.head.dump()[0] != byte)
-            throw `Incorrect recursion handling for ${state.source}: expected ${byte}, got ${state.head.dump()[0]}`;
-    }
 
     state.compile(`\
 a=4
@@ -38,9 +31,4 @@ a=4
     
     state.compile('a=4', { range: state.line(1) });
     checkFirstByte(4);
-}
-
-if(require.main === module)
-{
-    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
-}
+});

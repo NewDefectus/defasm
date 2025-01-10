@@ -1,11 +1,10 @@
-#!/usr/bin/env node
-"use strict";
-// Sample code testing
+import { test } from "node:test";
+import assert from "node:assert";
 
-exports.run = async function()
-{
-    const { AssemblyState } = await import("@defasm/core");
-    let attState = new AssemblyState(), intelState = new AssemblyState();
+import { AssemblyState } from "@defasm/core";
+
+test("Sample code testing", () => {
+    const attState = new AssemblyState(), intelState = new AssemblyState();
     attState.compile(`\
     .att_syntax
     SYS_WRITE = 1
@@ -138,11 +137,5 @@ exports.run = async function()
     mov edi, 0
     syscall`, { haltOnError: true });
 
-    if(!attState.head.dump().equals(intelState.head.dump()))
-        throw `Discrepancy between AT&T and Intel output`;
-}
-
-if(require.main === module)
-{
-    exports.run().then(x => process.exit(0)).catch(x => { console.error(x); process.exit(1) });
-}
+    assert(attState.head.dump().equals(intelState.head.dump()), "Discrepancy between AT&T and Intel output");
+});
