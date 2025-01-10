@@ -44,7 +44,7 @@ exports.checkAgainstGcc = async function(source)
             input: ".globl _start\n_start:\n" + source
         });
 
-        execSync("ld --oformat binary -o /tmp/opcodeTest /tmp/opcodeTest.o");
+        execSync("objcopy /tmp/opcodeTest.o --dump-section .text=/tmp/opcodeTest");
         return readFileSync("/tmp/opcodeTest");
     }
 
