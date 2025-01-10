@@ -15,8 +15,8 @@ jobs:
 
       - name: Get binutils
         run: |
-          apt-get update
-          apt-get install binutils -y
+          sudo apt-get update
+          sudo apt-get install binutils -y
         
       - name: Install and Build
         run: |
