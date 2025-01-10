@@ -12886,7 +12886,7 @@ kxord:Vlw 66)0F47 ^K >K K
 kxorq:Vlw 0F47 ^K >K K
 
 lahf:9F
-lar:0F02 rW Rwlq
+lar:0F02 rW RwlQ
 lcall/:FF.3 m
 
 lds:x C5 m Rwl
@@ -12914,7 +12914,7 @@ lret
 CB
 CA i$w
 
-lsl:0F03 rW Rwlq
+lsl:0F03 rW RwlQ
 ltr:0F00.3 rW
 lzcnt:F3)0FBD r Rwlq
 
