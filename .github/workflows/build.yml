@@ -21,7 +21,11 @@ jobs:
           tar xf binutils-latest.tar.gz -C binutils --strip-components 1
           cd binutils
           ./configure
-          su -c "make all-gas install-gas"
+          if [ $(which sudo) ]
+            then sudo make all-gas install-gas
+          else
+            su -c "make all-gas install-gas"
+          fi
           as --version
 
       - name: Install and Build
