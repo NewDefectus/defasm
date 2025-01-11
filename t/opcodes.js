@@ -1,4 +1,5 @@
 import { test } from "node:test";
+import assert from "node:assert";
 
 import { execSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -48,7 +49,7 @@ function makeOperand(catcher, size, index, type = catcher.type) {
         case OPT.IMM:  return value === null ? '$' + (1 << (size - 4)) : '$' + value;
         case OPT.MASK: return '%k' + id;
         case OPT.REL:  return '.+' + (1 << (size - 4));
-        case OPT.MEM:  return catcher.moffset ? '' + (1 << (size - 4)) : '64(%' + regNames[24 + id] +')';
+        case OPT.MEM:  return catcher.moffset ? '' + (1 << (size - 4)) : [`1(%${regNames[24 + id]})`, "32(%rsp)", "128(%r12)"];
         case OPT.ST:   return '%st' + (id ? '(' + id + ')' : '');
         case OPT.SEG:  return '%' + regNames[32 + id];
         case OPT.IP:   return size == 32 ? '%eip' : '%rip';
@@ -58,6 +59,27 @@ function makeOperand(catcher, size, index, type = catcher.type) {
     }
 
     throw `Unknown operand type '${type}'`;
+}
+
+function* generateInstructionVariations(mnemonic, sizeSuffix, operands, asterisk, maskRequired = false) {
+    for(let i in operands)
+        if(Array.isArray(operands[i])) {
+            for(const opVar of operands[i]) {
+                operands[i] = opVar;
+                yield *generateInstructionVariations(mnemonic, sizeSuffix, operands, asterisk, maskRequired);
+            }
+            return;
+        }
+    
+    let prefix = "";
+    if(sizeSuffix == 'addr32') {
+        prefix = 'addr32 ';
+        sizeSuffix = '';
+    }
+    yield prefix + mnemonic + sizeSuffix + ' '
+        + (asterisk ? '*' : '')
+        + operands.join(', ')
+        + (maskRequired ? ' {%k1}' : '');
 }
 
 /**
@@ -119,11 +141,8 @@ function* generateInstrs(mnemonic, {
                 if(operands[i] === undefined)
                     operands[i] = makeOperand(opCatchers[i], 32, i + 1);
             }
-            let instruction =
-                mnemonic + ' ' + 
-                (mnemonic == 'lcall' || mnemonic == 'ljmp' ? '*' : '') +
-                operands.join(', ');
-            yield instruction;
+            
+            yield *generateInstructionVariations(mnemonic, '', operands, mnemonic == 'lcall' || mnemonic == 'ljmp');
             return;
         }
         else {
@@ -184,28 +203,17 @@ function* generateInstrs(mnemonic, {
                 if(canTryBroadcast) {
                     if(!triedBroadcast) {
                         if(operation.evexPermits?.BROADCAST_32)
-                            operands[i] = operands[i] + ` {1to${(size & ~7) / 32}}`;
+                            operands[i] = operands[i].map(x => x + ` {1to${(size & ~7) / 32}}`);
                         if(operation.evexPermits?.BROADCAST_64)
-                            operands[i] = operands[i] + ` {1to${(size & ~7) / 64}}`;
+                            operands[i] = operands[i].map(x => x + ` {1to${(size & ~7) / 64}}`);
                         triedBroadcast = true;
                     }
                 }
                 canTryBroadcast = true;
             }
 
-            if(total + 1 >= opCatchers.length) {
-                let instruction = "";
-                if(sizeSuffix == 'addr32')
-                {
-                    instruction += 'addr32 ';
-                    sizeSuffix = '';
-                }
-                instruction += mnemonic + sizeSuffix + ' ' +
-                    (interp.relative && type !== OPT.REL ? '*' : '')
-                    + operands.join(', ')
-                    + (operation.requireMask ? ' {%k1}' : '')
-                yield instruction;
-            }
+            if(total + 1 >= opCatchers.length)
+                yield *generateInstructionVariations(mnemonic, sizeSuffix, operands, interp.relative && type !== OPT.REL, operation.requireMask);
             else
                 yield *generateInstrs(mnemonic, {
                     interp,
@@ -283,10 +291,6 @@ test("All opcodes test", { skip: process.platform != 'linux' }, async () => {
             }
         });
 
-        throw `Discrepancies detected:\n${
-            discrepancies.join('\n')
-        }\n\n${
-            execSync('as --version').toString()
-        }`;
+        assert.fail(`Discrepancies detected:\n${discrepancies.join('\n')}`);
     }
 });
