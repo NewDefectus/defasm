@@ -10161,10 +10161,12 @@
       }
       for (const lineEnd of value.lineEnds)
         this.lineEnds.push(this.length + Math.min(lineEnd, size / 8));
+      const finalSize = size;
       do {
         this.genByte(num & 0xffn);
         num >>= 8n;
       } while (size -= 8);
+      return finalSize;
     }
     remove() {
       this.removed = true;
@@ -12687,7 +12689,7 @@ fprem1:D9F5
 fptan:D9F2
 frndint:D9FC
 frstor:DD.4 m
-fsave:9BDD.6 m
+fsave:9B)DD.6 m
 fscale:D9FD
 fsin:D9FE
 fsincos:D9FB
@@ -12698,8 +12700,8 @@ D9.2 ml
 DD.2 m$q
 DD.2 F
 
-fstcw:9BD9.7 m
-fstenv:9BD9.6 m
+fstcw:9B)D9.7 m
+fstenv:9B)D9.6 m
 
 fstp
 D9.3 ml
@@ -12709,8 +12711,8 @@ DD.3 F
 fstpt:DB.7 m
 
 fstsw
-9BDD.7 m
-9BDFE0 R_0W
+9B)DD.7 m
+9B)DFE0 R_0W
 
 ftst:D9E4
 
@@ -14536,7 +14538,7 @@ g nle`.split("\n");
         rexVal |= 1, prefsToGen.REX = true;
       else if (op.rm !== null) {
         let extraRex;
-        [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
+        [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg, op.dispMul !== null ? 32 : null);
         if (extraRex !== 0)
           rexVal |= extraRex, prefsToGen.REX = true;
       }
@@ -14545,6 +14547,7 @@ g nle`.split("\n");
       let opcode = op.opcode;
       if (op.size == 16)
         prefsToGen.DATASIZE = true;
+      let modRmIndex = 0;
       if (prefsToGen.SEG0)
         this.genByte(38);
       if (prefsToGen.SEG1)
@@ -14583,10 +14586,12 @@ g nle`.split("\n");
           this.genByte(opcode >> 8);
       }
       this.genByte(opcode);
-      if (modRM !== null)
+      if (modRM !== null) {
+        modRmIndex = this.length;
         this.genByte(modRM);
-      if (sib !== null)
-        this.genByte(sib);
+        if (sib !== null)
+          this.genByte(sib);
+      }
       if (op.rm?.value?.addend != null) {
         let sizeRelative = false, value = op.rm.value;
         if (op.rm.ripRelative && op.rm.value.section != pseudoSections.ABS && !op.rm.value.pcRelative) {
@@ -14601,12 +14606,16 @@ g nle`.split("\n");
           }));
           this.ipRelative = true;
         }
-        this.genValue(value, {
+        const finalSize = this.genValue(value, {
           size: op.rm.dispSize || 32,
           signed: true,
           sizeRelative,
           dispMul: op.dispMul
         });
+        if (op.rm.dispSize != finalSize) {
+          op.rm.dispSize = finalSize;
+          this.bytes[modRmIndex] = this.makeModRM(op.rm, op.reg, finalSize)[1];
+        }
       }
       if (op.relImm !== null)
         this.genValue(op.relImm.value, { size: op.relImm.size, sizeRelative: true, functionAddr: true });
@@ -14618,7 +14627,7 @@ g nle`.split("\n");
         for (const imm of op.imms)
           this.genValue(imm.value, { size: imm.size, signed: !op.unsigned });
     }
-    makeModRM(rm, r) {
+    makeModRM(rm, r, forcedDispSize) {
       let modrm = 0, rex = 0, sib = null;
       let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
       if (rReg >= 8) {
@@ -14634,7 +14643,10 @@ g nle`.split("\n");
         modrm |= 192;
       else if (rmReg >= 0) {
         if (rm.value.addend != null) {
-          this.determineDispSize(rm, 8, 32);
+          if (forcedDispSize != null)
+            rm.dispSize = forcedDispSize;
+          else
+            this.determineDispSize(rm, 8, 32);
           if (rm.dispSize == 8)
             modrm |= 64;
           else
