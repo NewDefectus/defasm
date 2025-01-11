@@ -266,7 +266,7 @@ fprem1:D9F5
 fptan:D9F2
 frndint:D9FC
 frstor:DD.4 m
-fsave:9BDD.6 m
+fsave:9B)DD.6 m
 fscale:D9FD
 fsin:D9FE
 fsincos:D9FB
@@ -277,8 +277,8 @@ D9.2 ml
 DD.2 m$q
 DD.2 F
 
-fstcw:9BD9.7 m
-fstenv:9BD9.6 m
+fstcw:9B)D9.7 m
+fstenv:9B)D9.6 m
 
 fstp
 D9.3 ml
@@ -288,8 +288,8 @@ DD.3 F
 fstpt:DB.7 m
 
 fstsw
-9BDD.7 m
-9BDFE0 R_0W
+9B)DD.7 m
+9B)DFE0 R_0W
 
 ftst:D9E4
 
