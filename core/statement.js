@@ -181,6 +181,7 @@ export class Statement
     /**
      * @param {import("./shuntingYard.js").IdentifierValue} value
      * @param {ValueConfig} config
+     * @returns {number} The number of bits generated
      */
     genValue(value, {
         size,
@@ -226,11 +227,14 @@ export class Statement
         for(const lineEnd of value.lineEnds)
             this.lineEnds.push(this.length + Math.min(lineEnd, size / 8));
 
+        const finalSize = size;
         do
         {
             this.genByte(num & 0xffn);
             num >>= 8n;
         } while(size -= 8);
+
+        return finalSize;
     }
 
     remove()

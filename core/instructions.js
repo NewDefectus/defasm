@@ -423,7 +423,7 @@ export class Instruction extends Statement
         else if(op.rm !== null)
         {
             let extraRex;
-            [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg);
+            [extraRex, modRM, sib] = this.makeModRM(op.rm, op.reg, op.dispMul !== null ? 32 : null);
             if(extraRex !== 0)
                 rexVal |= extraRex, prefsToGen.REX = true;
         }
@@ -437,6 +437,8 @@ export class Instruction extends Statement
             prefsToGen.DATASIZE = true;
 
         // Time to generate!
+        let modRmIndex = 0;
+
         if(prefsToGen.SEG0) this.genByte(0x26);
         if(prefsToGen.SEG1) this.genByte(0x2E);
         if(prefsToGen.SEG2) this.genByte(0x36);
@@ -470,10 +472,12 @@ export class Instruction extends Statement
                 this.genByte(opcode >> 8);
         }
         this.genByte(opcode);
-        if(modRM !== null)
+        if(modRM !== null) {
+            modRmIndex = this.length;
             this.genByte(modRM);
-        if(sib !== null)
-            this.genByte(sib);
+            if(sib !== null)
+                this.genByte(sib);
+        }
 
         // Generating the displacement
         if(op.rm?.value?.addend != null)
@@ -493,12 +497,16 @@ export class Instruction extends Statement
                 }));
                 this.ipRelative = true;
             }
-            this.genValue(value, {
+            const finalSize = this.genValue(value, {
                 size: op.rm.dispSize || 32,
                 signed: true,
                 sizeRelative,
                 dispMul: op.dispMul
             });
+            if(op.rm.dispSize != finalSize) {
+                op.rm.dispSize = finalSize;
+                this.bytes[modRmIndex] = this.makeModRM(op.rm, op.reg, finalSize)[1];
+            }
         }
         if(op.relImm !== null)
             this.genValue(op.relImm.value, { size: op.relImm.size, sizeRelative: true, functionAddr: true });
@@ -513,24 +521,22 @@ export class Instruction extends Statement
 
     /** Generate the ModRM byte
      * @param {Operand} rm
-     * @param {Operand} r */
-    makeModRM(rm, r)
-    {
+     * @param {Operand} r
+     * @param {int?} forcedDispSize */
+    makeModRM(rm, r, forcedDispSize) {
         let modrm = 0, rex = 0, sib = null;
         // rm's and r's values may be edited, however the objects themselves shouldn't be modified
         let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
 
         // Encoding the "reg" field
-        if(rReg >= 8)
-        {
+        if(rReg >= 8) {
             rex |= 4; // rex.R extension
             rReg &= 7;
         }
         modrm |= rReg << 3;
 
         // Special case for RIP-relative addressing
-        if(rm.ripRelative)
-        {
+        if(rm.ripRelative) {
             rm.value.addend = rm.value.addend || 0n;
             // mod = 00, reg = (reg), rm = 101
             return [rex, modrm | 5, null];
@@ -539,19 +545,20 @@ export class Instruction extends Statement
         // Encoding the "mod" (modifier) field
         if(!rm.type.isMemory)
             modrm |= 0xC0; // mod=11
-        else if(rmReg >= 0)
-        {
-            if(rm.value.addend != null)
-            {
-                this.determineDispSize(rm, 8, 32);
+        else if(rmReg >= 0) {
+            if(rm.value.addend != null) {
+                if(forcedDispSize != null)
+                    rm.dispSize = forcedDispSize;
+                else
+                    this.determineDispSize(rm, 8, 32);
+
                 if(rm.dispSize == 8)
                     modrm |= 0x40; // mod=01
                 else
                     modrm |= 0x80; // mod=10
             }
         }
-        else // mod = 00
-        {
+        else { // mod = 00
             // These are the respective "none" type registers
             rmReg = 5;
             if(currBitness == 64 && rmReg2 < 0)
@@ -567,12 +574,10 @@ export class Instruction extends Statement
         modrm |= rmReg2 < 0 ? rmReg : 4;
 
         // Encoding an SIB byte if necessary
-        if((modrm & 0xC0) != 0xC0 && (modrm & 7) == 4) // mod!=11, rm=100 signifies an SIB byte follows
-        {
+        if((modrm & 0xC0) != 0xC0 && (modrm & 7) == 4) { // mod!=11, rm=100 signifies an SIB byte follows
             if(rmReg2 < 0)
                 rmReg2 = 4; // indicating the "none" index
-            else if(rmReg2 >= 8)
-            {
+            else if(rmReg2 >= 8) {
                 rex |= 2; // rex.X extension
                 rmReg2 &= 7;
             }
