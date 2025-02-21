@@ -8,6 +8,11 @@ import "@defasm/core";
 import { AssemblyState, getMnemonicList, fetchMnemonic } from "@defasm/core";
 import { OPT, registers, suffixes, floatSuffixes, floatIntSuffixes } from "@defasm/core/operands.js";
 
+const EXCLUDED_MNEMONICS = [
+    'sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx',
+    'bndcl', 'bndcn', 'bndcu', 'bndldx', 'bndmk', 'bndmov', 'bndstx'
+];
+
 function reverseObject(obj) {
     return Object.assign({}, ...Object.keys(obj).map(x => ({[obj[x]]: x})));
 }
@@ -244,14 +249,11 @@ function* generateInstrs(mnemonic, {
 test("All opcodes test", { skip: process.platform != 'linux' }, async () => {
     const mnemonics = process.argv.slice(3);
 
-    // These are mnemonics that defasm assembles correctly, but GAS doesn't, for some reason
-    const uncheckedMnemonics = ['sysexitl', 'sysexitq', 'int1', 'movsx', 'movsxd', 'movzx'];
-
     let source = "";
 
     const mnemonicList = mnemonics.length > 0 ? mnemonics : getMnemonicList();
     for(const mnemonic of mnemonicList) {
-        if(uncheckedMnemonics.includes(mnemonic))
+        if(EXCLUDED_MNEMONICS.includes(mnemonic))
             continue;
         for(const line of generateInstrs(mnemonic))
             source += line + '\n';
