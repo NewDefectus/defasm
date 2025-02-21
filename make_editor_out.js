@@ -15891,7 +15891,7 @@
       } else if (this.type === OPT.IMM && defSize > 0 && defSize < opSize)
         return defSize;
       if (operand.type === OPT.MEM && this.memorySize)
-        return operand.size == this.memorySize ? this.memorySize : null;
+        return operand.size == (this.memorySize & ~7) ? this.memorySize : null;
       if (this.sizes == -1) {
         rawSize = prevSize & ~7;
         if (opSize == rawSize || operand.type === OPT.IMM && opSize < rawSize)
@@ -15930,12 +15930,15 @@
       this.vexOnly = false;
       this.requireMask = false;
       this.requireBitness = null;
+      this.forceRexW = false;
       this.forceVex = format[0][0] == "V";
       this.vexOnly = format[0][0] == "v";
-      if ("vVwl!xX".includes(format[0][0])) {
+      if ("vVwWl!xX".includes(format[0][0])) {
         let specializers = format.shift();
         if (specializers.includes("w"))
           this.vexBase |= 32768;
+        if (specializers.includes("W"))
+          this.forceRexW = true, this.requireBitness = 64;
         if (specializers.includes("l"))
           this.vexBase |= 1024;
         if (specializers.includes("!"))
@@ -16040,7 +16043,7 @@
     fit(operands, instr2, vexInfo) {
       if (!this.validateVEX(vexInfo))
         return null;
-      let adjustByteOp = false, overallSize = 0, rexw = false;
+      let adjustByteOp = false, overallSize = 0, rexw = this.forceRexW;
       if (this.relativeSizes) {
         if (!(operands.length == 1 && operands[0].type === OPT.REL))
           return null;
@@ -16351,17 +16354,17 @@ callw:x E8 jw
 
 cbtw/cbw:66)98
 cltd/cdq:99
-cltq/cdqe:X 48)98
+cltq/cdqe:W 98
 clac:0F01CA
 clc:F8
 cld:FC
-cldemote:0F1C.0 m
-clflush:0FAE.7 m
-clflushopt:66)0FAE.7 m
+cldemote:0F1C.0 mB
+clflush:0FAE.7 mB
+clflushopt:66)0FAE.7 mB
 cli:FA
-clrssbsy:F3)0FAE.6 m
+clrssbsy:F3)0FAE.6 mQ
 clts:0F06
-clwb:66)0FAE.6 m
+clwb:66)0FAE.6 mB
 cmc:F5
 
 cmppd
@@ -16383,8 +16386,8 @@ F3)0FC2 ib v >V Vx
 F3)0FC2 ib v|l >Vx K {ksf
 
 cmpxchg:0FB0 Rbwlq r
-cmpxchg8b:0FC7.1 m
-cmpxchg16b:0FC7.1 m#q
+cmpxchg8b:0FC7.1 mQ
+cmpxchg16b:W 0FC7.1 mX
 
 comisd:66)0F2F v Vx > {sw
 comiss:0F2F v Vx > {s
@@ -16418,7 +16421,7 @@ cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
 cvttss2si:F3)0F2C v#x Rlq > {s
 
-cqto/cqo:X 48)99
+cqto/cqo:W 99
 cwtd/cwd:66)99
 cwtl/cwde:98
 
@@ -16447,8 +16450,8 @@ extractps:66)0F3A17 ib Vx rL > {
 
 f2xm1:D9F0
 fabs:D9E1
-fbld:DF.4 m
-fbstp:DF.6 m
+fbld:DF.4 mT
+fbstp:DF.6 mT
 fchs:D9E0
 fclex:9BDBE2
 fcmovb:DA.0 F F_0
@@ -16501,17 +16504,17 @@ fldpi:D9EB
 fldlg2:D9EC
 fldln2:D9ED
 fldz:D9EE
-fldcw:D9.5 m
+fldcw:D9.5 mW
 fldenv:D9.4 m
 fnclex:DBE2
 fninit:DBE3
 fnop:D9D0
 fnsave:DD.6 m
-fnstcw:D9.7 m
+fnstcw:D9.7 mW
 fnstenv:D9.6 m
 
 fnstsw
-DD.7 m
+DD.7 mW
 DFE0 R_0W
 
 fpatan:D9F3
@@ -16531,18 +16534,17 @@ D9.2 ml
 DD.2 m$q
 DD.2 F
 
-fstcw:9B)D9.7 m
+fstcw:9B)D9.7 mW
 fstenv:9B)D9.6 m
 
 fstp
 D9.3 ml
 DD.3 m$q
+DB.7 mt
 DD.3 F
 
-fstpt:DB.7 m
-
 fstsw
-9B)DD.7 m
+9B)DD.7 mW
 9B)DFE0 R_0W
 
 ftst:D9E4
@@ -16566,9 +16568,9 @@ D9.1 F
 D9C9
 
 fxrstor:0FAE.1 m
-fxrstor64:X 0FAE.1 m#q
+fxrstor64:W 0FAE.1 m
 fxsave:0FAE.0 m
-fxsave64:X 0FAE.0 m#q
+fxsave64:W 0FAE.0 m
 fxtract:D9F4
 fyl2x:D9F1
 fyl2xp1:D9F9
@@ -16650,26 +16652,26 @@ kandnd:Vlw 66)0F42 ^K >K K
 kandnq:Vlw 0F42 ^K >K K
 
 kmovb
-V 66)0F90 k K >
-V 66)0F91 K m >
+V 66)0F90 k|b K >
+V 66)0F91 K m|b >
 V 66)0F92 ^Rl K >
 V 66)0F93 ^K Rl >
 
 kmovw
-V 0F90 k K >
-V 0F91 K m >
+V 0F90 k|W K >
+V 0F91 K m|W >
 V 0F92 ^Rl K >
 V 0F93 ^K Rl >
 
 kmovd
-Vw 66)0F90 k K >
-Vw 66)0F91 K m >
+Vw 66)0F90 k|l K >
+Vw 66)0F91 K m|l >
 V F2)0F92 ^Rl K >
 V F2)0F93 ^K Rl >
 
 kmovq
-Vw 0F90 k K >
-Vw 0F91 K m >
+Vw 0F90 k|Q K >
+Vw 0F91 K m|Q >
 V F2)0F92 ^Rq K >
 V F2)0F93 ^K Rq >
 
@@ -16729,7 +16731,7 @@ lfs:0FB4 m Rwl
 lgs:0FB5 m Rwl
 
 lddqu:F2)0FF0 m Vxy >
-ldmxcsr:0FAE.2 m >
+ldmxcsr:0FAE.2 mL >
 lea:8D m Rwlq
 leave:C9
 lfence:0FAEE8
@@ -16813,7 +16815,10 @@ movd
 66)0F6E rL Vx > {
 66)0F7E Vx rL > {
 
-movddup:F2)0F12 v Vxyz > {kzw
+movddup
+F2)0F12 vx|Q Vx > {kzw
+F2)0F12 v Vyz > {kzw
+
 movdiri:0F38F9 Rlq m
 movdir64b:66)0F38F8 m RQ
 
@@ -16853,22 +16858,22 @@ movdq2q:F2)0FD6 ^Vx VQ
 movhlps:0F12 ^Vx >V V {
 
 movhpd
-66)0F16 m >V Vx {w
-66)0F17 Vx m > {w
+66)0F16 mQ >V Vx {w
+66)0F17 Vx mQ > {w
 
 movhps
-0F16 m >V Vx {
-0F17 Vx m > {
+0F16 mQ >V Vx {
+0F17 Vx mQ > {
 
 movlhps:0F16 ^Vx >V V {
 
 movlpd
-66)0F12 m >V Vx {w
-66)0F13 Vx m > {w
+66)0F12 mQ >V Vx {w
+66)0F13 Vx mQ > {w
 
 movlps
-0F12 m >V Vx {
-0F13 Vx m > {
+0F12 mQ >V Vx {
+0F13 Vx mQ > {
 
 movmskpd:66)0F50 ^Vxy R! >
 movmskps:0F50 ^Vxy R! >
@@ -16885,20 +16890,20 @@ movntq:0FE7 VQ m
 movq
 0F6E ^R Vq
 0F7E Vq ^R
-66)0F6E ^R#q VX > {
-66)0F7E VX ^R#q > {
+66)0F6E ^Rq VX > {
+66)0F7E VX ^Rq > {
 0F6F vQ V
 0F7F VQ v
-F3)0F7E v Vx > {w
-66)0FD6 Vx v > {w
+F3)0F7E vx|Q Vx > {w
+66)0FD6 Vx vx|Q > {w
 
 movq2dq:F3)0FD6 ^VQ Vx
 movs{bwlq:A4
 
 movsd
 F2)0F10 ^Vx >V V {kzw
-F2)0F10 m Vx > {kzw
-F2)0F11 Vx m > {kw
+F2)0F10 mL Vx > {kzw
+F2)0F11 Vx mL > {kw
 
 movshdup:F3)0F16 v Vxyz > {kz
 
@@ -16906,8 +16911,8 @@ movsldup:F3)0F12 v Vxy > {kz
 
 movss
 F3)0F10 ^Vx >V V {kz
-F3)0F10 m Vx > {kz
-F3)0F11 Vx m > {k
+F3)0F10 mL Vx > {kz
+F3)0F11 Vx mL > {k
 
 movsbw/:0FBE rB Rw
 movsbl/:0FBE rB Rl
@@ -17048,9 +17053,9 @@ pextrd:66)0F3A16 ib Vx rL > {
 
 pextrw
 0FC5 ib ^Vqx R! > {
-66)0F3A15 ib Vx m > {
+66)0F3A15 ib Vx mW > {
 
-pextrq:66)0F3A16 ib Vx r#q > {
+pextrq:W 66)0F3A16 ib Vx rQ > {
 
 phaddw:0F3801 v >V Vqxy
 phaddd:0F3802 v >V Vqxy
@@ -17064,7 +17069,7 @@ phsubw:0F3805 v >V Vqxy
 
 pinsrb:66)0F3A20 ib rL >Vx Vx {
 pinsrd:66)0F3A22 ib rL >Vx Vx {
-pinsrq:66)0F3A22 ib r#q >Vx Vx {
+pinsrq:W 66)0F3A22 ib rQ >Vx Vx {
 pinsrw:0FC4 ib *rL >V Vqx {
 
 pmaddubsw:0F3804 v >V Vqxyz {kz
@@ -17295,7 +17300,7 @@ rsm:0FAA
 rsqrtps:0F52 v Vxy >
 rsqrtss:F3)0F52 v >V Vx
 
-rstorssp:F3)0F01.5 m
+rstorssp:F3)0F01.5 mQ
 
 sahf:9E
 sal:#shl
@@ -17347,7 +17352,7 @@ stac:0F01CB
 stc:F9
 std:FD
 sti:FB
-stmxcsr:0FAE.3 m >
+stmxcsr:0FAE.3 mL >
 stos{bwlq:AA
 
 str
@@ -17402,14 +17407,14 @@ vblendmps:66)0F3865 v >V Vxyz {kzbf
 vbroadcastss:66)0F3818 vx|l Vxyz > {kz
 vbroadcastsd:66)0F3819 vx|Q Vyz > {kzw
 
-vbroadcastf128:66)0F381A m Vy >
+vbroadcastf128:66)0F381A mX Vy >
 vbroadcastf32x2:66)0F3819 vx|Q Vyz > {kzf
 vbroadcastf32x4:66)0F381A m|x Vyz > {kzf
 vbroadcastf64x2:66)0F381A m|x Vyz > {kzwf
 vbroadcastf32x8:66)0F381B m|y Vz > {kzf
 vbroadcastf64x4:66)0F381B m|y Vz > {kzfw
 
-vbroadcasti128:66)0F385A m Vy >
+vbroadcasti128:66)0F385A mX Vy >
 vbroadcasti32x2:66)0F3859 vx|Q Vxyz > {kzf
 vbroadcasti32x4:66)0F385A m|x Vyz > {kzf
 vbroadcasti64x2:66)0F385A m|x Vyz > {kzfw
@@ -17836,17 +17841,17 @@ xorpd:66)0F57 v >V Vxyz {kzBw
 xorps:0F57 v >V Vxyz {kzb
 
 xrstor:0FAE.5 m
-xrstor64:X 0FAE.5 m#q
+xrstor64:W 0FAE.5 m
 xrstors:0FC7.3 m
-xrstors64:X 0FC7.3 m#q
+xrstors64:W 0FC7.3 m
 xsave:0FAE.4 m
-xsave64:X 0FAE.4 m#q
+xsave64:W 0FAE.4 m
 xsavec:0FC7.4 m
-xsavec64:X 0FC7.4 m#q
+xsavec64:W 0FC7.4 m
 xsaveopt:0FAE.6 m
-xsaveopt64:0FAE.6 m#q
+xsaveopt64:W 0FAE.6 m
 xsaves:0FC7.5 m
-xsaves64:X 0FC7.5 m#q
+xsaves64:W 0FC7.5 m
 xsetbv:0F01D1
 xtest:0F01D6
 `;
