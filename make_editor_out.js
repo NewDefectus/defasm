@@ -1,34 +1,73 @@
 (() => {
   // node_modules/@codemirror/state/dist/index.js
-  var Text = class {
+  var Text = class _Text {
+    /**
+    @internal
+    */
     constructor() {
     }
+    /**
+    Get the line description around the given position.
+    */
     lineAt(pos) {
       if (pos < 0 || pos > this.length)
         throw new RangeError(`Invalid position ${pos} in document of length ${this.length}`);
       return this.lineInner(pos, false, 1, 0);
     }
+    /**
+    Get the description for the given (1-based) line number.
+    */
     line(n) {
       if (n < 1 || n > this.lines)
         throw new RangeError(`Invalid line number ${n} in ${this.lines}-line document`);
       return this.lineInner(n, true, 1, 0);
     }
+    /**
+    Replace a range of the text with the given content.
+    */
     replace(from, to, text) {
       let parts = [];
-      this.decompose(0, from, parts, 2);
+      this.decompose(
+        0,
+        from,
+        parts,
+        2
+        /* Open.To */
+      );
       if (text.length)
-        text.decompose(0, text.length, parts, 1 | 2);
-      this.decompose(to, this.length, parts, 1);
+        text.decompose(
+          0,
+          text.length,
+          parts,
+          1 | 2
+          /* Open.To */
+        );
+      this.decompose(
+        to,
+        this.length,
+        parts,
+        1
+        /* Open.From */
+      );
       return TextNode.from(parts, this.length - (to - from) + text.length);
     }
+    /**
+    Append another document to this one.
+    */
     append(other) {
       return this.replace(this.length, this.length, other);
     }
+    /**
+    Retrieve the text between the given points.
+    */
     slice(from, to = this.length) {
       let parts = [];
       this.decompose(from, to, parts, 0);
       return TextNode.from(parts, to - from);
     }
+    /**
+    Test whether this text is equal to another instance.
+    */
     eq(other) {
       if (other == this)
         return true;
@@ -47,12 +86,28 @@
           return true;
       }
     }
+    /**
+    Iterate over the text. When `dir` is `-1`, iteration happens
+    from end to start. This will return lines and the breaks between
+    them as separate strings.
+    */
     iter(dir = 1) {
       return new RawTextCursor(this, dir);
     }
+    /**
+    Iterate over a range of the text. When `from` > `to`, the
+    iterator will run in reverse.
+    */
     iterRange(from, to = this.length) {
       return new PartialTextCursor(this, from, to);
     }
+    /**
+    Return a cursor that iterates over the given range of lines,
+    _without_ returning the line breaks between, and yielding empty
+    strings for empty lines.
+    
+    When `from` and `to` are given, they should be 1-based line numbers.
+    */
     iterLines(from, to) {
       let inner;
       if (from == null) {
@@ -65,23 +120,33 @@
       }
       return new LineCursor(inner);
     }
+    /**
+    @internal
+    */
     toString() {
       return this.sliceString(0);
     }
+    /**
+    Convert the document to an array of lines (which can be
+    deserialized again via [`Text.of`](https://codemirror.net/6/docs/ref/#state.Text^of)).
+    */
     toJSON() {
       let lines2 = [];
       this.flatten(lines2);
       return lines2;
     }
+    /**
+    Create a `Text` instance for the given array of lines.
+    */
     static of(text) {
       if (text.length == 0)
         throw new RangeError("A document must have at least one line");
       if (text.length == 1 && !text[0])
-        return Text.empty;
+        return _Text.empty;
       return text.length <= 32 ? new TextLeaf(text) : TextNode.from(TextLeaf.split(text, []));
     }
   };
-  var TextLeaf = class extends Text {
+  var TextLeaf = class _TextLeaf extends Text {
     constructor(text, length = textLength(text)) {
       super();
       this.text = text;
@@ -103,28 +168,28 @@
       }
     }
     decompose(from, to, target, open) {
-      let text = from <= 0 && to >= this.length ? this : new TextLeaf(sliceText(this.text, from, to), Math.min(to, this.length) - Math.max(0, from));
+      let text = from <= 0 && to >= this.length ? this : new _TextLeaf(sliceText(this.text, from, to), Math.min(to, this.length) - Math.max(0, from));
       if (open & 1) {
         let prev = target.pop();
         let joined = appendText(text.text, prev.text.slice(), 0, text.length);
         if (joined.length <= 32) {
-          target.push(new TextLeaf(joined, prev.length + text.length));
+          target.push(new _TextLeaf(joined, prev.length + text.length));
         } else {
           let mid = joined.length >> 1;
-          target.push(new TextLeaf(joined.slice(0, mid)), new TextLeaf(joined.slice(mid)));
+          target.push(new _TextLeaf(joined.slice(0, mid)), new _TextLeaf(joined.slice(mid)));
         }
       } else {
         target.push(text);
       }
     }
     replace(from, to, text) {
-      if (!(text instanceof TextLeaf))
+      if (!(text instanceof _TextLeaf))
         return super.replace(from, to, text);
       let lines2 = appendText(this.text, appendText(text.text, sliceText(this.text, 0, from)), to);
       let newLen = this.length + text.length - (to - from);
       if (lines2.length <= 32)
-        return new TextLeaf(lines2, newLen);
-      return TextNode.from(TextLeaf.split(lines2, []), newLen);
+        return new _TextLeaf(lines2, newLen);
+      return TextNode.from(_TextLeaf.split(lines2, []), newLen);
     }
     sliceString(from, to = this.length, lineSep = "\n") {
       let result = "";
@@ -151,17 +216,17 @@
         part.push(line2);
         len += line2.length + 1;
         if (part.length == 32) {
-          target.push(new TextLeaf(part, len));
+          target.push(new _TextLeaf(part, len));
           part = [];
           len = -1;
         }
       }
       if (len > -1)
-        target.push(new TextLeaf(part, len));
+        target.push(new _TextLeaf(part, len));
       return target;
     }
   };
-  var TextNode = class extends Text {
+  var TextNode = class _TextNode extends Text {
     constructor(children, length) {
       super();
       this.children = children;
@@ -202,7 +267,7 @@
             if (updated.lines < totalLines >> 5 - 1 && updated.lines > totalLines >> 5 + 1) {
               let copy = this.children.slice();
               copy[i] = updated;
-              return new TextNode(copy, this.length - (to - from) + text.length);
+              return new _TextNode(copy, this.length - (to - from) + text.length);
             }
             return super.replace(pos, end, updated);
           }
@@ -227,7 +292,7 @@
         child.flatten(target);
     }
     scanIdentical(other, dir) {
-      if (!(other instanceof TextNode))
+      if (!(other instanceof _TextNode))
         return 0;
       let length = 0;
       let [iA, iB, eA, eB] = dir > 0 ? [0, 0, this.children.length, other.children.length] : [this.children.length - 1, other.children.length - 1, -1, -1];
@@ -250,11 +315,15 @@
           ch.flatten(flat);
         return new TextLeaf(flat, length);
       }
-      let chunk = Math.max(32, lines2 >> 5), maxChunk = chunk << 1, minChunk = chunk >> 1;
+      let chunk = Math.max(
+        32,
+        lines2 >> 5
+        /* Tree.BranchShift */
+      ), maxChunk = chunk << 1, minChunk = chunk >> 1;
       let chunked = [], currentLines = 0, currentLen = -1, currentChunk = [];
       function add(child) {
         let last;
-        if (child.lines > maxChunk && child instanceof TextNode) {
+        if (child.lines > maxChunk && child instanceof _TextNode) {
           for (let node of child.children)
             add(node);
         } else if (child.lines > minChunk && (currentLines > minChunk || !currentLines)) {
@@ -275,14 +344,14 @@
       function flush() {
         if (currentLines == 0)
           return;
-        chunked.push(currentChunk.length == 1 ? currentChunk[0] : TextNode.from(currentChunk, currentLen));
+        chunked.push(currentChunk.length == 1 ? currentChunk[0] : _TextNode.from(currentChunk, currentLen));
         currentLen = -1;
         currentLines = currentChunk.length = 0;
       }
       for (let child of children)
         add(child);
       flush();
-      return chunked.length == 1 ? chunked[0] : new TextNode(chunked, length);
+      return chunked.length == 1 ? chunked[0] : new _TextNode(chunked, length);
     }
   };
   Text.empty = /* @__PURE__ */ new TextLeaf([""], 0);
@@ -451,12 +520,18 @@
     };
   }
   var Line = class {
+    /**
+    @internal
+    */
     constructor(from, to, number3, text) {
       this.from = from;
       this.to = to;
       this.number = number3;
       this.text = text;
     }
+    /**
+    The length of the line (not including any line break after it).
+    */
     get length() {
       return this.to - this.from;
     }
@@ -546,16 +621,30 @@
     MapMode2[MapMode2["TrackAfter"] = 3] = "TrackAfter";
     return MapMode2;
   }(MapMode || (MapMode = {}));
-  var ChangeDesc = class {
+  var ChangeDesc = class _ChangeDesc {
+    // Sections are encoded as pairs of integers. The first is the
+    // length in the current document, and the second is -1 for
+    // unaffected sections, and the length of the replacement content
+    // otherwise. So an insertion would be (0, n>0), a deletion (n>0,
+    // 0), and a replacement two positive numbers.
+    /**
+    @internal
+    */
     constructor(sections2) {
       this.sections = sections2;
     }
+    /**
+    The length of the document before the change.
+    */
     get length() {
       let result = 0;
       for (let i = 0; i < this.sections.length; i += 2)
         result += this.sections[i];
       return result;
     }
+    /**
+    The length of the document after the change.
+    */
     get newLength() {
       let result = 0;
       for (let i = 0; i < this.sections.length; i += 2) {
@@ -564,9 +653,17 @@
       }
       return result;
     }
+    /**
+    False when there are actual changes in this set.
+    */
     get empty() {
       return this.sections.length == 0 || this.sections.length == 2 && this.sections[1] < 0;
     }
+    /**
+    Iterate over the unchanged parts left by these changes. `posA`
+    provides the position of the range in the old document, `posB`
+    the new position in the changed document.
+    */
     iterGaps(f) {
       for (let i = 0, posA = 0, posB = 0; i < this.sections.length; ) {
         let len = this.sections[i++], ins = this.sections[i++];
@@ -579,9 +676,24 @@
         posA += len;
       }
     }
+    /**
+    Iterate over the ranges changed by these changes. (See
+    [`ChangeSet.iterChanges`](https://codemirror.net/6/docs/ref/#state.ChangeSet.iterChanges) for a
+    variant that also provides you with the inserted text.)
+    `fromA`/`toA` provides the extent of the change in the starting
+    document, `fromB`/`toB` the extent of the replacement in the
+    changed document.
+    
+    When `individual` is true, adjacent changes (which are kept
+    separate for [position mapping](https://codemirror.net/6/docs/ref/#state.ChangeDesc.mapPos)) are
+    reported separately.
+    */
     iterChangedRanges(f, individual = false) {
       iterChanges(this, f, individual);
     }
+    /**
+    Get a description of the inverted form of these changes.
+    */
     get invertedDesc() {
       let sections2 = [];
       for (let i = 0; i < this.sections.length; ) {
@@ -591,11 +703,22 @@
         else
           sections2.push(ins, len);
       }
-      return new ChangeDesc(sections2);
+      return new _ChangeDesc(sections2);
     }
+    /**
+    Compute the combined effect of applying another set of changes
+    after this one. The length of the document after this set should
+    match the length before `other`.
+    */
     composeDesc(other) {
       return this.empty ? other : other.empty ? this : composeSets(this, other);
     }
+    /**
+    Map this description, which should start with the same document
+    as `other`, over another set of changes, so that it can be
+    applied after it. When `before` is true, map as if the changes
+    in `other` happened before the ones in `this`.
+    */
     mapDesc(other, before = false) {
       return other.empty ? this : mapSet(this, other, before);
     }
@@ -620,6 +743,11 @@
         throw new RangeError(`Position ${pos} is out of range for changeset of length ${posA}`);
       return posB;
     }
+    /**
+    Check whether these changes touch a given range. When one of the
+    changes entirely covers the range, the string `"cover"` is
+    returned.
+    */
     touchesRange(from, to = from) {
       for (let i = 0, pos = 0; i < this.sections.length && pos <= to; ) {
         let len = this.sections[i++], ins = this.sections[i++], end = pos + len;
@@ -629,6 +757,9 @@
       }
       return false;
     }
+    /**
+    @internal
+    */
     toString() {
       let result = "";
       for (let i = 0; i < this.sections.length; ) {
@@ -637,23 +768,37 @@
       }
       return result;
     }
+    /**
+    Serialize this change desc to a JSON-representable value.
+    */
     toJSON() {
       return this.sections;
     }
+    /**
+    Create a change desc from its JSON representation (as produced
+    by [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeDesc.toJSON).
+    */
     static fromJSON(json) {
       if (!Array.isArray(json) || json.length % 2 || json.some((a) => typeof a != "number"))
         throw new RangeError("Invalid JSON representation of ChangeDesc");
-      return new ChangeDesc(json);
+      return new _ChangeDesc(json);
     }
+    /**
+    @internal
+    */
     static create(sections2) {
-      return new ChangeDesc(sections2);
+      return new _ChangeDesc(sections2);
     }
   };
-  var ChangeSet = class extends ChangeDesc {
+  var ChangeSet = class _ChangeSet extends ChangeDesc {
     constructor(sections2, inserted) {
       super(sections2);
       this.inserted = inserted;
     }
+    /**
+    Apply the changes to a document, returning the modified
+    document.
+    */
     apply(doc2) {
       if (this.length != doc2.length)
         throw new RangeError("Applying change set to a document with the wrong length");
@@ -663,6 +808,12 @@
     mapDesc(other, before = false) {
       return mapSet(this, other, before, true);
     }
+    /**
+    Given the document as it existed _before_ the changes, return a
+    change set that represents the inverse of this set, which could
+    be used to go from the document created by the changes back to
+    the document as it existed before the changes.
+    */
     invert(doc2) {
       let sections2 = this.sections.slice(), inserted = [];
       for (let i = 0, pos = 0; i < sections2.length; i += 2) {
@@ -677,54 +828,91 @@
         }
         pos += len;
       }
-      return new ChangeSet(sections2, inserted);
+      return new _ChangeSet(sections2, inserted);
     }
+    /**
+    Combine two subsequent change sets into a single set. `other`
+    must start in the document produced by `this`. If `this` goes
+    `docA` → `docB` and `other` represents `docB` → `docC`, the
+    returned value will represent the change `docA` → `docC`.
+    */
     compose(other) {
       return this.empty ? other : other.empty ? this : composeSets(this, other, true);
     }
+    /**
+    Given another change set starting in the same document, maps this
+    change set over the other, producing a new change set that can be
+    applied to the document produced by applying `other`. When
+    `before` is `true`, order changes as if `this` comes before
+    `other`, otherwise (the default) treat `other` as coming first.
+    
+    Given two changes `A` and `B`, `A.compose(B.map(A))` and
+    `B.compose(A.map(B, true))` will produce the same document. This
+    provides a basic form of [operational
+    transformation](https://en.wikipedia.org/wiki/Operational_transformation),
+    and can be used for collaborative editing.
+    */
     map(other, before = false) {
       return other.empty ? this : mapSet(this, other, before, true);
     }
+    /**
+    Iterate over the changed ranges in the document, calling `f` for
+    each, with the range in the original document (`fromA`-`toA`)
+    and the range that replaces it in the new document
+    (`fromB`-`toB`).
+    
+    When `individual` is true, adjacent changes are reported
+    separately.
+    */
     iterChanges(f, individual = false) {
       iterChanges(this, f, individual);
     }
+    /**
+    Get a [change description](https://codemirror.net/6/docs/ref/#state.ChangeDesc) for this change
+    set.
+    */
     get desc() {
       return ChangeDesc.create(this.sections);
     }
+    /**
+    @internal
+    */
     filter(ranges) {
       let resultSections = [], resultInserted = [], filteredSections = [];
       let iter = new SectionIter(this);
-      done:
-        for (let i = 0, pos = 0; ; ) {
-          let next3 = i == ranges.length ? 1e9 : ranges[i++];
-          while (pos < next3 || pos == next3 && iter.len == 0) {
-            if (iter.done)
-              break done;
-            let len = Math.min(iter.len, next3 - pos);
-            addSection(filteredSections, len, -1);
-            let ins = iter.ins == -1 ? -1 : iter.off == 0 ? iter.ins : 0;
-            addSection(resultSections, len, ins);
-            if (ins > 0)
-              addInsert(resultInserted, resultSections, iter.text);
-            iter.forward(len);
-            pos += len;
-          }
-          let end = ranges[i++];
-          while (pos < end) {
-            if (iter.done)
-              break done;
-            let len = Math.min(iter.len, end - pos);
-            addSection(resultSections, len, -1);
-            addSection(filteredSections, len, iter.ins == -1 ? -1 : iter.off == 0 ? iter.ins : 0);
-            iter.forward(len);
-            pos += len;
-          }
+      done: for (let i = 0, pos = 0; ; ) {
+        let next3 = i == ranges.length ? 1e9 : ranges[i++];
+        while (pos < next3 || pos == next3 && iter.len == 0) {
+          if (iter.done)
+            break done;
+          let len = Math.min(iter.len, next3 - pos);
+          addSection(filteredSections, len, -1);
+          let ins = iter.ins == -1 ? -1 : iter.off == 0 ? iter.ins : 0;
+          addSection(resultSections, len, ins);
+          if (ins > 0)
+            addInsert(resultInserted, resultSections, iter.text);
+          iter.forward(len);
+          pos += len;
         }
+        let end = ranges[i++];
+        while (pos < end) {
+          if (iter.done)
+            break done;
+          let len = Math.min(iter.len, end - pos);
+          addSection(resultSections, len, -1);
+          addSection(filteredSections, len, iter.ins == -1 ? -1 : iter.off == 0 ? iter.ins : 0);
+          iter.forward(len);
+          pos += len;
+        }
+      }
       return {
-        changes: new ChangeSet(resultSections, resultInserted),
+        changes: new _ChangeSet(resultSections, resultInserted),
         filtered: ChangeDesc.create(filteredSections)
       };
     }
+    /**
+    Serialize this change set to a JSON-representable value.
+    */
     toJSON() {
       let parts = [];
       for (let i = 0; i < this.sections.length; i += 2) {
@@ -738,6 +926,10 @@
       }
       return parts;
     }
+    /**
+    Create a change set for the given changes, for a document of the
+    given length, using `lineSep` as line separator.
+    */
     static of(changes, length, lineSep) {
       let sections2 = [], inserted = [], pos = 0;
       let total = null;
@@ -746,7 +938,7 @@
           return;
         if (pos < length)
           addSection(sections2, length - pos, -1);
-        let set = new ChangeSet(sections2, inserted);
+        let set = new _ChangeSet(sections2, inserted);
         total = total ? total.compose(set.map(total)) : set;
         sections2 = [];
         inserted = [];
@@ -756,7 +948,7 @@
         if (Array.isArray(spec)) {
           for (let sub of spec)
             process2(sub);
-        } else if (spec instanceof ChangeSet) {
+        } else if (spec instanceof _ChangeSet) {
           if (spec.length != length)
             throw new RangeError(`Mismatched change set length (got ${spec.length}, expected ${length})`);
           flush();
@@ -782,9 +974,16 @@
       flush(!total);
       return total;
     }
+    /**
+    Create an empty changeset of the given length.
+    */
     static empty(length) {
-      return new ChangeSet(length ? [length, -1] : [], []);
+      return new _ChangeSet(length ? [length, -1] : [], []);
     }
+    /**
+    Create a changeset from its JSON representation (as produced by
+    [`toJSON`](https://codemirror.net/6/docs/ref/#state.ChangeSet.toJSON).
+    */
     static fromJSON(json) {
       if (!Array.isArray(json))
         throw new RangeError("Invalid JSON representation of ChangeSet");
@@ -804,10 +1003,13 @@
           sections2.push(part[0], inserted[i].length);
         }
       }
-      return new ChangeSet(sections2, inserted);
+      return new _ChangeSet(sections2, inserted);
     }
+    /**
+    @internal
+    */
     static createSet(sections2, inserted) {
-      return new ChangeSet(sections2, inserted);
+      return new _ChangeSet(sections2, inserted);
     }
   };
   function addSection(sections2, len, ins, forceJoin = false) {
@@ -1001,32 +1203,63 @@
       }
     }
   };
-  var SelectionRange = class {
+  var SelectionRange = class _SelectionRange {
     constructor(from, to, flags) {
       this.from = from;
       this.to = to;
       this.flags = flags;
     }
+    /**
+    The anchor of the range—the side that doesn't move when you
+    extend it.
+    */
     get anchor() {
       return this.flags & 16 ? this.to : this.from;
     }
+    /**
+    The head of the range, which is moved when the range is
+    [extended](https://codemirror.net/6/docs/ref/#state.SelectionRange.extend).
+    */
     get head() {
       return this.flags & 16 ? this.from : this.to;
     }
+    /**
+    True when `anchor` and `head` are at the same position.
+    */
     get empty() {
       return this.from == this.to;
     }
+    /**
+    If this is a cursor that is explicitly associated with the
+    character on one of its sides, this returns the side. -1 means
+    the character before its position, 1 the character after, and 0
+    means no association.
+    */
     get assoc() {
       return this.flags & 4 ? -1 : this.flags & 8 ? 1 : 0;
     }
+    /**
+    The bidirectional text level associated with this cursor, if
+    any.
+    */
     get bidiLevel() {
       let level = this.flags & 3;
       return level == 3 ? null : level;
     }
+    /**
+    The goal column (stored vertical offset) associated with a
+    cursor. This is used to preserve the vertical position when
+    [moving](https://codemirror.net/6/docs/ref/#view.EditorView.moveVertically) across
+    lines of different length.
+    */
     get goalColumn() {
       let value = this.flags >> 5;
       return value == 33554431 ? void 0 : value;
     }
+    /**
+    Map this range through a change, producing a valid range in the
+    updated document.
+    */
     map(change, assoc = -1) {
       let from, to;
       if (this.empty) {
@@ -1035,39 +1268,62 @@
         from = change.mapPos(this.from, 1);
         to = change.mapPos(this.to, -1);
       }
-      return from == this.from && to == this.to ? this : new SelectionRange(from, to, this.flags);
+      return from == this.from && to == this.to ? this : new _SelectionRange(from, to, this.flags);
     }
+    /**
+    Extend this range to cover at least `from` to `to`.
+    */
     extend(from, to = from) {
       if (from <= this.anchor && to >= this.anchor)
         return EditorSelection.range(from, to);
       let head = Math.abs(from - this.anchor) > Math.abs(to - this.anchor) ? from : to;
       return EditorSelection.range(this.anchor, head);
     }
+    /**
+    Compare this range to another range.
+    */
     eq(other) {
       return this.anchor == other.anchor && this.head == other.head;
     }
+    /**
+    Return a JSON-serializable object representing the range.
+    */
     toJSON() {
       return { anchor: this.anchor, head: this.head };
     }
+    /**
+    Convert a JSON representation of a range to a `SelectionRange`
+    instance.
+    */
     static fromJSON(json) {
       if (!json || typeof json.anchor != "number" || typeof json.head != "number")
         throw new RangeError("Invalid JSON representation for SelectionRange");
       return EditorSelection.range(json.anchor, json.head);
     }
+    /**
+    @internal
+    */
     static create(from, to, flags) {
-      return new SelectionRange(from, to, flags);
+      return new _SelectionRange(from, to, flags);
     }
   };
-  var EditorSelection = class {
+  var EditorSelection = class _EditorSelection {
     constructor(ranges, mainIndex) {
       this.ranges = ranges;
       this.mainIndex = mainIndex;
     }
+    /**
+    Map a selection through a change. Used to adjust the selection
+    position for changes.
+    */
     map(change, assoc = -1) {
       if (change.empty)
         return this;
-      return EditorSelection.create(this.ranges.map((r) => r.map(change, assoc)), this.mainIndex);
+      return _EditorSelection.create(this.ranges.map((r) => r.map(change, assoc)), this.mainIndex);
     }
+    /**
+    Compare this selection to another selection.
+    */
     eq(other) {
       if (this.ranges.length != other.ranges.length || this.mainIndex != other.mainIndex)
         return false;
@@ -1076,49 +1332,94 @@
           return false;
       return true;
     }
+    /**
+    Get the primary selection range. Usually, you should make sure
+    your code applies to _all_ ranges, by using methods like
+    [`changeByRange`](https://codemirror.net/6/docs/ref/#state.EditorState.changeByRange).
+    */
     get main() {
       return this.ranges[this.mainIndex];
     }
+    /**
+    Make sure the selection only has one range. Returns a selection
+    holding only the main range from this selection.
+    */
     asSingle() {
-      return this.ranges.length == 1 ? this : new EditorSelection([this.main], 0);
+      return this.ranges.length == 1 ? this : new _EditorSelection([this.main], 0);
     }
+    /**
+    Extend this selection with an extra range.
+    */
     addRange(range, main = true) {
-      return EditorSelection.create([range].concat(this.ranges), main ? 0 : this.mainIndex + 1);
+      return _EditorSelection.create([range].concat(this.ranges), main ? 0 : this.mainIndex + 1);
     }
+    /**
+    Replace a given range with another range, and then normalize the
+    selection to merge and sort ranges if necessary.
+    */
     replaceRange(range, which = this.mainIndex) {
       let ranges = this.ranges.slice();
       ranges[which] = range;
-      return EditorSelection.create(ranges, this.mainIndex);
+      return _EditorSelection.create(ranges, this.mainIndex);
     }
+    /**
+    Convert this selection to an object that can be serialized to
+    JSON.
+    */
     toJSON() {
       return { ranges: this.ranges.map((r) => r.toJSON()), main: this.mainIndex };
     }
+    /**
+    Create a selection from a JSON representation.
+    */
     static fromJSON(json) {
       if (!json || !Array.isArray(json.ranges) || typeof json.main != "number" || json.main >= json.ranges.length)
         throw new RangeError("Invalid JSON representation for EditorSelection");
-      return new EditorSelection(json.ranges.map((r) => SelectionRange.fromJSON(r)), json.main);
+      return new _EditorSelection(json.ranges.map((r) => SelectionRange.fromJSON(r)), json.main);
     }
+    /**
+    Create a selection holding a single range.
+    */
     static single(anchor, head = anchor) {
-      return new EditorSelection([EditorSelection.range(anchor, head)], 0);
+      return new _EditorSelection([_EditorSelection.range(anchor, head)], 0);
     }
+    /**
+    Sort and merge the given set of ranges, creating a valid
+    selection.
+    */
     static create(ranges, mainIndex = 0) {
       if (ranges.length == 0)
         throw new RangeError("A selection needs at least one range");
       for (let pos = 0, i = 0; i < ranges.length; i++) {
         let range = ranges[i];
         if (range.empty ? range.from <= pos : range.from < pos)
-          return EditorSelection.normalized(ranges.slice(), mainIndex);
+          return _EditorSelection.normalized(ranges.slice(), mainIndex);
         pos = range.to;
       }
-      return new EditorSelection(ranges, mainIndex);
+      return new _EditorSelection(ranges, mainIndex);
     }
+    /**
+    Create a cursor selection range at the given position. You can
+    safely ignore the optional arguments in most situations.
+    */
     static cursor(pos, assoc = 0, bidiLevel, goalColumn) {
       return SelectionRange.create(pos, pos, (assoc == 0 ? 0 : assoc < 0 ? 4 : 8) | (bidiLevel == null ? 3 : Math.min(2, bidiLevel)) | (goalColumn !== null && goalColumn !== void 0 ? goalColumn : 33554431) << 5);
     }
+    /**
+    Create a selection range.
+    */
     static range(anchor, head, goalColumn) {
       let goal = (goalColumn !== null && goalColumn !== void 0 ? goalColumn : 33554431) << 5;
-      return head < anchor ? SelectionRange.create(head, anchor, 16 | goal | 8) : SelectionRange.create(anchor, head, goal | (head > anchor ? 4 : 0));
+      return head < anchor ? SelectionRange.create(
+        head,
+        anchor,
+        16 | goal | 8
+        /* RangeFlag.AssocAfter */
+      ) : SelectionRange.create(anchor, head, goal | (head > anchor ? 4 : 0));
     }
+    /**
+    @internal
+    */
     static normalized(ranges, mainIndex = 0) {
       let main = ranges[mainIndex];
       ranges.sort((a, b) => a.from - b.from);
@@ -1129,10 +1430,10 @@
           let from = prev.from, to = Math.max(range.to, prev.to);
           if (i <= mainIndex)
             mainIndex--;
-          ranges.splice(--i, 2, range.anchor > range.head ? EditorSelection.range(to, from) : EditorSelection.range(from, to));
+          ranges.splice(--i, 2, range.anchor > range.head ? _EditorSelection.range(to, from) : _EditorSelection.range(from, to));
         }
       }
-      return new EditorSelection(ranges, mainIndex);
+      return new _EditorSelection(ranges, mainIndex);
     }
   };
   function checkSelection(selection2, docLength) {
@@ -1141,7 +1442,7 @@
         throw new RangeError("Selection points outside of document");
   }
   var nextID = 0;
-  var Facet = class {
+  var Facet = class _Facet {
     constructor(combine, compareInput, compare2, isStatic, enables) {
       this.combine = combine;
       this.compareInput = compareInput;
@@ -1151,17 +1452,36 @@
       this.default = combine([]);
       this.extensions = typeof enables == "function" ? enables(this) : enables;
     }
+    /**
+    Define a new facet.
+    */
     static define(config2 = {}) {
-      return new Facet(config2.combine || ((a) => a), config2.compareInput || ((a, b) => a === b), config2.compare || (!config2.combine ? sameArray : (a, b) => a === b), !!config2.static, config2.enables);
+      return new _Facet(config2.combine || ((a) => a), config2.compareInput || ((a, b) => a === b), config2.compare || (!config2.combine ? sameArray : (a, b) => a === b), !!config2.static, config2.enables);
     }
+    /**
+    Returns an extension that adds the given value to this facet.
+    */
     of(value) {
       return new FacetProvider([], this, 0, value);
     }
+    /**
+    Create an extension that computes a value for the facet from a
+    state. You must take care to declare the parts of the state that
+    this value depends on, since your function is only called again
+    for a new state when one of those parts changed.
+    
+    In cases where your value depends only on a single field, you'll
+    want to use the [`from`](https://codemirror.net/6/docs/ref/#state.Facet.from) method instead.
+    */
     compute(deps, get) {
       if (this.isStatic)
         throw new Error("Can't compute a static facet");
       return new FacetProvider(deps, this, 1, get);
     }
+    /**
+    Create an extension that computes zero or more values for this
+    facet from a state.
+    */
     computeN(deps, get) {
       if (this.isStatic)
         throw new Error("Can't compute a static facet");
@@ -1297,7 +1617,7 @@
     };
   }
   var initField = /* @__PURE__ */ Facet.define({ static: true });
-  var StateField = class {
+  var StateField = class _StateField {
     constructor(id2, createF, updateF, compareF, spec) {
       this.id = id2;
       this.createF = createF;
@@ -1306,8 +1626,11 @@
       this.spec = spec;
       this.provides = void 0;
     }
+    /**
+    Define a state field.
+    */
     static define(config2) {
-      let field = new StateField(nextID++, config2.create, config2.update, config2.compare || ((a, b) => a === b), config2);
+      let field = new _StateField(nextID++, config2.create, config2.update, config2.compare || ((a, b) => a === b), config2);
       if (config2.provide)
         field.provides = config2.provide(field);
       return field;
@@ -1316,6 +1639,9 @@
       let init = state.facet(initField).find((i) => i.field == this);
       return ((init === null || init === void 0 ? void 0 : init.create) || this.createF)(state);
     }
+    /**
+    @internal
+    */
     slot(addresses) {
       let idx = addresses[this.id] >> 1;
       return {
@@ -1341,9 +1667,19 @@
         }
       };
     }
+    /**
+    Returns an extension that enables this field and overrides the
+    way it is initialized. Can be useful when you need to provide a
+    non-default starting value for the field.
+    */
     init(create) {
       return [this, initField.of({ field: this, create })];
     }
+    /**
+    State field instances can be used as
+    [`Extension`](https://codemirror.net/6/docs/ref/#state.Extension) values to enable the field in a
+    given state.
+    */
     get extension() {
       return this;
     }
@@ -1353,10 +1689,29 @@
     return (ext) => new PrecExtension(ext, value);
   }
   var Prec = {
+    /**
+    The highest precedence level, for extensions that should end up
+    near the start of the precedence ordering.
+    */
     highest: /* @__PURE__ */ prec(Prec_.highest),
+    /**
+    A higher-than-default precedence, for extensions that should
+    come before those with default precedence.
+    */
     high: /* @__PURE__ */ prec(Prec_.high),
+    /**
+    The default precedence, which is also used for extensions
+    without an explicit precedence.
+    */
     default: /* @__PURE__ */ prec(Prec_.default),
+    /**
+    A lower-than-default precedence.
+    */
     low: /* @__PURE__ */ prec(Prec_.low),
+    /**
+    The lowest precedence level. Meant for things that should end up
+    near the end of the extension order.
+    */
     lowest: /* @__PURE__ */ prec(Prec_.lowest)
   };
   var PrecExtension = class {
@@ -1365,13 +1720,25 @@
       this.prec = prec2;
     }
   };
-  var Compartment = class {
+  var Compartment = class _Compartment {
+    /**
+    Create an instance of this compartment to add to your [state
+    configuration](https://codemirror.net/6/docs/ref/#state.EditorStateConfig.extensions).
+    */
     of(ext) {
       return new CompartmentInstance(this, ext);
     }
+    /**
+    Create an [effect](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) that
+    reconfigures this compartment.
+    */
     reconfigure(content2) {
-      return Compartment.reconfigure.of({ compartment: this, extension: content2 });
+      return _Compartment.reconfigure.of({ compartment: this, extension: content2 });
     }
+    /**
+    Get the current content of the compartment in the state, or
+    `undefined` if it isn't present.
+    */
     get(state) {
       return state.config.compartments.get(this);
     }
@@ -1382,7 +1749,7 @@
       this.inner = inner;
     }
   };
-  var Configuration = class {
+  var Configuration = class _Configuration {
     constructor(base2, compartments, dynamicSlots, address, staticValues, facets) {
       this.base = base2;
       this.compartments = compartments;
@@ -1392,7 +1759,10 @@
       this.facets = facets;
       this.statusTemplate = [];
       while (this.statusTemplate.length < dynamicSlots.length)
-        this.statusTemplate.push(0);
+        this.statusTemplate.push(
+          0
+          /* SlotStatus.Unresolved */
+        );
     }
     staticFacet(facet) {
       let addr2 = this.address[facet.id];
@@ -1419,7 +1789,10 @@
       for (let id2 in facets) {
         let providers = facets[id2], facet = providers[0].facet;
         let oldProviders = oldFacets && oldFacets[id2] || [];
-        if (providers.every((p) => p.type == 0)) {
+        if (providers.every(
+          (p) => p.type == 0
+          /* Provider.Static */
+        )) {
           address[facet.id] = staticValues.length << 1 | 1;
           if (sameArray(oldProviders, providers)) {
             staticValues.push(oldState.facet(facet));
@@ -1442,7 +1815,7 @@
         }
       }
       let dynamic = dynamicSlots.map((f) => f(address));
-      return new Configuration(base2, newCompartments, dynamic, address, staticValues, facets);
+      return new _Configuration(base2, newCompartments, dynamic, address, staticValues, facets);
     }
   };
   function flatten(extension, compartments, newCompartments) {
@@ -1521,42 +1894,76 @@
     combine: (values) => values.length ? values[0] : false
   });
   var Annotation = class {
+    /**
+    @internal
+    */
     constructor(type, value) {
       this.type = type;
       this.value = value;
     }
+    /**
+    Define a new type of annotation.
+    */
     static define() {
       return new AnnotationType();
     }
   };
   var AnnotationType = class {
+    /**
+    Create an instance of this annotation.
+    */
     of(value) {
       return new Annotation(this, value);
     }
   };
   var StateEffectType = class {
+    /**
+    @internal
+    */
     constructor(map) {
       this.map = map;
     }
+    /**
+    Create a [state effect](https://codemirror.net/6/docs/ref/#state.StateEffect) instance of this
+    type.
+    */
     of(value) {
       return new StateEffect(this, value);
     }
   };
-  var StateEffect = class {
+  var StateEffect = class _StateEffect {
+    /**
+    @internal
+    */
     constructor(type, value) {
       this.type = type;
       this.value = value;
     }
+    /**
+    Map this effect through a position mapping. Will return
+    `undefined` when that ends up deleting the effect.
+    */
     map(mapping) {
       let mapped = this.type.map(this.value, mapping);
-      return mapped === void 0 ? void 0 : mapped == this.value ? this : new StateEffect(this.type, mapped);
+      return mapped === void 0 ? void 0 : mapped == this.value ? this : new _StateEffect(this.type, mapped);
     }
+    /**
+    Tells you whether this effect object is of a given
+    [type](https://codemirror.net/6/docs/ref/#state.StateEffectType).
+    */
     is(type) {
       return this.type == type;
     }
+    /**
+    Define a new effect type. The type parameter indicates the type
+    of values that his effect holds.
+    */
     static define(spec = {}) {
       return new StateEffectType(spec.map || ((v) => v));
     }
+    /**
+    Map an array of effects through a change set.
+    */
     static mapEffects(effects, mapping) {
       if (!effects.length)
         return effects;
@@ -1571,7 +1978,7 @@
   };
   StateEffect.reconfigure = /* @__PURE__ */ StateEffect.define();
   StateEffect.appendConfig = /* @__PURE__ */ StateEffect.define();
-  var Transaction = class {
+  var Transaction = class _Transaction {
     constructor(startState, changes, selection2, effects, annotations, scrollIntoView2) {
       this.startState = startState;
       this.changes = changes;
@@ -1583,37 +1990,79 @@
       this._state = null;
       if (selection2)
         checkSelection(selection2, changes.newLength);
-      if (!annotations.some((a) => a.type == Transaction.time))
-        this.annotations = annotations.concat(Transaction.time.of(Date.now()));
+      if (!annotations.some((a) => a.type == _Transaction.time))
+        this.annotations = annotations.concat(_Transaction.time.of(Date.now()));
     }
+    /**
+    @internal
+    */
     static create(startState, changes, selection2, effects, annotations, scrollIntoView2) {
-      return new Transaction(startState, changes, selection2, effects, annotations, scrollIntoView2);
+      return new _Transaction(startState, changes, selection2, effects, annotations, scrollIntoView2);
     }
+    /**
+    The new document produced by the transaction. Contrary to
+    [`.state`](https://codemirror.net/6/docs/ref/#state.Transaction.state)`.doc`, accessing this won't
+    force the entire new state to be computed right away, so it is
+    recommended that [transaction
+    filters](https://codemirror.net/6/docs/ref/#state.EditorState^transactionFilter) use this getter
+    when they need to look at the new document.
+    */
     get newDoc() {
       return this._doc || (this._doc = this.changes.apply(this.startState.doc));
     }
+    /**
+    The new selection produced by the transaction. If
+    [`this.selection`](https://codemirror.net/6/docs/ref/#state.Transaction.selection) is undefined,
+    this will [map](https://codemirror.net/6/docs/ref/#state.EditorSelection.map) the start state's
+    current selection through the changes made by the transaction.
+    */
     get newSelection() {
       return this.selection || this.startState.selection.map(this.changes);
     }
+    /**
+    The new state created by the transaction. Computed on demand
+    (but retained for subsequent access), so it is recommended not to
+    access it in [transaction
+    filters](https://codemirror.net/6/docs/ref/#state.EditorState^transactionFilter) when possible.
+    */
     get state() {
       if (!this._state)
         this.startState.applyTransaction(this);
       return this._state;
     }
+    /**
+    Get the value of the given annotation type, if any.
+    */
     annotation(type) {
       for (let ann of this.annotations)
         if (ann.type == type)
           return ann.value;
       return void 0;
     }
+    /**
+    Indicates whether the transaction changed the document.
+    */
     get docChanged() {
       return !this.changes.empty;
     }
+    /**
+    Indicates whether this transaction reconfigures the state
+    (through a [configuration compartment](https://codemirror.net/6/docs/ref/#state.Compartment) or
+    with a top-level configuration
+    [effect](https://codemirror.net/6/docs/ref/#state.StateEffect^reconfigure).
+    */
     get reconfigured() {
       return this.startState.config != this.state.config;
     }
+    /**
+    Returns true if the transaction has a [user
+    event](https://codemirror.net/6/docs/ref/#state.Transaction^userEvent) annotation that is equal to
+    or more specific than `event`. For example, if the transaction
+    has `"select.pointer"` as user event, `"select"` and
+    `"select.pointer"` will match it.
+    */
     isUserEvent(event) {
-      let e = this.annotation(Transaction.userEvent);
+      let e = this.annotation(_Transaction.userEvent);
       return !!(e && (e == event || e.length > event.length && e.slice(0, event.length) == event && e[event.length] == "."));
     }
   };
@@ -1767,7 +2216,7 @@
       return CharCategory.Other;
     };
   }
-  var EditorState = class {
+  var EditorState = class _EditorState {
     constructor(config2, doc2, selection2, values, computeSlot, tr) {
       this.config = config2;
       this.doc = doc2;
@@ -1791,9 +2240,27 @@
       ensureAddr(this, addr2);
       return getAddr(this, addr2);
     }
+    /**
+    Create a [transaction](https://codemirror.net/6/docs/ref/#state.Transaction) that updates this
+    state. Any number of [transaction specs](https://codemirror.net/6/docs/ref/#state.TransactionSpec)
+    can be passed. Unless
+    [`sequential`](https://codemirror.net/6/docs/ref/#state.TransactionSpec.sequential) is set, the
+    [changes](https://codemirror.net/6/docs/ref/#state.TransactionSpec.changes) (if any) of each spec
+    are assumed to start in the _current_ document (not the document
+    produced by previous specs), and its
+    [selection](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection) and
+    [effects](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) are assumed to refer
+    to the document created by its _own_ changes. The resulting
+    transaction contains the combined effect of all the different
+    specs. For [selection](https://codemirror.net/6/docs/ref/#state.TransactionSpec.selection), later
+    specs take precedence over earlier ones.
+    */
     update(...specs) {
       return resolveTransaction(this, specs, true);
     }
+    /**
+    @internal
+    */
     applyTransaction(tr) {
       let conf = this.config, { base: base2, compartments } = conf;
       for (let effect of tr.effects) {
@@ -1815,13 +2282,17 @@
       let startValues;
       if (!conf) {
         conf = Configuration.resolve(base2, compartments, this);
-        let intermediateState = new EditorState(conf, this.doc, this.selection, conf.dynamicSlots.map(() => null), (state, slot) => slot.reconfigure(state, this), null);
+        let intermediateState = new _EditorState(conf, this.doc, this.selection, conf.dynamicSlots.map(() => null), (state, slot) => slot.reconfigure(state, this), null);
         startValues = intermediateState.values;
       } else {
         startValues = tr.startState.values.slice();
       }
-      new EditorState(conf, tr.newDoc, tr.newSelection, startValues, (state, slot) => slot.update(state, tr), tr);
+      new _EditorState(conf, tr.newDoc, tr.newSelection, startValues, (state, slot) => slot.update(state, tr), tr);
     }
+    /**
+    Create a [transaction spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec) that
+    replaces every selection range with the given content.
+    */
     replaceSelection(text) {
       if (typeof text == "string")
         text = this.toText(text);
@@ -1830,6 +2301,17 @@
         range: EditorSelection.cursor(range.from + text.length)
       }));
     }
+    /**
+    Create a set of changes and a new selection by running the given
+    function for each range in the active selection. The function
+    can return an optional set of changes (in the coordinate space
+    of the start document), plus an updated range (in the coordinate
+    space of the document produced by the call's own changes). This
+    method will merge all the changes and ranges into a single
+    changeset and selection, and return it as a [transaction
+    spec](https://codemirror.net/6/docs/ref/#state.TransactionSpec), which can be passed to
+    [`update`](https://codemirror.net/6/docs/ref/#state.EditorState.update).
+    */
     changeByRange(f) {
       let sel = this.selection;
       let result1 = f(sel.ranges[0]);
@@ -1851,17 +2333,33 @@
         effects
       };
     }
+    /**
+    Create a [change set](https://codemirror.net/6/docs/ref/#state.ChangeSet) from the given change
+    description, taking the state's document length and line
+    separator into account.
+    */
     changes(spec = []) {
       if (spec instanceof ChangeSet)
         return spec;
-      return ChangeSet.of(spec, this.doc.length, this.facet(EditorState.lineSeparator));
+      return ChangeSet.of(spec, this.doc.length, this.facet(_EditorState.lineSeparator));
     }
+    /**
+    Using the state's [line
+    separator](https://codemirror.net/6/docs/ref/#state.EditorState^lineSeparator), create a
+    [`Text`](https://codemirror.net/6/docs/ref/#state.Text) instance from the given string.
+    */
     toText(string2) {
-      return Text.of(string2.split(this.facet(EditorState.lineSeparator) || DefaultSplit));
+      return Text.of(string2.split(this.facet(_EditorState.lineSeparator) || DefaultSplit));
     }
+    /**
+    Return the given range of the document as a string.
+    */
     sliceDoc(from = 0, to = this.doc.length) {
       return this.doc.sliceString(from, to, this.lineBreak);
     }
+    /**
+    Get the value of a state [facet](https://codemirror.net/6/docs/ref/#state.Facet).
+    */
     facet(facet) {
       let addr2 = this.config.address[facet.id];
       if (addr2 == null)
@@ -1869,6 +2367,12 @@
       ensureAddr(this, addr2);
       return getAddr(this, addr2);
     }
+    /**
+    Convert this state to a JSON-serializable object. When custom
+    fields should be serialized, you can pass them in as an object
+    mapping property names (in the resulting object, which should
+    not use `doc` or `selection`) to fields.
+    */
     toJSON(fields) {
       let result = {
         doc: this.sliceDoc(),
@@ -1882,6 +2386,12 @@
         }
       return result;
     }
+    /**
+    Deserialize a state from its JSON representation. When custom
+    fields should be deserialized, pass the same object you passed
+    to [`toJSON`](https://codemirror.net/6/docs/ref/#state.EditorState.toJSON) when serializing as
+    third argument.
+    */
     static fromJSON(json, config2 = {}, fields) {
       if (!json || typeof json.doc != "string")
         throw new RangeError("Invalid JSON representation for EditorState");
@@ -1893,32 +2403,59 @@
             fieldInit.push(field.init((state) => field.spec.fromJSON(value, state)));
           }
         }
-      return EditorState.create({
+      return _EditorState.create({
         doc: json.doc,
         selection: EditorSelection.fromJSON(json.selection),
         extensions: config2.extensions ? fieldInit.concat([config2.extensions]) : fieldInit
       });
     }
+    /**
+    Create a new state. You'll usually only need this when
+    initializing an editor—updated states are created by applying
+    transactions.
+    */
     static create(config2 = {}) {
       let configuration = Configuration.resolve(config2.extensions || [], /* @__PURE__ */ new Map());
-      let doc2 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(EditorState.lineSeparator) || DefaultSplit));
+      let doc2 = config2.doc instanceof Text ? config2.doc : Text.of((config2.doc || "").split(configuration.staticFacet(_EditorState.lineSeparator) || DefaultSplit));
       let selection2 = !config2.selection ? EditorSelection.single(0) : config2.selection instanceof EditorSelection ? config2.selection : EditorSelection.single(config2.selection.anchor, config2.selection.head);
       checkSelection(selection2, doc2.length);
       if (!configuration.staticFacet(allowMultipleSelections))
         selection2 = selection2.asSingle();
-      return new EditorState(configuration, doc2, selection2, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
+      return new _EditorState(configuration, doc2, selection2, configuration.dynamicSlots.map(() => null), (state, slot) => slot.create(state), null);
     }
+    /**
+    The size (in columns) of a tab in the document, determined by
+    the [`tabSize`](https://codemirror.net/6/docs/ref/#state.EditorState^tabSize) facet.
+    */
     get tabSize() {
-      return this.facet(EditorState.tabSize);
+      return this.facet(_EditorState.tabSize);
     }
+    /**
+    Get the proper [line-break](https://codemirror.net/6/docs/ref/#state.EditorState^lineSeparator)
+    string for this state.
+    */
     get lineBreak() {
-      return this.facet(EditorState.lineSeparator) || "\n";
+      return this.facet(_EditorState.lineSeparator) || "\n";
     }
+    /**
+    Returns true when the editor is
+    [configured](https://codemirror.net/6/docs/ref/#state.EditorState^readOnly) to be read-only.
+    */
     get readOnly() {
       return this.facet(readOnly);
     }
+    /**
+    Look up a translation for the given phrase (via the
+    [`phrases`](https://codemirror.net/6/docs/ref/#state.EditorState^phrases) facet), or return the
+    original string if no translation is found.
+    
+    If additional arguments are passed, they will be inserted in
+    place of markers like `$1` (for the first value) and `$2`, etc.
+    A single `$` is equivalent to `$1`, and `$$` will produce a
+    literal dollar sign.
+    */
     phrase(phrase, ...insert2) {
-      for (let map of this.facet(EditorState.phrases))
+      for (let map of this.facet(_EditorState.phrases))
         if (Object.prototype.hasOwnProperty.call(map, phrase)) {
           phrase = map[phrase];
           break;
@@ -1932,6 +2469,10 @@
         });
       return phrase;
     }
+    /**
+    Find the values for a given language data field, provided by the
+    the [`languageData`](https://codemirror.net/6/docs/ref/#state.EditorState^languageData) facet.
+    */
     languageDataAt(name2, pos, side = -1) {
       let values = [];
       for (let provider of this.facet(languageData)) {
@@ -1942,9 +2483,26 @@
       }
       return values;
     }
+    /**
+    Return a function that can categorize strings (expected to
+    represent a single [grapheme cluster](https://codemirror.net/6/docs/ref/#state.findClusterBreak))
+    into one of:
+    
+     - Word (contains an alphanumeric character or a character
+       explicitly listed in the local language's `"wordChars"`
+       language data, which should be a string)
+     - Space (contains only whitespace)
+     - Other (anything else)
+    */
     charCategorizer(at) {
       return makeCategorizer(this.languageDataAt("wordChars", at).join(""));
     }
+    /**
+    Find the word at the given position, meaning the range
+    containing all [word](https://codemirror.net/6/docs/ref/#state.CharCategory.Word) characters
+    around it. If no word characters are adjacent to the position,
+    this returns null.
+    */
     wordAt(pos) {
       let { text, from, length } = this.doc.lineAt(pos);
       let cat = this.charCategorizer(pos);
@@ -1988,8 +2546,7 @@
         let value = config2[key], current = result[key];
         if (current === void 0)
           result[key] = value;
-        else if (current === value || value === void 0)
-          ;
+        else if (current === value || value === void 0) ;
         else if (Object.hasOwnProperty.call(combine, key))
           result[key] = combine[key](current, value);
         else
@@ -2001,9 +2558,19 @@
     return result;
   }
   var RangeValue = class {
+    /**
+    Compare this value with another value. Used when comparing
+    rangesets. The default implementation compares by identity.
+    Unless you are only creating a fixed number of unique instances
+    of your value type, it is a good idea to implement this
+    properly.
+    */
     eq(other) {
       return this == other;
     }
+    /**
+    Create a [range](https://codemirror.net/6/docs/ref/#state.Range) with this value.
+    */
     range(from, to = from) {
       return Range.create(from, to, this);
     }
@@ -2011,20 +2578,23 @@
   RangeValue.prototype.startSide = RangeValue.prototype.endSide = 0;
   RangeValue.prototype.point = false;
   RangeValue.prototype.mapMode = MapMode.TrackDel;
-  var Range = class {
+  var Range = class _Range {
     constructor(from, to, value) {
       this.from = from;
       this.to = to;
       this.value = value;
     }
+    /**
+    @internal
+    */
     static create(from, to, value) {
-      return new Range(from, to, value);
+      return new _Range(from, to, value);
     }
   };
   function cmpRange(a, b) {
     return a.from - b.from || a.value.startSide - b.value.startSide;
   }
-  var Chunk = class {
+  var Chunk = class _Chunk {
     constructor(from, to, value, maxPoint) {
       this.from = from;
       this.to = to;
@@ -2034,6 +2604,8 @@
     get length() {
       return this.to[this.to.length - 1];
     }
+    // Find the index of the given position and side. Use the ranges'
+    // `from` pos when `end == false`, `to` when `end == true`.
     findIndex(pos, side, end, startAt = 0) {
       let arr = end ? this.to : this.from;
       for (let lo = startAt, hi = arr.length; ; ) {
@@ -2084,23 +2656,32 @@
         from.push(newFrom - newPos);
         to.push(newTo - newPos);
       }
-      return { mapped: value.length ? new Chunk(from, to, value, maxPoint) : null, pos: newPos };
+      return { mapped: value.length ? new _Chunk(from, to, value, maxPoint) : null, pos: newPos };
     }
   };
-  var RangeSet = class {
+  var RangeSet = class _RangeSet {
     constructor(chunkPos, chunk, nextLayer, maxPoint) {
       this.chunkPos = chunkPos;
       this.chunk = chunk;
       this.nextLayer = nextLayer;
       this.maxPoint = maxPoint;
     }
+    /**
+    @internal
+    */
     static create(chunkPos, chunk, nextLayer, maxPoint) {
-      return new RangeSet(chunkPos, chunk, nextLayer, maxPoint);
+      return new _RangeSet(chunkPos, chunk, nextLayer, maxPoint);
     }
+    /**
+    @internal
+    */
     get length() {
       let last = this.chunk.length - 1;
       return last < 0 ? 0 : Math.max(this.chunkEnd(last), this.nextLayer.length);
     }
+    /**
+    The number of ranges in the set.
+    */
     get size() {
       if (this.isEmpty)
         return 0;
@@ -2109,9 +2690,21 @@
         size += chunk.value.length;
       return size;
     }
+    /**
+    @internal
+    */
     chunkEnd(index) {
       return this.chunkPos[index] + this.chunk[index].length;
     }
+    /**
+    Update the range set, optionally adding new ranges or filtering
+    out existing ones.
+    
+    (Note: The type parameter is just there as a kludge to work
+    around TypeScript variance issues that prevented `RangeSet<X>`
+    from being a subtype of `RangeSet<Y>` when `X` is a subtype of
+    `Y`.)
+    */
     update(updateSpec) {
       let { add = [], sort = false, filterFrom = 0, filterTo = this.length } = updateSpec;
       let filter = updateSpec.filter;
@@ -2120,7 +2713,7 @@
       if (sort)
         add = add.slice().sort(cmpRange);
       if (this.isEmpty)
-        return add.length ? RangeSet.of(add) : this;
+        return add.length ? _RangeSet.of(add) : this;
       let cur = new LayerCursor(this, null, -1).goto(0), i = 0, spill = [];
       let builder = new RangeSetBuilder();
       while (cur.value || i < add.length) {
@@ -2138,8 +2731,11 @@
           cur.next();
         }
       }
-      return builder.finishInner(this.nextLayer.isEmpty && !spill.length ? RangeSet.empty : this.nextLayer.update({ add: spill, filter, filterFrom, filterTo }));
+      return builder.finishInner(this.nextLayer.isEmpty && !spill.length ? _RangeSet.empty : this.nextLayer.update({ add: spill, filter, filterFrom, filterTo }));
     }
+    /**
+    Map this range set through a set of changes, return the new set.
+    */
     map(changes) {
       if (changes.empty || this.isEmpty)
         return this;
@@ -2161,8 +2757,14 @@
         }
       }
       let next3 = this.nextLayer.map(changes);
-      return chunks.length == 0 ? next3 : new RangeSet(chunkPos, chunks, next3 || RangeSet.empty, maxPoint);
+      return chunks.length == 0 ? next3 : new _RangeSet(chunkPos, chunks, next3 || _RangeSet.empty, maxPoint);
     }
+    /**
+    Iterate over the ranges that touch the region `from` to `to`,
+    calling `f` for each. There is no guarantee that the ranges will
+    be reported in any specific order. When the callback returns
+    `false`, iteration stops.
+    */
     between(from, to, f) {
       if (this.isEmpty)
         return;
@@ -2173,15 +2775,30 @@
       }
       this.nextLayer.between(from, to, f);
     }
+    /**
+    Iterate over the ranges in this set, in order, including all
+    ranges that end at or after `from`.
+    */
     iter(from = 0) {
       return HeapCursor.from([this]).goto(from);
     }
+    /**
+    @internal
+    */
     get isEmpty() {
       return this.nextLayer == this;
     }
+    /**
+    Iterate over the ranges in a collection of sets, in order,
+    starting from `from`.
+    */
     static iter(sets, from = 0) {
       return HeapCursor.from(sets).goto(from);
     }
+    /**
+    Iterate over two groups of sets, calling methods on `comparator`
+    to notify it of possible differences.
+    */
     static compare(oldSets, newSets, textDiff, comparator, minPointSize = -1) {
       let a = oldSets.filter((set) => set.maxPoint > 0 || !set.isEmpty && set.maxPoint >= minPointSize);
       let b = newSets.filter((set) => set.maxPoint > 0 || !set.isEmpty && set.maxPoint >= minPointSize);
@@ -2192,6 +2809,10 @@
       if (textDiff.empty && textDiff.length == 0)
         compare(sideA, 0, sideB, 0, 0, comparator);
     }
+    /**
+    Compare the contents of two groups of range sets, returning true
+    if they are equivalent in the given range.
+    */
     static eq(oldSets, newSets, from = 0, to) {
       if (to == null)
         to = 1e9;
@@ -2212,6 +2833,13 @@
         sideB.next();
       }
     }
+    /**
+    Iterate over a group of range sets at the same time, notifying
+    the iterator about the ranges covering every given piece of
+    content. Returns the open count (see
+    [`SpanIterator.span`](https://codemirror.net/6/docs/ref/#state.SpanIterator.span)) at the end
+    of the iteration.
+    */
     static spans(sets, from, to, iterator, minPointSize = -1) {
       let cursor2 = new SpanCursor(sets, null, minPointSize).goto(from), pos = from;
       let open = cursor2.openStart;
@@ -2231,6 +2859,13 @@
       }
       return open;
     }
+    /**
+    Create a range set for the given range or array of ranges. By
+    default, this expects the ranges to be _sorted_ (by start
+    position and, if two start at the same position,
+    `value.startSide`). You can pass `true` as second argument to
+    cause the method to sort them.
+    */
     static of(ranges, sort = false) {
       let build = new RangeSetBuilder();
       for (let range of ranges instanceof Range ? [ranges] : sort ? lazySort(ranges) : ranges)
@@ -2250,7 +2885,10 @@
     return ranges;
   }
   RangeSet.empty.nextLayer = RangeSet.empty;
-  var RangeSetBuilder = class {
+  var RangeSetBuilder = class _RangeSetBuilder {
+    /**
+    Create an empty builder.
+    */
     constructor() {
       this.chunks = [];
       this.chunkPos = [];
@@ -2277,10 +2915,17 @@
         this.value = [];
       }
     }
+    /**
+    Add a range. Ranges should be added in sorted (by `from` and
+    `value.startSide`) order.
+    */
     add(from, to, value) {
       if (!this.addInner(from, to, value))
-        (this.nextLayer || (this.nextLayer = new RangeSetBuilder())).add(from, to, value);
+        (this.nextLayer || (this.nextLayer = new _RangeSetBuilder())).add(from, to, value);
     }
+    /**
+    @internal
+    */
     addInner(from, to, value) {
       let diff = from - this.lastTo || value.startSide - this.last.endSide;
       if (diff <= 0 && (from - this.lastFrom || value.startSide - this.last.startSide) < 0)
@@ -2301,6 +2946,9 @@
         this.maxPoint = Math.max(this.maxPoint, to - from);
       return true;
     }
+    /**
+    @internal
+    */
     addChunk(from, chunk) {
       if ((from - this.lastTo || chunk.value[0].startSide - this.last.endSide) < 0)
         return false;
@@ -2315,9 +2963,16 @@
       this.lastTo = chunk.to[last] + from;
       return true;
     }
+    /**
+    Finish the range set. Returns the new set. The builder can't be
+    used anymore after this has been called.
+    */
     finish() {
       return this.finishInner(RangeSet.empty);
     }
+    /**
+    @internal
+    */
     finishInner(next3) {
       if (this.from.length)
         this.finishChunk(false);
@@ -2419,7 +3074,7 @@
       return this.from - other.from || this.startSide - other.startSide || this.rank - other.rank || this.to - other.to || this.endSide - other.endSide;
     }
   };
-  var HeapCursor = class {
+  var HeapCursor = class _HeapCursor {
     constructor(heap) {
       this.heap = heap;
     }
@@ -2431,7 +3086,7 @@
             heap.push(new LayerCursor(cur, skip, minPoint, i));
         }
       }
-      return heap.length == 1 ? heap[0] : new HeapCursor(heap);
+      return heap.length == 1 ? heap[0] : new _HeapCursor(heap);
     }
     get startSide() {
       return this.value ? this.value.startSide : 0;
@@ -2533,6 +3188,8 @@
         insert(trackOpen, i, this.cursor.from);
       this.minActive = findMinIndex(this.active, this.activeTo);
     }
+    // After calling this, if `this.point` != null, the next range is a
+    // point. Otherwise, it's a regular range, covered by `this.active`.
     next() {
       let from = this.to, wasPoint = this.point;
       this.point = null;
@@ -2686,6 +3343,11 @@
   var SET = typeof Symbol == "undefined" ? "__styleSet" + Math.floor(Math.random() * 1e8) : Symbol("styleSet");
   var top = typeof globalThis != "undefined" ? globalThis : typeof window != "undefined" ? window : {};
   var StyleModule = class {
+    // :: (Object<Style>, ?{finish: ?(string) → string})
+    // Create a style module from the given spec.
+    //
+    // When `finish` is given, it is called on regular (non-`@`)
+    // selectors (after `&` expansion) to compute the final selector.
     constructor(spec, options) {
       this.rules = [];
       let { finish } = options || {};
@@ -2694,8 +3356,7 @@
       }
       function render(selectors, spec2, target, isKeyframes) {
         let local = [], isAt = /^@(\w+)\b/.exec(selectors[0]), keyframes = isAt && isAt[1] == "keyframes";
-        if (isAt && spec2 == null)
-          return target.push(selectors[0] + ";");
+        if (isAt && spec2 == null) return target.push(selectors[0] + ";");
         for (let prop in spec2) {
           let value = spec2[prop];
           if (/&/.test(prop)) {
@@ -2705,8 +3366,7 @@
               target
             );
           } else if (value && typeof value == "object") {
-            if (!isAt)
-              throw new RangeError("The value of a property (" + prop + ") should be a primitive value.");
+            if (!isAt) throw new RangeError("The value of a property (" + prop + ") should be a primitive value.");
             render(splitSelector(prop), value, local, keyframes);
           } else if (value != null) {
             local.push(prop.replace(/_.*/, "").replace(/[A-Z]/g, (l) => "-" + l.toLowerCase()) + ": " + value + ";");
@@ -2716,17 +3376,33 @@
           target.push((finish && !isAt && !isKeyframes ? selectors.map(finish) : selectors).join(", ") + " {" + local.join(" ") + "}");
         }
       }
-      for (let prop in spec)
-        render(splitSelector(prop), spec[prop], this.rules);
+      for (let prop in spec) render(splitSelector(prop), spec[prop], this.rules);
     }
+    // :: () → string
+    // Returns a string containing the module's CSS rules.
     getRules() {
       return this.rules.join("\n");
     }
+    // :: () → string
+    // Generate a new unique CSS class name.
     static newName() {
       let id2 = top[COUNT] || 1;
       top[COUNT] = id2 + 1;
       return C + id2.toString(36);
     }
+    // :: (union<Document, ShadowRoot>, union<[StyleModule], StyleModule>)
+    //
+    // Mount the given set of modules in the given DOM root, which ensures
+    // that the CSS rules defined by the module are available in that
+    // context.
+    //
+    // Rules are only added to the document once per root.
+    //
+    // Rule order will follow the order of the modules, so that rules from
+    // modules later in the array take precedence of those from earlier
+    // modules. If you call this function multiple times for the same root
+    // in a way that changes the order of already mounted modules, the old
+    // order will be changed.
     static mount(root, modules) {
       (root[SET] || new StyleSet(root)).mount(Array.isArray(modules) ? modules : [modules]);
     }
@@ -2762,12 +3438,10 @@
         }
         if (index == -1) {
           this.modules.splice(j++, 0, mod);
-          if (sheet)
-            for (let k = 0; k < mod.rules.length; k++)
-              sheet.insertRule(mod.rules[k], pos++);
+          if (sheet) for (let k = 0; k < mod.rules.length; k++)
+            sheet.insertRule(mod.rules[k], pos++);
         } else {
-          while (j < index)
-            pos += this.modules[j++].rules.length;
+          while (j < index) pos += this.modules[j++].rules.length;
           pos += mod.rules.length;
           j++;
         }
@@ -2867,36 +3541,26 @@
   var mac = typeof navigator != "undefined" && /Mac/.test(navigator.platform);
   var ie = typeof navigator != "undefined" && /MSIE \d|Trident\/(?:[7-9]|\d{2,})\..*rv:(\d+)/.exec(navigator.userAgent);
   var brokenModifierNames = mac || chrome && +chrome[1] < 57;
-  for (i = 0; i < 10; i++)
-    base[48 + i] = base[96 + i] = String(i);
+  for (i = 0; i < 10; i++) base[48 + i] = base[96 + i] = String(i);
   var i;
-  for (i = 1; i <= 24; i++)
-    base[i + 111] = "F" + i;
+  for (i = 1; i <= 24; i++) base[i + 111] = "F" + i;
   var i;
   for (i = 65; i <= 90; i++) {
     base[i] = String.fromCharCode(i + 32);
     shift[i] = String.fromCharCode(i);
   }
   var i;
-  for (code2 in base)
-    if (!shift.hasOwnProperty(code2))
-      shift[code2] = base[code2];
+  for (code2 in base) if (!shift.hasOwnProperty(code2)) shift[code2] = base[code2];
   var code2;
   function keyName(event) {
     var ignoreKey = brokenModifierNames && (event.ctrlKey || event.altKey || event.metaKey) || ie && event.shiftKey && event.key && event.key.length == 1 || event.key == "Unidentified";
     var name2 = !ignoreKey && event.key || (event.shiftKey ? shift : base)[event.keyCode] || event.key || "Unidentified";
-    if (name2 == "Esc")
-      name2 = "Escape";
-    if (name2 == "Del")
-      name2 = "Delete";
-    if (name2 == "Left")
-      name2 = "ArrowLeft";
-    if (name2 == "Up")
-      name2 = "ArrowUp";
-    if (name2 == "Right")
-      name2 = "ArrowRight";
-    if (name2 == "Down")
-      name2 = "ArrowDown";
+    if (name2 == "Esc") name2 = "Escape";
+    if (name2 == "Del") name2 = "Delete";
+    if (name2 == "Left") name2 = "ArrowLeft";
+    if (name2 == "Up") name2 = "ArrowUp";
+    if (name2 == "Right") name2 = "ArrowRight";
+    if (name2 == "Down") name2 = "ArrowDown";
     return name2;
   }
 
@@ -3172,21 +3836,21 @@
       }
     }
   }
-  var DOMPos = class {
+  var DOMPos = class _DOMPos {
     constructor(node, offset, precise = true) {
       this.node = node;
       this.offset = offset;
       this.precise = precise;
     }
     static before(dom, precise) {
-      return new DOMPos(dom.parentNode, domIndex(dom), precise);
+      return new _DOMPos(dom.parentNode, domIndex(dom), precise);
     }
     static after(dom, precise) {
-      return new DOMPos(dom.parentNode, domIndex(dom) + 1, precise);
+      return new _DOMPos(dom.parentNode, domIndex(dom) + 1, precise);
     }
   };
   var noChildren = [];
-  var ContentView = class {
+  var ContentView = class _ContentView {
     constructor() {
       this.parent = null;
       this.dom = null;
@@ -3218,6 +3882,9 @@
     posAfter(view) {
       return this.posBefore(view) + view.length;
     }
+    // Will return a rectangle directly before (when side < 0), after
+    // (side > 0) or directly on (when the browser supports it) the
+    // given position.
     coordsAt(_pos, _side) {
       return null;
     }
@@ -3228,7 +3895,7 @@
         for (let child of this.children) {
           if (child.dirty) {
             if (!child.dom && (next3 = prev ? prev.nextSibling : parent.firstChild)) {
-              let contentView = ContentView.get(next3);
+              let contentView = _ContentView.get(next3);
               if (!contentView || !contentView.parent && contentView.canReuseDOM(child))
                 child.reuseDOM(next3);
             }
@@ -3286,7 +3953,7 @@
       }
       if (after == this.dom.firstChild)
         return 0;
-      while (after && !ContentView.get(after))
+      while (after && !_ContentView.get(after))
         after = after.nextSibling;
       if (!after)
         return this.length;
@@ -3399,6 +4066,9 @@
     canReuseDOM(other) {
       return other.constructor == this.constructor;
     }
+    // When this is a zero-length view with a side, this should return a
+    // number <= 0 to indicate it is before its position, or a
+    // number > 0 when after its position.
     getSide() {
       return 0;
     }
@@ -3527,7 +4197,7 @@
     tabSize: doc.documentElement.style.tabSize != null ? "tab-size" : "-moz-tab-size"
   };
   var MaxJoinLen = 256;
-  var TextView = class extends ContentView {
+  var TextView = class _TextView extends ContentView {
     constructor(text) {
       super();
       this.text = text;
@@ -3552,14 +4222,14 @@
         this.createDOM(dom);
     }
     merge(from, to, source) {
-      if (source && (!(source instanceof TextView) || this.length - (to - from) + source.length > MaxJoinLen))
+      if (source && (!(source instanceof _TextView) || this.length - (to - from) + source.length > MaxJoinLen))
         return false;
       this.text = this.text.slice(0, from) + (source ? source.text : "") + this.text.slice(to);
       this.markDirty();
       return true;
     }
     split(from) {
-      let result = new TextView(this.text.slice(from));
+      let result = new _TextView(this.text.slice(from));
       this.text = this.text.slice(0, from);
       this.markDirty();
       return result;
@@ -3577,7 +4247,7 @@
       return textCoords(this.dom, pos, side);
     }
   };
-  var MarkView = class extends ContentView {
+  var MarkView = class _MarkView extends ContentView {
     constructor(mark, children = [], length = 0) {
       super();
       this.mark = mark;
@@ -3609,7 +4279,7 @@
       super.sync(track);
     }
     merge(from, to, source, _hasStart, openStart, openEnd) {
-      if (source && (!(source instanceof MarkView && source.mark.eq(this.mark)) || from && openStart <= 0 || to < this.length && openEnd <= 0))
+      if (source && (!(source instanceof _MarkView && source.mark.eq(this.mark)) || from && openStart <= 0 || to < this.length && openEnd <= 0))
         return false;
       mergeChildrenInto(this, from, to, source ? source.children : [], openStart - 1, openEnd - 1);
       this.markDirty();
@@ -3632,7 +4302,7 @@
         this.children.length = detachFrom;
         this.markDirty();
       }
-      return new MarkView(this.mark, result, length);
+      return new _MarkView(this.mark, result, length);
     }
     domAtPos(pos) {
       return inlineDOMAtPos(this, pos);
@@ -3670,7 +4340,7 @@
       rect = Array.prototype.find.call(rects, (r) => r.width) || rect;
     return flatten2 ? flattenRect(rect, flatten2 < 0) : rect || null;
   }
-  var WidgetView = class extends ContentView {
+  var WidgetView = class _WidgetView extends ContentView {
     constructor(widget, length, side) {
       super();
       this.widget = widget;
@@ -3679,10 +4349,10 @@
       this.prevWidget = null;
     }
     static create(widget, length, side) {
-      return new (widget.customView || WidgetView)(widget, length, side);
+      return new (widget.customView || _WidgetView)(widget, length, side);
     }
     split(from) {
-      let result = WidgetView.create(this.widget, this.length - from, this.side);
+      let result = _WidgetView.create(this.widget, this.length - from, this.side);
       this.length -= from;
       return result;
     }
@@ -3699,13 +4369,13 @@
       return this.side;
     }
     merge(from, to, source, hasStart, openStart, openEnd) {
-      if (source && (!(source instanceof WidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
+      if (source && (!(source instanceof _WidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
         return false;
       this.length = from + (source ? source.length : 0) + (this.length - to);
       return true;
     }
     become(other) {
-      if (other.length == this.length && other instanceof WidgetView && other.side == this.side) {
+      if (other.length == this.length && other instanceof _WidgetView && other.side == this.side) {
         if (this.widget.constructor == other.widget.constructor) {
           if (!this.widget.eq(other.widget))
             this.markDirty(true);
@@ -3830,7 +4500,7 @@
     }
     return view.localPosFromDOM(node, offset);
   }
-  var WidgetBufferView = class extends ContentView {
+  var WidgetBufferView = class _WidgetBufferView extends ContentView {
     constructor(side) {
       super();
       this.side = side;
@@ -3842,10 +4512,10 @@
       return false;
     }
     become(other) {
-      return other instanceof WidgetBufferView && other.side == this.side;
+      return other instanceof _WidgetBufferView && other.side == this.side;
     }
     split() {
-      return new WidgetBufferView(this.side);
+      return new _WidgetBufferView(this.side);
     }
     sync() {
       if (!this.dom) {
@@ -4030,24 +4700,61 @@
     return !!changed;
   }
   var WidgetType = class {
+    /**
+    Compare this instance to another instance of the same type.
+    (TypeScript can't express this, but only instances of the same
+    specific class will be passed to this method.) This is used to
+    avoid redrawing widgets when they are replaced by a new
+    decoration of the same type. The default implementation just
+    returns `false`, which will cause new instances of the widget to
+    always be redrawn.
+    */
     eq(widget) {
       return false;
     }
+    /**
+    Update a DOM element created by a widget of the same type (but
+    different, non-`eq` content) to reflect this widget. May return
+    true to indicate that it could update, false to indicate it
+    couldn't (in which case the widget will be redrawn). The default
+    implementation just returns false.
+    */
     updateDOM(dom) {
       return false;
     }
+    /**
+    @internal
+    */
     compare(other) {
       return this == other || this.constructor == other.constructor && this.eq(other);
     }
+    /**
+    The estimated height this widget will have, to be used when
+    estimating the height of content that hasn't been drawn. May
+    return -1 to indicate you don't know. The default implementation
+    returns -1.
+    */
     get estimatedHeight() {
       return -1;
     }
+    /**
+    Can be used to configure which kinds of events inside the widget
+    should be ignored by the editor. The default is to ignore all
+    events.
+    */
     ignoreEvent(event) {
       return true;
     }
+    /**
+    @internal
+    */
     get customView() {
       return null;
     }
+    /**
+    This is called when the an instance of the widget is removed
+    from the editor view.
+    */
     destroy(dom) {
     }
   };
@@ -4066,17 +4773,37 @@
       this.widget = widget;
       this.spec = spec;
     }
+    /**
+    @internal
+    */
     get heightRelevant() {
       return false;
     }
+    /**
+    Create a mark decoration, which influences the styling of the
+    content in its range. Nested mark decorations will cause nested
+    DOM elements to be created. Nesting order is determined by
+    precedence of the [facet](https://codemirror.net/6/docs/ref/#view.EditorView^decorations), with
+    the higher-precedence decorations creating the inner DOM nodes.
+    Such elements are split on line boundaries and on the boundaries
+    of lower-precedence decorations.
+    */
     static mark(spec) {
       return new MarkDecoration(spec);
     }
+    /**
+    Create a widget decoration, which displays a DOM element at the
+    given position.
+    */
     static widget(spec) {
       let side = spec.side || 0, block = !!spec.block;
       side += block ? side > 0 ? 3e8 : -4e8 : side > 0 ? 1e8 : -1e8;
       return new PointDecoration(spec, side, side, block, spec.widget || null, false);
     }
+    /**
+    Create a replace decoration which replaces the given range with
+    a widget, or simply hides it.
+    */
     static replace(spec) {
       let block = !!spec.block, startSide, endSide;
       if (spec.isBlockGap) {
@@ -4089,18 +4816,30 @@
       }
       return new PointDecoration(spec, startSide, endSide, block, spec.widget || null, true);
     }
+    /**
+    Create a line decoration, which can add DOM attributes to the
+    line starting at the given position.
+    */
     static line(spec) {
       return new LineDecoration(spec);
     }
+    /**
+    Build a [`DecorationSet`](https://codemirror.net/6/docs/ref/#view.DecorationSet) from the given
+    decorated range or ranges. If the ranges aren't already sorted,
+    pass `true` for `sort` to make the library sort them for you.
+    */
     static set(of, sort = false) {
       return RangeSet.of(of, sort);
     }
+    /**
+    @internal
+    */
     hasHeight() {
       return this.widget ? this.widget.estimatedHeight > -1 : false;
     }
   };
   Decoration.none = RangeSet.empty;
-  var MarkDecoration = class extends Decoration {
+  var MarkDecoration = class _MarkDecoration extends Decoration {
     constructor(spec) {
       let { start, end } = getInclusive(spec);
       super(start ? -1 : 5e8, end ? 1 : -6e8, null, spec);
@@ -4109,7 +4848,7 @@
       this.attrs = spec.attributes || null;
     }
     eq(other) {
-      return this == other || other instanceof MarkDecoration && this.tagName == other.tagName && this.class == other.class && attrsEq(this.attrs, other.attrs);
+      return this == other || other instanceof _MarkDecoration && this.tagName == other.tagName && this.class == other.class && attrsEq(this.attrs, other.attrs);
     }
     range(from, to = from) {
       if (from >= to)
@@ -4118,12 +4857,12 @@
     }
   };
   MarkDecoration.prototype.point = false;
-  var LineDecoration = class extends Decoration {
+  var LineDecoration = class _LineDecoration extends Decoration {
     constructor(spec) {
       super(-2e8, -2e8, null, spec);
     }
     eq(other) {
-      return other instanceof LineDecoration && attrsEq(this.spec.attributes, other.spec.attributes);
+      return other instanceof _LineDecoration && attrsEq(this.spec.attributes, other.spec.attributes);
     }
     range(from, to = from) {
       if (to != from)
@@ -4133,13 +4872,14 @@
   };
   LineDecoration.prototype.mapMode = MapMode.TrackBefore;
   LineDecoration.prototype.point = true;
-  var PointDecoration = class extends Decoration {
+  var PointDecoration = class _PointDecoration extends Decoration {
     constructor(spec, startSide, endSide, block, widget, isReplace) {
       super(startSide, endSide, widget, spec);
       this.block = block;
       this.isReplace = isReplace;
       this.mapMode = !block ? MapMode.TrackDel : startSide <= 0 ? MapMode.TrackBefore : MapMode.TrackAfter;
     }
+    // Only relevant when this.block == true
     get type() {
       return this.startSide < this.endSide ? BlockType.WidgetRange : this.startSide <= 0 ? BlockType.WidgetBefore : BlockType.WidgetAfter;
     }
@@ -4147,7 +4887,7 @@
       return this.block || !!this.widget && this.widget.estimatedHeight >= 5;
     }
     eq(other) {
-      return other instanceof PointDecoration && widgetsEq(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
+      return other instanceof _PointDecoration && widgetsEq(this.widget, other.widget) && this.block == other.block && this.startSide == other.startSide && this.endSide == other.endSide;
     }
     range(from, to = from) {
       if (this.isReplace && (from > to || from == to && this.startSide > 0 && this.endSide <= 0))
@@ -4176,7 +4916,7 @@
     else
       ranges.push(from, to);
   }
-  var LineView = class extends ContentView {
+  var LineView = class _LineView extends ContentView {
     constructor() {
       super(...arguments);
       this.children = [];
@@ -4185,9 +4925,10 @@
       this.attrs = null;
       this.breakAfter = 0;
     }
+    // Consumes source
     merge(from, to, source, hasStart, openStart, openEnd) {
       if (source) {
-        if (!(source instanceof LineView))
+        if (!(source instanceof _LineView))
           return false;
         if (!this.dom)
           source.transferDOM(this);
@@ -4198,7 +4939,7 @@
       return true;
     }
     split(at) {
-      let end = new LineView();
+      let end = new _LineView();
       end.breakAfter = this.breakAfter;
       if (this.length == 0)
         return end;
@@ -4238,6 +4979,7 @@
     append(child, openStart) {
       joinInlineInto(this, child, openStart);
     }
+    // Only called when building a line view in ContentBuilder
     addLineDeco(deco) {
       let attrs = deco.spec.attributes, cls = deco.spec.class;
       if (attrs)
@@ -4310,7 +5052,7 @@
       for (let i = 0, off = 0; i < docView.children.length; i++) {
         let block = docView.children[i], end = off + block.length;
         if (end >= pos) {
-          if (block instanceof LineView)
+          if (block instanceof _LineView)
             return block;
           if (end > pos)
             break;
@@ -4320,7 +5062,7 @@
       return null;
     }
   };
-  var BlockWidgetView = class extends ContentView {
+  var BlockWidgetView = class _BlockWidgetView extends ContentView {
     constructor(widget, length, type) {
       super();
       this.widget = widget;
@@ -4330,7 +5072,7 @@
       this.prevWidget = null;
     }
     merge(from, to, source, _takeDeco, openStart, openEnd) {
-      if (source && (!(source instanceof BlockWidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
+      if (source && (!(source instanceof _BlockWidgetView) || !this.widget.compare(source.widget) || from > 0 && openStart <= 0 || to < this.length && openEnd <= 0))
         return false;
       this.length = from + (source ? source.length : 0) + (this.length - to);
       return true;
@@ -4341,7 +5083,7 @@
     split(at) {
       let len = this.length - at;
       this.length = at;
-      let end = new BlockWidgetView(this.widget, len, this.type);
+      let end = new _BlockWidgetView(this.widget, len, this.type);
       end.breakAfter = this.breakAfter;
       return end;
     }
@@ -4364,7 +5106,7 @@
       return null;
     }
     become(other) {
-      if (other instanceof BlockWidgetView && other.type == this.type && other.widget.constructor == this.widget.constructor) {
+      if (other instanceof _BlockWidgetView && other.type == this.type && other.widget.constructor == this.widget.constructor) {
         if (!other.widget.eq(this.widget))
           this.markDirty(true);
         if (this.dom && !this.prevWidget)
@@ -4388,7 +5130,7 @@
         this.widget.destroy(this.dom);
     }
   };
-  var ContentBuilder = class {
+  var ContentBuilder = class _ContentBuilder {
     constructor(doc2, pos, end, disallowBlockEffectsFor) {
       this.doc = doc2;
       this.pos = pos;
@@ -4461,7 +5203,12 @@
             this.textOff = 0;
           }
         }
-        let take = Math.min(this.text.length - this.textOff, length, 512);
+        let take = Math.min(
+          this.text.length - this.textOff,
+          length,
+          512
+          /* T.Chunk */
+        );
         this.flushBuffer(active.slice(0, openStart));
         this.getLine().append(wrapMarks(new TextView(this.text.slice(this.textOff, this.textOff + take)), active), openStart);
         this.atCursorPos = true;
@@ -4523,7 +5270,7 @@
         this.openStart = openStart;
     }
     static build(text, from, to, decorations2, dynamicDecorationMap) {
-      let builder = new ContentBuilder(text, from, to, dynamicDecorationMap);
+      let builder = new _ContentBuilder(text, from, to, dynamicDecorationMap);
       builder.openEnd = RangeSet.spans(decorations2, from, to, builder);
       if (builder.openStart < 0)
         builder.openStart = builder.openEnd;
@@ -4560,7 +5307,7 @@
   var perLineTextDirection = /* @__PURE__ */ Facet.define({
     combine: (values) => values.some((x) => x)
   });
-  var ScrollTarget = class {
+  var ScrollTarget = class _ScrollTarget {
     constructor(range, y = "nearest", x = "nearest", yMargin = 5, xMargin = 5) {
       this.range = range;
       this.y = y;
@@ -4569,7 +5316,7 @@
       this.xMargin = xMargin;
     }
     map(changes) {
-      return changes.empty ? this : new ScrollTarget(this.range.map(changes), this.y, this.x, this.yMargin, this.xMargin);
+      return changes.empty ? this : new _ScrollTarget(this.range.map(changes), this.y, this.x, this.yMargin, this.xMargin);
     }
   };
   var scrollIntoView = /* @__PURE__ */ StateEffect.define({ map: (t2, ch) => t2.map(ch) });
@@ -4587,16 +5334,20 @@
   var editable = /* @__PURE__ */ Facet.define({ combine: (values) => values.length ? values[0] : true });
   var nextPluginID = 0;
   var viewPlugin = /* @__PURE__ */ Facet.define();
-  var ViewPlugin = class {
+  var ViewPlugin = class _ViewPlugin {
     constructor(id2, create, domEventHandlers, buildExtensions) {
       this.id = id2;
       this.create = create;
       this.domEventHandlers = domEventHandlers;
       this.extension = buildExtensions(this);
     }
+    /**
+    Define a plugin from a constructor function that creates the
+    plugin's value, given an editor view.
+    */
     static define(create, spec) {
       const { eventHandlers, provide, decorations: deco } = spec || {};
-      return new ViewPlugin(nextPluginID++, create, eventHandlers, (plugin) => {
+      return new _ViewPlugin(nextPluginID++, create, eventHandlers, (plugin) => {
         let ext = [viewPlugin.of(plugin)];
         if (deco)
           ext.push(decorations.of((view) => {
@@ -4608,8 +5359,12 @@
         return ext;
       });
     }
+    /**
+    Create a plugin for a class whose constructor takes a single
+    editor view as argument.
+    */
     static fromClass(cls, spec) {
-      return ViewPlugin.define((view) => new cls(view), spec);
+      return _ViewPlugin.define((view) => new cls(view), spec);
     }
   };
   var PluginInstance = class {
@@ -4667,7 +5422,7 @@
   var atomicRanges = /* @__PURE__ */ Facet.define();
   var scrollMargins = /* @__PURE__ */ Facet.define();
   var styleModule = /* @__PURE__ */ Facet.define();
-  var ChangedRange = class {
+  var ChangedRange = class _ChangedRange {
     constructor(fromA, toA, fromB, toB) {
       this.fromA = fromA;
       this.toA = toA;
@@ -4675,7 +5430,7 @@
       this.toB = toB;
     }
     join(other) {
-      return new ChangedRange(Math.min(this.fromA, other.fromA), Math.max(this.toA, other.toA), Math.min(this.fromB, other.fromB), Math.max(this.toB, other.toB));
+      return new _ChangedRange(Math.min(this.fromA, other.fromA), Math.max(this.toA, other.toA), Math.min(this.fromB, other.fromB), Math.max(this.toB, other.toB));
     }
     addToSet(set) {
       let i = set.length, me = this;
@@ -4702,7 +5457,7 @@
           let from = ranges[rI], to = ranges[rI + 1];
           let fromB = Math.max(posB, from), toB = Math.min(end, to);
           if (fromB <= toB)
-            new ChangedRange(fromB + off, toB + off, fromB, toB).addToSet(result);
+            new _ChangedRange(fromB + off, toB + off, fromB, toB).addToSet(result);
           if (to > end)
             break;
           else
@@ -4710,13 +5465,13 @@
         }
         if (!next3)
           return result;
-        new ChangedRange(next3.fromA, next3.toA, next3.fromB, next3.toB).addToSet(result);
+        new _ChangedRange(next3.fromA, next3.toA, next3.fromB, next3.toB).addToSet(result);
         posA = next3.toA;
         posB = next3.toB;
       }
     }
   };
-  var ViewUpdate = class {
+  var ViewUpdate = class _ViewUpdate {
     constructor(view, state, transactions) {
       this.view = view;
       this.state = state;
@@ -4735,27 +5490,55 @@
         this.flags |= 1;
       }
     }
+    /**
+    @internal
+    */
     static create(view, state, transactions) {
-      return new ViewUpdate(view, state, transactions);
+      return new _ViewUpdate(view, state, transactions);
     }
+    /**
+    Tells you whether the [viewport](https://codemirror.net/6/docs/ref/#view.EditorView.viewport) or
+    [visible ranges](https://codemirror.net/6/docs/ref/#view.EditorView.visibleRanges) changed in this
+    update.
+    */
     get viewportChanged() {
       return (this.flags & 4) > 0;
     }
+    /**
+    Indicates whether the height of a block element in the editor
+    changed in this update.
+    */
     get heightChanged() {
       return (this.flags & 2) > 0;
     }
+    /**
+    Returns true when the document was modified or the size of the
+    editor, or elements within the editor, changed.
+    */
     get geometryChanged() {
       return this.docChanged || (this.flags & (8 | 2)) > 0;
     }
+    /**
+    True when this update indicates a focus change.
+    */
     get focusChanged() {
       return (this.flags & 1) > 0;
     }
+    /**
+    Whether the document changed in this update.
+    */
     get docChanged() {
       return !this.changes.empty;
     }
+    /**
+    Whether the selection was explicitly set in this update.
+    */
     get selectionSet() {
       return this.transactions.some((tr) => tr.selection);
     }
+    /**
+    @internal
+    */
     get empty() {
       return this.flags == 0 && this.transactions.length == 0;
     }
@@ -4787,17 +5570,29 @@
   }
   var BidiRE = /[\u0590-\u05f4\u0600-\u06ff\u0700-\u08ac\ufb50-\ufdff]/;
   var BidiSpan = class {
+    /**
+    @internal
+    */
     constructor(from, to, level) {
       this.from = from;
       this.to = to;
       this.level = level;
     }
+    /**
+    The direction of this span.
+    */
     get dir() {
       return this.level % 2 ? RTL : LTR;
     }
+    /**
+    @internal
+    */
     side(end, dir) {
       return this.dir == dir == end ? this.to : this.from;
     }
+    /**
+    @internal
+    */
     static find(order, index, level, assoc) {
       let maybe = -1;
       for (let i = 0; i < order.length; i++) {
@@ -5097,6 +5892,10 @@
     get length() {
       return this.view.state.doc.length;
     }
+    // Update the document view to a given state. scrollIntoView can be
+    // used as a hint to compute a new viewport that includes that
+    // position, if we know the editor is going to scroll that position
+    // into view.
     update(update) {
       let changedRanges = update.changedRanges;
       if (this.minWidth > 0 && changedRanges.length) {
@@ -5125,6 +5924,8 @@
         return true;
       }
     }
+    // Used by update and the constructor do perform the actual DOM
+    // update
     updateInner(changes, oldLength) {
       this.view.viewState.mustMeasureContent = true;
       this.updateChildren(changes, oldLength);
@@ -5160,6 +5961,7 @@
         replaceRange(this, fromI, fromOff, toI, toOff, content2, breakAtStart, openStart, openEnd);
       }
     }
+    // Sync the DOM selection to this.state.selection
     updateSelection(mustRead = false, fromPointer = false) {
       if (mustRead || !this.view.observer.selectionRange.focusNode)
         this.view.observer.readSelectionRange();
@@ -5184,8 +5986,7 @@
             this.dom.focus({ preventScroll: true });
           }
           let rawSel = getSelection(this.view.root);
-          if (!rawSel)
-            ;
+          if (!rawSel) ;
           else if (main.empty) {
             if (browser.gecko) {
               let nextTo = nextToUneditable(anchor.node, anchor.offset);
@@ -6537,7 +7338,10 @@
       return this.index < this.heights.length;
     }
   };
-  var BlockInfo = class {
+  var BlockInfo = class _BlockInfo {
+    /**
+    @internal
+    */
     constructor(from, length, top2, height, type) {
       this.from = from;
       this.length = length;
@@ -6545,15 +7349,24 @@
       this.height = height;
       this.type = type;
     }
+    /**
+    The end of the element as a document position.
+    */
     get to() {
       return this.from + this.length;
     }
+    /**
+    The bottom position of the element.
+    */
     get bottom() {
       return this.top + this.height;
     }
+    /**
+    @internal
+    */
     join(other) {
       let detail = (Array.isArray(this.type) ? this.type : [this]).concat(Array.isArray(other.type) ? other.type : [other]);
-      return new BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, detail);
+      return new _BlockInfo(this.from, this.length + other.length, this.top, this.height + other.height, detail);
     }
   };
   var QueryType = /* @__PURE__ */ function(QueryType2) {
@@ -6563,7 +7376,7 @@
     return QueryType2;
   }(QueryType || (QueryType = {}));
   var Epsilon = 1e-3;
-  var HeightMap = class {
+  var HeightMap = class _HeightMap {
     constructor(length, height, flags = 2) {
       this.length = length;
       this.height = height;
@@ -6582,9 +7395,13 @@
         this.height = height;
       }
     }
+    // Base case is to replace a leaf node, which simply builds a tree
+    // from the new nodes and returns that (HeightMapBranch and
+    // HeightMapGap override this to actually use from/to)
     replace(_from, _to, nodes) {
-      return HeightMap.of(nodes);
+      return _HeightMap.of(nodes);
     }
+    // Again, these are base cases, and are overridden for branch and gap nodes.
     decomposeLeft(_to, result) {
       result.push(this);
     }
@@ -6616,6 +7433,10 @@
     static empty() {
       return new HeightMapText(0, 0);
     }
+    // nodes uses null values to indicate the position of line breaks.
+    // There are never line breaks at the start or end of the array, or
+    // two line breaks next to each other, and the array isn't allowed
+    // to be empty (same restrictions as return value from the builder).
     static of(nodes) {
       if (nodes.length == 1)
         return nodes[0];
@@ -6659,7 +7480,7 @@
         brk = 1;
         j++;
       }
-      return new HeightMapBranch(HeightMap.of(nodes.slice(0, i)), brk, HeightMap.of(nodes.slice(j)));
+      return new HeightMapBranch(_HeightMap.of(nodes.slice(0, i)), brk, _HeightMap.of(nodes.slice(j)));
     }
   };
   HeightMap.prototype.size = 1;
@@ -6688,7 +7509,7 @@
       return `block(${this.length})`;
     }
   };
-  var HeightMapText = class extends HeightMapBlock {
+  var HeightMapText = class _HeightMapText extends HeightMapBlock {
     constructor(length, height) {
       super(length, height, BlockType.Text);
       this.collapsed = 0;
@@ -6696,9 +7517,9 @@
     }
     replace(_from, _to, nodes) {
       let node = nodes[0];
-      if (nodes.length == 1 && (node instanceof HeightMapText || node instanceof HeightMapGap && node.flags & 4) && Math.abs(this.length - node.length) < 10) {
+      if (nodes.length == 1 && (node instanceof _HeightMapText || node instanceof HeightMapGap && node.flags & 4) && Math.abs(this.length - node.length) < 10) {
         if (node instanceof HeightMapGap)
-          node = new HeightMapText(node.length, this.height);
+          node = new _HeightMapText(node.length, this.height);
         else
           node.height = this.height;
         if (!this.outdated)
@@ -6720,7 +7541,7 @@
       return `line(${this.length}${this.collapsed ? -this.collapsed : ""}${this.widgetHeight ? ":" + this.widgetHeight : ""})`;
     }
   };
-  var HeightMapGap = class extends HeightMap {
+  var HeightMapGap = class _HeightMapGap extends HeightMap {
     constructor(length) {
       super(length, 0);
     }
@@ -6760,25 +7581,25 @@
       let after = this.length - to;
       if (after > 0) {
         let last = nodes[nodes.length - 1];
-        if (last instanceof HeightMapGap)
-          nodes[nodes.length - 1] = new HeightMapGap(last.length + after);
+        if (last instanceof _HeightMapGap)
+          nodes[nodes.length - 1] = new _HeightMapGap(last.length + after);
         else
-          nodes.push(null, new HeightMapGap(after - 1));
+          nodes.push(null, new _HeightMapGap(after - 1));
       }
       if (from > 0) {
         let first = nodes[0];
-        if (first instanceof HeightMapGap)
-          nodes[0] = new HeightMapGap(from + first.length);
+        if (first instanceof _HeightMapGap)
+          nodes[0] = new _HeightMapGap(from + first.length);
         else
-          nodes.unshift(new HeightMapGap(from - 1), null);
+          nodes.unshift(new _HeightMapGap(from - 1), null);
       }
       return HeightMap.of(nodes);
     }
     decomposeLeft(to, result) {
-      result.push(new HeightMapGap(to - 1), null);
+      result.push(new _HeightMapGap(to - 1), null);
     }
     decomposeRight(from, result) {
-      result.push(null, new HeightMapGap(this.length - from - 1));
+      result.push(null, new _HeightMapGap(this.length - from - 1));
     }
     updateHeight(oracle, offset = 0, force = false, measured) {
       let end = offset + this.length;
@@ -6786,7 +7607,7 @@
         let nodes = [], pos = Math.max(offset, measured.from), singleHeight = -1;
         let wasChanged = oracle.heightChanged;
         if (measured.from > offset)
-          nodes.push(new HeightMapGap(measured.from - offset - 1).updateHeight(oracle, offset));
+          nodes.push(new _HeightMapGap(measured.from - offset - 1).updateHeight(oracle, offset));
         while (pos <= end && measured.more) {
           let len = oracle.doc.lineAt(pos).length;
           if (nodes.length)
@@ -6802,7 +7623,7 @@
           pos += len + 1;
         }
         if (pos <= end)
-          nodes.push(null, new HeightMapGap(end - pos).updateHeight(oracle, pos));
+          nodes.push(null, new _HeightMapGap(end - pos).updateHeight(oracle, pos));
         let result = HeightMap.of(nodes);
         oracle.heightChanged = wasChanged || singleHeight < 0 || Math.abs(result.height - this.height) >= Epsilon || Math.abs(singleHeight - this.lines(oracle.doc, offset).lineHeight) >= Epsilon;
         return result;
@@ -6940,7 +7761,7 @@
       nodes.splice(around - 1, 3, new HeightMapGap(before.length + 1 + after.length));
   }
   var relevantWidgetHeight = 5;
-  var NodeBuilder = class {
+  var NodeBuilder = class _NodeBuilder {
     constructor(pos, oracle) {
       this.pos = pos;
       this.oracle = oracle;
@@ -7046,8 +7867,13 @@
       }
       return this.nodes;
     }
+    // Always called with a region that on both sides either stretches
+    // to a line break or the end of the document.
+    // The returned array uses null to indicate line breaks, but never
+    // starts or ends in a line break, or has multiple line breaks next
+    // to each other.
     static build(oracle, decorations2, from, to) {
-      let builder = new NodeBuilder(from, oracle);
+      let builder = new _NodeBuilder(from, oracle);
       RangeSet.spans(decorations2, from, to, builder, 0);
       return builder.finish(from);
     }
@@ -7331,13 +8157,23 @@
       let from = changes.mapPos(viewport.from, -1), to = changes.mapPos(viewport.to, 1);
       return new Viewport(this.heightMap.lineAt(from, QueryType.ByPos, this.state.doc, 0, 0).from, this.heightMap.lineAt(to, QueryType.ByPos, this.state.doc, 0, 0).to);
     }
+    // Checks if a given viewport covers the visible part of the
+    // document and not too much beyond that.
     viewportIsAppropriate({ from, to }, bias = 0) {
       if (!this.inView)
         return true;
       let { top: top2 } = this.heightMap.lineAt(from, QueryType.ByPos, this.state.doc, 0, 0);
       let { bottom } = this.heightMap.lineAt(to, QueryType.ByPos, this.state.doc, 0, 0);
       let { visibleTop, visibleBottom } = this;
-      return (from == 0 || top2 <= visibleTop - Math.max(10, Math.min(-bias, 250))) && (to == this.state.doc.length || bottom >= visibleBottom + Math.max(10, Math.min(bias, 250))) && (top2 > visibleTop - 2 * 1e3 && bottom < visibleBottom + 2 * 1e3);
+      return (from == 0 || top2 <= visibleTop - Math.max(10, Math.min(
+        -bias,
+        250
+        /* VP.MaxCoverMargin */
+      ))) && (to == this.state.doc.length || bottom >= visibleBottom + Math.max(10, Math.min(
+        bias,
+        250
+        /* VP.MaxCoverMargin */
+      ))) && (top2 > visibleTop - 2 * 1e3 && bottom < visibleBottom + 2 * 1e3);
     }
     mapLineGaps(gaps, changes) {
       if (!gaps.length || changes.empty)
@@ -7348,6 +8184,13 @@
           mapped.push(new LineGap(changes.mapPos(gap.from), changes.mapPos(gap.to), gap.size));
       return mapped;
     }
+    // Computes positions in the viewport where the start or end of a
+    // line should be hidden, trying to reuse existing line gaps when
+    // appropriate to avoid unneccesary redraws.
+    // Uses crude character-counting for the positioning and sizing,
+    // since actual DOM coordinates aren't always available and
+    // predictable. Relies on generous margins (see LG.Margin) to hide
+    // the artifacts this might produce from the user.
     ensureLineGaps(current, mayMeasure) {
       let wrapping = this.heightOracle.lineWrapping;
       let margin = wrapping ? 1e4 : 2e3, halfMargin = margin >> 1, doubleMargin = margin << 1;
@@ -7602,6 +8445,14 @@
       position: "relative !important",
       boxSizing: "border-box",
       "&.cm-focused": {
+        // Provide a simple default outline to make sure a focused
+        // editor is visually distinct. Can't leave the default behavior
+        // because that will apply to the content element, which is
+        // inside the scrollable container and doesn't include the
+        // gutters. We also can't use an 'auto' outline, since those
+        // are, for some reason, drawn behind the element content, which
+        // will cause things like the active line background to cover
+        // the outline (#297).
         outline: "1px dotted #212121"
       },
       display: "flex !important",
@@ -7672,6 +8523,9 @@
     "&.cm-focused .cm-cursorLayer": {
       animation: "steps(1) cm-blink 1.2s infinite"
     },
+    // Two animations defined so that we can switch between them to
+    // restart the animation without forcing another style
+    // recomputation.
     "@keyframes cm-blink": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
     "@keyframes cm-blink2": { "0%": {}, "50%": { opacity: 0 }, "100%": {} },
     ".cm-cursor, .cm-dropCursor": {
@@ -7890,7 +8744,11 @@
             if (range.from == sel.from && range.to == sel.to)
               return { changes, range: mainSel || range.map(changes) };
             let to = range.to - offset, from = to - replaced.length;
-            if (range.to - range.from != size || view.state.sliceDoc(from, to) != replaced || compositionRange && range.to >= compositionRange.from && range.from <= compositionRange.to)
+            if (range.to - range.from != size || view.state.sliceDoc(from, to) != replaced || // Unfortunately, there's no way to make multiple
+            // changes in the same node work without aborting
+            // composition, so cursors in the composition range are
+            // ignored.
+            compositionRange && range.to >= compositionRange.from && range.from <= compositionRange.to)
               return { range };
             let rangeChanges = startState.changes({ from, to, insert: change.insert }), selOff = range.to - sel.to;
             return {
@@ -8098,7 +8956,8 @@
           this.selectionChanged = false;
         return;
       }
-      if ((browser.ie && browser.ie_version <= 11 || browser.android && browser.chrome) && !view.state.selection.main.empty && sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
+      if ((browser.ie && browser.ie_version <= 11 || browser.android && browser.chrome) && !view.state.selection.main.empty && // (Selection.isCollapsed isn't reliable on IE)
+      sel.focusNode && isEquivalentPosition(sel.focusNode, sel.focusOffset, sel.anchorNode, sel.anchorOffset))
         this.flushSoon();
       else
         this.flush(false);
@@ -8180,11 +9039,20 @@
       if (useCharData)
         this.dom.removeEventListener("DOMCharacterDataModified", this.onCharData);
     }
+    // Throw away any pending changes
     clear() {
       this.processRecords();
       this.queue.length = 0;
       this.selectionChanged = false;
     }
+    // Chrome Android, especially in combination with GBoard, not only
+    // doesn't reliably fire regular key events, but also often
+    // surrounds the effect of enter or backspace with a bunch of
+    // composition events that, when interrupted, cause text duplication
+    // or other kinds of corruption. This hack makes the editor back off
+    // from handling DOM changes for a moment when such a key is
+    // detected (via beforeinput or keydown), and then tries to flush
+    // them or, if that has no effect, dispatches the given key.
     delayAndroidKey(key, keyCode) {
       var _a2;
       if (!this.delayedAndroidKey) {
@@ -8202,6 +9070,10 @@
         this.delayedAndroidKey = {
           key,
           keyCode,
+          // Only run the key handler when no changes are detected if
+          // this isn't coming right after another change, in which case
+          // it is probably part of a weird chain of updates, and should
+          // be ignored if it returns the DOM to its previous state.
           force: this.lastChange < Date.now() - 50 || !!((_a2 = this.delayedAndroidKey) === null || _a2 === void 0 ? void 0 : _a2.force)
         };
     }
@@ -8257,6 +9129,7 @@
       this.selectionChanged = false;
       return new DOMChange(this.view, from, to, typeOver);
     }
+    // Apply pending changes, if any
     flush(readSelection = true) {
       if (this.delayedFlush >= 0 || this.delayedAndroidKey)
         return false;
@@ -8355,7 +9228,12 @@
       [anchorNode, anchorOffset, focusNode, focusOffset] = [focusNode, focusOffset, anchorNode, anchorOffset];
     return { anchorNode, anchorOffset, focusNode, focusOffset };
   }
-  var EditorView = class {
+  var EditorView = class _EditorView {
+    /**
+    Construct a new view. You'll want to either provide a `parent`
+    option, or put `view.dom` into your document after creating a
+    view, so that the user can see the editor.
+    */
     constructor(config2 = {}) {
       this.plugins = [];
       this.pluginMap = /* @__PURE__ */ new Map();
@@ -8395,33 +9273,80 @@
       if (config2.parent)
         config2.parent.appendChild(this.dom);
     }
+    /**
+    The current editor state.
+    */
     get state() {
       return this.viewState.state;
     }
+    /**
+    To be able to display large documents without consuming too much
+    memory or overloading the browser, CodeMirror only draws the
+    code that is visible (plus a margin around it) to the DOM. This
+    property tells you the extent of the current drawn viewport, in
+    document positions.
+    */
     get viewport() {
       return this.viewState.viewport;
     }
+    /**
+    When there are, for example, large collapsed ranges in the
+    viewport, its size can be a lot bigger than the actual visible
+    content. Thus, if you are doing something like styling the
+    content in the viewport, it is preferable to only do so for
+    these ranges, which are the subset of the viewport that is
+    actually drawn.
+    */
     get visibleRanges() {
       return this.viewState.visibleRanges;
     }
+    /**
+    Returns false when the editor is entirely scrolled out of view
+    or otherwise hidden.
+    */
     get inView() {
       return this.viewState.inView;
     }
+    /**
+    Indicates whether the user is currently composing text via
+    [IME](https://en.wikipedia.org/wiki/Input_method), and at least
+    one change has been made in the current composition.
+    */
     get composing() {
       return this.inputState.composing > 0;
     }
+    /**
+    Indicates whether the user is currently in composing state. Note
+    that on some platforms, like Android, this will be the case a
+    lot, since just putting the cursor on a word starts a
+    composition there.
+    */
     get compositionStarted() {
       return this.inputState.composing >= 0;
     }
+    /**
+    The document or shadow root that the view lives in.
+    */
     get root() {
       return this._root;
     }
+    /**
+    @internal
+    */
     get win() {
       return this.dom.ownerDocument.defaultView || window;
     }
     dispatch(...input) {
       this._dispatch(input.length == 1 && input[0] instanceof Transaction ? input[0] : this.state.update(...input));
     }
+    /**
+    Update the view for the given array of transactions. This will
+    update the visible document and selection to match the state
+    produced by the transactions, and notify view plugins of the
+    change. You should usually call
+    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead, which uses this
+    as a primitive.
+    */
     update(transactions) {
       if (this.updateState != 0)
         throw new Error("Calls to EditorView.update are not allowed while an update is in progress");
@@ -8489,6 +9414,13 @@
           dispatchKey(this.contentDOM, pendingKey.key, pendingKey.keyCode);
       }
     }
+    /**
+    Reset the view to the given state. (This will cause the entire
+    document to be redrawn and all view plugins to be reinitialized,
+    so you should probably only use it when the new state isn't
+    derived from the old state. Otherwise, use
+    [`dispatch`](https://codemirror.net/6/docs/ref/#view.EditorView.dispatch) instead.)
+    */
     setState(newState) {
       if (this.updateState != 0)
         throw new Error("Calls to EditorView.setState are not allowed while an update is in progress");
@@ -8545,6 +9477,9 @@
       for (let i = 0; i < this.plugins.length; i++)
         this.plugins[i].update(this);
     }
+    /**
+    @internal
+    */
     measure(flush = true) {
       if (this.destroyed)
         return;
@@ -8626,6 +9561,9 @@
         for (let listener of this.state.facet(updateListener))
           listener(updated);
     }
+    /**
+    Get the CSS classes for the currently active editor themes.
+    */
     get themeClasses() {
       return baseThemeID + " " + (this.state.facet(darkTheme) ? baseDarkID : baseLightID) + " " + this.state.facet(theme);
     }
@@ -8660,7 +9598,7 @@
       let first = true;
       for (let tr of trs)
         for (let effect of tr.effects)
-          if (effect.is(EditorView.announce)) {
+          if (effect.is(_EditorView.announce)) {
             if (first)
               this.announceDOM.textContent = "";
             first = false;
@@ -8678,6 +9616,14 @@
       if (this.updateState == 0 && this.measureScheduled > -1)
         this.measure(false);
     }
+    /**
+    Schedule a layout measurement, optionally providing callbacks to
+    do custom DOM measuring followed by a DOM write phase. Using
+    this is preferable reading DOM layout directly from, for
+    example, an event handler, because it'll make sure measuring and
+    drawing done by other components is synchronized, avoiding
+    unnecessary DOM layout computations.
+    */
     requestMeasure(request) {
       if (this.measureScheduled < 0)
         this.measureScheduled = this.win.requestAnimationFrame(() => this.measure());
@@ -8692,50 +9638,148 @@
         this.measureRequests.push(request);
       }
     }
+    /**
+    Get the value of a specific plugin, if present. Note that
+    plugins that crash can be dropped from a view, so even when you
+    know you registered a given plugin, it is recommended to check
+    the return value of this method.
+    */
     plugin(plugin) {
       let known = this.pluginMap.get(plugin);
       if (known === void 0 || known && known.spec != plugin)
         this.pluginMap.set(plugin, known = this.plugins.find((p) => p.spec == plugin) || null);
       return known && known.update(this).value;
     }
+    /**
+    The top position of the document, in screen coordinates. This
+    may be negative when the editor is scrolled down. Points
+    directly to the top of the first line, not above the padding.
+    */
     get documentTop() {
       return this.contentDOM.getBoundingClientRect().top + this.viewState.paddingTop;
     }
+    /**
+    Reports the padding above and below the document.
+    */
     get documentPadding() {
       return { top: this.viewState.paddingTop, bottom: this.viewState.paddingBottom };
     }
+    /**
+    Find the text line or block widget at the given vertical
+    position (which is interpreted as relative to the [top of the
+    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop)).
+    */
     elementAtHeight(height) {
       this.readMeasured();
       return this.viewState.elementAtHeight(height);
     }
+    /**
+    Find the line block (see
+    [`lineBlockAt`](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) at the given
+    height, again interpreted relative to the [top of the
+    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop).
+    */
     lineBlockAtHeight(height) {
       this.readMeasured();
       return this.viewState.lineBlockAtHeight(height);
     }
+    /**
+    Get the extent and vertical position of all [line
+    blocks](https://codemirror.net/6/docs/ref/#view.EditorView.lineBlockAt) in the viewport. Positions
+    are relative to the [top of the
+    document](https://codemirror.net/6/docs/ref/#view.EditorView.documentTop);
+    */
     get viewportLineBlocks() {
       return this.viewState.viewportLines;
     }
+    /**
+    Find the line block around the given document position. A line
+    block is a range delimited on both sides by either a
+    non-[hidden](https://codemirror.net/6/docs/ref/#view.Decoration^replace) line breaks, or the
+    start/end of the document. It will usually just hold a line of
+    text, but may be broken into multiple textblocks by block
+    widgets.
+    */
     lineBlockAt(pos) {
       return this.viewState.lineBlockAt(pos);
     }
+    /**
+    The editor's total content height.
+    */
     get contentHeight() {
       return this.viewState.contentHeight;
     }
+    /**
+    Move a cursor position by [grapheme
+    cluster](https://codemirror.net/6/docs/ref/#state.findClusterBreak). `forward` determines whether
+    the motion is away from the line start, or towards it. In
+    bidirectional text, the line is traversed in visual order, using
+    the editor's [text direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection).
+    When the start position was the last one on the line, the
+    returned position will be across the line break. If there is no
+    further line, the original position is returned.
+    
+    By default, this method moves over a single cluster. The
+    optional `by` argument can be used to move across more. It will
+    be called with the first cluster as argument, and should return
+    a predicate that determines, for each subsequent cluster,
+    whether it should also be moved over.
+    */
     moveByChar(start, forward, by) {
       return skipAtoms(this, start, moveByChar(this, start, forward, by));
     }
+    /**
+    Move a cursor position across the next group of either
+    [letters](https://codemirror.net/6/docs/ref/#state.EditorState.charCategorizer) or non-letter
+    non-whitespace characters.
+    */
     moveByGroup(start, forward) {
       return skipAtoms(this, start, moveByChar(this, start, forward, (initial) => byGroup(this, start.head, initial)));
     }
+    /**
+    Move to the next line boundary in the given direction. If
+    `includeWrap` is true, line wrapping is on, and there is a
+    further wrap point on the current line, the wrap point will be
+    returned. Otherwise this function will return the start or end
+    of the line.
+    */
     moveToLineBoundary(start, forward, includeWrap = true) {
       return moveToLineBoundary(this, start, forward, includeWrap);
     }
+    /**
+    Move a cursor position vertically. When `distance` isn't given,
+    it defaults to moving to the next line (including wrapped
+    lines). Otherwise, `distance` should provide a positive distance
+    in pixels.
+    
+    When `start` has a
+    [`goalColumn`](https://codemirror.net/6/docs/ref/#state.SelectionRange.goalColumn), the vertical
+    motion will use that as a target horizontal position. Otherwise,
+    the cursor's own horizontal position is used. The returned
+    cursor will have its goal column set to whichever column was
+    used.
+    */
     moveVertically(start, forward, distance) {
       return skipAtoms(this, start, moveVertically(this, start, forward, distance));
     }
+    /**
+    Find the DOM parent node and offset (child offset if `node` is
+    an element, character offset when it is a text node) at the
+    given document position.
+    
+    Note that for positions that aren't currently in
+    `visibleRanges`, the resulting DOM position isn't necessarily
+    meaningful (it may just point before or after a placeholder
+    element).
+    */
     domAtPos(pos) {
       return this.docView.domAtPos(pos);
     }
+    /**
+    Find the document position at the given DOM node. Can be useful
+    for associating positions with DOM events. Will raise an error
+    when `node` isn't part of the editor content.
+    */
     posAtDOM(node, offset = 0) {
       return this.docView.posFromDOM(node, offset);
     }
@@ -8743,6 +9787,13 @@
       this.readMeasured();
       return posAtCoords(this, coords, precise);
     }
+    /**
+    Get the screen coordinates at the given document position.
+    `side` determines whether the coordinates are based on the
+    element before (-1) or after (1) the position (if no element is
+    available on the given side, the method will transparently use
+    another strategy to get reasonable coordinates).
+    */
     coordsAtPos(pos, side = 1) {
       this.readMeasured();
       let rect = this.docView.coordsAt(pos, side);
@@ -8752,15 +9803,38 @@
       let span = order[BidiSpan.find(order, pos - line2.from, -1, side)];
       return flattenRect(rect, span.dir == Direction.LTR == side > 0);
     }
+    /**
+    The default width of a character in the editor. May not
+    accurately reflect the width of all characters (given variable
+    width fonts or styling of invididual ranges).
+    */
     get defaultCharacterWidth() {
       return this.viewState.heightOracle.charWidth;
     }
+    /**
+    The default height of a line in the editor. May not be accurate
+    for all lines.
+    */
     get defaultLineHeight() {
       return this.viewState.heightOracle.lineHeight;
     }
+    /**
+    The text direction
+    ([`direction`](https://developer.mozilla.org/en-US/docs/Web/CSS/direction)
+    CSS property) of the editor's content element.
+    */
     get textDirection() {
       return this.viewState.defaultTextDirection;
     }
+    /**
+    Find the text direction of the block at the given position, as
+    assigned by CSS. If
+    [`perLineTextDirection`](https://codemirror.net/6/docs/ref/#view.EditorView^perLineTextDirection)
+    isn't enabled, or the given position is outside of the viewport,
+    this will always return the same as
+    [`textDirection`](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection). Note that
+    this may trigger a DOM layout.
+    */
     textDirectionAt(pos) {
       let perLine = this.state.facet(perLineTextDirection);
       if (!perLine || pos < this.viewport.from || pos > this.viewport.to)
@@ -8768,9 +9842,23 @@
       this.readMeasured();
       return this.docView.textDirectionAt(pos);
     }
+    /**
+    Whether this editor [wraps lines](https://codemirror.net/6/docs/ref/#view.EditorView.lineWrapping)
+    (as determined by the
+    [`white-space`](https://developer.mozilla.org/en-US/docs/Web/CSS/white-space)
+    CSS property of its content element).
+    */
     get lineWrapping() {
       return this.viewState.heightOracle.lineWrapping;
     }
+    /**
+    Returns the bidirectional text structure of the given line
+    (which should be in the current document) as an array of span
+    objects. The order of these spans matches the [text
+    direction](https://codemirror.net/6/docs/ref/#view.EditorView.textDirection)—if that is
+    left-to-right, the leftmost spans come first, otherwise the
+    rightmost spans come first.
+    */
     bidiSpans(line2) {
       if (line2.length > MaxBidiLine)
         return trivialOrder(line2.length);
@@ -8782,16 +9870,26 @@
       this.bidiCache.push(new CachedOrder(line2.from, line2.to, dir, order));
       return order;
     }
+    /**
+    Check whether the editor has focus.
+    */
     get hasFocus() {
       var _a2;
       return (this.dom.ownerDocument.hasFocus() || browser.safari && ((_a2 = this.inputState) === null || _a2 === void 0 ? void 0 : _a2.lastContextMenu) > Date.now() - 3e4) && this.root.activeElement == this.contentDOM;
     }
+    /**
+    Put focus on the editor.
+    */
     focus() {
       this.observer.ignore(() => {
         focusPreventScroll(this.contentDOM);
         this.docView.updateSelection();
       });
     }
+    /**
+    Update the [root](https://codemirror.net/6/docs/ref/##view.EditorViewConfig.root) in which the editor lives. This is only
+    necessary when moving the editor's existing DOM to a new window or shadow root.
+    */
     setRoot(root) {
       if (this._root != root) {
         this._root = root;
@@ -8799,6 +9897,12 @@
         this.mountStyles();
       }
     }
+    /**
+    Clean up this editor view, removing its element from the
+    document, unregistering event handlers, and notifying
+    plugins. The view instance can no longer be used after
+    calling this.
+    */
     destroy() {
       for (let plugin of this.plugins)
         plugin.destroy(this);
@@ -8810,12 +9914,47 @@
         cancelAnimationFrame(this.measureScheduled);
       this.destroyed = true;
     }
+    /**
+    Returns an effect that can be
+    [added](https://codemirror.net/6/docs/ref/#state.TransactionSpec.effects) to a transaction to
+    cause it to scroll the given position or range into view.
+    */
     static scrollIntoView(pos, options = {}) {
       return scrollIntoView.of(new ScrollTarget(typeof pos == "number" ? EditorSelection.cursor(pos) : pos, options.y, options.x, options.yMargin, options.xMargin));
     }
+    /**
+    Returns an extension that can be used to add DOM event handlers.
+    The value should be an object mapping event names to handler
+    functions. For any given event, such functions are ordered by
+    extension precedence, and the first handler to return true will
+    be assumed to have handled that event, and no other handlers or
+    built-in behavior will be activated for it. These are registered
+    on the [content element](https://codemirror.net/6/docs/ref/#view.EditorView.contentDOM), except
+    for `scroll` handlers, which will be called any time the
+    editor's [scroll element](https://codemirror.net/6/docs/ref/#view.EditorView.scrollDOM) or one of
+    its parent nodes is scrolled.
+    */
     static domEventHandlers(handlers2) {
       return ViewPlugin.define(() => ({}), { eventHandlers: handlers2 });
     }
+    /**
+    Create a theme extension. The first argument can be a
+    [`style-mod`](https://github.com/marijnh/style-mod#documentation)
+    style spec providing the styles for the theme. These will be
+    prefixed with a generated class for the style.
+    
+    Because the selectors will be prefixed with a scope class, rule
+    that directly match the editor's [wrapper
+    element](https://codemirror.net/6/docs/ref/#view.EditorView.dom)—to which the scope class will be
+    added—need to be explicitly differentiated by adding an `&` to
+    the selector for that element—for example
+    `&.cm-focused`.
+    
+    When `dark` is set to true, the theme will be marked as dark,
+    which will cause the `&dark` rules from [base
+    themes](https://codemirror.net/6/docs/ref/#view.EditorView^baseTheme) to be used (as opposed to
+    `&light` when a light theme is active).
+    */
     static theme(spec, options) {
       let prefix = StyleModule.newName();
       let result = [theme.of(prefix), styleModule.of(buildTheme(`.${prefix}`, spec))];
@@ -8823,9 +9962,20 @@
         result.push(darkTheme.of(true));
       return result;
     }
+    /**
+    Create an extension that adds styles to the base theme. Like
+    with [`theme`](https://codemirror.net/6/docs/ref/#view.EditorView^theme), use `&` to indicate the
+    place of the editor wrapper element when directly targeting
+    that. You can also use `&dark` or `&light` instead to only
+    target editors with a dark or light theme.
+    */
     static baseTheme(spec) {
       return Prec.lowest(styleModule.of(buildTheme("." + baseThemeID, spec, lightDarkIDs)));
     }
+    /**
+    Retrieve an editor view instance from the view's DOM
+    representation.
+    */
     static findFromDOM(dom) {
       var _a2;
       let content2 = dom.querySelector(".cm-content");
@@ -8852,7 +10002,7 @@
   EditorView.announce = /* @__PURE__ */ StateEffect.define();
   var MaxBidiLine = 4096;
   var BadMeasure = {};
-  var CachedOrder = class {
+  var CachedOrder = class _CachedOrder {
     constructor(from, to, dir, order) {
       this.from = from;
       this.to = to;
@@ -8866,7 +10016,7 @@
       for (let i = Math.max(0, cache.length - 10); i < cache.length; i++) {
         let entry = cache[i];
         if (entry.dir == lastDir && !changes.touchesRange(entry.from, entry.to))
-          result.push(new CachedOrder(changes.mapPos(entry.from, 1), changes.mapPos(entry.to, -1), entry.dir, entry.order));
+          result.push(new _CachedOrder(changes.mapPos(entry.from, 1), changes.mapPos(entry.to, -1), entry.dir, entry.order));
       }
       return result;
     }
@@ -9346,7 +10496,7 @@
     enables: [tooltipPlugin, baseTheme]
   });
   var showHoverTooltip = /* @__PURE__ */ Facet.define();
-  var HoverTooltipHost = class {
+  var HoverTooltipHost = class _HoverTooltipHost {
     constructor(view) {
       this.view = view;
       this.mounted = false;
@@ -9354,8 +10504,9 @@
       this.dom.classList.add("cm-tooltip-hover");
       this.manager = new TooltipViewManager(view, showHoverTooltip, (t2) => this.createHostedView(t2));
     }
+    // Needs to be static so that host tooltip instances always match
     static create(view) {
-      return new HoverTooltipHost(view);
+      return new _HoverTooltipHost(view);
     }
     createHostedView(tooltip) {
       let hostedView = tooltip.create(this.view);
@@ -9462,7 +10613,15 @@
       let tooltip = this.active;
       if (tooltip && !isInTooltip(this.lastMove.target) || this.pending) {
         let { pos } = tooltip || this.pending, end = (_a2 = tooltip === null || tooltip === void 0 ? void 0 : tooltip.end) !== null && _a2 !== void 0 ? _a2 : pos;
-        if (pos == end ? this.view.posAtCoords(this.lastMove) != pos : !isOverRange(this.view, pos, end, event.clientX, event.clientY, 6)) {
+        if (pos == end ? this.view.posAtCoords(this.lastMove) != pos : !isOverRange(
+          this.view,
+          pos,
+          end,
+          event.clientX,
+          event.clientY,
+          6
+          /* Hover.MaxDist */
+        )) {
           this.view.dispatch({ effects: this.setHover.of(null) });
           this.pending = null;
         }
@@ -9532,18 +10691,35 @@
     });
     return [
       hoverState,
-      ViewPlugin.define((view) => new HoverPlugin(view, source, hoverState, setHover, options.hoverTime || 300)),
+      ViewPlugin.define((view) => new HoverPlugin(
+        view,
+        source,
+        hoverState,
+        setHover,
+        options.hoverTime || 300
+        /* Hover.Time */
+      )),
       showHoverTooltipHost
     ];
   }
   var closeHoverTooltipEffect = /* @__PURE__ */ StateEffect.define();
   var GutterMarker = class extends RangeValue {
+    /**
+    @internal
+    */
     compare(other) {
       return this == other || this.constructor == other.constructor && this.eq(other);
     }
+    /**
+    Compare this marker to another marker of the same type.
+    */
     eq(other) {
       return false;
     }
+    /**
+    Called if the marker has a `toDOM` method and its representation
+    was removed from a gutter.
+    */
     destroy(dom) {
     }
   };
@@ -9902,6 +11078,7 @@
     }
   };
   var NodeProp = class {
+    /// Create a new node prop type.
     constructor(config2 = {}) {
       this.id = nextPropID++;
       this.perNode = !!config2.perNode;
@@ -9909,6 +11086,13 @@
         throw new Error("This node type doesn't define a deserialize function");
       });
     }
+    /// This is meant to be used with
+    /// [`NodeSet.extend`](#common.NodeSet.extend) or
+    /// [`LRParser.configure`](#lr.ParserConfig.props) to compute
+    /// prop values for each node type in the set. Takes a [match
+    /// object](#common.NodeType^match) or function that returns undefined
+    /// if the node type doesn't get this prop, and the prop's value if
+    /// it does.
     add(match2) {
       if (this.perNode)
         throw new RangeError("Can't add per-node props to node types");
@@ -9927,17 +11111,19 @@
   NodeProp.lookAhead = new NodeProp({ perNode: true });
   NodeProp.mounted = new NodeProp({ perNode: true });
   var noProps = /* @__PURE__ */ Object.create(null);
-  var NodeType = class {
+  var NodeType = class _NodeType {
+    /// @internal
     constructor(name2, props, id2, flags = 0) {
       this.name = name2;
       this.props = props;
       this.id = id2;
       this.flags = flags;
     }
+    /// Define a node type.
     static define(spec) {
       let props = spec.props && spec.props.length ? /* @__PURE__ */ Object.create(null) : noProps;
       let flags = (spec.top ? 1 : 0) | (spec.skipped ? 2 : 0) | (spec.error ? 4 : 0) | (spec.name == null ? 8 : 0);
-      let type = new NodeType(spec.name || "", props, spec.id, flags);
+      let type = new _NodeType(spec.name || "", props, spec.id, flags);
       if (spec.props)
         for (let src of spec.props) {
           if (!Array.isArray(src))
@@ -9950,21 +11136,30 @@
         }
       return type;
     }
+    /// Retrieves a node prop for this type. Will return `undefined` if
+    /// the prop isn't present on this node.
     prop(prop) {
       return this.props[prop.id];
     }
+    /// True when this is the top node of a grammar.
     get isTop() {
       return (this.flags & 1) > 0;
     }
+    /// True when this node is produced by a skip rule.
     get isSkipped() {
       return (this.flags & 2) > 0;
     }
+    /// Indicates whether this is an error node.
     get isError() {
       return (this.flags & 4) > 0;
     }
+    /// When true, this node type doesn't correspond to a user-declared
+    /// named node, for example because it is used to cache repetition.
     get isAnonymous() {
       return (this.flags & 8) > 0;
     }
+    /// Returns true when this node's name or one of its
+    /// [groups](#common.NodeProp^group) matches the given string.
     is(name2) {
       if (typeof name2 == "string") {
         if (this.name == name2)
@@ -9974,6 +11169,12 @@
       }
       return this.id == name2;
     }
+    /// Create a function from node types to arbitrary values by
+    /// specifying an object whose property names are node or
+    /// [group](#common.NodeProp^group) names. Often useful with
+    /// [`NodeProp.add`](#common.NodeProp.add). You can put multiple
+    /// names, separated by spaces, in a single property name to map
+    /// multiple node names to a single value.
     static match(map) {
       let direct = /* @__PURE__ */ Object.create(null);
       for (let prop in map)
@@ -9988,14 +11189,25 @@
       };
     }
   };
-  NodeType.none = new NodeType("", /* @__PURE__ */ Object.create(null), 0, 8);
-  var NodeSet = class {
+  NodeType.none = new NodeType(
+    "",
+    /* @__PURE__ */ Object.create(null),
+    0,
+    8
+    /* Anonymous */
+  );
+  var NodeSet = class _NodeSet {
+    /// Create a set with the given types. The `id` property of each
+    /// type should correspond to its position within the array.
     constructor(types2) {
       this.types = types2;
       for (let i = 0; i < types2.length; i++)
         if (types2[i].id != i)
           throw new RangeError("Node type ids should correspond to array positions when creating a node set");
     }
+    /// Create a copy of this set with some node properties added. The
+    /// arguments to this method can be created with
+    /// [`NodeProp.add`](#common.NodeProp.add).
     extend(...props) {
       let newTypes = [];
       for (let type of this.types) {
@@ -10010,7 +11222,7 @@
         }
         newTypes.push(newProps ? new NodeType(type.name, newProps, type.id, type.flags) : type);
       }
-      return new NodeSet(newTypes);
+      return new _NodeSet(newTypes);
     }
   };
   var CachedNode = /* @__PURE__ */ new WeakMap();
@@ -10022,7 +11234,8 @@
     IterMode2[IterMode2["IgnoreMounts"] = 4] = "IgnoreMounts";
     IterMode2[IterMode2["IgnoreOverlays"] = 8] = "IgnoreOverlays";
   })(IterMode || (IterMode = {}));
-  var Tree = class {
+  var Tree = class _Tree {
+    /// Construct a new tree. See also [`Tree.build`](#common.Tree^build).
     constructor(type, children, positions, length, props) {
       this.type = type;
       this.children = children;
@@ -10035,6 +11248,7 @@
           this.props[typeof prop == "number" ? prop : prop.id] = value;
       }
     }
+    /// @internal
     toString() {
       let mounted = this.prop(NodeProp.mounted);
       if (mounted && !mounted.overlay)
@@ -10050,9 +11264,15 @@
       }
       return !this.type.name ? children : (/\W/.test(this.type.name) && !this.type.isError ? JSON.stringify(this.type.name) : this.type.name) + (children.length ? "(" + children + ")" : "");
     }
+    /// Get a [tree cursor](#common.TreeCursor) positioned at the top of
+    /// the tree. Mode can be used to [control](#common.IterMode) which
+    /// nodes the cursor visits.
     cursor(mode = 0) {
       return new TreeCursor(this.topNode, mode);
     }
+    /// Get a [tree cursor](#common.TreeCursor) pointing into this tree
+    /// at the given position and side (see
+    /// [`moveTo`](#common.TreeCursor.moveTo).
     cursorAt(pos, side = 0, mode = 0) {
       let scope = CachedNode.get(this) || this.topNode;
       let cursor2 = new TreeCursor(scope);
@@ -10060,19 +11280,40 @@
       CachedNode.set(this, cursor2._tree);
       return cursor2;
     }
+    /// Get a [syntax node](#common.SyntaxNode) object for the top of the
+    /// tree.
     get topNode() {
       return new TreeNode(this, 0, 0, null);
     }
+    /// Get the [syntax node](#common.SyntaxNode) at the given position.
+    /// If `side` is -1, this will move into nodes that end at the
+    /// position. If 1, it'll move into nodes that start at the
+    /// position. With 0, it'll only enter nodes that cover the position
+    /// from both sides.
+    ///
+    /// Note that this will not enter
+    /// [overlays](#common.MountedTree.overlay), and you often want
+    /// [`resolveInner`](#common.Tree.resolveInner) instead.
     resolve(pos, side = 0) {
       let node = resolveNode(CachedNode.get(this) || this.topNode, pos, side, false);
       CachedNode.set(this, node);
       return node;
     }
+    /// Like [`resolve`](#common.Tree.resolve), but will enter
+    /// [overlaid](#common.MountedTree.overlay) nodes, producing a syntax node
+    /// pointing into the innermost overlaid tree at the given position
+    /// (with parent links going through all parent structure, including
+    /// the host trees).
     resolveInner(pos, side = 0) {
       let node = resolveNode(CachedInnerNode.get(this) || this.topNode, pos, side, true);
       CachedInnerNode.set(this, node);
       return node;
     }
+    /// Iterate over the tree and its children, calling `enter` for any
+    /// node that touches the `from`/`to` region (if given) before
+    /// running over such a node's children, and `leave` (if given) when
+    /// leaving the node. When `enter` returns `false`, that node will
+    /// not have its children iterated over (or `leave` called).
     iterate(spec) {
       let { enter, leave, from = 0, to = this.length } = spec;
       for (let c = this.cursor((spec.mode || 0) | IterMode.IncludeAnonymous); ; ) {
@@ -10093,9 +11334,14 @@
         }
       }
     }
+    /// Get the value of the given [node prop](#common.NodeProp) for this
+    /// node. Works with both per-node and per-type props.
     prop(prop) {
       return !prop.perNode ? this.type.prop(prop) : this.props ? this.props[prop.id] : void 0;
     }
+    /// Returns the node's [per-node props](#common.NodeProp.perNode) in a
+    /// format that can be passed to the [`Tree`](#common.Tree)
+    /// constructor.
     get propValues() {
       let result = [];
       if (this.props)
@@ -10103,15 +11349,20 @@
           result.push([+id2, this.props[id2]]);
       return result;
     }
+    /// Balance the direct children of this tree, producing a copy of
+    /// which may have children grouped into subtrees with type
+    /// [`NodeType.none`](#common.NodeType^none).
     balance(config2 = {}) {
-      return this.children.length <= 8 ? this : balanceRange(NodeType.none, this.children, this.positions, 0, this.children.length, 0, this.length, (children, positions, length) => new Tree(this.type, children, positions, length, this.propValues), config2.makeTree || ((children, positions, length) => new Tree(NodeType.none, children, positions, length)));
+      return this.children.length <= 8 ? this : balanceRange(NodeType.none, this.children, this.positions, 0, this.children.length, 0, this.length, (children, positions, length) => new _Tree(this.type, children, positions, length, this.propValues), config2.makeTree || ((children, positions, length) => new _Tree(NodeType.none, children, positions, length)));
     }
+    /// Build a tree from a postfix-ordered buffer of node information,
+    /// or a cursor over such a buffer.
     static build(data) {
       return buildTree(data);
     }
   };
   Tree.empty = new Tree(NodeType.none, [], [], 0);
-  var FlatBufferCursor = class {
+  var FlatBufferCursor = class _FlatBufferCursor {
     constructor(buffer, index) {
       this.buffer = buffer;
       this.index = index;
@@ -10135,18 +11386,21 @@
       this.index -= 4;
     }
     fork() {
-      return new FlatBufferCursor(this.buffer, this.index);
+      return new _FlatBufferCursor(this.buffer, this.index);
     }
   };
-  var TreeBuffer = class {
+  var TreeBuffer = class _TreeBuffer {
+    /// Create a tree buffer.
     constructor(buffer, length, set) {
       this.buffer = buffer;
       this.length = length;
       this.set = set;
     }
+    /// @internal
     get type() {
       return NodeType.none;
     }
+    /// @internal
     toString() {
       let result = [];
       for (let index = 0; index < this.buffer.length; ) {
@@ -10155,6 +11409,7 @@
       }
       return result.join(",");
     }
+    /// @internal
     childString(index) {
       let id2 = this.buffer[index], endIndex = this.buffer[index + 3];
       let type = this.set.types[id2], result = type.name;
@@ -10170,6 +11425,7 @@
       }
       return result + "(" + children.join(",") + ")";
     }
+    /// @internal
     findChild(startIndex, endIndex, dir, pos, side) {
       let { buffer } = this, pick = -1;
       for (let i = startIndex; i != endIndex; i = buffer[i + 3]) {
@@ -10181,6 +11437,7 @@
       }
       return pick;
     }
+    /// @internal
     slice(startI, endI, from, to) {
       let b = this.buffer;
       let copy = new Uint16Array(endI - startI);
@@ -10190,7 +11447,7 @@
         copy[j++] = b[i++] - from;
         copy[j++] = b[i++] - startI;
       }
-      return new TreeBuffer(copy, to - from, this.set);
+      return new _TreeBuffer(copy, to - from, this.set);
     }
   };
   function checkSide(side, pos, from, to) {
@@ -10245,7 +11502,7 @@
       node = inner;
     }
   }
-  var TreeNode = class {
+  var TreeNode = class _TreeNode {
     constructor(_tree, from, index, _parent) {
       this._tree = _tree;
       this.from = from;
@@ -10276,8 +11533,8 @@
           } else if (mode & IterMode.IncludeAnonymous || (!next3.type.isAnonymous || hasChild(next3))) {
             let mounted;
             if (!(mode & IterMode.IgnoreMounts) && next3.props && (mounted = next3.prop(NodeProp.mounted)) && !mounted.overlay)
-              return new TreeNode(mounted.tree, start, i, parent);
-            let inner = new TreeNode(next3, start, i, parent);
+              return new _TreeNode(mounted.tree, start, i, parent);
+            let inner = new _TreeNode(next3, start, i, parent);
             return mode & IterMode.IncludeAnonymous || !inner.type.isAnonymous ? inner : inner.nextChild(dir < 0 ? next3.children.length - 1 : 0, dir, pos, side);
           }
         }
@@ -10293,16 +11550,40 @@
       }
     }
     get firstChild() {
-      return this.nextChild(0, 1, 0, 4);
+      return this.nextChild(
+        0,
+        1,
+        0,
+        4
+        /* DontCare */
+      );
     }
     get lastChild() {
-      return this.nextChild(this._tree.children.length - 1, -1, 0, 4);
+      return this.nextChild(
+        this._tree.children.length - 1,
+        -1,
+        0,
+        4
+        /* DontCare */
+      );
     }
     childAfter(pos) {
-      return this.nextChild(0, 1, pos, 2);
+      return this.nextChild(
+        0,
+        1,
+        pos,
+        2
+        /* After */
+      );
     }
     childBefore(pos) {
-      return this.nextChild(this._tree.children.length - 1, -1, pos, -2);
+      return this.nextChild(
+        this._tree.children.length - 1,
+        -1,
+        pos,
+        -2
+        /* Before */
+      );
     }
     enter(pos, side, mode = 0) {
       let mounted;
@@ -10310,7 +11591,7 @@
         let rPos = pos - this.from;
         for (let { from, to } of mounted.overlay) {
           if ((side > 0 ? from <= rPos : from < rPos) && (side < 0 ? to >= rPos : to > rPos))
-            return new TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
+            return new _TreeNode(mounted.tree, mounted.overlay[0].from + this.from, -1, this);
         }
       }
       return this.nextChild(0, 1, pos, side, mode);
@@ -10325,10 +11606,22 @@
       return this._parent ? this._parent.nextSignificantParent() : null;
     }
     get nextSibling() {
-      return this._parent && this.index >= 0 ? this._parent.nextChild(this.index + 1, 1, 0, 4) : null;
+      return this._parent && this.index >= 0 ? this._parent.nextChild(
+        this.index + 1,
+        1,
+        0,
+        4
+        /* DontCare */
+      ) : null;
     }
     get prevSibling() {
-      return this._parent && this.index >= 0 ? this._parent.nextChild(this.index - 1, -1, 0, 4) : null;
+      return this._parent && this.index >= 0 ? this._parent.nextChild(
+        this.index - 1,
+        -1,
+        0,
+        4
+        /* DontCare */
+      ) : null;
     }
     cursor(mode = 0) {
       return new TreeCursor(this, mode);
@@ -10355,6 +11648,7 @@
     getChildren(type, before = null, after = null) {
       return getChildren(this, type, before, after);
     }
+    /// @internal
     toString() {
       return this._tree.toString();
     }
@@ -10403,7 +11697,7 @@
       this.start = start;
     }
   };
-  var BufferNode = class {
+  var BufferNode = class _BufferNode {
     constructor(context, _parent, index) {
       this.context = context;
       this._parent = _parent;
@@ -10422,38 +11716,64 @@
     child(dir, pos, side) {
       let { buffer } = this.context;
       let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], dir, pos - this.context.start, side);
-      return index < 0 ? null : new BufferNode(this.context, this, index);
+      return index < 0 ? null : new _BufferNode(this.context, this, index);
     }
     get firstChild() {
-      return this.child(1, 0, 4);
+      return this.child(
+        1,
+        0,
+        4
+        /* DontCare */
+      );
     }
     get lastChild() {
-      return this.child(-1, 0, 4);
+      return this.child(
+        -1,
+        0,
+        4
+        /* DontCare */
+      );
     }
     childAfter(pos) {
-      return this.child(1, pos, 2);
+      return this.child(
+        1,
+        pos,
+        2
+        /* After */
+      );
     }
     childBefore(pos) {
-      return this.child(-1, pos, -2);
+      return this.child(
+        -1,
+        pos,
+        -2
+        /* Before */
+      );
     }
     enter(pos, side, mode = 0) {
       if (mode & IterMode.ExcludeBuffers)
         return null;
       let { buffer } = this.context;
       let index = buffer.findChild(this.index + 4, buffer.buffer[this.index + 3], side > 0 ? 1 : -1, pos - this.context.start, side);
-      return index < 0 ? null : new BufferNode(this.context, this, index);
+      return index < 0 ? null : new _BufferNode(this.context, this, index);
     }
     get parent() {
       return this._parent || this.context.parent.nextSignificantParent();
     }
     externalSibling(dir) {
-      return this._parent ? null : this.context.parent.nextChild(this.context.index + dir, dir, 0, 4);
+      return this._parent ? null : this.context.parent.nextChild(
+        this.context.index + dir,
+        dir,
+        0,
+        4
+        /* DontCare */
+      );
     }
     get nextSibling() {
       let { buffer } = this.context;
       let after = buffer.buffer[this.index + 3];
       if (after < (this._parent ? buffer.buffer[this._parent.index + 3] : buffer.buffer.length))
-        return new BufferNode(this.context, this._parent, after);
+        return new _BufferNode(this.context, this._parent, after);
       return this.externalSibling(1);
     }
     get prevSibling() {
@@ -10461,7 +11781,14 @@
       let parentStart = this._parent ? this._parent.index + 4 : 0;
       if (this.index == parentStart)
         return this.externalSibling(-1);
-      return new BufferNode(this.context, this._parent, buffer.findChild(parentStart, this.index, -1, 0, 4));
+      return new _BufferNode(this.context, this._parent, buffer.findChild(
+        parentStart,
+        this.index,
+        -1,
+        0,
+        4
+        /* DontCare */
+      ));
     }
     cursor(mode = 0) {
       return new TreeCursor(this, mode);
@@ -10489,6 +11816,7 @@
     enterUnfinishedNodesBefore(pos) {
       return enterUnfinishedNodesBefore(this, pos);
     }
+    /// @internal
     toString() {
       return this.context.buffer.childString(this.index);
     }
@@ -10507,6 +11835,7 @@
     }
   };
   var TreeCursor = class {
+    /// @internal
     constructor(node, mode = 0) {
       this.mode = mode;
       this.buffer = null;
@@ -10524,6 +11853,7 @@
         this.yieldBuf(node.index);
       }
     }
+    /// Shorthand for `.type.name`.
     get name() {
       return this.type.name;
     }
@@ -10554,9 +11884,11 @@
       this.buffer = node.context;
       return this.yieldBuf(node.index, node.type);
     }
+    /// @internal
     toString() {
       return this.buffer ? this.buffer.buffer.childString(this.index) : this._tree.toString();
     }
+    /// @internal
     enterChild(dir, pos, side) {
       if (!this.buffer)
         return this.yield(this._tree.nextChild(dir < 0 ? this._tree._tree.children.length - 1 : 0, dir, pos, side, this.mode));
@@ -10567,23 +11899,54 @@
       this.stack.push(this.index);
       return this.yieldBuf(index);
     }
+    /// Move the cursor to this node's first child. When this returns
+    /// false, the node has no child, and the cursor has not been moved.
     firstChild() {
-      return this.enterChild(1, 0, 4);
+      return this.enterChild(
+        1,
+        0,
+        4
+        /* DontCare */
+      );
     }
+    /// Move the cursor to this node's last child.
     lastChild() {
-      return this.enterChild(-1, 0, 4);
+      return this.enterChild(
+        -1,
+        0,
+        4
+        /* DontCare */
+      );
     }
+    /// Move the cursor to the first child that ends after `pos`.
     childAfter(pos) {
-      return this.enterChild(1, pos, 2);
+      return this.enterChild(
+        1,
+        pos,
+        2
+        /* After */
+      );
     }
+    /// Move to the last child that starts before `pos`.
     childBefore(pos) {
-      return this.enterChild(-1, pos, -2);
+      return this.enterChild(
+        -1,
+        pos,
+        -2
+        /* Before */
+      );
     }
+    /// Move the cursor to the child around `pos`. If side is -1 the
+    /// child may end at that position, when 1 it may start there. This
+    /// will also enter [overlaid](#common.MountedTree.overlay)
+    /// [mounted](#common.NodeProp^mounted) trees unless `overlays` is
+    /// set to false.
     enter(pos, side, mode = this.mode) {
       if (!this.buffer)
         return this.yield(this._tree.enter(pos, side, mode));
       return mode & IterMode.ExcludeBuffers ? false : this.enterChild(1, pos, side);
     }
+    /// Move to the node's parent node, if this isn't the top node.
     parent() {
       if (!this.buffer)
         return this.yieldNode(this.mode & IterMode.IncludeAnonymous ? this._tree._parent : this._tree.parent);
@@ -10593,6 +11956,7 @@
       this.buffer = null;
       return this.yieldNode(parent);
     }
+    /// @internal
     sibling(dir) {
       if (!this.buffer)
         return !this._tree._parent ? false : this.yield(this._tree.index < 0 ? null : this._tree._parent.nextChild(this._tree.index + dir, dir, 0, 4, this.mode));
@@ -10600,7 +11964,14 @@
       if (dir < 0) {
         let parentStart = d < 0 ? 0 : this.stack[d] + 4;
         if (this.index != parentStart)
-          return this.yieldBuf(buffer.findChild(parentStart, this.index, -1, 0, 4));
+          return this.yieldBuf(buffer.findChild(
+            parentStart,
+            this.index,
+            -1,
+            0,
+            4
+            /* DontCare */
+          ));
       } else {
         let after = buffer.buffer[this.index + 3];
         if (after < (d < 0 ? buffer.buffer.length : buffer.buffer[this.stack[d] + 3]))
@@ -10608,9 +11979,11 @@
       }
       return d < 0 ? this.yield(this.buffer.parent.nextChild(this.buffer.index + dir, dir, 0, 4, this.mode)) : false;
     }
+    /// Move to this node's next sibling, if any.
     nextSibling() {
       return this.sibling(1);
     }
+    /// Move to this node's previous sibling, if any.
     prevSibling() {
       return this.sibling(-1);
     }
@@ -10640,7 +12013,12 @@
       return true;
     }
     move(dir, enter) {
-      if (enter && this.enterChild(dir, 0, 4))
+      if (enter && this.enterChild(
+        dir,
+        0,
+        4
+        /* DontCare */
+      ))
         return true;
       for (; ; ) {
         if (this.sibling(dir))
@@ -10649,12 +12027,24 @@
           return false;
       }
     }
+    /// Move to the next node in a
+    /// [pre-order](https://en.wikipedia.org/wiki/Tree_traversal#Pre-order_(NLR))
+    /// traversal, going from a node to its first child or, if the
+    /// current node is empty or `enter` is false, its next sibling or
+    /// the next sibling of the first parent node that has one.
     next(enter = true) {
       return this.move(1, enter);
     }
+    /// Move to the next node in a last-to-first pre-order traveral. A
+    /// node is followed by its last child or, if it has none, its
+    /// previous sibling or the previous sibling of the first parent
+    /// node that has one.
     prev(enter = true) {
       return this.move(-1, enter);
     }
+    /// Move the cursor to the innermost node that covers `pos`. If
+    /// `side` is -1, it will enter nodes that end at `pos`. If it is 1,
+    /// it will enter nodes that start at `pos`.
     moveTo(pos, side = 0) {
       while (this.from == this.to || (side < 1 ? this.from >= pos : this.from > pos) || (side > -1 ? this.to <= pos : this.to < pos))
         if (!this.parent())
@@ -10663,31 +12053,39 @@
       }
       return this;
     }
+    /// Get a [syntax node](#common.SyntaxNode) at the cursor's current
+    /// position.
     get node() {
       if (!this.buffer)
         return this._tree;
       let cache = this.bufferNode, result = null, depth = 0;
       if (cache && cache.context == this.buffer) {
-        scan:
-          for (let index = this.index, d = this.stack.length; d >= 0; ) {
-            for (let c = cache; c; c = c._parent)
-              if (c.index == index) {
-                if (index == this.index)
-                  return c;
-                result = c;
-                depth = d + 1;
-                break scan;
-              }
-            index = this.stack[--d];
-          }
+        scan: for (let index = this.index, d = this.stack.length; d >= 0; ) {
+          for (let c = cache; c; c = c._parent)
+            if (c.index == index) {
+              if (index == this.index)
+                return c;
+              result = c;
+              depth = d + 1;
+              break scan;
+            }
+          index = this.stack[--d];
+        }
       }
       for (let i = depth; i < this.stack.length; i++)
         result = new BufferNode(this.buffer, result, this.stack[i]);
       return this.bufferNode = new BufferNode(this.buffer, result, this.index);
     }
+    /// Get the [tree](#common.Tree) that represents the current node, if
+    /// any. Will return null when the node is in a [tree
+    /// buffer](#common.TreeBuffer).
     get tree() {
       return this.buffer ? null : this._tree._tree;
     }
+    /// Iterate over the current node and all its descendants, calling
+    /// `enter` when entering a node and `leave`, if given, when leaving
+    /// one. When `enter` returns `false`, any children of that node are
+    /// skipped, and `leave` isn't called for it.
     iterate(enter, leave) {
       for (let depth = 0; ; ) {
         let mustLeave = false;
@@ -10713,6 +12111,9 @@
         }
       }
     }
+    /// Test whether the current node matches a given context—a sequence
+    /// of direct parent node names. Empty strings in the context array
+    /// are treated as wildcards.
     matchContext(context) {
       if (!this.buffer)
         return matchNodeContext(this.node, context);
@@ -10836,39 +12237,38 @@
       let fork = cursor2.fork();
       let size = 0, start = 0, skip = 0, minStart = fork.end - maxBufferLength;
       let result = { size: 0, start: 0, skip: 0 };
-      scan:
-        for (let minPos = fork.pos - maxSize; fork.pos > minPos; ) {
-          let nodeSize2 = fork.size;
-          if (fork.id == inRepeat && nodeSize2 >= 0) {
-            result.size = size;
-            result.start = start;
-            result.skip = skip;
-            skip += 4;
-            size += 4;
-            fork.next();
-            continue;
-          }
-          let startPos = fork.pos - nodeSize2;
-          if (nodeSize2 < 0 || startPos < minPos || fork.start < minStart)
-            break;
-          let localSkipped = fork.id >= minRepeatType ? 4 : 0;
-          let nodeStart2 = fork.start;
+      scan: for (let minPos = fork.pos - maxSize; fork.pos > minPos; ) {
+        let nodeSize2 = fork.size;
+        if (fork.id == inRepeat && nodeSize2 >= 0) {
+          result.size = size;
+          result.start = start;
+          result.skip = skip;
+          skip += 4;
+          size += 4;
           fork.next();
-          while (fork.pos > startPos) {
-            if (fork.size < 0) {
-              if (fork.size == -3)
-                localSkipped += 4;
-              else
-                break scan;
-            } else if (fork.id >= minRepeatType) {
-              localSkipped += 4;
-            }
-            fork.next();
-          }
-          start = nodeStart2;
-          size += nodeSize2;
-          skip += localSkipped;
+          continue;
         }
+        let startPos = fork.pos - nodeSize2;
+        if (nodeSize2 < 0 || startPos < minPos || fork.start < minStart)
+          break;
+        let localSkipped = fork.id >= minRepeatType ? 4 : 0;
+        let nodeStart2 = fork.start;
+        fork.next();
+        while (fork.pos > startPos) {
+          if (fork.size < 0) {
+            if (fork.size == -3)
+              localSkipped += 4;
+            else
+              break scan;
+          } else if (fork.id >= minRepeatType) {
+            localSkipped += 4;
+          }
+          fork.next();
+        }
+        start = nodeStart2;
+        size += nodeSize2;
+        skip += localSkipped;
+      }
       if (inRepeat < 0 || size == maxSize) {
         result.size = size;
         result.start = start;
@@ -10925,7 +12325,10 @@
     let total = 0;
     for (let i = from; i < to; i++)
       total += nodeSize(balanceType, children[i]);
-    let maxChild = Math.ceil(total * 1.5 / 8);
+    let maxChild = Math.ceil(
+      total * 1.5 / 8
+      /* BranchFactor */
+    );
     let localChildren = [], localPositions = [];
     function divide(children2, positions2, from2, to2, offset) {
       for (let i = from2; i < to2; ) {
@@ -10954,7 +12357,11 @@
     divide(children, positions, from, to, 0);
     return (mkTop || mkTree)(localChildren, localPositions, length);
   }
-  var TreeFragment = class {
+  var TreeFragment = class _TreeFragment {
+    /// Construct a tree fragment. You'll usually want to use
+    /// [`addTree`](#common.TreeFragment^addTree) and
+    /// [`applyChanges`](#common.TreeFragment^applyChanges) instead of
+    /// calling this directly.
     constructor(from, to, tree, offset, openStart = false, openEnd = false) {
       this.from = from;
       this.to = to;
@@ -10962,19 +12369,34 @@
       this.offset = offset;
       this.open = (openStart ? 1 : 0) | (openEnd ? 2 : 0);
     }
+    /// Whether the start of the fragment represents the start of a
+    /// parse, or the end of a change. (In the second case, it may not
+    /// be safe to reuse some nodes at the start, depending on the
+    /// parsing algorithm.)
     get openStart() {
       return (this.open & 1) > 0;
     }
+    /// Whether the end of the fragment represents the end of a
+    /// full-document parse, or the start of a change.
     get openEnd() {
       return (this.open & 2) > 0;
     }
+    /// Create a set of fragments from a freshly parsed tree, or update
+    /// an existing set of fragments by replacing the ones that overlap
+    /// with a tree with content from the new tree. When `partial` is
+    /// true, the parse is treated as incomplete, and the resulting
+    /// fragment has [`openEnd`](#common.TreeFragment.openEnd) set to
+    /// true.
     static addTree(tree, fragments = [], partial = false) {
-      let result = [new TreeFragment(0, tree.length, tree, 0, false, partial)];
+      let result = [new _TreeFragment(0, tree.length, tree, 0, false, partial)];
       for (let f of fragments)
         if (f.to > tree.length)
           result.push(f);
       return result;
     }
+    /// Apply a set of edits to an array of fragments, removing or
+    /// splitting fragments as necessary to remove edited ranges, and
+    /// adjusting offsets for fragments that moved.
     static applyChanges(fragments, changes, minGap = 128) {
       if (!changes.length)
         return fragments;
@@ -10988,7 +12410,7 @@
             let cut = nextF;
             if (pos >= cut.from || nextPos <= cut.to || off) {
               let fFrom = Math.max(cut.from, pos) - off, fTo = Math.min(cut.to, nextPos) - off;
-              cut = fFrom >= fTo ? null : new TreeFragment(fFrom, fTo, cut.tree, cut.offset + off, cI > 0, !!nextC);
+              cut = fFrom >= fTo ? null : new _TreeFragment(fFrom, fTo, cut.tree, cut.offset + off, cI > 0, !!nextC);
             }
             if (cut)
               result.push(cut);
@@ -11005,12 +12427,21 @@
     }
   };
   var Parser = class {
+    /// Start a parse, returning a [partial parse](#common.PartialParse)
+    /// object. [`fragments`](#common.TreeFragment) can be passed in to
+    /// make the parse incremental.
+    ///
+    /// By default, the entire input is parsed. You can pass `ranges`,
+    /// which should be a sorted array of non-empty, non-overlapping
+    /// ranges, to parse only those ranges. The tree returned in that
+    /// case will start at `ranges[0].from`.
     startParse(input, fragments, ranges) {
       if (typeof input == "string")
         input = new StringInput(input);
       ranges = !ranges ? [new Range2(0, input.length)] : ranges.length ? ranges.map((r) => new Range2(r.from, r.to)) : [new Range2(0, 0)];
       return this.createParse(input, fragments || [], ranges);
     }
+    /// Run a full parse, returning the resulting tree.
     parse(input, fragments, ranges) {
       let parse = this.startParse(input, fragments, ranges);
       for (; ; ) {
@@ -11041,23 +12472,39 @@
 
   // node_modules/@lezer/highlight/dist/index.js
   var nextTagID = 0;
-  var Tag = class {
+  var Tag = class _Tag {
+    /// @internal
     constructor(set, base2, modified) {
       this.set = set;
       this.base = base2;
       this.modified = modified;
       this.id = nextTagID++;
     }
+    /// Define a new tag. If `parent` is given, the tag is treated as a
+    /// sub-tag of that parent, and
+    /// [highlighters](#highlight.tagHighlighter) that don't mention
+    /// this tag will try to fall back to the parent tag (or grandparent
+    /// tag, etc).
     static define(parent) {
       if (parent === null || parent === void 0 ? void 0 : parent.base)
         throw new Error("Can not derive from a modified tag");
-      let tag = new Tag([], null, []);
+      let tag = new _Tag([], null, []);
       tag.set.push(tag);
       if (parent)
         for (let t2 of parent.set)
           tag.set.push(t2);
       return tag;
     }
+    /// Define a tag _modifier_, which is a function that, given a tag,
+    /// will return a tag that is a subtag of the original. Applying the
+    /// same modifier to a twice tag will return the same value (`m1(t1)
+    /// == m1(t1)`) and applying multiple modifiers will, regardless or
+    /// order, produce the same tag (`m1(m2(t1)) == m2(m1(t1))`).
+    ///
+    /// When multiple modifiers are applied to a given base tag, each
+    /// smaller set of modifiers is registered as a parent, so that for
+    /// example `m1(m2(m3(t1)))` is a subtype of `m1(m2(t1))`,
+    /// `m1(m3(t1)`, and so on.
     static defineModifier() {
       let mod = new Modifier();
       return (tag) => {
@@ -11068,7 +12515,7 @@
     }
   };
   var nextModifierID = 0;
-  var Modifier = class {
+  var Modifier = class _Modifier {
     constructor() {
       this.instances = [];
       this.id = nextModifierID++;
@@ -11085,7 +12532,7 @@
       let configs = permute(mods);
       for (let parent of base2.set)
         for (let config2 of configs)
-          set.push(Modifier.get(parent, config2));
+          set.push(_Modifier.get(parent, config2));
       return tag;
     }
   };
@@ -11307,89 +12754,201 @@
   var bracket = t(punctuation);
   var meta = t();
   var tags = {
+    /// A comment.
     comment,
+    /// A line [comment](#highlight.tags.comment).
     lineComment: t(comment),
+    /// A block [comment](#highlight.tags.comment).
     blockComment: t(comment),
+    /// A documentation [comment](#highlight.tags.comment).
     docComment: t(comment),
+    /// Any kind of identifier.
     name,
+    /// The [name](#highlight.tags.name) of a variable.
     variableName: t(name),
+    /// A type [name](#highlight.tags.name).
     typeName,
+    /// A tag name (subtag of [`typeName`](#highlight.tags.typeName)).
     tagName: t(typeName),
+    /// A property or field [name](#highlight.tags.name).
     propertyName,
+    /// An attribute name (subtag of [`propertyName`](#highlight.tags.propertyName)).
     attributeName: t(propertyName),
+    /// The [name](#highlight.tags.name) of a class.
     className: t(name),
+    /// A label [name](#highlight.tags.name).
     labelName: t(name),
+    /// A namespace [name](#highlight.tags.name).
     namespace: t(name),
+    /// The [name](#highlight.tags.name) of a macro.
     macroName: t(name),
+    /// A literal value.
     literal,
+    /// A string [literal](#highlight.tags.literal).
     string,
+    /// A documentation [string](#highlight.tags.string).
     docString: t(string),
+    /// A character literal (subtag of [string](#highlight.tags.string)).
     character: t(string),
+    /// An attribute value (subtag of [string](#highlight.tags.string)).
     attributeValue: t(string),
+    /// A number [literal](#highlight.tags.literal).
     number,
+    /// An integer [number](#highlight.tags.number) literal.
     integer: t(number),
+    /// A floating-point [number](#highlight.tags.number) literal.
     float: t(number),
+    /// A boolean [literal](#highlight.tags.literal).
     bool: t(literal),
+    /// Regular expression [literal](#highlight.tags.literal).
     regexp: t(literal),
+    /// An escape [literal](#highlight.tags.literal), for example a
+    /// backslash escape in a string.
     escape: t(literal),
+    /// A color [literal](#highlight.tags.literal).
     color: t(literal),
+    /// A URL [literal](#highlight.tags.literal).
     url: t(literal),
+    /// A language keyword.
     keyword,
+    /// The [keyword](#highlight.tags.keyword) for the self or this
+    /// object.
     self: t(keyword),
+    /// The [keyword](#highlight.tags.keyword) for null.
     null: t(keyword),
+    /// A [keyword](#highlight.tags.keyword) denoting some atomic value.
     atom: t(keyword),
+    /// A [keyword](#highlight.tags.keyword) that represents a unit.
     unit: t(keyword),
+    /// A modifier [keyword](#highlight.tags.keyword).
     modifier: t(keyword),
+    /// A [keyword](#highlight.tags.keyword) that acts as an operator.
     operatorKeyword: t(keyword),
+    /// A control-flow related [keyword](#highlight.tags.keyword).
     controlKeyword: t(keyword),
+    /// A [keyword](#highlight.tags.keyword) that defines something.
     definitionKeyword: t(keyword),
+    /// A [keyword](#highlight.tags.keyword) related to defining or
+    /// interfacing with modules.
     moduleKeyword: t(keyword),
+    /// An operator.
     operator,
+    /// An [operator](#highlight.tags.operator) that dereferences something.
     derefOperator: t(operator),
+    /// Arithmetic-related [operator](#highlight.tags.operator).
     arithmeticOperator: t(operator),
+    /// Logical [operator](#highlight.tags.operator).
     logicOperator: t(operator),
+    /// Bit [operator](#highlight.tags.operator).
     bitwiseOperator: t(operator),
+    /// Comparison [operator](#highlight.tags.operator).
     compareOperator: t(operator),
+    /// [Operator](#highlight.tags.operator) that updates its operand.
     updateOperator: t(operator),
+    /// [Operator](#highlight.tags.operator) that defines something.
     definitionOperator: t(operator),
+    /// Type-related [operator](#highlight.tags.operator).
     typeOperator: t(operator),
+    /// Control-flow [operator](#highlight.tags.operator).
     controlOperator: t(operator),
+    /// Program or markup punctuation.
     punctuation,
+    /// [Punctuation](#highlight.tags.punctuation) that separates
+    /// things.
     separator: t(punctuation),
+    /// Bracket-style [punctuation](#highlight.tags.punctuation).
     bracket,
+    /// Angle [brackets](#highlight.tags.bracket) (usually `<` and `>`
+    /// tokens).
     angleBracket: t(bracket),
+    /// Square [brackets](#highlight.tags.bracket) (usually `[` and `]`
+    /// tokens).
     squareBracket: t(bracket),
+    /// Parentheses (usually `(` and `)` tokens). Subtag of
+    /// [bracket](#highlight.tags.bracket).
     paren: t(bracket),
+    /// Braces (usually `{` and `}` tokens). Subtag of
+    /// [bracket](#highlight.tags.bracket).
     brace: t(bracket),
+    /// Content, for example plain text in XML or markup documents.
     content,
+    /// [Content](#highlight.tags.content) that represents a heading.
     heading,
+    /// A level 1 [heading](#highlight.tags.heading).
     heading1: t(heading),
+    /// A level 2 [heading](#highlight.tags.heading).
     heading2: t(heading),
+    /// A level 3 [heading](#highlight.tags.heading).
     heading3: t(heading),
+    /// A level 4 [heading](#highlight.tags.heading).
     heading4: t(heading),
+    /// A level 5 [heading](#highlight.tags.heading).
     heading5: t(heading),
+    /// A level 6 [heading](#highlight.tags.heading).
     heading6: t(heading),
+    /// A prose separator (such as a horizontal rule).
     contentSeparator: t(content),
+    /// [Content](#highlight.tags.content) that represents a list.
     list: t(content),
+    /// [Content](#highlight.tags.content) that represents a quote.
     quote: t(content),
+    /// [Content](#highlight.tags.content) that is emphasized.
     emphasis: t(content),
+    /// [Content](#highlight.tags.content) that is styled strong.
     strong: t(content),
+    /// [Content](#highlight.tags.content) that is part of a link.
     link: t(content),
+    /// [Content](#highlight.tags.content) that is styled as code or
+    /// monospace.
     monospace: t(content),
+    /// [Content](#highlight.tags.content) that has a strike-through
+    /// style.
     strikethrough: t(content),
+    /// Inserted text in a change-tracking format.
     inserted: t(),
+    /// Deleted text.
     deleted: t(),
+    /// Changed text.
     changed: t(),
+    /// An invalid or unsyntactic element.
     invalid: t(),
+    /// Metadata or meta-instruction.
     meta,
+    /// [Metadata](#highlight.tags.meta) that applies to the entire
+    /// document.
     documentMeta: t(meta),
+    /// [Metadata](#highlight.tags.meta) that annotates or adds
+    /// attributes to a given syntactic element.
     annotation: t(meta),
+    /// Processing instruction or preprocessor directive. Subtag of
+    /// [meta](#highlight.tags.meta).
     processingInstruction: t(meta),
+    /// [Modifier](#highlight.Tag^defineModifier) that indicates that a
+    /// given element is being defined. Expected to be used with the
+    /// various [name](#highlight.tags.name) tags.
     definition: Tag.defineModifier(),
+    /// [Modifier](#highlight.Tag^defineModifier) that indicates that
+    /// something is constant. Mostly expected to be used with
+    /// [variable names](#highlight.tags.variableName).
     constant: Tag.defineModifier(),
+    /// [Modifier](#highlight.Tag^defineModifier) used to indicate that
+    /// a [variable](#highlight.tags.variableName) or [property
+    /// name](#highlight.tags.propertyName) is being called or defined
+    /// as a function.
     function: Tag.defineModifier(),
+    /// [Modifier](#highlight.Tag^defineModifier) that can be applied to
+    /// [names](#highlight.tags.name) to indicate that they belong to
+    /// the language's standard environment.
     standard: Tag.defineModifier(),
+    /// [Modifier](#highlight.Tag^defineModifier) that indicates a given
+    /// [names](#highlight.tags.name) is local to some scope.
     local: Tag.defineModifier(),
+    /// A generic variant [modifier](#highlight.Tag^defineModifier) that
+    /// can be used to tag language-specific alternative variants of
+    /// some common tag. It is recommended for themes to define special
+    /// forms of at least the [string](#highlight.tags.string) and
+    /// [variable name](#highlight.tags.variableName) tags, since those
+    /// come up a lot.
     special: Tag.defineModifier()
   };
   var classHighlighter = tagHighlighter([
@@ -11434,6 +12993,13 @@
     });
   }
   var Language = class {
+    /**
+    Construct a language object. If you need to invoke this
+    directly, first define a data facet with
+    [`defineLanguageFacet`](https://codemirror.net/6/docs/ref/#language.defineLanguageFacet), and then
+    configure your parser to [attach](https://codemirror.net/6/docs/ref/#language.languageDataProp) it
+    to the language's outer syntax node.
+    */
     constructor(data, parser2, extraExtensions = []) {
       this.data = data;
       if (!EditorState.prototype.hasOwnProperty("tree"))
@@ -11446,9 +13012,17 @@
         EditorState.languageData.of((state, pos, side) => state.facet(languageDataFacetAt(state, pos, side)))
       ].concat(extraExtensions);
     }
+    /**
+    Query whether this language is active at the given position.
+    */
     isActiveAt(state, pos, side = -1) {
       return languageDataFacetAt(state, pos, side) == this.data;
     }
+    /**
+    Find the document regions that were parsed using this language.
+    The returned regions will _include_ any nested languages rooted
+    in this language, when those exist.
+    */
     findRegions(state) {
       let lang = state.facet(language);
       if ((lang === null || lang === void 0 ? void 0 : lang.data) == this.data)
@@ -11486,6 +13060,10 @@
       explore(syntaxTree(state), 0);
       return result;
     }
+    /**
+    Indicates whether this language allows nested languages. The
+    default implementation returns true.
+    */
     get allowsNesting() {
       return true;
     }
@@ -11502,19 +13080,26 @@
     }
     return facet;
   }
-  var LRLanguage = class extends Language {
+  var LRLanguage = class _LRLanguage extends Language {
     constructor(data, parser2) {
       super(data, parser2);
       this.parser = parser2;
     }
+    /**
+    Define a language from a parser.
+    */
     static define(spec) {
       let data = defineLanguageFacet(spec.languageData);
-      return new LRLanguage(data, spec.parser.configure({
+      return new _LRLanguage(data, spec.parser.configure({
         props: [languageDataProp.add((type) => type.isTop ? data : void 0)]
       }));
     }
+    /**
+    Create a new instance of this language with a reconfigured
+    version of its parser.
+    */
     configure(options) {
-      return new LRLanguage(this.data, this.parser.configure(options));
+      return new _LRLanguage(this.data, this.parser.configure(options));
     }
     get allowsNesting() {
       return this.parser.hasWrappers();
@@ -11553,7 +13138,7 @@
     }
   };
   var currentContext = null;
-  var ParseContext = class {
+  var ParseContext = class _ParseContext {
     constructor(parser2, state, fragments = [], tree, treeLen, viewport, skipped, scheduleOn) {
       this.parser = parser2;
       this.state = state;
@@ -11566,12 +13151,18 @@
       this.parse = null;
       this.tempSkipped = [];
     }
+    /**
+    @internal
+    */
     static create(parser2, state, viewport) {
-      return new ParseContext(parser2, state, [], Tree.empty, 0, viewport, [], null);
+      return new _ParseContext(parser2, state, [], Tree.empty, 0, viewport, [], null);
     }
     startParse() {
       return this.parser.startParse(new DocInput(this.state.doc), this.fragments);
     }
+    /**
+    @internal
+    */
     work(until, upto) {
       if (upto != null && upto >= this.state.doc.length)
         upto = void 0;
@@ -11606,6 +13197,9 @@
         }
       });
     }
+    /**
+    @internal
+    */
     takeTree() {
       let pos, tree;
       if (this.parse && (pos = this.parse.parsedPos) >= this.treeLen) {
@@ -11635,6 +13229,9 @@
         fragments = cutFragments(fragments, r.from, r.to);
       return fragments;
     }
+    /**
+    @internal
+    */
     changes(changes, newState) {
       let { fragments, tree, treeLen, viewport, skipped } = this;
       this.takeTree();
@@ -11654,8 +13251,11 @@
           }
         }
       }
-      return new ParseContext(this.parser, newState, fragments, tree, treeLen, viewport, skipped, this.scheduleOn);
+      return new _ParseContext(this.parser, newState, fragments, tree, treeLen, viewport, skipped, this.scheduleOn);
     }
+    /**
+    @internal
+    */
     updateViewport(viewport) {
       if (this.viewport.from == viewport.from && this.viewport.to == viewport.to)
         return false;
@@ -11673,15 +13273,32 @@
       this.reset();
       return true;
     }
+    /**
+    @internal
+    */
     reset() {
       if (this.parse) {
         this.takeTree();
         this.parse = null;
       }
     }
+    /**
+    Notify the parse scheduler that the given region was skipped
+    because it wasn't in view, and the parse should be restarted
+    when it comes into view.
+    */
     skipUntilInView(from, to) {
       this.skipped.push({ from, to });
     }
+    /**
+    Returns a parser intended to be used as placeholder when
+    asynchronously loading a nested parser. It'll skip its input and
+    mark it as not-really-parsed, so that the next update will parse
+    it again.
+    
+    When `until` is given, a reparse will be scheduled when that
+    promise resolves.
+    */
     static getSkippingParser(until) {
       return new class extends Parser {
         createParse(input, fragments, ranges) {
@@ -11707,11 +13324,18 @@
         }
       }();
     }
+    /**
+    @internal
+    */
     isDone(upto) {
       upto = Math.min(upto, this.state.doc.length);
       let frags = this.fragments;
       return this.treeLen >= upto && frags.length && frags[0].from == 0 && frags[0].to >= upto;
     }
+    /**
+    Get the context for the current parse, or `null` if no editor
+    parse is in progress.
+    */
     static get() {
       return currentContext;
     }
@@ -11719,7 +13343,7 @@
   function cutFragments(fragments, from, to) {
     return TreeFragment.applyChanges(fragments, [{ fromA: from, toA: to, fromB: from, toB: to }]);
   }
-  var LanguageState = class {
+  var LanguageState = class _LanguageState {
     constructor(context) {
       this.context = context;
       this.tree = context.tree;
@@ -11731,14 +13355,14 @@
       let upto = this.context.treeLen == tr.startState.doc.length ? void 0 : Math.max(tr.changes.mapPos(this.context.treeLen), newCx.viewport.to);
       if (!newCx.work(20, upto))
         newCx.takeTree();
-      return new LanguageState(newCx);
+      return new _LanguageState(newCx);
     }
     static init(state) {
       let vpTo = Math.min(3e3, state.doc.length);
       let parseState = ParseContext.create(state.facet(language).parser, state, { from: 0, to: vpTo });
       if (!parseState.work(20, vpTo))
         parseState.takeTree();
-      return new LanguageState(parseState);
+      return new _LanguageState(parseState);
     }
   };
   Language.state = /* @__PURE__ */ StateField.define({
@@ -11753,14 +13377,25 @@
     }
   });
   var requestIdle = (callback) => {
-    let timeout = setTimeout(() => callback(), 500);
+    let timeout = setTimeout(
+      () => callback(),
+      500
+      /* MaxPause */
+    );
     return () => clearTimeout(timeout);
   };
   if (typeof requestIdleCallback != "undefined")
     requestIdle = (callback) => {
-      let idle = -1, timeout = setTimeout(() => {
-        idle = requestIdleCallback(callback, { timeout: 500 - 100 });
-      }, 100);
+      let idle = -1, timeout = setTimeout(
+        () => {
+          idle = requestIdleCallback(callback, {
+            timeout: 500 - 100
+            /* MinPause */
+          });
+        },
+        100
+        /* MinPause */
+      );
       return () => idle < 0 ? clearTimeout(timeout) : cancelIdleCallback(idle);
     };
   var isInputPending = typeof navigator != "undefined" && ((_a = navigator.scheduling) === null || _a === void 0 ? void 0 : _a.isInputPending) ? () => navigator.scheduling.isInputPending() : null;
@@ -11802,7 +13437,10 @@
       if (this.chunkBudget <= 0)
         return;
       let { state, viewport: { to: vpTo } } = this.view, field = state.field(Language.state);
-      if (field.tree == field.context.tree && field.context.isDone(vpTo + 1e5))
+      if (field.tree == field.context.tree && field.context.isDone(
+        vpTo + 1e5
+        /* MaxParseAhead */
+      ))
         return;
       let endTime = Date.now() + Math.min(this.chunkBudget, 100, deadline && !isInputPending ? Math.max(25, deadline.timeRemaining() - 5) : 1e9);
       let viewportFirst = field.context.treeLen < vpTo && state.doc.length > vpTo + 1e3;
@@ -11844,6 +13482,9 @@
     enables: [Language.state, parseWorker]
   });
   var LanguageSupport = class {
+    /**
+    Create a language support object.
+    */
     constructor(language2, support = []) {
       this.language = language2;
       this.support = support;
@@ -11887,11 +13528,22 @@
     return tree ? syntaxIndentation(context, tree, pos) : null;
   }
   var IndentContext = class {
+    /**
+    Create an indent context.
+    */
     constructor(state, options = {}) {
       this.state = state;
       this.options = options;
       this.unit = getIndentUnit(state);
     }
+    /**
+    Get a description of the line at the given position, taking
+    [simulated line
+    breaks](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
+    into account. If there is such a break at `pos`, the `bias`
+    argument determines whether the part of the line line before or
+    after the break is used.
+    */
     lineAt(pos, bias = 1) {
       let line2 = this.state.doc.lineAt(pos);
       let { simulateBreak, simulateDoubleBreak } = this.options;
@@ -11905,12 +13557,19 @@
       }
       return line2;
     }
+    /**
+    Get the text directly after `pos`, either the entire line
+    or the next 100 characters, whichever is shorter.
+    */
     textAfterPos(pos, bias = 1) {
       if (this.options.simulateDoubleBreak && pos == this.options.simulateBreak)
         return "";
       let { text, from } = this.lineAt(pos, bias);
       return text.slice(pos - from, Math.min(text.length, pos + 100 - from));
     }
+    /**
+    Find the column for the given position.
+    */
     column(pos, bias = 1) {
       let { text, from } = this.lineAt(pos, bias);
       let result = this.countColumn(text, pos - from);
@@ -11919,9 +13578,16 @@
         result += override - this.countColumn(text, text.search(/\S|$/));
       return result;
     }
+    /**
+    Find the column position (taking tabs into account) of the given
+    position in the given string.
+    */
     countColumn(line2, pos = line2.length) {
       return countColumn(line2, this.state.tabSize, pos);
     }
+    /**
+    Find the indentation column of the line at the given point.
+    */
     lineIndent(pos, bias = 1) {
       let { text, from } = this.lineAt(pos, bias);
       let override = this.options.overrideIndentation;
@@ -11932,6 +13598,11 @@
       }
       return this.countColumn(text, text.search(/\S|$/));
     }
+    /**
+    Returns the [simulated line
+    break](https://codemirror.net/6/docs/ref/#language.IndentContext.constructor^options.simulateBreak)
+    for this context, if any.
+    */
     get simulatedBreak() {
       return this.options.simulateBreak || null;
     }
@@ -11965,19 +13636,33 @@
   function topIndent() {
     return 0;
   }
-  var TreeIndentContext = class extends IndentContext {
+  var TreeIndentContext = class _TreeIndentContext extends IndentContext {
     constructor(base2, pos, node) {
       super(base2.state, base2.options);
       this.base = base2;
       this.pos = pos;
       this.node = node;
     }
+    /**
+    @internal
+    */
     static create(base2, pos, node) {
-      return new TreeIndentContext(base2, pos, node);
+      return new _TreeIndentContext(base2, pos, node);
     }
+    /**
+    Get the text directly after `this.pos`, either the entire line
+    or the next 100 characters, whichever is shorter.
+    */
     get textAfter() {
       return this.textAfterPos(this.pos);
     }
+    /**
+    Get the indentation at the reference line for `this.node`, which
+    is the line on which it starts, unless there is a node that is
+    _not_ a parent of this node covering the start of that line. If
+    so, the line at the start of that node is tried, again skipping
+    on if it is covered by another such node.
+    */
     get baseIndent() {
       let line2 = this.state.doc.lineAt(this.node.from);
       for (; ; ) {
@@ -11990,6 +13675,10 @@
       }
       return this.lineIndent(line2.from);
     }
+    /**
+    Continue looking for indentations in the node's parent nodes,
+    and return the result of that.
+    */
     continue() {
       let parent = this.node.parent;
       return parent ? indentFrom(parent, this.pos, this.base) : 0;
@@ -12026,7 +13715,7 @@
       return closed ? context.column(aligned.from) : context.column(aligned.to);
     return context.baseIndent + (closed ? 0 : context.unit * units);
   }
-  var HighlightStyle = class {
+  var HighlightStyle = class _HighlightStyle {
     constructor(spec, options) {
       let modSpec;
       function def(spec2) {
@@ -12046,8 +13735,23 @@
       this.module = modSpec ? new StyleModule(modSpec) : null;
       this.themeType = options.themeType;
     }
+    /**
+    Create a highlighter style that associates the given styles to
+    the given tags. The specs must be objects that hold a style tag
+    or array of tags in their `tag` property, and either a single
+    `class` property providing a static CSS class (for highlighter
+    that rely on external styling), or a
+    [`style-mod`](https://github.com/marijnh/style-mod#documentation)-style
+    set of CSS properties (which define the styling for those tags).
+    
+    The CSS rules created for a highlighter will be emitted in the
+    order of the spec's properties. That means that for elements that
+    have multiple tags associated with them, styles defined further
+    down in the list will have a higher CSS precedence than styles
+    defined earlier.
+    */
     static define(specs, options) {
-      return new HighlightStyle(specs, options || {});
+      return new _HighlightStyle(specs, options || {});
     }
   };
   var highlighterFacet = /* @__PURE__ */ Facet.define();
@@ -12332,9 +14036,21 @@
       return true;
     };
   }
-  var toggleLineComment = /* @__PURE__ */ command(changeLineComment, 0);
-  var toggleBlockComment = /* @__PURE__ */ command(changeBlockComment, 0);
-  var toggleBlockCommentByLine = /* @__PURE__ */ command((o, s) => changeBlockComment(o, s, selectedLineRanges(s)), 0);
+  var toggleLineComment = /* @__PURE__ */ command(
+    changeLineComment,
+    0
+    /* CommentOption.Toggle */
+  );
+  var toggleBlockComment = /* @__PURE__ */ command(
+    changeBlockComment,
+    0
+    /* CommentOption.Toggle */
+  );
+  var toggleBlockCommentByLine = /* @__PURE__ */ command(
+    (o, s) => changeBlockComment(o, s, selectedLineRanges(s)),
+    0
+    /* CommentOption.Toggle */
+  );
   function getConfig(state, pos = state.selection.main.head) {
     let data = state.languageDataAt("commentTokens", pos);
     return data.length ? data[0] : {};
@@ -12546,7 +14262,7 @@
   var redo = /* @__PURE__ */ cmd(1, false);
   var undoSelection = /* @__PURE__ */ cmd(0, true);
   var redoSelection = /* @__PURE__ */ cmd(1, true);
-  var HistEvent = class {
+  var HistEvent = class _HistEvent {
     constructor(changes, effects, mapped, startSelection, selectionsAfter) {
       this.changes = changes;
       this.effects = effects;
@@ -12555,7 +14271,7 @@
       this.selectionsAfter = selectionsAfter;
     }
     setSelAfter(after) {
-      return new HistEvent(this.changes, this.effects, this.mapped, this.startSelection, after);
+      return new _HistEvent(this.changes, this.effects, this.mapped, this.startSelection, after);
     }
     toJSON() {
       var _a2, _b, _c;
@@ -12567,8 +14283,11 @@
       };
     }
     static fromJSON(json) {
-      return new HistEvent(json.changes && ChangeSet.fromJSON(json.changes), [], json.mapped && ChangeDesc.fromJSON(json.mapped), json.startSelection && EditorSelection.fromJSON(json.startSelection), json.selectionsAfter.map(EditorSelection.fromJSON));
+      return new _HistEvent(json.changes && ChangeSet.fromJSON(json.changes), [], json.mapped && ChangeDesc.fromJSON(json.mapped), json.startSelection && EditorSelection.fromJSON(json.startSelection), json.selectionsAfter.map(EditorSelection.fromJSON));
     }
+    // This does not check `addToHistory` and such, it assumes the
+    // transaction needs to be converted to an item. Returns null when
+    // there are no changes or effects in the transaction.
     static fromTransaction(tr, selection2) {
       let effects = none2;
       for (let invert of tr.startState.facet(invertedEffects)) {
@@ -12578,10 +14297,10 @@
       }
       if (!effects.length && tr.changes.empty)
         return null;
-      return new HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection2 || tr.startState.selection, none2);
+      return new _HistEvent(tr.changes.invert(tr.startState.doc), effects, void 0, selection2 || tr.startState.selection, none2);
     }
     static selection(selections) {
-      return new HistEvent(void 0, none2, void 0, void 0, selections);
+      return new _HistEvent(void 0, none2, void 0, void 0, selections);
     }
   };
   function updateBranch(branch, to, maxLen, newEvent) {
@@ -12655,7 +14374,7 @@
     return new HistEvent(mappedChanges, StateEffect.mapEffects(event.effects, mapping), fullMapping, event.startSelection.map(before), selections);
   }
   var joinableUserEvent = /^(input\.type|delete)($|\.)/;
-  var HistoryState = class {
+  var HistoryState = class _HistoryState {
     constructor(done, undone, prevTime = 0, prevUserEvent = void 0) {
       this.done = done;
       this.undone = undone;
@@ -12663,25 +14382,26 @@
       this.prevUserEvent = prevUserEvent;
     }
     isolate() {
-      return this.prevTime ? new HistoryState(this.done, this.undone) : this;
+      return this.prevTime ? new _HistoryState(this.done, this.undone) : this;
     }
     addChanges(event, time, userEvent, newGroupDelay, maxLen) {
       let done = this.done, lastEvent = done[done.length - 1];
-      if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!userEvent || joinableUserEvent.test(userEvent)) && (!lastEvent.selectionsAfter.length && time - this.prevTime < newGroupDelay && isAdjacent(lastEvent.changes, event.changes) || userEvent == "input.type.compose")) {
+      if (lastEvent && lastEvent.changes && !lastEvent.changes.empty && event.changes && (!userEvent || joinableUserEvent.test(userEvent)) && (!lastEvent.selectionsAfter.length && time - this.prevTime < newGroupDelay && isAdjacent(lastEvent.changes, event.changes) || // For compose (but not compose.start) events, always join with previous event
+      userEvent == "input.type.compose")) {
         done = updateBranch(done, done.length - 1, maxLen, new HistEvent(event.changes.compose(lastEvent.changes), conc(event.effects, lastEvent.effects), lastEvent.mapped, lastEvent.startSelection, none2));
       } else {
         done = updateBranch(done, done.length, maxLen, event);
       }
-      return new HistoryState(done, none2, time, userEvent);
+      return new _HistoryState(done, none2, time, userEvent);
     }
     addSelection(selection2, time, userEvent, newGroupDelay) {
       let last = this.done.length ? this.done[this.done.length - 1].selectionsAfter : none2;
       if (last.length > 0 && time - this.prevTime < newGroupDelay && userEvent == this.prevUserEvent && userEvent && /^select($|\.)/.test(userEvent) && eqSelectionShape(last[last.length - 1], selection2))
         return this;
-      return new HistoryState(addSelection(this.done, selection2), this.undone, time, userEvent);
+      return new _HistoryState(addSelection(this.done, selection2), this.undone, time, userEvent);
     }
     addMapping(mapping) {
-      return new HistoryState(addMappingToBranch(this.done, mapping), addMappingToBranch(this.undone, mapping), this.prevTime, this.prevUserEvent);
+      return new _HistoryState(addMappingToBranch(this.done, mapping), addMappingToBranch(this.undone, mapping), this.prevTime, this.prevUserEvent);
     }
     pop(side, state, selection2) {
       let branch = side == 0 ? this.done : this.undone;
@@ -13783,19 +15503,22 @@
     token = tok2 || "\n";
     currRange = range;
   }
-  var Range3 = class {
+  var Range3 = class _Range {
     constructor(start = 0, length = 0) {
       if (start < 0 || length < 0)
         throw `Invalid range ${start} to ${start + length}`;
       this._start = start;
       this.length = length;
     }
+    /** @param {Number} pos */
     includes(pos) {
       return this.end >= pos && pos >= this.start;
     }
+    /** @param {Range} end */
     until(end) {
-      return new Range3(this.start, end.end - this.start);
+      return new _Range(this.start, end.end - this.start);
     }
+    /** @param {string} text */
     slice(text) {
       return text.slice(this.start, this.end);
     }
@@ -13809,7 +15532,7 @@
       return this.start + this.length;
     }
   };
-  var RelativeRange = class extends Range3 {
+  var RelativeRange = class _RelativeRange extends Range3 {
     constructor(parent, start, length) {
       super(start - parent.start, length);
       this.parent = parent;
@@ -13824,10 +15547,14 @@
       return new Range3(this.start, this.length);
     }
     until(end) {
-      return new RelativeRange(this.parent, this.start, end.end - this.start);
+      return new _RelativeRange(this.parent, this.start, end.end - this.start);
     }
   };
   var ASMError = class {
+    /**
+     * @param {string} message The message this error holds
+     * @param {Range} range The range of this error
+     */
     constructor(message, range = currRange) {
       this.message = message;
       this.range = range;
@@ -13836,6 +15563,17 @@
 
   // core/relocations.js
   var RelocEntry = class {
+    /**
+     * 
+     * @param {Object} config
+     * @param {number} config.offset
+     * @param {number} config.sizeReduction
+     * @param {import("./shuntingYard").IdentifierValue} config.value
+     * @param {number} config.size
+     * @param {boolean} config.signed
+     * @param {boolean} config.pcRelative
+     * @param {boolean} config.functionAddr
+     */
     constructor({ offset, sizeReduction, value, size, signed, pcRelative, functionAddr }) {
       this.offset = offset;
       value = value.flatten();
@@ -13866,10 +15604,14 @@
   // core/statement.js
   var totalStatements = 0;
   var StatementNode = class {
+    /** @param {Statement?} statement */
     constructor(statement = null) {
       this.statement = statement;
       this.next = null;
     }
+    /**
+     * @param {Number} pos
+     * @returns {StatementNode?} */
     find(pos) {
       if (this.statement && this.statement.range.includes(pos))
         return this;
@@ -13900,6 +15642,12 @@
       }
       return output;
     }
+    /** Select the instruction range that is affected by a given range
+     * @param {Range} range
+     * @param {boolean} update
+     * @param {Number} sourceLength
+     * @returns {InstructionRange}
+     */
     getAffectedArea(range, update = false, sourceLength = 0) {
       let node = this;
       let head = this, last = null, tail = null;
@@ -13938,6 +15686,14 @@
     }
   };
   var Statement = class {
+    /**
+     * @param {Object} config
+     * @param {Number} config.addr
+     * @param {Number} config.maxSize
+     * @param {Range} config.range
+     * @param {ASMError?} config.error
+     * @param {Section} config.section
+     * @param {import("./parser.js").Syntax} config.syntax */
     constructor({ addr: addr2 = 0, maxSize = 0, range = new Range3(), error = null, section = currSection, syntax = currSyntax } = {}) {
       this.id = totalStatements++;
       this.error = error;
@@ -13955,9 +15711,23 @@
       this.relocations = [];
       this.lineEnds = [];
     }
+    /** @param {BigInt|Number} byte */
     genByte(byte) {
       this.bytes[this.length++] = Number(byte);
     }
+    /**
+     * @typedef {Object} ValueConfig
+     * @property {number} size
+     * @property {boolean} signed
+     * @property {boolean} sizeRelative
+     * @property {boolean} functionAddr
+     * @property {number?} dispMul
+     */
+    /**
+     * @param {import("./shuntingYard.js").IdentifierValue} value
+     * @param {ValueConfig} config
+     * @returns {number} The number of bits generated
+     */
     genValue(value, {
       size,
       signed = false,
@@ -14048,18 +15818,31 @@
   };
   var OPT = Object.freeze({
     REG: new OperandType("General-purpose register"),
+    // 8/64-bit - ax, bl, esi, r15, etc.
     VEC: new OperandType("Vector register", { isVector: true }),
+    // 64/512-bit - %mm0 / %mm7, %xmm0 / %xmm15, %ymm0 / %ymm15, %zmm0 / %zmm15
     VMEM: new OperandType("Vector memory", { isMemory: true, isVector: true }),
+    // e.g. (%xmm0)
     IMM: new OperandType("Immediate value"),
+    // e.g. $20
     MASK: new OperandType("Mask register"),
+    // 64-bit - %k0 / %k7
     REL: new OperandType("Relative address", { isMemory: true }),
+    // memory that consists of only an address (may be converted to MEM)
     MEM: new OperandType("Memory operand", { isMemory: true }),
+    // e.g. (%rax)
     ST: new OperandType("Floating-point stack register", { hasSize: false }),
+    // 80-bit - %st(0) / %st(7)
     SEG: new OperandType("Segment register", { hasSize: false }),
+    // 16-bit - %cs, %ds, %es, %fs, %gs, %ss
     IP: new OperandType("Instruction pointer register", { hasSize: false }),
+    // only used in memory - %eip or %rip
     BND: new OperandType("Bound register", { hasSize: false }),
+    // 128-bit - %bnd0 / %bnd3
     CTRL: new OperandType("Control register", { hasSize: false }),
+    // 64-bit - %cr0, %cr2, %cr3, %cr4 and %cr8
     DBG: new OperandType("Debug register", { hasSize: false })
+    // 64-bit - %dr0 / %dr7
   });
   var registers = Object.assign({}, ...[
     "al",
@@ -14184,18 +15967,12 @@
         return true;
     } else {
       let max = bitness == 64 ? 32 : 8;
-      if (reg.startsWith("mm") || reg.startsWith("dr"))
-        reg = reg.slice(2), max = 8;
-      else if (reg.startsWith("cr"))
-        reg = reg.slice(2), max = bitness == 64 ? 9 : 8;
-      else if (reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm"))
-        reg = reg.slice(3);
-      else if (reg.startsWith("bnd"))
-        reg = reg.slice(3), max = 4;
-      else if (reg[0] == "k")
-        reg = reg.slice(1), max = 8;
-      else
-        return false;
+      if (reg.startsWith("mm") || reg.startsWith("dr")) reg = reg.slice(2), max = 8;
+      else if (reg.startsWith("cr")) reg = reg.slice(2), max = bitness == 64 ? 9 : 8;
+      else if (reg.startsWith("xmm") || reg.startsWith("ymm") || reg.startsWith("zmm")) reg = reg.slice(3);
+      else if (reg.startsWith("bnd")) reg = reg.slice(3), max = 4;
+      else if (reg[0] == "k") reg = reg.slice(1), max = 8;
+      else return false;
       if (!isNaN(reg) && (reg = parseInt(reg), reg >= 0 && reg < max))
         return true;
     }
@@ -14249,24 +16026,16 @@
         size = 64;
     } else {
       let max = currBitness == 64 ? 32 : 8;
-      if (token.startsWith("bnd"))
-        reg = regToken.slice(3), type = OPT.BND, max = 4;
-      else if (regToken[0] == "k")
-        reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
-      else if (regToken.startsWith("dr"))
-        reg = regToken.slice(2), type = OPT.DBG, max = 8;
-      else if (regToken.startsWith("cr"))
-        reg = regToken.slice(2), type = OPT.CTRL, max = currBitness == 64 ? 9 : 8;
+      if (token.startsWith("bnd")) reg = regToken.slice(3), type = OPT.BND, max = 4;
+      else if (regToken[0] == "k") reg = regToken.slice(1), type = OPT.MASK, max = 8, size = NaN;
+      else if (regToken.startsWith("dr")) reg = regToken.slice(2), type = OPT.DBG, max = 8;
+      else if (regToken.startsWith("cr")) reg = regToken.slice(2), type = OPT.CTRL, max = currBitness == 64 ? 9 : 8;
       else {
         type = OPT.VEC;
-        if (regToken.startsWith("mm"))
-          reg = regToken.slice(2), size = 64, max = 8;
-        else if (regToken.startsWith("xmm"))
-          reg = regToken.slice(3), size = 128;
-        else if (regToken.startsWith("ymm"))
-          reg = regToken.slice(3), size = 256;
-        else if (regToken.startsWith("zmm"))
-          reg = regToken.slice(3), size = 512;
+        if (regToken.startsWith("mm")) reg = regToken.slice(2), size = 64, max = 8;
+        else if (regToken.startsWith("xmm")) reg = regToken.slice(3), size = 128;
+        else if (regToken.startsWith("ymm")) reg = regToken.slice(3), size = 256;
+        else if (regToken.startsWith("zmm")) reg = regToken.slice(3), size = 512;
         else
           throw new ASMError("Unknown register");
       }
@@ -14280,6 +16049,7 @@
     return { reg, type, size, prefs };
   }
   var Operand = class {
+    /** @param {Statement} instr */
     constructor(instr2, expectRelative = false) {
       this.reg = this.reg2 = -1;
       this.shift = 0;
@@ -14582,7 +16352,15 @@
       throw e;
     }
   }
-  var IdentifierValue = class {
+  var IdentifierValue = class _IdentifierValue {
+    /**
+     * @param {Object} config
+     * @param {BigInt} config.addend 
+     * @property {import('./symbols.js').Symbol} config.symbol
+     * @property {Section} config.section
+     * @property {Range} config.range
+     * @property {RegData} config.regData
+     * @property {Number[]} lineEnds */
     constructor({ addend = null, symbol = null, section = pseudoSections.UND, range, regData = null, pcRelative = false, lineEnds = [] } = {}) {
       this.addend = addend;
       this.symbol = symbol;
@@ -14601,7 +16379,7 @@
         val = val.symbol.value;
         addend += val.addend;
       }
-      return new IdentifierValue({
+      return new _IdentifierValue({
         ...val,
         addend
       });
@@ -14616,6 +16394,12 @@
       }
       return total;
     }
+    /**
+     * @param {Statement} instr
+     * @param {IdentifierValue} op1
+     * @param {string} func
+     * @param {IdentifierValue} op2
+     */
     apply(instr2, func, op, allowPCRelative = true) {
       this.range = this.range.until(op.range);
       if (this.section == pseudoSections.ABS && op.section == pseudoSections.ABS)
@@ -14687,16 +16471,26 @@
       this.pcRelative = this.pcRelative || op.pcRelative;
       this.lineEnds = [...this.lineEnds, ...op.lineEnds].sort((a, b) => a - b);
     }
+    /** Infer the size of this value
+     * @param {boolean} signed Whether to treat this value as signed or not */
     inferSize(signed = true) {
       return inferSize(this.addend, signed);
     }
   };
   var Identifier = class {
+    /**
+     * @param {Statement} instr
+     * @param {Number} value
+     * @param {Range} range
+     * @param {Number[]} lineEnds */
     constructor(instr2, value, range, lineEnds = []) {
       this.value = value;
       this.range = range;
       this.lineEnds = lineEnds;
     }
+    /**
+     * @param {Statement} instr
+     * @returns {IdentifierValue} */
     getValue(instr2) {
       return new IdentifierValue({
         addend: this.value,
@@ -14707,6 +16501,10 @@
     }
   };
   var SymbolIdentifier = class extends Identifier {
+    /**
+     * @param {Statement} instr
+     * @param {string} name
+     * @param {Range} range */
     constructor(instr2, name2, range) {
       super(instr2, 0, range);
       this.name = name2;
@@ -14714,6 +16512,9 @@
       if (this.isIP)
         instr2.ipRelative = true;
     }
+    /**
+     * @param {Statement} instr
+     * @returns {IdentifierValue} */
     getValue(instr2) {
       if (this.isIP)
         return new IdentifierValue({
@@ -14742,6 +16543,10 @@
     }
   };
   var RegisterIdentifier = class extends Identifier {
+    /**
+     * @param {Statement} instr
+     * @param {import("./operands.js").Register} register
+     * @param {Range} range */
     constructor(instr2, register, range) {
       super(instr2, 0, range);
       this.register = register;
@@ -14763,6 +16568,7 @@
     }
   };
   var Expression = class {
+    /** @param {Statement} instr */
     constructor(instr2, expectMemory = false, uses = null) {
       this.hasSymbols = false;
       this.vecSize = 0;
@@ -14863,6 +16669,11 @@
         }
       }
     }
+    /**
+     * @param {Statement} instr
+     * @param {boolean} allowPCRelative
+     * @param {boolean} expectAbsolute
+     * @returns {IdentifierValue} */
     evaluate(instr2, allowPCRelative = true, expectAbsolute = false) {
       if (this.stack.length == 0)
         return new IdentifierValue({ section: pseudoSections.ABS });
@@ -14894,6 +16705,9 @@
       }
       return stack[0];
     }
+    /**
+     * @param {string} func
+     * @param {Expression} expr */
     apply(func, expr = null) {
       if (expr === null)
         this.stack.push({ func, unary: true });
@@ -14948,6 +16762,7 @@
     instr2.wantsRecomp = true;
   }
   var SymbolDefinition = class extends Statement {
+    /** @type {Symbol} */
     symbol;
     constructor({ name: name2, opcodeRange = null, isLabel = false, compile = true, type = 0, bind = 0, ...config2 }) {
       if (opcodeRange === null)
@@ -14982,6 +16797,7 @@
             queueRecomp(ref);
       }
     }
+    // Re-evaluate the symbol. Return true if references to the symbol should be recompiled
     compile() {
       let originError = this.error;
       let originValue = this.symbol.value;
@@ -15094,14 +16910,23 @@
   };
   var sectionFlags = {
     a: 2,
+    // SHF_ALLOC
     e: 134217728,
+    // SHF_EXCLUDE
     o: 64,
+    // SHF_INFO_LINK
     w: 1,
+    // SHF_WRITE
     x: 4,
+    // SHF_EXECINSTR
     M: 16,
+    // SHF_MERGE
     S: 32,
+    // SHF_STRINGS
     G: 512,
+    // SHF_GROUP
     T: 1024
+    // SHF_TLS
   };
   var sectionTypes = {
     "progbits": 1,
@@ -15115,6 +16940,7 @@
   var SHT_DYNSYM = 11;
   var SHT_DYNAMIC = 6;
   var Section = class {
+    /** @param {string} name */
     constructor(name2) {
       this.name = name2;
       this.cursor = null;
@@ -15221,21 +17047,30 @@
     byte: 1,
     short: 2,
     word: 2,
+    // .word = .short
     hword: 2,
+    // .hword = .short
     value: 2,
+    // .value = .short
     "2byte": 2,
+    // .2byte = .short
     int: 3,
     long: 3,
+    // .long = .int
     "4byte": 4,
+    // .4byte = .int
     quad: 4,
     "8byte": 4,
+    // .8byte = .quad
     octa: 5,
     float: 6,
     single: 6,
+    // .single = .float
     double: 7,
     asciz: 8,
     ascii: 9,
     string: 9,
+    // .string = .ascii
     intel_syntax: 10,
     att_syntax: 11,
     text: 12,
@@ -15324,6 +17159,7 @@
     }
   }
   var SectionDirective = class extends Statement {
+    /** @param {Section} section */
     constructor(config2, section = null) {
       let flags = 0, type = sectionTypes.progbits, attribRange = null;
       if (section === null) {
@@ -15601,10 +17437,9 @@
     remove() {
       super.remove();
       for (const info of this.setting)
-        for (const { symbol } of this.symbols)
-          for (const def of symbol.definitions)
-            if (!def.removed && def.setting?.includes(info))
-              queueRecomp(def);
+        for (const { symbol } of this.symbols) for (const def of symbol.definitions)
+          if (!def.removed && def.setting?.includes(info))
+            queueRecomp(def);
     }
   };
   var SymBindDirective = class extends SymInfo {
@@ -15818,6 +17653,10 @@
   var sizeLen = (x) => x == 32 ? 4n : x == 16 ? 2n : 1n;
   var absolute = (x) => x < 0n ? ~x : x;
   var OpCatcher = class {
+    /**
+     * Constructor
+     * @param {string} format 
+     */
     constructor(format) {
       opCatcherCache[format] = this;
       let i = 1;
@@ -15868,6 +17707,12 @@
           this.sizes = -1;
       }
     }
+    /** Attempt to "catch" a given operand.
+     * @param {Operand} operand
+     * @param {number} prevSize
+     * @param {boolean} isVex
+     * @returns {number|null} The operand's corrected size on success, null on failure
+     */
     catch(operand, prevSize, isVex) {
       let opSize = this.moffset ? operand.dispSize : this.unsigned ? operand.unsignedSize : operand.size;
       let rawSize, size = 0, found = false;
@@ -15923,6 +17768,10 @@
     }
   };
   var Operation = class {
+    /**
+     * Constructor
+     * @param {string[]} format 
+     */
     constructor(format) {
       this.vexBase = 0;
       this.evexPermits = null;
@@ -15935,18 +17784,13 @@
       this.vexOnly = format[0][0] == "v";
       if ("vVwWl!xX".includes(format[0][0])) {
         let specializers = format.shift();
-        if (specializers.includes("w"))
-          this.vexBase |= 32768;
-        if (specializers.includes("W"))
-          this.forceRexW = true, this.requireBitness = 64;
-        if (specializers.includes("l"))
-          this.vexBase |= 1024;
+        if (specializers.includes("w")) this.vexBase |= 32768;
+        if (specializers.includes("W")) this.forceRexW = true, this.requireBitness = 64;
+        if (specializers.includes("l")) this.vexBase |= 1024;
         if (specializers.includes("!"))
           this.actuallyNotVex = true;
-        if (specializers.includes("x"))
-          this.requireBitness = 32;
-        if (specializers.includes("X"))
-          this.requireBitness = 64;
+        if (specializers.includes("x")) this.requireBitness = 32;
+        if (specializers.includes("X")) this.requireBitness = 64;
       }
       let [opcode, extension] = format.shift().split(".");
       let adderSeparator = opcode.indexOf("+");
@@ -16003,12 +17847,9 @@
           continue;
         }
         opCatcher = opCatcherCache[operand] || new OpCatcher(operand);
-        if (opCatcher.type === OPT.REL)
-          this.relativeSizes = opCatcher.sizes;
-        if (!opCatcher.vexOp || this.forceVex)
-          this.opCatchers.push(opCatcher);
-        if (this.vexOpCatchers !== null)
-          this.vexOpCatchers.push(opCatcher);
+        if (opCatcher.type === OPT.REL) this.relativeSizes = opCatcher.sizes;
+        if (!opCatcher.vexOp || this.forceVex) this.opCatchers.push(opCatcher);
+        if (this.vexOpCatchers !== null) this.vexOpCatchers.push(opCatcher);
         if (Array.isArray(opCatcher.sizes)) {
           let had64 = false;
           for (let size of opCatcher.sizes) {
@@ -16025,6 +17866,11 @@
         this.vexBase |= 30720 | [15, 3896, 3898].indexOf(this.code >> 8) + 1 | [null, 102, 243, 242].indexOf(this.prefix) << 8;
       }
     }
+    /**
+     * Check if the given VEX data is appropriate for this operation
+     * @param {VexData} vexInfo
+     * @returns {boolean}
+     */
     validateVEX(vexInfo) {
       if (vexInfo.needed) {
         if (this.actuallyNotVex || !this.allowVex)
@@ -16040,6 +17886,14 @@
         return false;
       return true;
     }
+    /**
+     * Attempt to fit the operand list into the operation
+     * @param {Operand[]} operands
+     * @param {Instruction} instr
+     * @param {VexData} vexInfo
+     * @returns an object containing encoding data, or null if the operand
+     * list didn't fit
+     */
     fit(operands, instr2, vexInfo) {
       if (!this.validateVEX(vexInfo))
         return null;
@@ -16205,7 +18059,9 @@
         rexw,
         prefix: vexInfo.needed ? null : this.allVectors && overallSize > 64 ? 102 : this.prefix,
         extendOp,
+        /** @type {Operand} */
         reg,
+        /** @type {Operand} */
         rm,
         vex: vexInfo.needed ? vex : null,
         evexImm,
@@ -16216,6 +18072,11 @@
         dispMul
       };
     }
+    /**
+     * Predict a fitting size for a given relative operand
+     * @param {Operand} operand
+     * @param {Instruction} instr
+    */
     getRelSize(operand, instr2) {
       if (operand.value.isRelocatable())
         return Math.max(...this.relativeSizes);
@@ -16239,6 +18100,11 @@
       }
       return small;
     }
+    /**
+     * Check if a list of operands has the right types for this operation
+     * @param {Operand[]} operands 
+     * @param {VexData} vexInfo 
+     */
     matchTypes(operands, vexInfo) {
       if (vexInfo.mask == 0 && this.requireMask)
         return false;
@@ -16247,7 +18113,13 @@
         return false;
       for (let i = 0; i < operands.length; i++) {
         const catcher = opCatchers[i], operand = operands[i];
-        if (operand.type != catcher.type && !(operand.type === OPT.MEM && catcher.acceptsMemory) || catcher.implicitValue !== null && catcher.implicitValue !== (operand.type === OPT.IMM ? Number(operand.value.addend) : operand.reg) || catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0))
+        if (
+          // Check that the types match
+          operand.type != catcher.type && !(operand.type === OPT.MEM && catcher.acceptsMemory) || // In case of implicit operands, check that the values match
+          catcher.implicitValue !== null && catcher.implicitValue !== (operand.type === OPT.IMM ? Number(operand.value.addend) : operand.reg) || // Super special case: if the operand is of type moffset,
+          // make sure it is only an offset
+          catcher.moffset && (operand.reg >= 0 || operand.reg2 >= 0)
+        )
           return false;
       }
       return true;
@@ -17981,8 +19853,7 @@ g nle`.split("\n");
   fpuArithMnemonics.split(" ").forEach((name2, i) => {
     let list = ["D8." + i + " ml", "DC." + i + " m$q"];
     mnemonics["fi" + name2] = ["DA." + i + " ml", "DE." + i + " m$w"];
-    if (i == 2 || i == 3)
-      list.push("D8." + i + " F", hex(55489 + i * 8));
+    if (i == 2 || i == 3) list.push("D8." + i + " F", hex(55489 + i * 8));
     else {
       list.push("D8." + i + " F F_0");
       list.push("DC." + i + " F_0 F");
@@ -18010,6 +19881,13 @@ g nle`.split("\n");
     return intel && intelDifferences.hasOwnProperty(mnemonic);
   }
   var MnemonicInterpretation = class {
+    /** 
+     * Constructor
+     * @param {string} raw
+     * @param {Operation[]} operations
+     * @param {Number | null | undefined} size
+     * @param {boolean} isVex
+     */
     constructor(raw, operations, size, isVex) {
       this.raw = raw;
       this.operations = operations;
@@ -18142,6 +20020,7 @@ g nle`.split("\n");
       this.opcodeRange = new RelativeRange(config2.range, config2.range.start, config2.range.length);
       this.interpret();
     }
+    // Generate Instruction.outline
     interpret() {
       let opcode = this.opcode, operand = null, evexPrefixRange;
       let vexInfo = {
@@ -18306,16 +20185,15 @@ g nle`.split("\n");
             } else {
               op2.size = 8;
               relocationSizeLoop:
-                for (const interp of interps)
-                  for (const operation of interp.operations) {
-                    const sizes = (interp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes;
-                    if (sizes.length != 1 || (sizes[0] & ~7) != 8) {
-                      op2.size = operands.length > 2 ? operands[2].size : operands[1].size;
-                      if (op2.size > 32)
-                        op2.size = 32;
-                      break relocationSizeLoop;
-                    }
+                for (const interp of interps) for (const operation of interp.operations) {
+                  const sizes = (interp.vex ? operation.vexOpCatchers : operation.opCatchers)[i].sizes;
+                  if (sizes.length != 1 || (sizes[0] & ~7) != 8) {
+                    op2.size = operands.length > 2 ? operands[2].size : operands[1].size;
+                    if (op2.size > 32)
+                      op2.size = 32;
+                    break relocationSizeLoop;
                   }
+                }
             }
             op2.unsignedSize = op2.size;
           } else if (!op2.expression.hasSymbols) {
@@ -18384,28 +20262,17 @@ g nle`.split("\n");
       if (op.size == 16)
         prefsToGen.DATASIZE = true;
       let modRmIndex = 0;
-      if (prefsToGen.SEG0)
-        this.genByte(38);
-      if (prefsToGen.SEG1)
-        this.genByte(46);
-      if (prefsToGen.SEG2)
-        this.genByte(54);
-      if (prefsToGen.SEG3)
-        this.genByte(62);
-      if (prefsToGen.SEG4)
-        this.genByte(100);
-      if (prefsToGen.SEG5)
-        this.genByte(101);
-      if (prefsToGen.ADDRSIZE)
-        this.genByte(103);
-      if (prefsToGen.DATASIZE)
-        this.genByte(102);
-      if (prefsToGen.LOCK)
-        this.genByte(240);
-      if (prefsToGen.REPNE)
-        this.genByte(242);
-      if (prefsToGen.REPE)
-        this.genByte(243);
+      if (prefsToGen.SEG0) this.genByte(38);
+      if (prefsToGen.SEG1) this.genByte(46);
+      if (prefsToGen.SEG2) this.genByte(54);
+      if (prefsToGen.SEG3) this.genByte(62);
+      if (prefsToGen.SEG4) this.genByte(100);
+      if (prefsToGen.SEG5) this.genByte(101);
+      if (prefsToGen.ADDRSIZE) this.genByte(103);
+      if (prefsToGen.DATASIZE) this.genByte(102);
+      if (prefsToGen.LOCK) this.genByte(240);
+      if (prefsToGen.REPNE) this.genByte(242);
+      if (prefsToGen.REPE) this.genByte(243);
       if (op.prefix !== null) {
         if (op.prefix > 255)
           this.genByte(op.prefix >> 8);
@@ -18459,10 +20326,13 @@ g nle`.split("\n");
         this.genByte(op.evexImm);
       else if (op.moffs !== null)
         this.genValue(op.moffs.value, { size: op.moffs.dispSize, signed: true });
-      else
-        for (const imm of op.imms)
-          this.genValue(imm.value, { size: imm.size, signed: !op.unsigned });
+      else for (const imm of op.imms)
+        this.genValue(imm.value, { size: imm.size, signed: !op.unsigned });
     }
+    /** Generate the ModRM byte
+     * @param {Operand} rm
+     * @param {Operand} r
+     * @param {int?} forcedDispSize */
     makeModRM(rm, r, forcedDispSize) {
       let modrm = 0, rex = 0, sib = null;
       let rmReg = rm.reg, rmReg2 = rm.reg2, rReg = r.reg;
@@ -18508,6 +20378,11 @@ g nle`.split("\n");
       }
       return [rex, modrm, sib];
     }
+    /** Determine whether to shorten a memory operand's displacement if possible,
+     * and queue for recompilation as necessary
+     * @param {Operand} operand The memory operand to determine
+     * @param {Number} shortSize The possible short size
+     * @param {Number} longSize The default long size */
     determineDispSize(operand, shortSize, longSize) {
       if (!operand.value.isRelocatable() && operand.value.inferSize() <= shortSize && (operand.dispSize == shortSize || operand.sizeAvailable(SHORT_DISP))) {
         operand.dispSize = shortSize;
@@ -18570,6 +20445,7 @@ g nle`.split("\n");
     instr2.range.length = (seekEnd ? currRange.start : currRange.end) - instr2.range.start;
   }
   var AssemblyState = class {
+    /** @param {AssemblyConfig} */
     constructor({
       syntax = {
         intel: false,
@@ -18597,12 +20473,17 @@ g nle`.split("\n");
       this.compiledRange = new Range3();
       this.errors = [];
     }
+    /** Compile Assembly from source code into machine code 
+     * @param {string} source
+    */
     compile(source, {
       haltOnError = false,
       range: replacementRange = new Range3(0, this.source.length),
       doSecondPass = true
     } = {}) {
-      this.source = this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
+      this.source = /* If the given range is outside the current
+      code's span, fill the in-between with newlines */
+      this.source.slice(0, replacementRange.start).padEnd(replacementRange.start, "\n") + source + this.source.slice(replacementRange.end);
       loadSymbols(this.symbols, this.fileSymbols);
       loadSections(this.sections, replacementRange);
       currBitness = this.bitness;
@@ -18711,6 +20592,7 @@ g nle`.split("\n");
       if (doSecondPass)
         this.secondPass(haltOnError);
     }
+    // Run the second pass on the instruction list
     secondPass(haltOnError = false) {
       addr = 0;
       let node;
@@ -18782,6 +20664,12 @@ g nle`.split("\n");
         end = this.source.length;
       return new Range3(start, end - start);
     }
+    /**
+     * @callback instrCallback
+     * @param {Statement} instr
+     * @param {Number} line
+    */
+    /** @param {instrCallback} func */
     iterate(func) {
       let line2 = 1, nextLine = 0, node = this.head.next;
       while (nextLine != Infinity) {
@@ -18793,6 +20681,12 @@ g nle`.split("\n");
         line2++;
       }
     }
+    /**
+     * @callback lineCallback
+     * @param {Uint8Array} bytes
+     * @param {Number} line
+    */
+    /** @param {lineCallback} func */
     bytesPerLine(func) {
       let lineQueue = [];
       let line2 = 1, nextLine = 0, node = this.head.next;
@@ -18861,6 +20755,7 @@ g nle`.split("\n");
     }];
   });
   var ASMColor = class extends RangeValue {
+    /** @param {String} color */
     constructor(color) {
       super();
       this.color = color;
@@ -18884,6 +20779,11 @@ g nle`.split("\n");
     }
   );
   var AsmDumpWidget = class extends WidgetType {
+    /**
+     * @param {Uint8Array} bytes
+     * @param {Number} offset
+     * @param {RangeSet<ASMColor>} colors
+     */
     constructor(bytes, offset, colors) {
       super();
       this.bytes = bytes;
@@ -18928,6 +20828,7 @@ g nle`.split("\n");
       }
       return true;
     }
+    /** @param {HTMLElement} node */
     updateDOM(node) {
       node.style.marginLeft = this.offset + "px";
       let colorCursor = this.colors.iter();
@@ -18980,6 +20881,7 @@ g nle`.split("\n");
       "&dark .cm-asm-dump": { color: "#AAA" }
     }),
     ViewPlugin.fromClass(class {
+      /** @param {EditorView} view */
       constructor(view) {
         this.ctx = document.createElement("canvas").getContext("2d");
         this.lineWidths = [];
@@ -18992,6 +20894,7 @@ g nle`.split("\n");
           view.dispatch();
         }, 1);
       }
+      /** @param {ViewUpdate} update */
       update(update) {
         if (!update.docChanged && !update.transactions.some(
           (tr) => tr.effects.some(
@@ -19016,6 +20919,7 @@ g nle`.split("\n");
           newWidths.push(this.ctx.measureText(expandTabs(doc2.line(i).text, tabSize)).width);
         this.lineWidths.splice(start - 1, removedLines + 1, ...newWidths);
       }
+      /** @param {EditorState} state */
       makeAsmDecorations(state) {
         let doc2 = state.doc;
         let maxOffset2 = Math.max(...this.lineWidths) + 50;
@@ -19075,9 +20979,9 @@ g nle`.split("\n");
           this.markErrors(view.state);
         }
         update(update) {
-          if (update.docChanged)
-            this.markErrors(update.state);
+          if (update.docChanged) this.markErrors(update.state);
         }
+        /** @param {EditorState} state */
         markErrors(state) {
           this.marks = Decoration.set(state.field(ASMStateField).errors.map((error) => {
             let content2 = state.sliceDoc(error.range.start, error.range.end);
@@ -19141,7 +21045,8 @@ g nle`.split("\n");
   ];
 
   // node_modules/@lezer/lr/dist/index.js
-  var Stack = class {
+  var Stack = class _Stack {
+    /// @internal
     constructor(p, stack, state, reducePos, pos, score, buffer, bufferBase, curContext, lookAhead = 0, parent) {
       this.p = p;
       this.stack = stack;
@@ -19155,20 +21060,32 @@ g nle`.split("\n");
       this.lookAhead = lookAhead;
       this.parent = parent;
     }
+    /// @internal
     toString() {
       return `[${this.stack.filter((_, i) => i % 3 == 0).concat(this.state)}]@${this.pos}${this.score ? "!" + this.score : ""}`;
     }
+    // Start an empty stack
+    /// @internal
     static start(p, state, pos = 0) {
       let cx = p.parser.context;
-      return new Stack(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext(cx, cx.start) : null, 0, null);
+      return new _Stack(p, [], state, pos, pos, 0, [], 0, cx ? new StackContext(cx, cx.start) : null, 0, null);
     }
+    /// The stack's current [context](#lr.ContextTracker) value, if
+    /// any. Its type will depend on the context tracker's type
+    /// parameter, or it will be `null` if there is no context
+    /// tracker.
     get context() {
       return this.curContext ? this.curContext.context : null;
     }
+    // Push a state onto the stack, tracking its start position as well
+    // as the buffer base at that point.
+    /// @internal
     pushState(state, start) {
       this.stack.push(this.state, start, this.bufferBase + this.buffer.length);
       this.state = state;
     }
+    // Apply a reduce action
+    /// @internal
     reduce(action) {
       let depth = action >> 19, type = action & 65535;
       let { parser: parser2 } = this.p;
@@ -19186,7 +21103,11 @@ g nle`.split("\n");
       let start = this.stack[base2 - 2];
       let bufferBase = this.stack[base2 - 1], count = this.bufferBase + this.buffer.length - bufferBase;
       if (type < parser2.minRepeatTerm || action & 131072) {
-        let pos = parser2.stateFlag(this.state, 1) ? this.pos : this.reducePos;
+        let pos = parser2.stateFlag(
+          this.state,
+          1
+          /* Skipped */
+        ) ? this.pos : this.reducePos;
         this.storeNode(type, start, pos, count + 4, true);
       }
       if (action & 262144) {
@@ -19199,6 +21120,8 @@ g nle`.split("\n");
         this.stack.pop();
       this.reduceContext(type, start);
     }
+    // Shift a value into the buffer
+    /// @internal
     storeNode(term, start, end, size = 4, isReduce = false) {
       if (term == 0 && (!this.stack.length || this.stack[this.stack.length - 1] < this.buffer.length + this.bufferBase)) {
         let cur = this, top2 = this.buffer.length;
@@ -19235,6 +21158,8 @@ g nle`.split("\n");
         this.buffer[index + 3] = size;
       }
     }
+    // Apply a shift action
+    /// @internal
     shift(action, next3, nextEnd) {
       let start = this.pos;
       if (action & 131072) {
@@ -19243,7 +21168,11 @@ g nle`.split("\n");
         let nextState = action, { parser: parser2 } = this.p;
         if (nextEnd > this.pos || next3 <= parser2.maxNode) {
           this.pos = nextEnd;
-          if (!parser2.stateFlag(nextState, 1))
+          if (!parser2.stateFlag(
+            nextState,
+            1
+            /* Skipped */
+          ))
             this.reducePos = nextEnd;
         }
         this.pushState(nextState, start);
@@ -19257,12 +21186,16 @@ g nle`.split("\n");
           this.buffer.push(next3, start, nextEnd, 4);
       }
     }
+    // Apply an action
+    /// @internal
     apply(action, next3, nextEnd) {
       if (action & 65536)
         this.reduce(action);
       else
         this.shift(action, next3, nextEnd);
     }
+    // Add a prebuilt (reused) node into the buffer.
+    /// @internal
     useNode(value, next3) {
       let index = this.p.reused.length - 1;
       if (index < 0 || this.p.reused[index] != value) {
@@ -19272,10 +21205,20 @@ g nle`.split("\n");
       let start = this.pos;
       this.reducePos = this.pos = start + value.length;
       this.pushState(next3, start);
-      this.buffer.push(index, start, this.reducePos, -1);
+      this.buffer.push(
+        index,
+        start,
+        this.reducePos,
+        -1
+        /* size == -1 means this is a reused value */
+      );
       if (this.curContext)
         this.updateContext(this.curContext.tracker.reuse(this.curContext.context, value, this, this.p.stream.reset(this.pos - value.length)));
     }
+    // Split the stack. Due to the buffer sharing and the fact
+    // that `this.stack` tends to stay quite shallow, this isn't very
+    // expensive.
+    /// @internal
     split() {
       let parent = this;
       let off = parent.buffer.length;
@@ -19284,8 +21227,10 @@ g nle`.split("\n");
       let buffer = parent.buffer.slice(off), base2 = parent.bufferBase + off;
       while (parent && base2 == parent.bufferBase)
         parent = parent.parent;
-      return new Stack(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base2, this.curContext, this.lookAhead, parent);
+      return new _Stack(this.p, this.stack.slice(), this.state, this.reducePos, this.pos, this.score, buffer, base2, this.curContext, this.lookAhead, parent);
     }
+    // Try to recover from an error by 'deleting' (ignoring) one token.
+    /// @internal
     recoverByDelete(next3, nextEnd) {
       let isNode = next3 <= this.p.parser.maxNode;
       if (isNode)
@@ -19294,9 +21239,17 @@ g nle`.split("\n");
       this.pos = this.reducePos = nextEnd;
       this.score -= 190;
     }
+    /// Check if the given term would be able to be shifted (optionally
+    /// after some reductions) on this stack. This can be useful for
+    /// external tokenizers that want to make sure they only provide a
+    /// given token when it applies.
     canShift(term) {
       for (let sim = new SimulatedStack(this); ; ) {
-        let action = this.p.parser.stateSlot(sim.state, 4) || this.p.parser.hasAction(sim.state, term);
+        let action = this.p.parser.stateSlot(
+          sim.state,
+          4
+          /* DefaultReduce */
+        ) || this.p.parser.hasAction(sim.state, term);
         if ((action & 65536) == 0)
           return true;
         if (action == 0)
@@ -19304,6 +21257,9 @@ g nle`.split("\n");
         sim.reduce(action);
       }
     }
+    // Apply up to Recover.MaxNext recovery actions that conceptually
+    // inserts some missing token or rule.
+    /// @internal
     recoverByInsert(next3) {
       if (this.stack.length >= 300)
         return [];
@@ -19336,8 +21292,15 @@ g nle`.split("\n");
       }
       return result;
     }
+    // Force a reduce, if possible. Return false if that can't
+    // be done.
+    /// @internal
     forceReduce() {
-      let reduce = this.p.parser.stateSlot(this.state, 5);
+      let reduce = this.p.parser.stateSlot(
+        this.state,
+        5
+        /* ForcedReduce */
+      );
       if ((reduce & 65536) == 0)
         return false;
       let { parser: parser2 } = this.p;
@@ -19353,8 +21316,13 @@ g nle`.split("\n");
       this.reduce(reduce);
       return true;
     }
+    /// @internal
     forceAll() {
-      while (!this.p.parser.stateFlag(this.state, 2)) {
+      while (!this.p.parser.stateFlag(
+        this.state,
+        2
+        /* Accepting */
+      )) {
         if (!this.forceReduce()) {
           this.storeNode(0, this.pos, this.pos, 4, true);
           break;
@@ -19362,16 +21330,31 @@ g nle`.split("\n");
       }
       return this;
     }
+    /// Check whether this state has no further actions (assumed to be a direct descendant of the
+    /// top state, since any other states must be able to continue
+    /// somehow). @internal
     get deadEnd() {
       if (this.stack.length != 3)
         return false;
       let { parser: parser2 } = this.p;
-      return parser2.data[parser2.stateSlot(this.state, 1)] == 65535 && !parser2.stateSlot(this.state, 4);
+      return parser2.data[parser2.stateSlot(
+        this.state,
+        1
+        /* Actions */
+      )] == 65535 && !parser2.stateSlot(
+        this.state,
+        4
+        /* DefaultReduce */
+      );
     }
+    /// Restart the stack (put it back in its start state). Only safe
+    /// when this.stack.length == 3 (state is directly below the top
+    /// state). @internal
     restart() {
       this.state = this.stack[0];
       this.stack.length = 0;
     }
+    /// @internal
     sameState(other) {
       if (this.state != other.state || this.stack.length != other.stack.length)
         return false;
@@ -19380,9 +21363,12 @@ g nle`.split("\n");
           return false;
       return true;
     }
+    /// Get the parser used by this stack.
     get parser() {
       return this.p.parser;
     }
+    /// Test whether a given dialect (by numeric ID, as exported from
+    /// the terms file) is enabled.
     dialectEnabled(dialectID) {
       return this.p.parser.dialect.flags[dialectID];
     }
@@ -19394,11 +21380,13 @@ g nle`.split("\n");
       if (this.curContext)
         this.updateContext(this.curContext.tracker.reduce(this.curContext.context, term, this, this.p.stream.reset(start)));
     }
+    /// @internal
     emitContext() {
       let last = this.buffer.length - 1;
       if (last < 0 || this.buffer[last] != -3)
         this.buffer.push(this.curContext.hash, this.reducePos, this.reducePos, -3);
     }
+    /// @internal
     emitLookAhead() {
       let last = this.buffer.length - 1;
       if (last < 0 || this.buffer[last] != -4)
@@ -19412,12 +21400,14 @@ g nle`.split("\n");
         this.curContext = newCx;
       }
     }
+    /// @internal
     setLookAhead(lookAhead) {
       if (lookAhead > this.lookAhead) {
         this.emitLookAhead();
         this.lookAhead = lookAhead;
       }
     }
+    /// @internal
     close() {
       if (this.curContext && this.curContext.tracker.strict)
         this.emitContext();
@@ -19462,7 +21452,7 @@ g nle`.split("\n");
       this.state = goto;
     }
   };
-  var StackBufferCursor = class {
+  var StackBufferCursor = class _StackBufferCursor {
     constructor(stack, pos, index) {
       this.stack = stack;
       this.pos = pos;
@@ -19472,7 +21462,7 @@ g nle`.split("\n");
         this.maybeNext();
     }
     static create(stack, pos = stack.bufferBase + stack.buffer.length) {
-      return new StackBufferCursor(stack, pos, pos - stack.bufferBase);
+      return new _StackBufferCursor(stack, pos, pos - stack.bufferBase);
     }
     maybeNext() {
       let next3 = this.stack.parent;
@@ -19501,7 +21491,7 @@ g nle`.split("\n");
         this.maybeNext();
     }
     fork() {
-      return new StackBufferCursor(this.stack, this.pos, this.index);
+      return new _StackBufferCursor(this.stack, this.pos, this.index);
     }
   };
   var CachedToken = class {
@@ -19517,6 +21507,7 @@ g nle`.split("\n");
   };
   var nullToken = new CachedToken();
   var InputStream = class {
+    /// @internal
     constructor(input, ranges) {
       this.input = input;
       this.ranges = ranges;
@@ -19532,6 +21523,7 @@ g nle`.split("\n");
       this.end = ranges[ranges.length - 1].to;
       this.readNext();
     }
+    /// @internal
     resolveOffset(offset, assoc) {
       let range = this.range, index = this.rangeIndex;
       let pos = this.pos + offset;
@@ -19551,6 +21543,7 @@ g nle`.split("\n");
       }
       return pos;
     }
+    /// @internal
     clipPos(pos) {
       if (pos >= this.range.from && pos < this.range.to)
         return pos;
@@ -19559,6 +21552,15 @@ g nle`.split("\n");
           return Math.max(pos, range.from);
       return this.end;
     }
+    /// Look at a code unit near the stream position. `.peek(0)` equals
+    /// `.next`, `.peek(-1)` gives you the previous character, and so
+    /// on.
+    ///
+    /// Note that looking around during tokenizing creates dependencies
+    /// on potentially far-away content, which may reduce the
+    /// effectiveness incremental parsing—when looking forward—or even
+    /// cause invalid reparses when looking backward more than 25 code
+    /// units, since the library does not track lookbehind.
     peek(offset) {
       let idx = this.chunkOff + offset, pos, result;
       if (idx >= 0 && idx < this.chunk.length) {
@@ -19585,6 +21587,9 @@ g nle`.split("\n");
         this.token.lookAhead = pos + 1;
       return result;
     }
+    /// Accept a token. By default, the end of the token is set to the
+    /// current stream position, but you can pass an offset (relative to
+    /// the stream position) to change that.
     acceptToken(token2, endOffset = 0) {
       let end = endOffset ? this.resolveOffset(endOffset, -1) : this.pos;
       if (end == null || end < this.token.start)
@@ -19618,6 +21623,8 @@ g nle`.split("\n");
       }
       return this.next = this.chunk.charCodeAt(this.chunkOff);
     }
+    /// Move the stream forward N (defaults to 1) code units. Returns
+    /// the new value of [`next`](#lr.InputStream.next).
     advance(n = 1) {
       this.chunkOff += n;
       while (this.pos + n >= this.range.to) {
@@ -19638,6 +21645,7 @@ g nle`.split("\n");
       this.chunk = "";
       return this.next = -1;
     }
+    /// @internal
     reset(pos, token2) {
       if (token2) {
         this.token = token2;
@@ -19667,6 +21675,7 @@ g nle`.split("\n");
       }
       return this;
     }
+    /// @internal
     read(from, to) {
       if (from >= this.chunkPos && to <= this.chunkPos + this.chunk.length)
         return this.chunk.slice(from - this.chunkPos, to - this.chunkPos);
@@ -19695,6 +21704,11 @@ g nle`.split("\n");
   };
   TokenGroup.prototype.contextual = TokenGroup.prototype.fallback = TokenGroup.prototype.extend = false;
   var ExternalTokenizer = class {
+    /// Create a tokenizer. The first argument is the function that,
+    /// given an input stream, scans for the types of tokens it
+    /// recognizes at the stream's position, and calls
+    /// [`acceptToken`](#lr.InputStream.acceptToken) when it finds
+    /// one.
     constructor(token2, options = {}) {
       this.token = token2;
       this.contextual = !!options.contextual;
@@ -19704,40 +21718,39 @@ g nle`.split("\n");
   };
   function readToken(data, input, stack, group) {
     let state = 0, groupMask = 1 << group, { parser: parser2 } = stack.p, { dialect } = parser2;
-    scan:
-      for (; ; ) {
-        if ((groupMask & data[state]) == 0)
-          break;
-        let accEnd = data[state + 1];
-        for (let i = state + 3; i < accEnd; i += 2)
-          if ((data[i + 1] & groupMask) > 0) {
-            let term = data[i];
-            if (dialect.allows(term) && (input.token.value == -1 || input.token.value == term || parser2.overrides(term, input.token.value))) {
-              input.acceptToken(term);
-              break;
-            }
+    scan: for (; ; ) {
+      if ((groupMask & data[state]) == 0)
+        break;
+      let accEnd = data[state + 1];
+      for (let i = state + 3; i < accEnd; i += 2)
+        if ((data[i + 1] & groupMask) > 0) {
+          let term = data[i];
+          if (dialect.allows(term) && (input.token.value == -1 || input.token.value == term || parser2.overrides(term, input.token.value))) {
+            input.acceptToken(term);
+            break;
           }
-        let next3 = input.next, low = 0, high = data[state + 2];
-        if (input.next < 0 && high > low && data[accEnd + high * 3 - 3] == 65535) {
-          state = data[accEnd + high * 3 - 1];
+        }
+      let next3 = input.next, low = 0, high = data[state + 2];
+      if (input.next < 0 && high > low && data[accEnd + high * 3 - 3] == 65535) {
+        state = data[accEnd + high * 3 - 1];
+        continue scan;
+      }
+      for (; low < high; ) {
+        let mid = low + high >> 1;
+        let index = accEnd + mid + (mid << 1);
+        let from = data[index], to = data[index + 1];
+        if (next3 < from)
+          high = mid;
+        else if (next3 >= to)
+          low = mid + 1;
+        else {
+          state = data[index + 2];
+          input.advance();
           continue scan;
         }
-        for (; low < high; ) {
-          let mid = low + high >> 1;
-          let index = accEnd + mid + (mid << 1);
-          let from = data[index], to = data[index + 1];
-          if (next3 < from)
-            high = mid;
-          else if (next3 >= to)
-            low = mid + 1;
-          else {
-            state = data[index + 2];
-            input.advance();
-            continue scan;
-          }
-        }
-        break;
       }
+      break;
+    }
   }
   function decodeArray(input, Type = Uint16Array) {
     if (typeof input != "string")
@@ -19785,7 +21798,15 @@ g nle`.split("\n");
       if (!(side < 0 ? cursor2.childBefore(pos) : cursor2.childAfter(pos)))
         for (; ; ) {
           if ((side < 0 ? cursor2.to < pos : cursor2.from > pos) && !cursor2.type.isError)
-            return side < 0 ? Math.max(0, Math.min(cursor2.to - 1, pos - 25)) : Math.min(tree.length, Math.max(cursor2.from + 1, pos + 25));
+            return side < 0 ? Math.max(0, Math.min(
+              cursor2.to - 1,
+              pos - 25
+              /* Margin */
+            )) : Math.min(tree.length, Math.max(
+              cursor2.from + 1,
+              pos + 25
+              /* Margin */
+            ));
           if (side < 0 ? cursor2.prevSibling() : cursor2.nextSibling())
             break;
           if (!cursor2.parent())
@@ -19824,6 +21845,7 @@ g nle`.split("\n");
         this.nextStart = 1e9;
       }
     }
+    // `pos` must be >= any previously given `pos` for this cursor
     nodeAt(pos) {
       if (pos < this.nextStart)
         return null;
@@ -19886,7 +21908,11 @@ g nle`.split("\n");
       let actionIndex = 0;
       let main = null;
       let { parser: parser2 } = stack.p, { tokenizers } = parser2;
-      let mask = parser2.stateSlot(stack.state, 3);
+      let mask = parser2.stateSlot(
+        stack.state,
+        3
+        /* TokenizerMask */
+      );
       let context = stack.curContext ? stack.curContext.hash : 0;
       let lookAhead = 0;
       for (let i = 0; i < tokenizers.length; i++) {
@@ -19969,7 +21995,11 @@ g nle`.split("\n");
     addActions(stack, token2, end, index) {
       let { state } = stack, { parser: parser2 } = stack.p, { data } = parser2;
       for (let set = 0; set < 2; set++) {
-        for (let i = parser2.stateSlot(state, set ? 2 : 1); ; i += 3) {
+        for (let i = parser2.stateSlot(
+          state,
+          set ? 2 : 1
+          /* Actions */
+        ); ; i += 3) {
           if (data[i] == 65535) {
             if (data[i + 1] == 1) {
               i = pair(data, i + 2);
@@ -20015,6 +22045,12 @@ g nle`.split("\n");
     get parsedPos() {
       return this.minStackPos;
     }
+    // Move the parser forward. This will process all parse stacks at
+    // `this.pos` and try to advance them to a further position. If no
+    // stack for such a position is found, it'll start error-recovery.
+    //
+    // When the parse is finished, this will return a syntax tree. When
+    // not, it returns `null`.
     advance() {
       let stacks = this.stacks, pos = this.minStackPos;
       let newStacks = this.stacks = [];
@@ -20066,21 +22102,20 @@ g nle`.split("\n");
         if (newStacks.some((s) => s.reducePos > pos))
           this.recovering--;
       } else if (newStacks.length > 1) {
-        outer:
-          for (let i = 0; i < newStacks.length - 1; i++) {
-            let stack = newStacks[i];
-            for (let j = i + 1; j < newStacks.length; j++) {
-              let other = newStacks[j];
-              if (stack.sameState(other) || stack.buffer.length > 500 && other.buffer.length > 500) {
-                if ((stack.score - other.score || stack.buffer.length - other.buffer.length) > 0) {
-                  newStacks.splice(j--, 1);
-                } else {
-                  newStacks.splice(i--, 1);
-                  continue outer;
-                }
+        outer: for (let i = 0; i < newStacks.length - 1; i++) {
+          let stack = newStacks[i];
+          for (let j = i + 1; j < newStacks.length; j++) {
+            let other = newStacks[j];
+            if (stack.sameState(other) || stack.buffer.length > 500 && other.buffer.length > 500) {
+              if ((stack.score - other.score || stack.buffer.length - other.buffer.length) > 0) {
+                newStacks.splice(j--, 1);
+              } else {
+                newStacks.splice(i--, 1);
+                continue outer;
               }
             }
           }
+        }
       }
       this.minStackPos = newStacks[0].pos;
       for (let i = 1; i < newStacks.length; i++)
@@ -20093,6 +22128,10 @@ g nle`.split("\n");
         throw new RangeError("Can't move stoppedAt forward");
       this.stoppedAt = pos;
     }
+    // Returns an updated version of the given stack, or null if the
+    // stack can't advance normally. When `split` and `stacks` are
+    // given, stacks split off by ambiguous operations will be pushed to
+    // `split`, or added to `stacks` if they move `pos` forward.
     advanceStack(stack, stacks, split) {
       let start = stack.pos, { parser: parser2 } = this;
       let base2 = verbose ? this.stackID(stack) + " -> " : "";
@@ -20117,11 +22156,18 @@ g nle`.split("\n");
             break;
         }
       }
-      let defaultReduce = parser2.stateSlot(stack.state, 4);
+      let defaultReduce = parser2.stateSlot(
+        stack.state,
+        4
+        /* DefaultReduce */
+      );
       if (defaultReduce > 0) {
         stack.reduce(defaultReduce);
         if (verbose)
-          console.log(base2 + this.stackID(stack) + ` (via always-reduce ${parser2.getName(defaultReduce & 65535)})`);
+          console.log(base2 + this.stackID(stack) + ` (via always-reduce ${parser2.getName(
+            defaultReduce & 65535
+            /* ValueMask */
+          )})`);
         return true;
       }
       if (stack.stack.length >= 15e3) {
@@ -20135,7 +22181,10 @@ g nle`.split("\n");
         let localStack = last ? stack : stack.split();
         localStack.apply(action, term, end);
         if (verbose)
-          console.log(base2 + this.stackID(localStack) + ` (via ${(action & 65536) == 0 ? "shift" : `reduce of ${parser2.getName(action & 65535)}`} for ${parser2.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
+          console.log(base2 + this.stackID(localStack) + ` (via ${(action & 65536) == 0 ? "shift" : `reduce of ${parser2.getName(
+            action & 65535
+            /* ValueMask */
+          )}`} for ${parser2.getName(term)} @ ${start}${localStack == stack ? "" : ", split"})`);
         if (last)
           return true;
         else if (localStack.pos > start)
@@ -20145,6 +22194,9 @@ g nle`.split("\n");
       }
       return false;
     }
+    // Advance a given stack forward as far as it will go. Returns the
+    // (possibly updated) stack if it got stuck, or null if it moved
+    // forward and was given to `pushStackDedup`.
     advanceFully(stack, newStacks) {
       let pos = stack.pos;
       for (; ; ) {
@@ -20202,6 +22254,7 @@ g nle`.split("\n");
       }
       return finished;
     }
+    // Convert the stack's buffer to a syntax tree.
     stackToTree(stack) {
       stack.close();
       return Tree.build({
@@ -20245,6 +22298,7 @@ g nle`.split("\n");
   };
   var id = (x) => x;
   var ContextTracker = class {
+    /// Define a context tracker.
     constructor(spec) {
       this.start = spec.start;
       this.shift = spec.shift || id;
@@ -20254,7 +22308,8 @@ g nle`.split("\n");
       this.strict = spec.strict !== false;
     }
   };
-  var LRParser = class extends Parser {
+  var LRParser = class _LRParser extends Parser {
+    /// @internal
     constructor(spec) {
       super();
       this.wrappers = [];
@@ -20327,6 +22382,7 @@ g nle`.split("\n");
         parse = w(parse, input, fragments, ranges);
       return parse;
     }
+    /// Get a goto table entry @internal
     getGoto(state, term, loose = false) {
       let table = this.goto;
       if (term >= table[0])
@@ -20343,10 +22399,15 @@ g nle`.split("\n");
           return -1;
       }
     }
+    /// Check if this state has an action for a given terminal @internal
     hasAction(state, terminal) {
       let data = this.data;
       for (let set = 0; set < 2; set++) {
-        for (let i = this.stateSlot(state, set ? 2 : 1), next3; ; i += 3) {
+        for (let i = this.stateSlot(
+          state,
+          set ? 2 : 1
+          /* Actions */
+        ), next3; ; i += 3) {
           if ((next3 = data[i]) == 65535) {
             if (data[i + 1] == 1)
               next3 = data[i = pair(data, i + 2)];
@@ -20361,16 +22422,31 @@ g nle`.split("\n");
       }
       return 0;
     }
+    /// @internal
     stateSlot(state, slot) {
       return this.states[state * 6 + slot];
     }
+    /// @internal
     stateFlag(state, flag) {
-      return (this.stateSlot(state, 0) & flag) > 0;
+      return (this.stateSlot(
+        state,
+        0
+        /* Flags */
+      ) & flag) > 0;
     }
+    /// @internal
     validAction(state, action) {
-      if (action == this.stateSlot(state, 4))
+      if (action == this.stateSlot(
+        state,
+        4
+        /* DefaultReduce */
+      ))
         return true;
-      for (let i = this.stateSlot(state, 1); ; i += 3) {
+      for (let i = this.stateSlot(
+        state,
+        1
+        /* Actions */
+      ); ; i += 3) {
         if (this.data[i] == 65535) {
           if (this.data[i + 1] == 1)
             i = pair(this.data, i + 2);
@@ -20381,9 +22457,15 @@ g nle`.split("\n");
           return true;
       }
     }
+    /// Get the states that can follow this one through shift actions or
+    /// goto jumps. @internal
     nextStates(state) {
       let result = [];
-      for (let i = this.stateSlot(state, 1); ; i += 3) {
+      for (let i = this.stateSlot(
+        state,
+        1
+        /* Actions */
+      ); ; i += 3) {
         if (this.data[i] == 65535) {
           if (this.data[i + 1] == 1)
             i = pair(this.data, i + 2);
@@ -20398,12 +22480,16 @@ g nle`.split("\n");
       }
       return result;
     }
+    /// @internal
     overrides(token2, prev) {
       let iPrev = findOffset(this.data, this.tokenPrecTable, prev);
       return iPrev < 0 || findOffset(this.data, this.tokenPrecTable, token2) < iPrev;
     }
+    /// Configure the parser. Returns a new parser instance that has the
+    /// given settings modified. Settings not provided in `config` are
+    /// kept from the original parser.
     configure(config2) {
-      let copy = Object.assign(Object.create(LRParser.prototype), this);
+      let copy = Object.assign(Object.create(_LRParser.prototype), this);
       if (config2.props)
         copy.nodeSet = this.nodeSet.extend(...config2.props);
       if (config2.top) {
@@ -20440,22 +22526,33 @@ g nle`.split("\n");
         copy.bufferLength = config2.bufferLength;
       return copy;
     }
+    /// Tells you whether any [parse wrappers](#lr.ParserConfig.wrap)
+    /// are registered for this parser.
     hasWrappers() {
       return this.wrappers.length > 0;
     }
+    /// Returns the name associated with a given term. This will only
+    /// work for all terms when the parser was generated with the
+    /// `--names` option. By default, only the names of tagged terms are
+    /// stored.
     getName(term) {
       return this.termNames ? this.termNames[term] : String(term <= this.maxNode && this.nodeSet.types[term].name || term);
     }
+    /// The eof term id is always allocated directly after the node
+    /// types. @internal
     get eofTerm() {
       return this.maxNode + 1;
     }
+    /// The type of top node produced by the parser.
     get topNode() {
       return this.nodeSet.types[this.top[1]];
     }
+    /// @internal
     dynamicPrecedence(term) {
       let prec2 = this.dynamicPrecedences;
       return prec2 == null ? 0 : prec2[term] || 0;
     }
+    /// @internal
     parseDialect(dialect) {
       let values = Object.keys(this.dialects), flags = values.map(() => false);
       if (dialect)
@@ -20472,8 +22569,10 @@ g nle`.split("\n");
         }
       return new Dialect(dialect, flags, disabled);
     }
+    /// Used by the output of the parser generator. Not available to
+    /// user code.
     static deserialize(spec) {
-      return new LRParser(spec);
+      return new _LRParser(spec);
     }
   };
   function pair(data, off) {
@@ -20489,7 +22588,11 @@ g nle`.split("\n");
     let best = null;
     for (let stack of stacks) {
       let stopped = stack.p.stoppedAt;
-      if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) && stack.p.parser.stateFlag(stack.state, 2) && (!best || best.score < stack.score))
+      if ((stack.pos == stack.p.stream.end || stopped != null && stack.pos > stopped) && stack.p.parser.stateFlag(
+        stack.state,
+        2
+        /* Accepting */
+      ) && (!best || best.score < stack.score))
         best = stack;
     }
     return best;
@@ -20743,12 +22846,15 @@ g nle`.split("\n");
     }),
     ViewPlugin.fromClass(
       class {
+        /** @param {EditorView} view */
         constructor(view) {
           this.markInstructions(view.state);
         }
+        /** @param {ViewUpdate} update */
         update(update) {
           this.markInstructions(update.state);
         }
+        /** @param {EditorState} state */
         markInstructions(state) {
           if (!debugEnabled) {
             this.decorations = Decoration.set([]);
@@ -20892,14 +22998,10 @@ g nle`.split("\n");
       }),
       ASMLanguageData
     ];
-    if (byteDumps)
-      plugins.push(SectionColors, byteDumper);
-    if (debug)
-      plugins.push(debugPlugin);
-    if (errorMarking)
-      plugins.push(errorMarker);
-    if (errorTooltips)
-      plugins.push(errorTooltipper);
+    if (byteDumps) plugins.push(SectionColors, byteDumper);
+    if (debug) plugins.push(debugPlugin);
+    if (errorMarking) plugins.push(errorMarker);
+    if (errorTooltips) plugins.push(errorTooltipper);
     if (highlighting)
       return new LanguageSupport(assemblyLang.configure({
         contextTracker: ctxTracker(assemblyConfig.syntax, assemblyConfig.bitness)
