@@ -224,7 +224,7 @@ export class OpCatcher
         /* If a memory size has been specified and a memory
         size is enforced, check that the two match */
         if(operand.type === OPT.MEM && this.memorySize)
-            return operand.size == this.memorySize ? this.memorySize : null;
+            return operand.size == (this.memorySize & ~7) ? this.memorySize : null;
 
         // For unknown-sized operand catchers, compare against the previous size
         if(this.sizes == -1)
