@@ -287,14 +287,16 @@ export class Operation
         this.vexOnly = false;
         this.requireMask = false;
         this.requireBitness = null;
+        this.forceRexW = false;
 
         // Interpreting the opcode
         this.forceVex = format[0][0] == 'V';
         this.vexOnly = format[0][0] == 'v';
-        if("vVwl!xX".includes(format[0][0]))
+        if("vVwWl!xX".includes(format[0][0]))
         {
             let specializers = format.shift();
             if(specializers.includes('w')) this.vexBase |= 0x8000;
+            if(specializers.includes('W')) this.forceRexW = true, this.requireBitness = 64;
             if(specializers.includes('l')) this.vexBase |= 0x400;
             if(specializers.includes('!'))
                 this.actuallyNotVex = true; // For non-VEX instructions starting with V
@@ -450,7 +452,7 @@ export class Operation
         if(!this.validateVEX(vexInfo))
             return null;
 
-        let adjustByteOp = false, overallSize = 0, rexw = false;
+        let adjustByteOp = false, overallSize = 0, rexw = this.forceRexW;
 
         if(this.relativeSizes)
         {

@@ -97,7 +97,7 @@ callw:x E8 jw
 
 cbtw/cbw:66)98
 cltd/cdq:99
-cltq/cdqe:X 48)98
+cltq/cdqe:W 98
 clac:0F01CA
 clc:F8
 cld:FC
@@ -130,7 +130,7 @@ F3)0FC2 ib v|l >Vx K {ksf
 
 cmpxchg:0FB0 Rbwlq r
 cmpxchg8b:0FC7.1 mQ
-cmpxchg16b:48)0FC7.1 mX
+cmpxchg16b:W 0FC7.1 mX
 
 comisd:66)0F2F v Vx > {sw
 comiss:0F2F v Vx > {s
@@ -164,7 +164,7 @@ cvttps2pi:0F2C vX VQ
 cvttsd2si:F2)0F2C v#x Rlq > {s
 cvttss2si:F3)0F2C v#x Rlq > {s
 
-cqto/cqo:X 48)99
+cqto/cqo:W 99
 cwtd/cwd:66)99
 cwtl/cwde:98
 
@@ -311,9 +311,9 @@ D9.1 F
 D9C9
 
 fxrstor:0FAE.1 m
-fxrstor64:X 0FAE.1 m#q
+fxrstor64:W 0FAE.1 m
 fxsave:0FAE.0 m
-fxsave64:X 0FAE.0 m#q
+fxsave64:W 0FAE.0 m
 fxtract:D9F4
 fyl2x:D9F1
 fyl2xp1:D9F9
@@ -798,7 +798,7 @@ pextrw
 0FC5 ib ^Vqx R! > {
 66)0F3A15 ib Vx mW > {
 
-pextrq:66)0F3A16 ib Vx r#q > {
+pextrq:W 66)0F3A16 ib Vx rQ > {
 
 phaddw:0F3801 v >V Vqxy
 phaddd:0F3802 v >V Vqxy
@@ -812,7 +812,7 @@ phsubw:0F3805 v >V Vqxy
 
 pinsrb:66)0F3A20 ib rL >Vx Vx {
 pinsrd:66)0F3A22 ib rL >Vx Vx {
-pinsrq:66)0F3A22 ib r#q >Vx Vx {
+pinsrq:W 66)0F3A22 ib rQ >Vx Vx {
 pinsrw:0FC4 ib *rL >V Vqx {
 
 pmaddubsw:0F3804 v >V Vqxyz {kz
@@ -1584,17 +1584,17 @@ xorpd:66)0F57 v >V Vxyz {kzBw
 xorps:0F57 v >V Vxyz {kzb
 
 xrstor:0FAE.5 m
-xrstor64:X 0FAE.5 m#q
+xrstor64:W 0FAE.5 m
 xrstors:0FC7.3 m
-xrstors64:X 0FC7.3 m#q
+xrstors64:W 0FC7.3 m
 xsave:0FAE.4 m
-xsave64:X 0FAE.4 m#q
+xsave64:W 0FAE.4 m
 xsavec:0FC7.4 m
-xsavec64:X 0FC7.4 m#q
+xsavec64:W 0FC7.4 m
 xsaveopt:0FAE.6 m
-xsaveopt64:0FAE.6 m#q
+xsaveopt64:W 0FAE.6 m
 xsaves:0FC7.5 m
-xsaves64:X 0FC7.5 m#q
+xsaves64:W 0FC7.5 m
 xsetbv:0F01D1
 xtest:0F01D6
 `;
